@@ -1,0 +1,64 @@
+{
+ "design": "DESIGN 9.2.3",
+ "equilibrium": {
+  "x_MeOH": 0.08261086775756196,
+  "x_RWGS": -0.07328671393701834,
+  "y_MeOH": 0.09896145033021357
+ },
+ "generator": "scripts/export-fixtures.py",
+ "inputs": {
+  "P_bar": 70,
+  "T_C": 250,
+  "rho_b_kg_m3": 1100.0,
+  "y0": {
+   "CO": 0.1,
+   "CO2": 0.05,
+   "H2": 0.7,
+   "H2O": 0.0,
+   "I": 0.15,
+   "MeOH": 0.0
+  }
+ },
+ "notes": "Vanden Bussche-Froment LHHW (Table 2), isothermal (very strong cooling, hw = 1e6) at 250 C, 70 bar, feed mole fractions CO 0.10, CO2 0.05, H2 0.70, inert 0.15; W in kg_cat per (mol/s) of feed; extents per mol feed. Equilibria from Graaf (log10 K2* = 3066/T - 10.592). K3 is a post-v0.1 stretch rate law (DESIGN 4.4 not-in-v0.1 list).",
+ "profile": [
+  {
+   "T_C": 250.00253294244146,
+   "W_kg_s_per_mol": 0.6,
+   "frac_of_eq": 0.2538926199948572,
+   "x_MeOH": 0.02097428965501608,
+   "x_RWGS": -0.014769814970679942
+  },
+  {
+   "T_C": 250.00179141135425,
+   "W_kg_s_per_mol": 1.5,
+   "frac_of_eq": 0.5158983523748477,
+   "x_MeOH": 0.042618810564382645,
+   "x_RWGS": -0.035838793389216056
+  },
+  {
+   "T_C": 250.00007192000703,
+   "W_kg_s_per_mol": 7.5,
+   "frac_of_eq": 0.9818016629785784,
+   "x_MeOH": 0.08110748734447776,
+   "x_RWGS": -0.07196382234795094
+  },
+  {
+   "T_C": 250.00000131957574,
+   "W_kg_s_per_mol": 15.0,
+   "frac_of_eq": 0.9997196306403087,
+   "x_MeOH": 0.08258770620146523,
+   "x_RWGS": -0.07326643434970322
+  },
+  {
+   "T_C": 250.00000000000387,
+   "W_kg_s_per_mol": 60.0,
+   "frac_of_eq": 0.9999999990093449,
+   "x_MeOH": 0.08261086767572308,
+   "x_RWGS": -0.07328671386538918
+  }
+ ],
+ "source": "docs/research/kinetics_methanol.py",
+ "tolerance": {
+  "rel": 0.01
+ }
+}

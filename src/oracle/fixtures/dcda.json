@@ -1,0 +1,19 @@
+{
+ "SO2_left_kmol_per_10_fed": 0.0017062562023405503,
+ "bed4_Tout_C": 425.17095737939485,
+ "conv_after_bed3": 0.9860259339206744,
+ "conv_overall": 0.999829374379766,
+ "conv_overall_pct": 99.9829374379766,
+ "design": "DESIGN 9.2.3",
+ "generator": "scripts/export-fixtures.py",
+ "inputs": {
+  "P_bar": 1.2,
+  "Tin_C": 420,
+  "absorber_removal": 0.999
+ },
+ "notes": "Double-contact: 3 beds (inlet 420 C each), intermediate absorption removes 99.9 % of the SO3 formed, bed 4 at 420 C; feed 10/11/0/79 kmol, 1.2 bar.",
+ "source": "docs/research/levels_calc.py (DCDA section; recomputed here with the same code)",
+ "tolerance": {
+  "abs_conv_pct": 0.002
+ }
+}

@@ -1,0 +1,117 @@
+{
+ "design": "DESIGN 9.2.3",
+ "generator": "scripts/export-fixtures.py",
+ "inert_cases": [
+  {
+   "extent_mol": 0.3496049245813602,
+   "feed_mol": {
+    "H2": 3.0,
+    "N2": 1.0,
+    "inert": 0.0
+   },
+   "inert_frac_of_feed": 0.0,
+   "y_NH3": 0.21183105172116398
+  },
+  {
+   "extent_mol": 0.34504107938522177,
+   "feed_mol": {
+    "H2": 3.0,
+    "N2": 1.0,
+    "inert": 0.0816326530612245
+   },
+   "inert_frac_of_feed": 0.02,
+   "y_NH3": 0.2034709965050215
+  },
+  {
+   "extent_mol": 0.3381314398276222,
+   "feed_mol": {
+    "H2": 3.0,
+    "N2": 1.0,
+    "inert": 0.21052631578947367
+   },
+   "inert_frac_of_feed": 0.05,
+   "y_NH3": 0.19134478566061267
+  },
+  {
+   "extent_mol": 0.32642817717611095,
+   "feed_mol": {
+    "H2": 3.0,
+    "N2": 1.0,
+    "inert": 0.4444444444444445
+   },
+   "inert_frac_of_feed": 0.1,
+   "y_NH3": 0.1721854639374454
+  },
+  {
+   "extent_mol": 0.3144618302838741,
+   "feed_mol": {
+    "H2": 3.0,
+    "N2": 1.0,
+    "inert": 0.7058823529411765
+   },
+   "inert_frac_of_feed": 0.15,
+   "y_NH3": 0.15426294648122033
+  }
+ ],
+ "inputs": {
+  "P_bar": 150,
+  "T_C": 450
+ },
+ "notes": "Ideal equilibrium at 450 C (723.15 K), 150 bar. ratio cases: N2 = 1, H2 = r, no inert. inert cases: N2:H2 = 1:3 and inert = 4*f/(1-f) mol per mol N2 (f = inert fraction of the fresh feed).",
+ "ratio_cases": [
+  {
+   "H2_per_N2": 2.0,
+   "extent_mol": 0.2522148485903246,
+   "feed_mol": {
+    "H2": 2.0,
+    "N2": 1.0,
+    "inert": 0.0
+   },
+   "y_NH3": 0.20213002879973918
+  },
+  {
+   "H2_per_N2": 2.5,
+   "extent_mol": 0.30350124078296925,
+   "feed_mol": {
+    "H2": 2.5,
+    "N2": 1.0,
+    "inert": 0.0
+   },
+   "y_NH3": 0.20981783693146766
+  },
+  {
+   "H2_per_N2": 3.0,
+   "extent_mol": 0.3496049245813602,
+   "feed_mol": {
+    "H2": 3.0,
+    "N2": 1.0,
+    "inert": 0.0
+   },
+   "y_NH3": 0.21183105172116398
+  },
+  {
+   "H2_per_N2": 3.5,
+   "extent_mol": 0.39108496115636904,
+   "feed_mol": {
+    "H2": 3.5,
+    "N2": 1.0,
+    "inert": 0.0
+   },
+   "y_NH3": 0.2103834510907233
+  },
+  {
+   "H2_per_N2": 4.0,
+   "extent_mol": 0.428466494723223,
+   "feed_mol": {
+    "H2": 4.0,
+    "N2": 1.0,
+    "inert": 0.0
+   },
+   "y_NH3": 0.20683541619375148
+  }
+ ],
+ "source": "docs/research/levels_calc.py (nh3_y)",
+ "tolerance": {
+  "rel": 0.002
+ }
+}

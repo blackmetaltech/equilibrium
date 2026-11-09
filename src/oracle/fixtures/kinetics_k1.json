@@ -1,0 +1,130 @@
+{
+ "design": "DESIGN 9.2.3",
+ "generator": "scripts/export-fixtures.py",
+ "inputs": {
+  "Cp_J_mol_K": {
+   "H2": 29.5,
+   "N2": 31.0,
+   "NH3": 45.0,
+   "inert": 31.0
+  },
+  "P_bar": 200,
+  "T_in_C": 400,
+  "eta": 0.4,
+  "feed_mole_frac": {
+   "H2": 0.6984,
+   "N2": 0.2328,
+   "NH3": 0.03,
+   "inert": 0.0388
+  },
+  "rate_units": "kmol NH3/(m3_cat h)",
+  "rho_b_kg_m3": 2200.0
+ },
+ "notes": "Adiabatic PFR, Temkin-Pyzhev r = 2 k eta [Ka^2 pN2 (pH2^3/pNH3^2)^alpha - (pNH3^2/pH2^3)^(1-alpha)] kmol NH3/(m3 cat h), alpha = 0.5, eta = 0.4, k = 8.849e14 exp(-170560/RT) (R = 8.314), constant-Cp approximation (Cp N2 31, H2 29.5, NH3 45 J/mol/K; dH = -46.1 kJ + dCp (T - 298.15)). Catalyst per (kmol/h) of feed: V_cat (m3) and rho_b = 2200 kg/m3. variant_research: Ka = Gillespie-Beattie fit, P = 200 (treated as atm, as the script does) - this is the variant behind the DESIGN check (reaches 11.7 mol % at 537.8 C, 15.8 K per mol %). variant_engine_K: Ka^2 = thermo.K(R1) converted bar^-2 -> atm^-2, P = 200 bar converted to atm - this is the DESIGN K1 spec. A TS engine with full thermo (not constant Cp) will differ in T by a few K; the tolerance below is the DESIGN 9.2.3 one, any wider tolerance is the director's call.",
+ "source": "docs/research/kinetics_haber.py",
+ "tolerance": {
+  "abs_T_K": 0.3,
+  "rel": 0.01
+ },
+ "variant_engine_K": {
+  "P_atm": 197.38465334320256,
+  "outlet": {
+   "T_C": 540.728187193433,
+   "dT_K": 140.72818719343297,
+   "dT_per_mol_pct_NH3": 15.801500543729972,
+   "y_NH3": 0.11906001477769391
+  },
+  "profile": [
+   {
+    "N2_conv": 0.019964324400835096,
+    "T_C": 415.8732569993323,
+    "V_cat_L_per_kmol_h": 0.1,
+    "cat_kg_per_kmol_h": 0.22,
+    "y_NH3": 0.03966408253501287,
+    "y_NH3_eq_at_T": 0.2986752956645621
+   },
+   {
+    "N2_conv": 0.039627453550671786,
+    "T_C": 431.64838908095,
+    "V_cat_L_per_kmol_h": 0.2,
+    "cat_kg_per_kmol_h": 0.44,
+    "y_NH3": 0.0493612848509301,
+    "y_NH3_eq_at_T": 0.2677337323510624
+   },
+   {
+    "N2_conv": 0.0799492567223969,
+    "T_C": 464.44418772065103,
+    "V_cat_L_per_kmol_h": 0.4,
+    "cat_kg_per_kmol_h": 0.88,
+    "y_NH3": 0.0698235103897995,
+    "y_NH3_eq_at_T": 0.2112865021612554
+   },
+   {
+    "N2_conv": 0.12072419699307607,
+    "T_C": 498.2337489703083,
+    "V_cat_L_per_kmol_h": 0.6000000000000001,
+    "cat_kg_per_kmol_h": 1.32,
+    "y_NH3": 0.0913435316938095,
+    "y_NH3_eq_at_T": 0.16415037643203512
+   },
+   {
+    "N2_conv": 0.16658977008384432,
+    "T_C": 537.0155841100998,
+    "V_cat_L_per_kmol_h": 1.0,
+    "cat_kg_per_kmol_h": 2.2,
+    "y_NH3": 0.11660887033601892,
+    "y_NH3_eq_at_T": 0.12244097201848915
+   }
+  ]
+ },
+ "variant_research": {
+  "outlet": {
+   "T_C": 537.7733314575829,
+   "dT_K": 137.7733314575829,
+   "dT_per_mol_pct_NH3": 15.816256495598397,
+   "y_NH3": 0.11710868560833261
+  },
+  "profile": [
+   {
+    "N2_conv": 0.017496537939387182,
+    "T_C": 413.90337337538904,
+    "V_cat_L_per_kmol_h": 0.1,
+    "cat_kg_per_kmol_h": 0.22,
+    "y_NH3": 0.03845969567035498,
+    "y_NH3_eq_at_T": 0.2931542057851603
+   },
+   {
+    "N2_conv": 0.03475272183587906,
+    "T_C": 427.7243588156217,
+    "V_cat_L_per_kmol_h": 0.2,
+    "cat_kg_per_kmol_h": 0.44,
+    "y_NH3": 0.04694040372992737,
+    "y_NH3_eq_at_T": 0.2662325313776956
+   },
+   {
+    "N2_conv": 0.07000187059019769,
+    "T_C": 456.29700520935796,
+    "V_cat_L_per_kmol_h": 0.4,
+    "cat_kg_per_kmol_h": 0.88,
+    "y_NH3": 0.06470168460310537,
+    "y_NH3_eq_at_T": 0.21656543538787462
+   },
+   {
+    "N2_conv": 0.1062644344943648,
+    "T_C": 486.1781135289783,
+    "V_cat_L_per_kmol_h": 0.6000000000000001,
+    "cat_kg_per_kmol_h": 1.32,
+    "y_NH3": 0.08361364990361307,
+    "y_NH3_eq_at_T": 0.1732409182608102
+   },
+   {
+    "N2_conv": 0.15815380531195486,
+    "T_C": 529.8199088029352,
+    "V_cat_L_per_kmol_h": 1.0,
+    "cat_kg_per_kmol_h": 2.2,
+    "y_NH3": 0.11187444440620732,
+    "y_NH3_eq_at_T": 0.12438930610773064
+   }
+  ]
+ }
+}

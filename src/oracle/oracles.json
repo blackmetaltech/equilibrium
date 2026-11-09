@@ -1,0 +1,2948 @@
+{
+ "count": 78,
+ "design": "DESIGN 9.2",
+ "generator": "scripts/export-fixtures.py",
+ "oracles": [
+  {
+   "book": {
+    "molar_mass_g_mol": 180.16
+   },
+   "constants": "H1.008 C12.011 O15.999 (NCERT 180.162 u)",
+   "expected": {
+    "molar_mass_g_mol": 180.156
+   },
+   "fn": "molarMass",
+   "id": "EQ-NC-001",
+   "inputs": {
+    "atomic_masses_g_mol": {
+     "C": 12.011,
+     "H": 1.008,
+     "O": 15.999
+    },
+    "formula": {
+     "C": 6,
+     "H": 12,
+     "O": 6
+    }
+   },
+   "lane": "chem/basics",
+   "source": "textbook-style (not found in NCERT XI Ch1): glucose molar mass",
+   "statement": "Molar mass of glucose C6H12O6.",
+   "status": "C",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2 %",
+   "topic": "mole-concept",
+   "unit": "g/mol"
+  },
+  {
+   "book": {
+    "atoms": 7.8e+24
+   },
+   "constants": "He 4.0026 (book uses 4 u -> 7.83e24)",
+   "expected": {
+    "atoms": 7.823514715434968e+24
+   },
+   "fn": "molesFromMass/avogadro",
+   "id": "EQ-NC-002",
+   "inputs": {
+    "NA": 6.022e+23,
+    "atomic_masses_g_mol": {
+     "He": 4.0026
+    },
+    "mass_g": 52,
+    "species": "He"
+   },
+   "lane": "chem/basics",
+   "source": "NCERT XI Ch1 Exercise 1.33(iii) (pre-2023 edition, verified via solutions PDF); rationalised numbering unverified",
+   "statement": "Number of atoms in 52 g of He.",
+   "status": "V",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "mole-concept",
+   "unit": "atoms"
+  },
+  {
+   "book": {
+    "molarity_mol_L": 15.44
+   },
+   "constants": "H1.008 N14.007 O15.999 (book 63 g/mol)",
+   "expected": {
+    "molarity_mol_L": 15.43991620643687
+   },
+   "fn": "molarityFromMassPercent",
+   "id": "EQ-NC-003",
+   "inputs": {
+    "atomic_masses_g_mol": {
+     "H": 1.008,
+     "N": 14.007,
+     "O": 15.999
+    },
+    "density_g_per_mL": 1.41,
+    "mass_pct": 69,
+    "solute": {
+     "H": 1,
+     "N": 1,
+     "O": 3
+    }
+   },
+   "lane": "chem/basics",
+   "source": "NCERT XI Ch1 Exercise 1.6 (pre-2023 edition, verified via solutions PDF); rationalised numbering unverified",
+   "statement": "Molarity of conc. HNO3 of density 1.41 g/mL, 69% by mass.",
+   "status": "V",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "mole-concept",
+   "unit": "mol/L"
+  },
+  {
+   "book": {
+    "mass_g": 15.4
+   },
+   "constants": "M=82.0245 (book 15.38 g)",
+   "expected": {
+    "mass_g": 15.379593750000002
+   },
+   "fn": "massFromMolarity",
+   "id": "EQ-NC-004",
+   "inputs": {
+    "M": 82.0245,
+    "V_L": 0.5,
+    "c": 0.375
+   },
+   "lane": "chem/basics",
+   "source": "NCERT XI Ch1 Exercise 1.5 (pre-2023 edition, verified via solutions PDF); rationalised numbering unverified",
+   "statement": "Mass of CH3COONa (M=82.0245) needed for 500 mL of 0.375 M solution.",
+   "status": "V",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "mole-concept",
+   "unit": "g"
+  },
+  {
+   "book": {
+    "mass_NH3_g": 2428.5714285714284,
+    "note": "textbook masses N=14 H=1 (engine uses IUPAC masses)"
+   },
+   "constants": "N2 28.0134 H2 2.016 NH3 17.031; book 2.43e3 g",
+   "expected": {
+    "H2_left_mol": 281.84853371192764,
+    "limiting": "N2",
+    "mass_NH3_g": 2431.836192679217
+   },
+   "fn": "limitingReagent+stoichYield",
+   "id": "EQ-NC-005",
+   "inputs": {
+    "molar_masses_g_mol": {
+     "H2": 2.016,
+     "N2": 28.0134,
+     "NH3": 17.031
+    },
+    "reactants_g": {
+     "H2": 1000,
+     "N2": 2000
+    },
+    "reaction": "N2+3H2->2NH3"
+   },
+   "lane": "chem/stoich",
+   "source": "NCERT XI Ch1 Exercise 1.24(i) (pre-2023 edition, verified via solutions PDF); rationalised numbering unverified",
+   "statement": "N2+3H2->2NH3; 2000 g N2 with 1000 g H2. Limiting reagent? Mass NH3? Engine uses IUPAC masses (2431.8 g); the textbook masses N=14, H=1 give 2428.57 g (field `book`).",
+   "status": "V",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "stoichiometry",
+   "unit": "g NH3 (limiting = N2)"
+  },
+  {
+   "book": {
+    "mass_H2O_g": 36.0
+   },
+   "constants": "book 36 g (M_H2O=18)",
+   "expected": {
+    "mass_H2O_g": 35.9334289098049
+   },
+   "fn": "stoichMass",
+   "id": "EQ-NC-006",
+   "inputs": {
+    "CH4_g": 16,
+    "O2": "excess",
+    "atomic_masses_g_mol": {
+     "C": 12.011,
+     "H": 1.008,
+     "O": 15.999
+    },
+    "reaction": "CH4+2O2->CO2+2H2O"
+   },
+   "lane": "chem/stoich",
+   "source": "textbook-style (not found in NCERT XI Ch1): water from 16 g CH4",
+   "statement": "CH4+2O2->CO2+2H2O; mass of water from complete combustion of 16 g CH4.",
+   "status": "C",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "stoichiometry",
+   "unit": "g H2O"
+  },
+  {
+   "book": {
+    "mass_Cu_g": 39.8
+   },
+   "constants": "Cu 63.546 (book 63.5/159.5 -> 39.8)",
+   "expected": {
+    "mass_Cu_g": 39.81529053520633
+   },
+   "fn": "stoichMass",
+   "id": "EQ-NC-007",
+   "inputs": {
+    "atomic_masses_g_mol": {
+     "Cu": 63.546,
+     "O": 15.999,
+     "S": 32.06
+    },
+    "compound": {
+     "Cu": 1,
+     "O": 4,
+     "S": 1
+    },
+    "mass_g": 100
+   },
+   "lane": "chem/stoich",
+   "source": "NCERT XI Ch1 Exercise 1.7 (pre-2023 edition, verified via solutions PDF); rationalised numbering unverified",
+   "statement": "Mass of Cu obtainable from 100 g CuSO4.",
+   "status": "V",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "stoichiometry",
+   "unit": "g Cu"
+  },
+  {
+   "book": {
+    "mass_CO2_g": 17.6
+   },
+   "constants": "Ca 40.078 C12.011 O15.999; theoretical 22.0 g",
+   "expected": {
+    "mass_CO2_g": 17.588473912435305
+   },
+   "fn": "percentYield/stoichMass",
+   "id": "EQ-NC-008",
+   "inputs": {
+    "CaCO3_g": 50,
+    "atomic_masses_g_mol": {
+     "C": 12.011,
+     "Ca": 40.078,
+     "O": 15.999
+    },
+    "reaction": "CaCO3->CaO+CO2",
+    "yield_pct": 80
+   },
+   "lane": "chem/stoich",
+   "source": "generic textbook percent-yield (CaCO3 decomposition) [recalled, not verified]",
+   "statement": "CaCO3 -> CaO + CO2. 50.0 g CaCO3 heated, actual yield 80%. Mass CO2 obtained?",
+   "status": "R",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "stoichiometry",
+   "unit": "g CO2"
+  },
+  {
+   "constants": "Mg 24.305, Vm 22.4",
+   "expected": {
+    "V_H2_L": 2.24,
+    "limiting": "HCl"
+   },
+   "fn": "limitingReagent",
+   "id": "EQ-NC-009",
+   "inputs": {
+    "HCl": {
+     "V_L": 0.1,
+     "c": 2.0
+    },
+    "Mg_g": 6.0,
+    "atomic_masses_g_mol": {
+     "Mg": 24.305
+    },
+    "molar_volume_STP": 22.4
+   },
+   "lane": "chem/stoich",
+   "source": "generic textbook limiting reagent (Mg + HCl) [constructed]",
+   "statement": "Mg+2HCl->MgCl2+H2. 6.0 g Mg with 100 mL of 2.0 M HCl. Limiting reagent, volume H2 at STP (22.4 L/mol)?",
+   "status": "C",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "stoichiometry",
+   "unit": "L H2 (limiting = HCl)"
+  },
+  {
+   "book": {
+    "O_per_Fe": 1.5
+   },
+   "constants": "Fe 55.845 O 15.999",
+   "expected": {
+    "O_per_Fe": 1.5030754336309107
+   },
+   "fn": "empiricalFormula",
+   "id": "EQ-NC-010",
+   "inputs": {
+    "Fe_pct": 69.9,
+    "O_pct": 30.1,
+    "atomic_masses_g_mol": {
+     "Fe": 55.845,
+     "O": 15.999
+    }
+   },
+   "lane": "chem/basics",
+   "source": "NCERT XI Ch1 Exercise 1.3 (pre-2023 edition, verified via solutions PDF); rationalised numbering unverified",
+   "statement": "Empirical formula of an iron oxide with 69.9% Fe, 30.1% O. Fe:O ratio (x -> Fe2O3 = 1:1.5).",
+   "status": "V",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "empirical-formula",
+   "unit": "O per Fe (Fe2O3 => 1.5)"
+  },
+  {
+   "book": {
+    "n_multiplier": 2
+   },
+   "constants": "C12.011 H1.008 Cl35.45; n=1.999",
+   "expected": {
+    "n_multiplier": 2.000121268468177
+   },
+   "fn": "empiricalFormula+molecularFormula",
+   "id": "EQ-NC-011",
+   "inputs": {
+    "C_pct": 24.27,
+    "Cl_pct": 71.65,
+    "H_pct": 4.07,
+    "M": 98.96,
+    "atomic_masses_g_mol": {
+     "C": 12.011,
+     "Cl": 35.45,
+     "H": 1.008
+    }
+   },
+   "lane": "chem/basics",
+   "source": "textbook-style (not found in NCERT XI Ch1): empirical to molecular formula, 71.65% Cl",
+   "statement": "Compound has 4.07% H, 24.27% C, 71.65% Cl, molar mass 98.96 g/mol: empirical CH2Cl; ratio M/M_emp = n (molecular formula C2H4Cl2).",
+   "status": "C",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "empirical-formula",
+   "unit": "multiplier n"
+  },
+  {
+   "book": {
+    "O_to_C": 1.0
+   },
+   "constants": "C12.011 H1.008 O15.999",
+   "expected": {
+    "O_to_C": 0.998837611382957
+   },
+   "fn": "combustionAnalysis",
+   "id": "EQ-NC-012",
+   "inputs": {
+    "CO2_g": 0.44,
+    "H2O_g": 0.18,
+    "atomic_masses_g_mol": {
+     "C": 12.011,
+     "H": 1.008,
+     "O": 15.999
+    },
+    "sample_g": 0.3
+   },
+   "lane": "chem/basics",
+   "source": "generic combustion analysis [constructed]",
+   "statement": "0.300 g of C,H,O compound burns to 0.440 g CO2 and 0.180 g H2O. O by difference. Empirical formula CH2O (O:C ratio shown).",
+   "status": "C",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "empirical-formula",
+   "unit": "O:C ratio (CH2O => 1)"
+  },
+  {
+   "constants": "Boyle's law; no R needed",
+   "expected": {
+    "P_total_bar": 1.7999999999999998
+   },
+   "fn": "daltonTotalPressure",
+   "id": "EQ-NC-013",
+   "inputs": {
+    "T_K": 300.15,
+    "Vfinal_L": 1.0,
+    "gases": [
+     {
+      "V": 0.5,
+      "p": 0.8
+     },
+     {
+      "V": 2.0,
+      "p": 0.7
+     }
+    ]
+   },
+   "lane": "chem/basics",
+   "source": "NCERT XI States of Matter Exercise (0.5 L H2 @0.8 bar + 2 L O2 @0.7 bar into 1 L, 27C) (Ch5 pre-2023; chapter removed from rationalised XI) [recalled, not verified]",
+   "statement": "Total pressure when 0.5 L H2 at 0.8 bar and 2.0 L O2 at 0.7 bar are put in a 1 L vessel at 27 C.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "gas-laws",
+   "unit": "bar"
+  },
+  {
+   "constants": "ratio only",
+   "expected": {
+    "M_B_over_M_A": 4.0
+   },
+   "fn": "idealGasMoles/dalton",
+   "id": "EQ-NC-014",
+   "inputs": {
+    "gasA_g": 1,
+    "gasB_g": 2,
+    "pA_bar": 2,
+    "ptot_bar": 3
+   },
+   "lane": "chem/basics",
+   "source": "NCERT XI States of Matter Exercise (1 g A @2 bar; +2 g B -> 3 bar) [recalled, not verified]",
+   "statement": "1 g gas A gives 2 bar at 27 C; adding 2 g of gas B gives total 3 bar (same V,T). Find M_B/M_A.",
+   "status": "R",
+   "tol": {
+    "rel": 0.001
+   },
+   "tolNote": "0.1 %",
+   "topic": "gas-laws",
+   "unit": "M_B/M_A"
+  },
+  {
+   "book": {
+    "p_H2_bar": 0.8
+   },
+   "constants": "H2 2.016 O2 31.998",
+   "expected": {
+    "p_H2_bar": 0.7987119964055713
+   },
+   "fn": "daltonPartial",
+   "id": "EQ-NC-015",
+   "inputs": {
+    "H2_wt_pct": 20,
+    "O2_wt_pct": 80,
+    "P_bar": 1,
+    "molar_masses_g_mol": {
+     "H2": 2.016,
+     "O2": 31.998
+    }
+   },
+   "lane": "chem/basics",
+   "source": "NCERT XI States of Matter Exercise (mixture 20% H2 by weight, 1 bar) [recalled, not verified]",
+   "statement": "H2/O2 mixture at 1 bar is 20% H2 by weight. Partial pressure of H2.",
+   "status": "R",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "gas-laws",
+   "unit": "bar"
+  },
+  {
+   "constants": "M_CO2=44.0 (44.01 gives -314.7)",
+   "expected": {
+    "heat_kJ": -314.8
+   },
+   "fn": "enthalpyFromMoles",
+   "id": "EQ-NC-016",
+   "inputs": {
+    "M": 44,
+    "dH_kJ_per_mol": -393.5,
+    "mass_g": 35.2
+   },
+   "lane": "thermo",
+   "source": "NCERT XI Ch5 (rationalised) / Ch6 (old) Exercise (35.2 g CO2 from C, dHc=-393.5) [recalled, not verified]",
+   "statement": "dHc(C)=-393.5 kJ/mol. Heat released forming 35.2 g CO2.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "thermochemistry",
+   "unit": "kJ"
+  },
+  {
+   "constants": "exact arithmetic",
+   "expected": {
+    "dH_kJ_mol": -110.5
+   },
+   "fn": "hessLaw",
+   "id": "EQ-NC-017",
+   "inputs": {
+    "steps": [
+     {
+      "coef": 1,
+      "dH": -393.5
+     },
+     {
+      "coef": -1,
+      "dH": -283.0
+     }
+    ]
+   },
+   "lane": "thermo",
+   "source": "standard Hess textbook (C->CO from CO2 and CO combustion) [recalled, not verified]",
+   "statement": "C+O2->CO2 (-393.5); CO+1/2O2->CO2 (-283.0). dH for C+1/2O2->CO.",
+   "status": "R",
+   "tol": {
+    "rel": 0.001
+   },
+   "tolNote": "0.1 %",
+   "topic": "thermochemistry",
+   "unit": "kJ/mol"
+  },
+  {
+   "book": {
+    "dG_kJ": 0.16
+   },
+   "constants": "R=8.314; result +0.165 not spontaneous. Use ABSOLUTE tol 0.02 kJ, not relative",
+   "expected": {
+    "dG_kJ": 0.1642279999999996
+   },
+   "fn": "gibbs+deltaHfromDeltaU",
+   "id": "EQ-NC-018",
+   "inputs": {
+    "R_J_mol_K": 8.314,
+    "T": 298,
+    "dS_J_per_K": -44.1,
+    "dU_kJ": -10.5,
+    "dn_gas": -1
+   },
+   "lane": "thermo",
+   "source": "NCERT XI Ch5/Ch6 Exercise (2A+B->2D, dU=-10.5 kJ, dS=-44.1 J/K, 298 K) [recalled, not verified]",
+   "statement": "2A(g)+B(g)->2D(g): dU=-10.5 kJ, dS=-44.1 J/K at 298 K. dG? Spontaneous? (dn_g=-1; dH=-12.98 kJ). Use R = 8.314 J/(mol K). Result is near zero, so the tolerance is absolute (0.02 kJ).",
+   "status": "R",
+   "tol": {
+    "abs": 0.02
+   },
+   "tolNote": "abs 0.02 kJ (ΔG ≈ 0: relative tolerance meaningless)",
+   "topic": "thermochemistry",
+   "unit": "kJ"
+  },
+  {
+   "book": {
+    "dU_kJ_mol": 37.7
+   },
+   "constants": "R=8.314",
+   "expected": {
+    "dU_kJ_mol": 37.688878
+   },
+   "fn": "deltaUfromDeltaH",
+   "id": "EQ-NC-019",
+   "inputs": {
+    "R_J_mol_K": 8.314,
+    "T": 373,
+    "dH_kJ": 40.79,
+    "dn_gas": 1
+   },
+   "lane": "thermo",
+   "source": "NCERT XI Ch5/Ch6 Example (dH vap water 40.79 kJ/mol at 373 K -> dU) [recalled, not verified]",
+   "statement": "Vaporisation H2O(l)->H2O(g), dH=40.79 kJ/mol at 373 K. dU?",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "thermochemistry",
+   "unit": "kJ/mol"
+  },
+  {
+   "constants": "exact (broken-formed = 678-862 = -184; the often-quoted -183 uses 431.5?)",
+   "expected": {
+    "dH_kJ": -184
+   },
+   "fn": "bondEnthalpyReaction",
+   "id": "EQ-NC-020",
+   "inputs": {
+    "broken": {
+     "Cl-Cl": 242,
+     "H-H": 436
+    },
+    "formed": {
+     "H-Cl": [
+      431,
+      2
+     ]
+    }
+   },
+   "lane": "thermo",
+   "source": "standard bond-enthalpy textbook (H2+Cl2->2HCl) [recalled, not verified]",
+   "statement": "Bond enthalpies H-H 436, Cl-Cl 242, H-Cl 431 kJ/mol. dH for H2+Cl2->2HCl.",
+   "status": "R",
+   "tol": {
+    "rel": 0.001
+   },
+   "tolNote": "0.1 %",
+   "topic": "thermochemistry",
+   "unit": "kJ"
+  },
+  {
+   "constants": "exact",
+   "expected": {
+    "T_min_K": 2000.0
+   },
+   "fn": "spontaneityT",
+   "id": "EQ-NC-021",
+   "inputs": {
+    "dH_kJ": 400,
+    "dS_kJ_per_K": 0.2
+   },
+   "lane": "thermo",
+   "source": "NCERT XI Ch5/Ch6 Example (dH=400 kJ, dS=0.2 kJ/K: spontaneous above T) [recalled, not verified]",
+   "statement": "dH=400 kJ/mol, dS=0.2 kJ/K/mol. Minimum T for spontaneity.",
+   "status": "R",
+   "tol": {
+    "rel": 0.001
+   },
+   "tolNote": "0.1 %",
+   "topic": "thermochemistry",
+   "unit": "K"
+  },
+  {
+   "constants": "dn=0",
+   "expected": {
+    "CO2_mol_L": 0.0673109250556358,
+    "CO_mol_L": 0.03268907494436421,
+    "H2_mol_L": 0.0673109250556358
+   },
+   "fn": "equilibriumExtent",
+   "id": "EQ-NC-022",
+   "inputs": {
+    "Kc": 4.24,
+    "V_L": 10,
+    "n0": {
+     "CO": 1,
+     "CO2": 0,
+     "H2": 0,
+     "H2O": 1
+    }
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6 (rationalised) / Ch7 (old) Exercise (CO+H2O, Kc=4.24 at 800 K, 1 mol each in 10 L) [recalled, not verified]",
+   "statement": "CO+H2O<=>CO2+H2, Kc=4.24 at 800 K; 1.0 mol CO and 1.0 mol H2O in 10 L. Equilibrium [CO].",
+   "status": "R",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "equilibrium",
+   "unit": "mol/L [CO]=[H2O] (CO2,H2 = 0.0673)"
+  },
+  {
+   "book": {
+    "Kc_L_mol": 748000000000.0
+   },
+   "constants": "R=0.0831 L bar/mol K",
+   "expected": {
+    "Kc_L_mol": 747899999999.9999
+   },
+   "fn": "Kc_from_Kp",
+   "id": "EQ-NC-023",
+   "inputs": {
+    "Kp": 20000000000.0,
+    "R_L_bar": 0.0831,
+    "T": 450,
+    "dn": -1
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6/Ch7 Example (Kp=2.0e10 /bar at 450 K, 2SO2+O2<=>2SO3 -> Kc) [recalled, not verified]",
+   "statement": "Kp = 2.0e10 bar^-1 at 450 K for 2SO2 + O2 <=> 2SO3. Kc? Use R = 0.0831 L bar mol^-1 K^-1.",
+   "status": "R",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "equilibrium",
+   "unit": "L/mol"
+  },
+  {
+   "book": {
+    "Kp_bar": 86
+   },
+   "constants": "R=0.083 L bar/mol K (book Kp~86; Kc~2.6)",
+   "expected": {
+    "Kc_mol_L": 2.5864792503346714,
+    "Kp_bar": 85.87111111111109,
+    "alpha": 0.8373493975903614,
+    "pN2O4_bar": 0.8100000000000002,
+    "pNO2_bar": 8.34
+   },
+   "expectedAlt": {
+    "Kp_bar_if_R_0_083145": 83.71485467730248
+   },
+   "fn": "degreeOfDissociation/Kp,Kc",
+   "id": "EQ-NC-024",
+   "inputs": {
+    "M": 92,
+    "N2O4_g": 13.8,
+    "Ptot_bar": 9.15,
+    "R_L_bar_mol_K": 0.083,
+    "T": 400,
+    "V_L": 1
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6/Ch7 Exercise (13.8 g N2O4 in 1 L at 400 K, Ptot=9.15 bar) [recalled, not verified]",
+   "statement": "N2O4 <=> 2NO2; 13.8 g N2O4 (M = 92) in 1.00 L at 400 K; total pressure 9.15 bar. Use R = 0.083 L bar mol^-1 K^-1 (book convention; R = 0.083145 gives Kp = 83.71). Find alpha, Kp, Kc.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "equilibrium",
+   "unit": "Kp (bar)"
+  },
+  {
+   "book": {
+    "alpha": 0.378
+   },
+   "constants": "exact algebra",
+   "expected": {
+    "alpha": 0.3779644730092272
+   },
+   "fn": "degreeOfDissociation",
+   "id": "EQ-NC-025",
+   "inputs": {
+    "P1": 1,
+    "P2": 2,
+    "alpha1": 0.5
+   },
+   "lane": "chem/equilibrium",
+   "source": "JEE-style PCl5 dissociation [constructed]",
+   "statement": "PCl5 <=> PCl3 + Cl2: 50% dissociated at 1 atm total (Kp = 1/3 atm). Degree of dissociation at 2 atm, at constant T.",
+   "status": "C",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "equilibrium",
+   "unit": "alpha"
+  },
+  {
+   "expected": {
+    "H2_mol_L": 0.0675429033697874,
+    "I2_mol_L": 0.0675429033697874
+   },
+   "fn": "equilibriumExtent",
+   "id": "EQ-NC-026",
+   "inputs": {
+    "Kc_forward": 54.8,
+    "c0": {
+     "HI": 0.5
+    }
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6/Ch7 Example (HI, Kc=54.8 at 700 K, [HI]0=0.5 M) [recalled, not verified]",
+   "statement": "H2 + I2 <=> 2HI, Kc = 54.8 at 700 K. Start from HI only; at equilibrium [HI] = 0.5 mol/L. Find [H2] = [I2] = [HI]/sqrt(Kc).",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "equilibrium",
+   "unit": "mol/L [H2]=[I2]"
+  },
+  {
+   "constants": "exact quadratic root x=0.01020 M, [NO2]=0.02039 M; use rel tol 1e-6 vs exact solver",
+   "expected": {
+    "NO2_mol_L": 0.020391045339535105,
+    "x_mol_L": 0.010195522669767552
+   },
+   "fn": "equilibriumExtent (quadratic)",
+   "id": "EQ-NC-027",
+   "inputs": {
+    "Kc": 0.00463,
+    "c0": {
+     "N2O4": 0.1
+    }
+   },
+   "lane": "chem/equilibrium",
+   "source": "generic quadratic ICE: N2O4<=>2NO2 Kc=4.63e-3 [constructed]",
+   "statement": "0.100 M N2O4, Kc=4.63e-3 (25 C). Solve 4x^2=Kc(0.1-x); x = extent (M); [NO2]=2x.",
+   "status": "C",
+   "tol": {
+    "abs": 1e-06
+   },
+   "tolNote": "abs 1e-6 M",
+   "topic": "equilibrium",
+   "unit": "mol/L x"
+  },
+  {
+   "book": {
+    "dG_kJ_mol": 163
+   },
+   "constants": "R=8.314",
+   "expected": {
+    "dG_kJ_mol": 163.1995246946467
+   },
+   "fn": "gibbsFromK",
+   "id": "EQ-NC-028",
+   "inputs": {
+    "Kp": 2.47e-29,
+    "R_J_mol_K": 8.314,
+    "T": 298
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6/Ch7 Example (2/3 O2 -> O3, Kp=2.47e-29, 298 K) [recalled, not verified]",
+   "statement": "Reaction 3/2 O2 -> O3 with Kp = 2.47e-29 bar^-1/2 at 298 K. dG? Use R = 8.314 J/(mol K).",
+   "status": "R",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "equilibrium",
+   "unit": "kJ/mol"
+  },
+  {
+   "book": {
+    "K": 3040.0
+   },
+   "constants": "R=8.314",
+   "expected": {
+    "K": 3036.9322582957097
+   },
+   "fn": "kFromGibbs",
+   "id": "EQ-NC-029",
+   "inputs": {
+    "R_J_mol_K": 8.314,
+    "T": 300,
+    "dG_kJ": -20
+   },
+   "lane": "chem/equilibrium",
+   "source": "generic dG=-RT lnK [constructed]",
+   "statement": "dG = -20.0 kJ/mol at 300 K. K? Use R = 8.314 J/(mol K).",
+   "status": "C",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "equilibrium",
+   "unit": "dimensionless"
+  },
+  {
+   "expected": {
+    "direction": "none"
+   },
+   "fn": "leChatelierDirection",
+   "id": "EQ-NC-030",
+   "inputs": {
+    "P": 10,
+    "inert": "V",
+    "n": [
+     1,
+     3,
+     1
+    ],
+    "nu": [
+     -1,
+     -3,
+     2
+    ]
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6/Ch7 text (inert gas, constant V) [recalled, not verified]",
+   "statement": "N2+3H2<=>2NH3 at equilibrium; inert gas added at constant V. Shift?",
+   "status": "R",
+   "tol": {
+    "abs": 0.0
+   },
+   "tolNote": "exact (direction)",
+   "topic": "le-chatelier",
+   "unit": "direction"
+  },
+  {
+   "expected": {
+    "direction": "left"
+   },
+   "fn": "leChatelierDirection",
+   "id": "EQ-NC-031",
+   "inputs": {
+    "P": 10,
+    "inert": "P",
+    "n": [
+     1,
+     3,
+     1
+    ],
+    "nu": [
+     -1,
+     -3,
+     2
+    ]
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6/Ch7 text (inert gas, constant P) [recalled, not verified]",
+   "statement": "Same, but inert gas added at constant total P (volume increases). Shift?",
+   "status": "R",
+   "tol": {
+    "abs": 0.0
+   },
+   "tolNote": "exact (direction)",
+   "topic": "le-chatelier",
+   "unit": "direction"
+  },
+  {
+   "expected": {
+    "direction": "right"
+   },
+   "fn": "leChatelierDirection",
+   "id": "EQ-NC-032",
+   "inputs": {
+    "P": 1,
+    "inert": "P",
+    "n": [
+     1,
+     1,
+     1
+    ],
+    "nu": [
+     -1,
+     1,
+     1
+    ]
+   },
+   "lane": "chem/equilibrium",
+   "source": "JEE/NEET-style PCl5 <=> PCl3 + Cl2, inert gas at constant P [constructed]",
+   "statement": "PCl5 dissociation at equilibrium, inert gas added at constant P. Shift?",
+   "status": "C",
+   "tol": {
+    "abs": 0.0
+   },
+   "tolNote": "exact (direction)",
+   "topic": "le-chatelier",
+   "unit": "direction"
+  },
+  {
+   "expected": {
+    "K_ratio_600_over_500": 0.024610190850524086,
+    "direction": "left"
+   },
+   "fn": "leChatelierDirection/vanHoff",
+   "id": "EQ-NC-033",
+   "inputs": {
+    "R_J_mol_K": 8.314,
+    "T1": 500,
+    "T2": 600,
+    "dH_kJ": -92.4
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6/Ch7 text (exothermic NH3 synthesis, raise T 500->600 K, dH=-92.4) [recalled, not verified]",
+   "statement": "N2 + 3H2 <=> 2NH3, dH = -92.4 kJ/mol (constant). Raise T from 500 to 600 K. K600/K500 (van't Hoff, R = 8.314 J/(mol K)) and direction of shift.",
+   "status": "R",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "exact (direction) -> 9.2.1b: K600/K500 = 0.0246 +- 1 % and direction = left",
+   "topic": "le-chatelier",
+   "unit": "K2/K1 (<1 => left)"
+  },
+  {
+   "constants": "exact",
+   "expected": {
+    "Q_over_K": 2.0,
+    "direction": "left"
+   },
+   "fn": "leChatelierDirection",
+   "id": "EQ-NC-034",
+   "inputs": {
+    "V_factor": 0.5,
+    "dn": 1
+   },
+   "lane": "chem/equilibrium",
+   "source": "NCERT XI Ch6/Ch7 text (N2O4<=>2NO2, halve volume at const T) [recalled, not verified]",
+   "statement": "N2O4<=>2NO2 equilibrium; volume halved at constant T. Q/K = 2^dn = 2 -> shifts left.",
+   "status": "R",
+   "tol": {
+    "rel": 0.001
+   },
+   "tolNote": "0.1 %",
+   "topic": "le-chatelier",
+   "unit": "Q/K"
+  },
+  {
+   "book": {
+    "k_ratio": 24000.0
+   },
+   "constants": "R=8.314",
+   "expected": {
+    "k_ratio": 24113.427208090154
+   },
+   "fn": "catalystEffect/arrhenius",
+   "id": "EQ-NC-035",
+   "inputs": {
+    "Ea1": 75000,
+    "Ea2": 50000,
+    "R_J_mol_K": 8.314,
+    "T": 298
+   },
+   "lane": "chem/kinetics",
+   "source": "JEE/NEET-style catalyst effect [constructed]",
+   "statement": "Catalyst lowers Ea from 75 to 50 kJ/mol at 298 K (same A). Rate-constant ratio k_cat/k_uncat. K_eq unchanged (ratio of forward/reverse both scale equally).",
+   "status": "C",
+   "tol": {
+    "rel": 0.05
+   },
+   "tolNote": "5 %",
+   "topic": "kinetics",
+   "unit": "k ratio"
+  },
+  {
+   "book": {
+    "Ea_kJ_mol": 239.34
+   },
+   "constants": "R=8.314",
+   "expected": {
+    "Ea_kJ_mol": 239.29615578940624
+   },
+   "fn": "arrheniusEa",
+   "id": "EQ-NC-036",
+   "inputs": {
+    "R_J_mol_K": 8.314,
+    "intercept": 14.34,
+    "slope_log10": -12500
+   },
+   "lane": "chem/kinetics",
+   "source": "NCERT XII Ch3 (rationalised) / Ch4 (old) Example (log k=14.34-1.25e4/T) Ea part [recalled, not verified]",
+   "statement": "H2O2 first order: log k = 14.34 - 1.25e4 K/T. Ea.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2 %",
+   "topic": "kinetics",
+   "unit": "kJ/mol"
+  },
+  {
+   "book": {
+    "T_K": 669
+   },
+   "constants": "book ~668.9",
+   "expected": {
+    "T_K": 668.9655621954648
+   },
+   "fn": "firstOrderHalfLife+arrhenius",
+   "id": "EQ-NC-037",
+   "inputs": {
+    "intercept": 14.34,
+    "slope": 12500,
+    "t_half_min": 256
+   },
+   "lane": "chem/kinetics",
+   "source": "NCERT XII Ch3/Ch4 Exercise (same: T for t1/2=256 min) [recalled, not verified]",
+   "statement": "log10 k = 14.34 - 1.25e4 K / T with k in s^-1. Temperature at which t1/2 = 256 min. (Reading k in min^-1 gives 739 K: units must be stated.)",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3 % (≈ 2 K)",
+   "topic": "kinetics",
+   "unit": "K"
+  },
+  {
+   "book": {
+    "t_s": 444
+   },
+   "constants": "book 444 s",
+   "expected": {
+    "t_s": 444.1961945791224
+   },
+   "fn": "firstOrderTime",
+   "id": "EQ-NC-038",
+   "inputs": {
+    "A": 3,
+    "A0": 5,
+    "k": 0.00115
+   },
+   "lane": "chem/kinetics",
+   "source": "NCERT XII Ch3/Ch4 Exercise (k=1.15e-3 s^-1, 5 g -> 3 g) [recalled, not verified]",
+   "statement": "First order, k=1.15e-3 s^-1. Time for 5 g to become 3 g.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "kinetics",
+   "unit": "s"
+  },
+  {
+   "book": {
+    "age_years": 1845
+   },
+   "constants": "book 1845 y",
+   "expected": {
+    "age_years": 1844.6479837045863
+   },
+   "fn": "firstOrderTime",
+   "id": "EQ-NC-039",
+   "inputs": {
+    "fraction": 0.8,
+    "t_half": 5730
+   },
+   "lane": "chem/kinetics",
+   "source": "NCERT XII Ch3/Ch4 Exercise (14C, t1/2=5730 y, 80% remaining) [recalled, not verified]",
+   "statement": "14C t1/2=5730 y; sample has 80% of living level. Age.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "kinetics",
+   "unit": "years"
+  },
+  {
+   "constants": "computed 1.496",
+   "expected": {
+    "order_A": 1.4959574946624115,
+    "order_B": 0.0
+   },
+   "fn": "orderFromInitialRates",
+   "id": "EQ-NC-040",
+   "inputs": {
+    "A": [
+     0.3,
+     0.3,
+     0.6
+    ],
+    "B": [
+     0.3,
+     0.6,
+     0.3
+    ],
+    "rate": [
+     5.07e-05,
+     5.07e-05,
+     0.000143
+    ]
+   },
+   "lane": "chem/kinetics",
+   "source": "NCERT XII Ch3/Ch4 Exercise (initial rates, 5.07e-5, 5.07e-5, 1.43e-4) [recalled, not verified]",
+   "statement": "A+B->P: [A]=0.30,0.30,0.60; [B]=0.30,0.60,0.30; rates 5.07e-5,5.07e-5,1.43e-4 mol/L/s. Order in A (B: zero).",
+   "status": "R",
+   "tol": {
+    "rel": 0.01
+   },
+   "tolNote": "1 %",
+   "topic": "kinetics",
+   "unit": "order in A"
+  },
+  {
+   "constants": "exact",
+   "expected": {
+    "k_L2_mol2_s": 1.9999999999999996,
+    "order_A": 2.0,
+    "order_B": 1.0
+   },
+   "fn": "orderFromInitialRates+k",
+   "id": "EQ-NC-041",
+   "inputs": {
+    "A": [
+     0.1,
+     0.2,
+     0.1
+    ],
+    "B": [
+     0.1,
+     0.1,
+     0.2
+    ],
+    "rate": [
+     0.002,
+     0.008,
+     0.004
+    ]
+   },
+   "lane": "chem/kinetics",
+   "source": "generic JEE-style initial rates, k extraction [constructed]",
+   "statement": "[A]=0.1,0.2,0.1; [B]=0.1,0.1,0.2; rate=2e-3,8e-3,4e-3. Order A=2,B=1; k.",
+   "status": "C",
+   "tol": {
+    "rel": 0.001
+   },
+   "tolNote": "0.1 %",
+   "topic": "kinetics",
+   "unit": "k (L^2/mol^2/s)"
+  },
+  {
+   "book": {
+    "Ea_kJ_mol": 52.86
+   },
+   "constants": "R=8.314; book log4=0.6021",
+   "expected": {
+    "Ea_kJ_mol": 52.85029783773153
+   },
+   "fn": "arrheniusEa",
+   "id": "EQ-NC-042",
+   "inputs": {
+    "R_J_mol_K": 8.314,
+    "T1": 293,
+    "T2": 313,
+    "k2_over_k1": 4
+   },
+   "lane": "chem/kinetics",
+   "source": "NCERT XII Ch3/Ch4 Exercise (rate x4 from 293 to 313 K) [recalled, not verified]",
+   "statement": "Rate increases 4x from 293 to 313 K. Ea.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "kinetics",
+   "unit": "kJ/mol"
+  },
+  {
+   "book": {
+    "Ea_J_mol": 18230.8
+   },
+   "constants": "R=8.314; book 18230.8 J/mol",
+   "expected": {
+    "A_per_s": 1.6042356045793278,
+    "Ea_J_mol": 18227.07481012336
+   },
+   "fn": "arrheniusEa",
+   "id": "EQ-NC-043",
+   "inputs": {
+    "R_J_mol_K": 8.314,
+    "T1": 500,
+    "T2": 700,
+    "k1": 0.02,
+    "k2": 0.07
+   },
+   "lane": "chem/kinetics",
+   "source": "NCERT XII Ch3/Ch4 Exercise (k=0.02 s^-1 at 500 K, 0.07 s^-1 at 700 K) [recalled, not verified]",
+   "statement": "k=0.02 at 500 K, 0.07 at 700 K. Ea (A also printed).",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5 %",
+   "topic": "kinetics",
+   "unit": "J/mol"
+  },
+  {
+   "assumptions": "none (mass balance only)",
+   "expected": {
+    "H2O": 75.0,
+    "NH3": 50,
+    "NO": 50.0,
+    "O2": 137.5,
+    "total": 312.5,
+    "xi": 12.5
+   },
+   "fn": "reactorStoich (fractional conversion)",
+   "id": "EQ-CE-001",
+   "inputs": {
+    "conv_NH3": 0.5,
+    "feed": [
+     100,
+     200,
+     0,
+     0
+    ],
+    "nu": [
+     -4,
+     -5,
+     4,
+     6
+    ],
+    "species": [
+     "NH3",
+     "O2",
+     "NO",
+     "H2O"
+    ]
+   },
+   "lane": "chem/stoich",
+   "source": "Felder 4th ed, Ch.4 reactive-system extent-of-reaction (cf. Ex 4.6-x NH3 oxidation) [recalled, not verified]",
+   "statement": "4NH3+5O2->4NO+6H2O. Feed 100 mol NH3 + 200 mol O2; fractional conversion of NH3 = 0.50. Find product moles and extent.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact stoichiometry)",
+   "topic": "reactive-material-balances",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "none",
+   "expected": {
+    "C2H4": 75.0,
+    "C2H4O": 22.22222222222222,
+    "CO2": 5.555555555555555,
+    "H2O": 5.555555555555555,
+    "O2": 80.55555555555556,
+    "selectivity_EO_per_C2H4_reacted": 0.8888888888888888,
+    "xi1": 22.22222222222222,
+    "xi2": 2.7777777777777777
+   },
+   "fn": "reactorStoich (multiple reactions, 2 extents)",
+   "id": "EQ-CE-002",
+   "inputs": {
+    "conv_C2H4": 0.25,
+    "feed": [
+     100,
+     100,
+     0,
+     0,
+     0
+    ],
+    "nu": [
+     [
+      -1,
+      -0.5,
+      1,
+      0,
+      0
+     ],
+     [
+      -1,
+      -3,
+      0,
+      2,
+      2
+     ]
+    ],
+    "ratio_EO_CO2": 4,
+    "species": [
+     "C2H4",
+     "O2",
+     "C2H4O",
+     "CO2",
+     "H2O"
+    ]
+   },
+   "lane": "chem/stoich",
+   "source": "Felder 4th ed, Ex 4.6-x ethylene oxide w/ side reaction (style) [recalled, not verified]",
+   "statement": "C2H4+1/2O2->C2H4O (r1); C2H4+3O2->2CO2+2H2O (r2). Feed 100 mol C2H4, 100 mol O2. C2H4 conversion 25%; mole ratio C2H4O:CO2 in product = 4. Find outlet moles.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact stoich)",
+   "topic": "reactive-material-balances",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "air 21/79",
+   "expected": {
+    "CO2": 100,
+    "H2O": 200,
+    "N2": 902.8571428571429,
+    "O2": 40.0,
+    "air_fed": 1142.857142857143,
+    "y_dry": {
+     "CO2": 0.0958904109589041,
+     "N2": 0.8657534246575342,
+     "O2": 0.038356164383561646
+    }
+   },
+   "fn": "combustion complete + excessAir",
+   "id": "EQ-CE-003",
+   "inputs": {
+    "air": {
+     "N2": 0.79,
+     "O2": 0.21
+    },
+    "basis_mol": 100,
+    "conv": 1.0,
+    "excess_air": 0.2,
+    "fuel": "CH4"
+   },
+   "lane": "chem/stoich",
+   "source": "Felder 4th ed, Ch.4 combustion w/ excess air (style) [recalled, not verified]",
+   "statement": "100 mol CH4 burned completely in air (21% O2/79% N2) with 20% excess air. Product moles and dry-basis mole fractions.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact)",
+   "topic": "reactive-material-balances",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "air 21/79; excess air based on complete combustion of all fed fuel",
+   "expected": {
+    "out": {
+     "C3H8": 10,
+     "CO": 27,
+     "CO2": 243,
+     "H2O": 360,
+     "N2": 2351.190476190476,
+     "O2": 188.5
+    },
+    "total": 3179.690476190476,
+    "y_wet": {
+     "C3H8": 0.003144960201277453,
+     "CO": 0.008491392543449123,
+     "CO2": 0.0764225328910421,
+     "H2O": 0.1132185672459883,
+     "N2": 0.739440047324163,
+     "O2": 0.059282499794079985
+    }
+   },
+   "fn": "combustion partial + atom balance",
+   "id": "EQ-CE-004",
+   "inputs": {
+    "basis_mol": 100,
+    "burned_frac": 0.9,
+    "excess_air": 0.25,
+    "frac_burned_to_CO": 0.1,
+    "fuel": "C3H8"
+   },
+   "lane": "chem/stoich",
+   "source": "Felder 4th ed, Ch.4 combustion w/ incomplete burning (style) [recalled, not verified]",
+   "statement": "100 mol C3H8 fed with 25% excess air (relative to complete combustion of all propane fed); 90% of the propane burns; of the propane that burns, 10% goes to CO (C3H8+3.5O2->3CO+4H2O) and 90% to CO2. Find outlet composition.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact)",
+   "topic": "reactive-material-balances",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "ideal splitter",
+   "expected": {
+    "CH3OH": 23.57142857142857,
+    "overall_conv_CO": 0.7142857142857144,
+    "purge": {
+     "CO": 9.428571428571427,
+     "H2": 18.857142857142854,
+     "N2": 0.999999999999076
+    },
+    "reactor_feed": {
+     "CH3OH": 0.0,
+     "CO": 117.85714285714283,
+     "H2": 235.71428571428567,
+     "N2": 9.999999999991683
+    },
+    "recycle": {
+     "CH3OH": 0.0,
+     "CO": 84.85714285714283,
+     "H2": 169.71428571428567,
+     "N2": 8.999999999991683
+    },
+    "xi": 23.57142857142857,
+    "y_N2_reactor_inlet": 0.027504911591333357
+   },
+   "fn": "recyclePurgeTear (inert buildup, tear convergence)",
+   "id": "EQ-CE-005",
+   "inputs": {
+    "fresh": [
+     33,
+     66,
+     0,
+     1
+    ],
+    "nu": [
+     -1,
+     -2,
+     1,
+     0
+    ],
+    "purge_fraction": 0.1,
+    "separator": "all CH3OH to liquid, all others to gas",
+    "single_pass_conv_CO": 0.2,
+    "species": [
+     "CO",
+     "H2",
+     "CH3OH",
+     "N2"
+    ]
+   },
+   "lane": "flowsheet",
+   "source": "Felder 4th ed, Ch.4.7 recycle & purge, methanol synthesis (cf. Problem 4.4x, with inert) [recalled, not verified]",
+   "statement": "Fresh feed 100 mol/h: 33 CO, 66 H2, 1 N2 (inert). Reactor CO+2H2->CH3OH, single-pass CO conversion 20% (of CO entering reactor). Condenser removes all CH3OH as liquid; uncondensed gas split: 10% purge, 90% recycle to reactor inlet. Solve to convergence; report reactor inlet, methanol production, purge, overall CO conversion, N2 mole fraction at reactor inlet.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (closed-form solution exists (N2 b…",
+   "topic": "recycle-purge",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "ideal splitter",
+   "expected": {
+    "NH3": 43.304347826086925,
+    "purge": {
+     "Ar": 0.2999999999990391,
+     "H2": 9.843478260869288,
+     "N2": 3.247826086956519
+    },
+    "purge_mole_frac_Ar": 0.022402597402527723,
+    "reactor_feed": {
+     "Ar": 5.999999999981742,
+     "H2": 261.82608695651646,
+     "N2": 86.60869565217385,
+     "NH3": 0.0
+    },
+    "xi": 21.652173913043463,
+    "y_Ar_reactor_inlet": 0.016928361138320566
+   },
+   "fn": "recyclePurgeTear (inert buildup)",
+   "id": "EQ-CE-006",
+   "inputs": {
+    "fresh": [
+     24.9,
+     74.8,
+     0,
+     0.3
+    ],
+    "nu": [
+     -1,
+     -3,
+     2,
+     0
+    ],
+    "purge_fraction": 0.05,
+    "single_pass_conv_N2": 0.25,
+    "species": [
+     "N2",
+     "H2",
+     "NH3",
+     "Ar"
+    ]
+   },
+   "lane": "flowsheet",
+   "source": "Felder 4th ed, Ch.4 ammonia synthesis recycle/purge w/ Ar inert (style, cf. Problem 4.5x) [recalled, not verified]",
+   "statement": "Fresh feed 100 mol/h: 24.9 N2, 74.8 H2, 0.3 Ar. N2+3H2->2NH3, single-pass N2 conversion 25%. Condenser removes all NH3; remaining gas: 5% purge, 95% recycle. Solve the loop.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (closed form: Ar_in=0.3/0.05=6)",
+   "topic": "recycle-purge",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Raoult's law, ideal vapor",
+   "expected": {
+    "K": [
+     2.0298198252117596,
+     0.8499656521628135,
+     0.4000366507346715
+    ],
+    "Psat_mmHg": [
+     1542.6630671609373,
+     645.9738956437383,
+     304.0278545583503
+    ],
+    "V_over_F": 0.4172863005983777,
+    "x": [
+     0.2797731617105191,
+     0.3200366217382828,
+     0.4001902165512679
+    ],
+    "y": [
+     0.5678891102021872,
+     0.27202013591176316,
+     0.16009075388595212
+    ]
+   },
+   "fn": "flashRachfordRice",
+   "id": "EQ-CE-007",
+   "inputs": {
+    "P_mmHg": 760.0,
+    "T_C": 105.0,
+    "antoine_log10_mmHg_C": {
+     "benzene": [
+      6.89272,
+      1203.531,
+      219.888
+     ],
+     "ethylbenzene": [
+      6.9565,
+      1423.54,
+      213.21
+     ],
+     "toluene": [
+      6.95805,
+      1346.773,
+      219.693
+     ],
+     "water": [
+      8.07131,
+      1730.63,
+      233.426
+     ]
+    },
+    "species": [
+     "benzene",
+     "toluene",
+     "ethylbenzene"
+    ],
+    "z": [
+     0.4,
+     0.3,
+     0.3
+    ]
+   },
+   "lane": "units/flash",
+   "source": "Felder 4th ed, Ch.6.4-6.5 Raoult's-law flash (Rachford-Rice form, Antoine Table B.4) [recalled, not verified]",
+   "statement": "Equimolar-ish feed z = benzene 0.4 / toluene 0.3 / ethylbenzene 0.3 flashed at 105 C and 760 mmHg, Raoult's law ideal. Find V/F, x, y.",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3% (exact data; V/F root of RR is wel…",
+   "topic": "vle-flash",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Raoult",
+   "expected": {
+    "T_bubble_C": 92.11580275709323,
+    "y_benzene": 0.7135957810864508
+   },
+   "fn": "bubblePointT",
+   "id": "EQ-CE-008",
+   "inputs": {
+    "P_mmHg": 760,
+    "antoine": {
+     "benzene": [
+      6.89272,
+      1203.531,
+      219.888
+     ],
+     "ethylbenzene": [
+      6.9565,
+      1423.54,
+      213.21
+     ],
+     "toluene": [
+      6.95805,
+      1346.773,
+      219.693
+     ],
+     "water": [
+      8.07131,
+      1730.63,
+      233.426
+     ]
+    },
+    "antoine_form": "log10(P_mmHg) = A - B/(C + T_C)",
+    "species": [
+     "benzene",
+     "toluene"
+    ],
+    "x": [
+     0.5,
+     0.5
+    ]
+   },
+   "lane": "units/flash",
+   "source": "Felder 4th ed, Ex 6.4-x bubble point of benzene-toluene (style) [recalled, not verified]",
+   "statement": "Bubble-point temperature and first-vapor composition of liquid x_benzene=0.5 / toluene 0.5 at 760 mmHg.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (exact data (0.1 C abs. ok))",
+   "topic": "vle-flash",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Raoult",
+   "expected": {
+    "T_dew_C": 98.77459973841611,
+    "x_benzene": 0.2909931180645118
+   },
+   "fn": "dewPointT",
+   "id": "EQ-CE-009",
+   "inputs": {
+    "P_mmHg": 760,
+    "antoine": {
+     "benzene": [
+      6.89272,
+      1203.531,
+      219.888
+     ],
+     "ethylbenzene": [
+      6.9565,
+      1423.54,
+      213.21
+     ],
+     "toluene": [
+      6.95805,
+      1346.773,
+      219.693
+     ],
+     "water": [
+      8.07131,
+      1730.63,
+      233.426
+     ]
+    },
+    "antoine_form": "log10(P_mmHg) = A - B/(C + T_C)",
+    "species": [
+     "benzene",
+     "toluene"
+    ],
+    "y": [
+     0.5,
+     0.5
+    ]
+   },
+   "lane": "units/flash",
+   "source": "Felder 4th ed, Ex 6.4-x dew point (style) [recalled, not verified]",
+   "statement": "Dew-point temperature and first-liquid composition of vapor y_benzene=0.5 / toluene 0.5 at 760 mmHg.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (exact data)",
+   "topic": "vle-flash",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "air non-condensable, no air dissolves",
+   "expected": {
+    "H2O_condensed": 13.735270369202102,
+    "H2O_vapor_out": 6.264729630797898,
+    "dewpoint_C": 60.42574800514183,
+    "p_sat_40C_mmHg": 55.19282955831093,
+    "y_H2O_out": 0.07262214415567227
+   },
+   "fn": "condensation (single condensable VLE)",
+   "id": "EQ-CE-010",
+   "inputs": {
+    "P_mmHg": 760,
+    "T_out_C": 40,
+    "antoine_form": "log10(P_mmHg) = A - B/(C + T_C)",
+    "antoine_water": [
+     8.07131,
+     1730.63,
+     233.426
+    ],
+    "feed": {
+     "H2O": 20,
+     "air": 80
+    }
+   },
+   "lane": "units/flash",
+   "source": "Felder 4th ed, Ch.6.3 single-condensable-component condensation (style, Ex 6.3-x) [recalled, not verified]",
+   "statement": "100 mol/h gas, 20 mol% water vapor + 80% dry air at 760 mmHg is cooled to 40 C at constant pressure. Find feed dew point, mol/h water condensed and gas-out water mole fraction.",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3% (exact data)",
+   "topic": "vle-flash",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Felder Table B.2 Cp polynomials (kJ/mol/degC, T in degC; coefficients recalled) and Table B.1 dHf (kJ/mol); reference 25 C, gas phase; engine must use the identical coefficients listed in the problem inputs",
+   "expected": {
+    "T_adiabatic_C": 1744.9247799570453,
+    "dH_combustion_kJ_mol": -802.3100000000001,
+    "product_moles": {
+     "CO2": 1,
+     "H2O": 2,
+     "N2": 9.404761904761905,
+     "O2": 0.5
+    }
+   },
+   "fn": "adiabaticOutletT (combustion)",
+   "id": "EQ-CE-011",
+   "inputs": {
+    "T_feed_C": 25,
+    "cp_poly_kJ_per_mol_C": {
+     "CH3OH": [
+      0.04293,
+      8.301e-05,
+      -1.87e-08,
+      -8.03e-12
+     ],
+     "CH4": [
+      0.03431,
+      5.469e-05,
+      3.661e-09,
+      -1.1e-11
+     ],
+     "CO": [
+      0.02895,
+      4.11e-06,
+      3.548e-09,
+      -2.22e-12
+     ],
+     "CO2": [
+      0.03611,
+      4.233e-05,
+      -2.887e-08,
+      7.464e-12
+     ],
+     "H2": [
+      0.02884,
+      7.65e-08,
+      3.288e-09,
+      -8.698e-13
+     ],
+     "H2O": [
+      0.03346,
+      6.88e-06,
+      7.604e-09,
+      -3.593e-12
+     ],
+     "N2": [
+      0.029,
+      2.199e-06,
+      5.723e-09,
+      -2.871e-12
+     ],
+     "O2": [
+      0.0291,
+      1.158e-05,
+      -6.076e-09,
+      1.311e-12
+     ]
+    },
+    "dHf_kJ_mol": {
+     "CH3OH": -200.7,
+     "CH4": -74.85,
+     "CO": -110.52,
+     "CO2": -393.5,
+     "H2": 0,
+     "H2O": -241.83,
+     "N2": 0,
+     "O2": 0
+    },
+    "excess_air": 0.25,
+    "fuel": "CH4",
+    "ref_C": 25
+   },
+   "lane": "units/energy",
+   "source": "Felder 4th ed, Ch.9.5 adiabatic flame temperature (Ex 9.5-x, style) [recalled, not verified]",
+   "statement": "CH4 burned completely with 25% excess air, both fed at 25 C, adiabatic, 1 atm. Find flame temperature. Air = 21 % O2 / 79 % N2 exactly.",
+   "status": "R",
+   "tol": {
+    "abs": 1.0
+   },
+   "tolNote": "abs 1 K (air composition changes it 0.5 K)",
+   "topic": "reactive-energy-balances",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Felder Table B.2 Cp polynomials (kJ/mol/degC, T in degC; coefficients recalled) and Table B.1 dHf (kJ/mol); reference 25 C, gas phase; engine must use the identical coefficients listed in the problem inputs",
+   "expected": {
+    "dHr_25C_kJ": -90.17999999999999,
+    "dHr_300C_kJ": -98.94600147499999
+   },
+   "fn": "heatOfReactionAtT",
+   "id": "EQ-CE-012",
+   "inputs": {
+    "T_C": [
+     25,
+     300
+    ],
+    "cp_poly": {
+     "CH3OH": [
+      0.04293,
+      8.301e-05,
+      -1.87e-08,
+      -8.03e-12
+     ],
+     "CH4": [
+      0.03431,
+      5.469e-05,
+      3.661e-09,
+      -1.1e-11
+     ],
+     "CO": [
+      0.02895,
+      4.11e-06,
+      3.548e-09,
+      -2.22e-12
+     ],
+     "CO2": [
+      0.03611,
+      4.233e-05,
+      -2.887e-08,
+      7.464e-12
+     ],
+     "H2": [
+      0.02884,
+      7.65e-08,
+      3.288e-09,
+      -8.698e-13
+     ],
+     "H2O": [
+      0.03346,
+      6.88e-06,
+      7.604e-09,
+      -3.593e-12
+     ],
+     "N2": [
+      0.029,
+      2.199e-06,
+      5.723e-09,
+      -2.871e-12
+     ],
+     "O2": [
+      0.0291,
+      1.158e-05,
+      -6.076e-09,
+      1.311e-12
+     ]
+    },
+    "dHf": {
+     "CH3OH": -200.7,
+     "CH4": -74.85,
+     "CO": -110.52,
+     "CO2": -393.5,
+     "H2": 0,
+     "H2O": -241.83,
+     "N2": 0,
+     "O2": 0
+    },
+    "nu": {
+     "CH3OH": 1,
+     "CO": -1,
+     "H2": -2
+    }
+   },
+   "lane": "units/energy",
+   "source": "Felder 4th ed, Ch.9.1-9.2 heat of reaction at T (heat-of-reaction method) [recalled, not verified]",
+   "statement": "CO+2H2->CH3OH(g): standard dHr at 25 C and dHr(300 C) from sensible-heat correction.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact data)",
+   "topic": "reactive-energy-balances",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Felder Table B.2 Cp polynomials (kJ/mol/degC, T in degC; coefficients recalled) and Table B.1 dHf (kJ/mol); reference 25 C, gas phase; engine must use the identical coefficients listed in the problem inputs",
+   "expected": {
+    "T_out_C": 600.8949858312837,
+    "dHr25_kJ": -41.150000000000006,
+    "xi": 0.6
+   },
+   "fn": "adiabaticOutletT (reactor, given conversion)",
+   "id": "EQ-CE-013",
+   "inputs": {
+    "T_in_C": 400.0,
+    "X_CO": 0.6,
+    "cp_poly": {
+     "CH3OH": [
+      0.04293,
+      8.301e-05,
+      -1.87e-08,
+      -8.03e-12
+     ],
+     "CH4": [
+      0.03431,
+      5.469e-05,
+      3.661e-09,
+      -1.1e-11
+     ],
+     "CO": [
+      0.02895,
+      4.11e-06,
+      3.548e-09,
+      -2.22e-12
+     ],
+     "CO2": [
+      0.03611,
+      4.233e-05,
+      -2.887e-08,
+      7.464e-12
+     ],
+     "H2": [
+      0.02884,
+      7.65e-08,
+      3.288e-09,
+      -8.698e-13
+     ],
+     "H2O": [
+      0.03346,
+      6.88e-06,
+      7.604e-09,
+      -3.593e-12
+     ],
+     "N2": [
+      0.029,
+      2.199e-06,
+      5.723e-09,
+      -2.871e-12
+     ],
+     "O2": [
+      0.0291,
+      1.158e-05,
+      -6.076e-09,
+      1.311e-12
+     ]
+    },
+    "dHf": {
+     "CH3OH": -200.7,
+     "CH4": -74.85,
+     "CO": -110.52,
+     "CO2": -393.5,
+     "H2": 0,
+     "H2O": -241.83,
+     "N2": 0,
+     "O2": 0
+    },
+    "feed": {
+     "CO": 1,
+     "H2O": 2
+    },
+    "ref_C": 25
+   },
+   "lane": "units/energy",
+   "source": "Felder 4th ed, Ch.9.3 adiabatic reactor (heat-of-reaction method) w/ water-gas shift (style) [recalled, not verified]",
+   "statement": "CO+H2O->CO2+H2 in an adiabatic reactor. Feed 1 mol CO + 2 mol steam at 400 C; CO conversion 60%. Find outlet temperature.",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3% (exact data)",
+   "topic": "reactive-energy-balances",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Felder Table B.2 Cp polynomials (kJ/mol/degC, T in degC; coefficients recalled) and Table B.1 dHf (kJ/mol); reference 25 C, gas phase; engine must use the identical coefficients listed in the problem inputs",
+   "expected": {
+    "HoF_method": -664.83890465851,
+    "Q_kJ_per_mol_CH4": -664.83890465851,
+    "products": {
+     "CO2": 1,
+     "H2O": 2,
+     "N2": 8.276190476190477,
+     "O2": 0.2
+    }
+   },
+   "fn": "energyBalanceReactive (duty)",
+   "id": "EQ-CE-014",
+   "inputs": {
+    "T_in_C": 25,
+    "T_out_C": 400,
+    "cp_poly": {
+     "CH3OH": [
+      0.04293,
+      8.301e-05,
+      -1.87e-08,
+      -8.03e-12
+     ],
+     "CH4": [
+      0.03431,
+      5.469e-05,
+      3.661e-09,
+      -1.1e-11
+     ],
+     "CO": [
+      0.02895,
+      4.11e-06,
+      3.548e-09,
+      -2.22e-12
+     ],
+     "CO2": [
+      0.03611,
+      4.233e-05,
+      -2.887e-08,
+      7.464e-12
+     ],
+     "H2": [
+      0.02884,
+      7.65e-08,
+      3.288e-09,
+      -8.698e-13
+     ],
+     "H2O": [
+      0.03346,
+      6.88e-06,
+      7.604e-09,
+      -3.593e-12
+     ],
+     "N2": [
+      0.029,
+      2.199e-06,
+      5.723e-09,
+      -2.871e-12
+     ],
+     "O2": [
+      0.0291,
+      1.158e-05,
+      -6.076e-09,
+      1.311e-12
+     ]
+    },
+    "dHf": {
+     "CH3OH": -200.7,
+     "CH4": -74.85,
+     "CO": -110.52,
+     "CO2": -393.5,
+     "H2": 0,
+     "H2O": -241.83,
+     "N2": 0,
+     "O2": 0
+    },
+    "excess_air": 0.1,
+    "fuel": "CH4",
+    "product_water_phase": "vapour"
+   },
+   "lane": "units/energy",
+   "source": "Felder 4th ed, Ch.9.4 heat-of-formation vs heat-of-reaction method, methane combustion [recalled, not verified]",
+   "statement": "1 mol CH4 + air (10% excess) at 25 C burned completely; products leave at 400 C. Heat duty Q = dH (negative = heat removed). Both methods must agree. Product water is vapour (dHc = -802.3 kJ/mol).",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3% (exact data)",
+   "topic": "reactive-energy-balances",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "isothermal, constant density",
+   "expected": {
+    "V_CSTR_L": 200.00000000000003,
+    "V_PFR_L": 80.47189562170503,
+    "ratio": 2.4853397382384474
+   },
+   "fn": "cstrVolume, pfrVolume",
+   "id": "EQ-CE-015",
+   "inputs": {
+    "CA0": 1,
+    "X": 0.8,
+    "k_per_min": 0.2,
+    "v0_L_min": 10.0
+   },
+   "lane": "units/reactors",
+   "source": "Fogler 5th/6th ed, Ch.2 CSTR/PFR design equations (first-order liquid, style) [recalled, not verified]",
+   "statement": "A->B first order, k=0.2 1/min, v0=10 L/min, CA0=1 mol/L (FA0=10 mol/min). Volume of CSTR and of PFR for X=0.8.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (analytic)",
+   "topic": "reactor-design",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "ideal gas, no dP",
+   "expected": {
+    "V_L": 1036.2248350263603,
+    "V_analytic_L": 1036.2248350263603,
+    "V_if_eps_zero_L": 400.0000000000001
+   },
+   "fn": "pfrVolume (numerical integration)",
+   "id": "EQ-CE-016",
+   "inputs": {
+    "CA0": 0.2,
+    "X": 0.8,
+    "eps": 1.0,
+    "k": 0.5,
+    "rate": "k*CA0^2*(1-X)^2/(1+eps*X)^2",
+    "v0": 10.0
+   },
+   "lane": "units/reactors",
+   "source": "Fogler 5th/6th ed, Ch.4-5 gas-phase PFR with volume change (Ex 4-x/5-x style) [recalled, not verified]",
+   "statement": "A->2B gas, isothermal isobaric, pure A fed: CA0=0.2 mol/L, v0=10 L/s, -rA=k CA^2, k=0.5 L/mol/s (eps=1). PFR volume for X=0.8 by numerical integration of FA0 dX/(-rA).",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (quadrature vs analytic agree 1e-6)",
+   "topic": "reactor-design",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "isothermal",
+   "expected": {
+    "V_CSTR_L": 33.333333333333336,
+    "V_PFR_analytic_L": 54.93061443340548,
+    "V_PFR_simpson_L": 55.00000000000001,
+    "V_total_L": 88.26394776673882
+   },
+   "fn": "cstrVolume+pfrVolume series, Levenspiel integration",
+   "id": "EQ-CE-017",
+   "inputs": {
+    "CA0": 1,
+    "FA0": 10,
+    "X_cstr": 0.4,
+    "X_final": 0.8,
+    "k": 0.2,
+    "simpson_span_X": [
+     0.4,
+     0.8
+    ],
+    "table_FA0_over_rA_L": [
+     50.0,
+     55.55555555555555,
+     62.499999999999986,
+     71.42857142857143,
+     83.33333333333334,
+     100.0,
+     125.00000000000001,
+     166.66666666666669,
+     250.00000000000003
+    ],
+    "table_X": [
+     0.0,
+     0.1,
+     0.2,
+     0.30000000000000004,
+     0.4,
+     0.5,
+     0.6000000000000001,
+     0.7000000000000001,
+     0.8
+    ],
+    "v0": 10
+   },
+   "lane": "units/reactors",
+   "source": "Fogler 5th/6th ed, Ex 2-x CSTR followed by PFR from Levenspiel plot (style) [recalled, not verified]",
+   "statement": "First order A->B k=0.2 1/min, FA0=10 mol/min, CA0=1 mol/L. CSTR to X=0.4 then PFR to X=0.8. Volumes; also Simpson's rule on tabulated FA0/(-rA) at X = 0.4, 0.5, ... 0.8 only (the PFR part; 0-0.8 gives about 80.5 L).",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (analytic answer; tabular Simpson …",
+   "topic": "reactor-design",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "isothermal",
+   "expected": {
+    "V_PFR_L": 115.12925464970229,
+    "V_each_L": 108.11388300841898,
+    "V_single_CSTR_L": 450.00000000000006,
+    "V_total_L": 216.22776601683796,
+    "X_after_first": 0.683772233983162
+   },
+   "fn": "cstrVolume (series)",
+   "id": "EQ-CE-018",
+   "inputs": {
+    "X": 0.9,
+    "k": 0.2,
+    "n": 2,
+    "v0": 10
+   },
+   "lane": "units/reactors",
+   "source": "Fogler 5th/6th ed, Ch.2.5 CSTRs in series (first order) [recalled, not verified]",
+   "statement": "First order k=0.2/min, v0=10 L/min. Two equal CSTRs in series for overall X=0.9. Volume of each, and compare with single CSTR and PFR.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (analytic)",
+   "topic": "reactor-design",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "R=8.314462618 J/mol/K",
+   "expected": {
+    "E_recovered_J_mol": 80000.00000000001,
+    "factor_300_to_310": 2.813982961057072,
+    "k2": 9.769046911312268
+   },
+   "fn": "arrhenius",
+   "id": "EQ-CE-019",
+   "inputs": {
+    "E_J_mol": 80000.0,
+    "R": 8.314462618,
+    "R_J_mol_K": 8.314462618,
+    "T1": 300.0,
+    "T2": 350.0,
+    "k1": 0.1
+   },
+   "lane": "chem/kinetics",
+   "source": "Fogler 5th/6th ed, Ch.3 Arrhenius k(T) [recalled, not verified]",
+   "statement": "k=0.1 1/min at 300 K, E=80 kJ/mol. k at 350 K; and recover E from the two k values; also the factor per 10 K near 300 K. One R: 8.314462618 J/(mol K).",
+   "status": "R",
+   "tol": {
+    "rel": 0.001
+   },
+   "tolNote": "0.1% (exact)",
+   "topic": "reactor-design",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "dCp=0 constant dH",
+   "expected": {
+    "K_at_Tad": 0.2996245247388402,
+    "T_ad_K": 392.2187967479454,
+    "X_ad_eq": 0.23054699186986355,
+    "X_eq_isothermal_300K": 0.9987490510154452
+   },
+   "fn": "adiabaticEquilibriumConversion / KofT_vantHoff",
+   "id": "EQ-CE-020",
+   "inputs": {
+    "Cp_cal_mol_K": 50.0,
+    "K298": 1000.0,
+    "Rcal": 1.987204,
+    "T0": 300.0,
+    "dH_cal": -20000.0,
+    "vanthoff": "K=K298*exp(-dH/R*(1/T-1/298))"
+   },
+   "lane": "chem/equilibrium",
+   "source": "Fogler 5th/6th ed, Ch.8/11 adiabatic equilibrium conversion (Ex 8-x/11-x style, A<=>B) [recalled, not verified]",
+   "statement": "Reversible exothermic A<=>B, dHrx=-20000 cal/mol (dCp=0), K(298)=1000, sum(theta_i Cp_i)=50 cal/mol/K, feed pure A at 300 K, adiabatic. Find adiabatic equilibrium conversion and T (intersection of X_EB=Cp(T-T0)/(-dH) and Xe(T)=K/(1+K)). Also Xe at 300 K isothermal.",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3% (exact)",
+   "topic": "adiabatic-equilibrium",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "dCp=0",
+   "expected": {
+    "G_cal_mol": [
+     15.331932066843004,
+     7286.523138422125,
+     19990.061083209337
+    ],
+    "T_K": [
+     300.0958245754178,
+     345.5407696151383,
+     424.9378817700583
+    ],
+    "X": [
+     0.0007665966033421503,
+     0.36432615692110626,
+     0.9995030541604667
+    ],
+    "stability": [
+     "stable",
+     "unstable",
+     "stable"
+    ]
+   },
+   "fn": "multipleSteadyStates (three roots, stability)",
+   "id": "EQ-CE-021",
+   "inputs": {
+    "CpSum": 100.0,
+    "E_cal": 30000.0,
+    "Rcal": 1.987204,
+    "T0": 300.0,
+    "Ta": 300,
+    "dH_cal": -20000.0,
+    "k350": 1.0,
+    "kappa": 0.6,
+    "tau": 1.0
+   },
+   "lane": "units/reactors",
+   "source": "Fogler 5th/6th ed, Ch.12 multiple steady states G(T) vs R(T) (Ex 12-x style, parameters designed here) [recalled, not verified]",
+   "statement": "Liquid first-order A->B in a CSTR with cooling. tau=1 min, k(T)=1.0 exp[-(E/R)(1/T-1/350)] 1/min, E=30000 cal/mol, dHrx=-20000 cal/mol, CpSum=100 cal/mol/K (per mol A fed), kappa=UA/(FA0*CpSum)=0.6, T0=Ta=300 K (so Tc=300). Energy balance G(T)=R(T): G=(-dH) tau k/(1+tau k), R=CpSum(1+kappa)(T-Tc). List all steady states.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (roots of smooth scalar function; …",
+   "topic": "multiple-steady-states",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "same",
+   "expected": {
+    "T_high_branch_at_extinction": 371.0997996522517,
+    "T_low_branch_at_ignition": 329.15722222422744,
+    "T_tangent_points": [
+     329.15722222422744,
+     371.0997996522517
+    ],
+    "Tc_extinction": 256.0073382275528,
+    "Tc_ignition": 321.5129960928673,
+    "n_roots_Tc_ext-2K": 1,
+    "n_roots_Tc_ign+2K": 1,
+    "n_roots_mid": 3
+   },
+   "fn": "multipleSteadyStates (ignition/extinction)",
+   "id": "EQ-CE-022",
+   "inputs": {
+    "same_as": "EQ-CE-021",
+    "vary": "Tc"
+   },
+   "lane": "units/reactors",
+   "source": "Fogler 5th/6th ed, Ch.12.6 ignition-extinction curve [recalled, not verified]",
+   "statement": "Same reactor as EQ-CE-021 but vary effective coolant temperature Tc (R(T)=CpSum(1+kappa)(T-Tc)). Find Tc at which the low branch disappears (ignition, heating up) and Tc at which the high branch disappears (extinction, cooling), and the jump temperatures. Valid multiplicity window: extinction<Tc<ignition.",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3% (tangency conditions G=R and G'=R')",
+   "topic": "multiple-steady-states",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "energy balance exact, constant dTad (no temperature dependence of dH/Cp)",
+   "expected": {
+    "T_final_K": 549.0,
+    "X_at_max_rate": 0.7691585797229389,
+    "max_rate_per_s": 0.011420871902581186,
+    "t50_isothermal_s": 693.1471805599452,
+    "t_X50_s": 201.05468068250482,
+    "t_X99_s": 262.67888379461283,
+    "t_max_rate_s": 229.20440023824636
+   },
+   "fn": "thermalRunaway (adiabatic batch)",
+   "id": "EQ-CE-023",
+   "inputs": {
+    "E_J_mol": 100000.0,
+    "R_J_mol_K": 8.314462618,
+    "T0": 450.0,
+    "T0_K": 450.0,
+    "dTad": 100.0,
+    "k0": 0.001,
+    "k_form": "k0*exp((E/R)*(1/T0 - 1/T))"
+   },
+   "lane": "units/reactors",
+   "source": "Fogler 5th/6th ed, Ch.13 runaway / T2 Laboratories (generic adiabatic batch runaway, NOT the T2 numbers) [recalled, not verified]",
+   "statement": "Adiabatic batch, first-order A->B: dX/dt=k(T)(1-X), T=T0+dTad*X, dTad=100 K, T0=450 K, k(450)=1e-3 1/s, E=100 kJ/mol. Time to X=0.5 and X=0.99, time and value of maximum rate, final T. Compare isothermal t50. R = 8.314462618 J/(mol K); k(T) = k0 exp[(E/R)(1/450 - 1/T)] with k0 = k(450 K).",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (ODE integrated with rtol 1e-10; e…",
+   "topic": "runaway",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "expected": {
+    "T_vessel_at_crit_K": 415.94686706507,
+    "Ta_crit_K": 397.9656156631376,
+    "all_tangent_T": [
+     415.94686706507
+    ],
+    "dT_crit_K": 17.98125140193241,
+    "dT_semenov_approx_K": 16.460207251175763
+   },
+   "fn": "thermalRunaway (Semenov critical condition)",
+   "id": "EQ-CE-024",
+   "inputs": {
+    "E_J_mol": 80000.0,
+    "R": 8.314462618,
+    "g0_W": 10000000000000.0,
+    "hS_W_K": 50.0
+   },
+   "lane": "units/reactors",
+   "notes": "dT_semenov_approx_K is reported, never asserted against dT_crit_K (16.46 vs 17.98).",
+   "source": "Fogler 5th/6th ed Ch.12-13 / Semenov thermal explosion theory (zero-order, heat loss UA(T-Ta)) [recalled, not verified]",
+   "statement": "Zero-order exothermic reaction in a vessel: heat generation G(T)=g0 exp(-E/RT), g0=1e13 W, E=80 kJ/mol; heat loss hS(T-Ta), hS=50 W/K. Find the critical ambient temperature Ta_crit above which no steady state exists (tangency), the critical (ignition) vessel temperature, and compare Semenov approximation Tcrit-Ta=R*Ta^2/E.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2 % exact tangency; the approximation R·Ta,crit²/E = 16.46 K is reported, not asserted against 17.98",
+   "topic": "runaway",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "expected": {
+    "K298": 580966.8432094149,
+    "dG0_J": -32900,
+    "lnK": 13.272448965719203
+   },
+   "fn": "KofT_vantHoff (K from dG)",
+   "id": "EQ-CE-025",
+   "inputs": {
+    "K_unit": "bar^-2",
+    "R": 8.314,
+    "T": 298.15,
+    "dGf_NH3": -16450,
+    "nu": {
+     "H2": -3,
+     "N2": -1,
+     "NH3": 2
+    },
+    "standard_state_bar": 1.0
+   },
+   "lane": "chem/equilibrium",
+   "source": "Smith, Van Ness, Abbott & Swihart, Ch.13.2 K from dG0 (ammonia, dGf NH3=-16450 J/mol) [recalled, not verified]",
+   "statement": "N2+3H2->2NH3 at 298.15 K. K from dG0 = -RT ln K, with dGf(NH3)=-16450 J/mol. K in bar^-2, standard state 1 bar.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (exact)",
+   "topic": "k-of-t-equilibrium",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assertGroups": [
+    [
+     "K500",
+     "K700"
+    ],
+    [
+     "with_Cp_K500",
+     "with_Cp_K700"
+    ]
+   ],
+   "assumptions": "constant dH (row 1) / Cp=A+BT+D/T^2 (row 2)",
+   "expected": {
+    "K500": 0.17438628217357252,
+    "K700": 0.00030817444024228396,
+    "with_Cp_K500": 0.10006074055667294,
+    "with_Cp_K700": 8.562421978692929e-05
+   },
+   "fn": "KofT_vantHoff and KofT_withCp",
+   "id": "EQ-CE-026",
+   "inputs": {
+    "K298": 580966.8432094149,
+    "R_J_mol_K": 8.314,
+    "T": [
+     500,
+     700
+    ],
+    "T0_K": 298.15,
+    "dH298": -92220,
+    "nu": {
+     "H2": -3,
+     "N2": -1,
+     "NH3": 2
+    }
+   },
+   "lane": "chem/equilibrium",
+   "source": "Smith 13.3 van't Hoff K(T), constant dH (ammonia, dHf=-46110) [recalled, not verified]",
+   "statement": "Ammonia synthesis, constant dH0 = 2*(-46110) J/mol. K at 500 K and 700 K: row A constant dH (R = 8.314, T0 = 298.15); row B with Cp (Smith Table C.1 dA, dB, dD as in EQ-CE-030). Two separate assertions; never mix rows (they differ 43 %).",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3% (exact for given model (constant d…",
+   "topic": "k-of-t-equilibrium",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Cp polynomial as given",
+   "expected": {
+    "K1000": 1.4612088080338799,
+    "K1000_const_dH": 0.8952246688181416,
+    "K1100": 1.0058065474268465,
+    "dH1000": -34635.89581209596,
+    "dH298": -41166
+   },
+   "fn": "KofT_withCp",
+   "id": "EQ-CE-027",
+   "inputs": {
+    "T": [
+     1000,
+     1100
+    ],
+    "nu": {
+     "CO": -1,
+     "CO2": 1,
+     "H2": 1,
+     "H2O": -1
+    },
+    "species_data": {
+     "CO": {
+      "A": 3.376,
+      "B": 0.000557,
+      "D": -3100.0,
+      "dGf298": -137169,
+      "dHf298": -110525
+     },
+     "CO2": {
+      "A": 5.457,
+      "B": 0.001045,
+      "D": -115700.0,
+      "dGf298": -394359,
+      "dHf298": -393509
+     },
+     "H2": {
+      "A": 3.249,
+      "B": 0.000422,
+      "D": 8300.0,
+      "dGf298": 0,
+      "dHf298": 0
+     },
+     "H2O": {
+      "A": 3.47,
+      "B": 0.00145,
+      "D": 12100.0,
+      "dGf298": -228572,
+      "dHf298": -241818
+     },
+     "N2": {
+      "A": 3.28,
+      "B": 0.000593,
+      "D": 4000.0,
+      "dGf298": 0,
+      "dHf298": 0
+     },
+     "NH3": {
+      "A": 3.578,
+      "B": 0.00302,
+      "D": -18600.0,
+      "dGf298": -16450,
+      "dHf298": -46110
+     },
+     "O2": {
+      "A": 3.639,
+      "B": 0.000506,
+      "D": -22700.0,
+      "dGf298": 0,
+      "dHf298": 0
+     },
+     "SO2": {
+      "A": 5.699,
+      "B": 0.000801,
+      "D": -101500.0,
+      "dGf298": -300194,
+      "dHf298": -296830
+     },
+     "SO3": {
+      "A": 8.06,
+      "B": 0.001056,
+      "D": -202800.0,
+      "dGf298": -371060,
+      "dHf298": -395720
+     }
+    }
+   },
+   "lane": "chem/equilibrium",
+   "source": "Smith 13.x water-gas shift K(T) with Cp (cf. Ex 13.4-13.5 style) [recalled, not verified]",
+   "statement": "CO+H2O(g)->CO2+H2: K at 1000 K and 1100 K from dG298 and ln K integration with dH(T) using Cp/R=A+BT+D/T^2 data (Smith Table C.1/C.4 values recalled).",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact for given data; Smith print…",
+   "topic": "k-of-t-equilibrium",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "ideal gas",
+   "expected": {
+    "conv_CO": 0.5007237187952411,
+    "eps_e": 0.5007237187952411,
+    "eps_e_steam2": 0.6675241312776508
+   },
+   "fn": "equilibriumConversion",
+   "id": "EQ-CE-028",
+   "inputs": {
+    "K": 1.0058065474268465,
+    "P_bar": 1,
+    "T": 1100,
+    "feed": [
+     1,
+     1
+    ]
+   },
+   "lane": "chem/equilibrium",
+   "source": "Smith Ex 13.x equilibrium conversion of water-gas shift (1 CO + 1 H2O, 1100 K, 1 bar) [recalled, not verified]",
+   "statement": "1 mol CO + 1 mol H2O(g) at 1100 K, 1 bar, ideal gas. Equilibrium extent/conversion; and with 2 mol steam. K(1100 K) = 1.0058.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact; P has no effect (dnu=0))",
+   "topic": "k-of-t-equilibrium",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "ideal gas, constant dH",
+   "expected": {
+    "eps_e": 0.862591487593782,
+    "y_NH3": 0.7264487988601226
+   },
+   "fn": "equilibriumConversion (dn<0, pressure, inert)",
+   "id": "EQ-CE-029",
+   "inputs": {
+    "K_bar_m2": 0.17438628217357252,
+    "P_bar": 100.0,
+    "T": 500,
+    "feed": {
+     "Ar": 0.1,
+     "H2": 3,
+     "N2": 1
+    },
+    "nu": {
+     "H2": -3,
+     "N2": -1,
+     "NH3": 2
+    }
+   },
+   "lane": "chem/equilibrium",
+   "source": "Smith Ch.13.4-13.5 ammonia equilibrium with inert, pressure effect (constructed) [recalled, not verified]",
+   "statement": "Feed 1 N2 + 3 H2 + 0.1 Ar at 500 K, 100 bar, ideal gas (phi=1). K(500) from constant-dH van't Hoff. Equilibrium extent and NH3 mole fraction. (Ignores nonideality; real value higher.)",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact for stated model)",
+   "topic": "k-of-t-equilibrium",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "ideal gas; K dimension bar^-0.5, P=1.01325 bar",
+   "expected": {
+    "K800": 35.114179931851,
+    "K800_bar_basis": 35.114179931851,
+    "conv_SO2": 0.8947531548073506,
+    "eps_e": 8.947531548073506
+   },
+   "fn": "equilibriumConversion (K(T) with Cp)",
+   "id": "EQ-CE-030",
+   "inputs": {
+    "P_atm": 1,
+    "T": 800,
+    "feed": {
+     "N2": 80,
+     "O2": 10,
+     "SO2": 10
+    },
+    "nu": {
+     "O2": -0.5,
+     "SO2": -1,
+     "SO3": 1
+    },
+    "species_data": {
+     "CO": {
+      "A": 3.376,
+      "B": 0.000557,
+      "D": -3100.0,
+      "dGf298": -137169,
+      "dHf298": -110525
+     },
+     "CO2": {
+      "A": 5.457,
+      "B": 0.001045,
+      "D": -115700.0,
+      "dGf298": -394359,
+      "dHf298": -393509
+     },
+     "H2": {
+      "A": 3.249,
+      "B": 0.000422,
+      "D": 8300.0,
+      "dGf298": 0,
+      "dHf298": 0
+     },
+     "H2O": {
+      "A": 3.47,
+      "B": 0.00145,
+      "D": 12100.0,
+      "dGf298": -228572,
+      "dHf298": -241818
+     },
+     "N2": {
+      "A": 3.28,
+      "B": 0.000593,
+      "D": 4000.0,
+      "dGf298": 0,
+      "dHf298": 0
+     },
+     "NH3": {
+      "A": 3.578,
+      "B": 0.00302,
+      "D": -18600.0,
+      "dGf298": -16450,
+      "dHf298": -46110
+     },
+     "O2": {
+      "A": 3.639,
+      "B": 0.000506,
+      "D": -22700.0,
+      "dGf298": 0,
+      "dHf298": 0
+     },
+     "SO2": {
+      "A": 5.699,
+      "B": 0.000801,
+      "D": -101500.0,
+      "dGf298": -300194,
+      "dHf298": -296830
+     },
+     "SO3": {
+      "A": 8.06,
+      "B": 0.001056,
+      "D": -202800.0,
+      "dGf298": -371060,
+      "dHf298": -395720
+     }
+    }
+   },
+   "lane": "chem/equilibrium",
+   "source": "Smith Ch.13 SO2 oxidation equilibrium (Prob. 13.x style, constructed) [recalled, not verified]",
+   "statement": "SO2+1/2O2->SO3, feed (basis 100 mol) 10 SO2, 10 O2, 80 N2 at 800 K and 1 atm; K(800) from full-Cp integration. Equilibrium SO2 conversion.",
+   "status": "R",
+   "tol": {
+    "rel": 0.005
+   },
+   "tolNote": "0.5% (exact for stated data)",
+   "topic": "k-of-t-equilibrium",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "Cp polynomial",
+   "expected": {
+    "dA_dB_dC_dD": [
+     -7.663,
+     0.010815,
+     -3.45e-06,
+     -13500.0
+    ],
+    "dH1073_J": -103565.95487366596,
+    "dH298_J": -90135.0
+   },
+   "fn": "heatOfReactionAtT",
+   "id": "EQ-CE-031",
+   "inputs": {
+    "CH3OH": {
+     "A": 2.211,
+     "B": 0.012216,
+     "C": -3.45e-06,
+     "D": 0,
+     "dHf": -200660
+    },
+    "CO": {
+     "A": 3.376,
+     "B": 0.000557,
+     "D": -3100.0,
+     "dGf298": -137169,
+     "dHf298": -110525
+    },
+    "H2": {
+     "A": 3.249,
+     "B": 0.000422,
+     "D": 8300.0,
+     "dGf298": 0,
+     "dHf298": 0
+    },
+    "T": [
+     298.15,
+     1073.15
+    ]
+   },
+   "lane": "thermo",
+   "source": "Smith Ex 4.6 standard heat of methanol synthesis at 800 C (CO+2H2->CH3OH(g)) [recalled, not verified]",
+   "statement": "dH0 of CO+2H2->CH3OH(g) at 298.15 K and at 1073.15 K using Cp/R=A+BT+CT^2+DT^-2 (CH3OH A=2.211,B=12.216e-3,C=-3.450e-6; CO,H2 as Smith table C.1).",
+   "status": "R",
+   "tol": {
+    "rel": 0.003
+   },
+   "tolNote": "0.3% (exact for stated data; recalled S…",
+   "topic": "heat-of-reaction-at-T",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "ideal separator",
+   "expected": {
+    "B_product": 93.75000000000001,
+    "overall_conv": 0.9375,
+    "purge": 6.250000000000002,
+    "reactor_feed": 156.25000000000003,
+    "recycle": 56.250000000000014
+   },
+   "fn": "recyclePurgeTear",
+   "id": "EQ-CE-032",
+   "inputs": {
+    "X": 0.6,
+    "fresh_A": 100,
+    "purge": 0.1
+   },
+   "lane": "flowsheet",
+   "source": "GATE CH style recycle/purge (recalled, not verified; reconstructed) [recalled, not verified]",
+   "statement": "Pure A fed 100 mol/h. Reactor A->B, single-pass conversion 60%. Separator sends all B to product, all unreacted A to a splitter: 10% purged, 90% recycled to reactor. Find reactor feed, recycle and overall conversion of A.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (closed form)",
+   "topic": "recycle-purge",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "isothermal",
+   "expected": {
+    "ratio": 3.908650337129267
+   },
+   "fn": "cstrVolume/pfrVolume",
+   "id": "EQ-CE-033",
+   "inputs": {
+    "X": 0.9,
+    "order": 1
+   },
+   "lane": "units/reactors",
+   "source": "GATE CH style CSTR vs PFR volume ratio (recalled, not verified; reconstructed) [recalled, not verified]",
+   "statement": "First-order liquid reaction, same feed and k, X=0.9. Ratio V_CSTR/V_PFR.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (analytic)",
+   "topic": "reactor-design",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "expected": {
+    "X_PFR_same_total_tau": 0.8646647167633873,
+    "X_overall": 0.75,
+    "X_single_CSTR_same_total_tau": 0.6666666666666666
+   },
+   "fn": "cstrVolume (series)",
+   "id": "EQ-CE-034",
+   "inputs": {
+    "k_tau_each": 1,
+    "n": 2
+   },
+   "lane": "units/reactors",
+   "source": "GATE CH style two CSTRs in series (recalled, not verified; reconstructed) [recalled, not verified]",
+   "statement": "First-order reaction, two equal CSTRs in series, each with k*tau=1. Overall conversion; and for a single CSTR with total tau.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (analytic)",
+   "topic": "reactor-design",
+   "unit": "see expected keys (suffix gives unit)"
+  },
+  {
+   "assumptions": "isothermal",
+   "expected": {
+    "ratio": 2.0,
+    "tau_CSTR_kCA0": 2.0,
+    "tau_PFR_kCA0": 1.0
+   },
+   "fn": "cstrVolume/pfrVolume",
+   "id": "EQ-CE-035",
+   "inputs": {
+    "X": 0.5,
+    "order": 2
+   },
+   "lane": "units/reactors",
+   "source": "GATE CH style second-order CSTR/PFR (recalled, not verified; reconstructed) [recalled, not verified]",
+   "statement": "Second-order irreversible liquid reaction -rA=k CA^2, X=0.5. Space time ratio tau_CSTR/tau_PFR.",
+   "status": "R",
+   "tol": {
+    "rel": 0.002
+   },
+   "tolNote": "0.2% (analytic)",
+   "topic": "reactor-design",
+   "unit": "see expected keys (suffix gives unit)"
+  }
+ ],
+ "source": "docs/research/oracles_ncert.py, docs/research/oracles_cheme.py (+ DESIGN 9.2.1/9.2.1b)"
+}

@@ -1,0 +1,25 @@
+{
+ "Kc_400_mol_L": 1.53772108195052,
+ "Kp_298_15_bar": 0.1484510500279619,
+ "Kp_400_bar": 51.141281708137285,
+ "P_bar": 8.825772663952662,
+ "alpha": 0.7691613293692879,
+ "design": "DESIGN 9.2.3",
+ "generator": "scripts/export-fixtures.py",
+ "inputs": {
+  "R_L_bar": 0.0831446,
+  "T_K": 400.0,
+  "V_L": 1.0,
+  "n0_mol": 0.15
+ },
+ "notes": "Rigorous N2O4 <=> 2NO2 from thermo.rxn(R9): Kp(dissociation, bar) at 298.15 K and 400 K; alpha and P for 0.15 mol N2O4 in 1 L at 400 K (R = 0.0831446 L bar/(mol K)). `textbook` = constant dH/dS from 298.15 K, R = 8.314.",
+ "p0_bar": 4.988676,
+ "source": "docs/research/levels_calc_n2o4_beds.py (thermo R9)",
+ "textbook_Kp_bar": {
+  "298.15": 0.1484352943432939,
+  "400": 52.40202476696957
+ },
+ "tolerance": {
+  "rel": 0.003
+ }
+}

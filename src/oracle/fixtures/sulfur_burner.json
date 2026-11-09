@@ -1,0 +1,85 @@
+{
+ "cases": [
+  {
+   "O2_per_SO2": 2.5,
+   "T_ad_C": 599.7938560980012,
+   "air_kmol_h": 1666.6666666666667,
+   "boiler_duty_MW": 2.739681738933274,
+   "steam_t_h": 4.1774054469122355,
+   "y_SO2": 0.06
+  },
+  {
+   "O2_per_SO2": 1.625,
+   "T_ad_C": 769.6423682715712,
+   "air_kmol_h": 1250.0,
+   "boiler_duty_MW": 4.110189943969725,
+   "steam_t_h": 6.267125708721308,
+   "y_SO2": 0.08
+  },
+  {
+   "O2_per_SO2": 1.1,
+   "T_ad_C": 931.4154852210278,
+   "air_kmol_h": 1000.0,
+   "boiler_duty_MW": 4.932494866991591,
+   "steam_t_h": 7.520957865806746,
+   "y_SO2": 0.1
+  },
+  {
+   "O2_per_SO2": 0.9090909090909091,
+   "T_ad_C": 1009.7278350028056,
+   "air_kmol_h": 909.0909090909091,
+   "boiler_duty_MW": 5.231514838999541,
+   "steam_t_h": 7.97689683201963,
+   "y_SO2": 0.11
+  },
+  {
+   "O2_per_SO2": 0.75,
+   "T_ad_C": 1086.5176239628768,
+   "air_kmol_h": 833.3333333333334,
+   "boiler_duty_MW": 5.480698149006172,
+   "steam_t_h": 8.356845970530378,
+   "y_SO2": 0.12
+  },
+  {
+   "O2_per_SO2": 0.4999999999999997,
+   "T_ad_C": 1235.98986022805,
+   "air_kmol_h": 714.2857142857142,
+   "boiler_duty_MW": 5.872271921873728,
+   "steam_t_h": 8.953908902475824,
+   "y_SO2": 0.14
+  },
+  {
+   "O2_per_SO2": 0.3125,
+   "T_ad_C": 1380.5939990353022,
+   "air_kmol_h": 625.0,
+   "boiler_duty_MW": 6.165952251524395,
+   "steam_t_h": 9.401706101434911,
+   "y_SO2": 0.16
+  },
+  {
+   "O2_per_SO2": 0.16666666666666657,
+   "T_ad_C": 1520.8895874145737,
+   "air_kmol_h": 555.5555555555555,
+   "boiler_duty_MW": 6.394370285697137,
+   "steam_t_h": 9.749992811736423,
+   "y_SO2": 0.18
+  }
+ ],
+ "design": "DESIGN 9.2.3",
+ "generator": "scripts/export-fixtures.py",
+ "inputs": {
+  "S_T_C": 140,
+  "S_kmol_h": 100,
+  "air_N2": 0.79,
+  "air_O2": 0.21,
+  "air_T_C": 25,
+  "gas_out_T_C": 420,
+  "steam_dh_kJ_kg": 2361
+ },
+ "notes": "100 kmol/h liquid S at 140 C (413.15 K) + dry air (21/79) at 25 C burned completely to SO2; adiabatic flame T; boiler cools gas to 420 C (693.15 K); steam = 40 bar saturated from BFW 105 C, dh = 2361 kJ/kg. Enthalpies from thermo.H (NIST Shomate).",
+ "source": "docs/research/levels_calc.py (sulfur burner section; recomputed here with the same code)",
+ "tolerance": {
+  "abs_T_K": 0.5,
+  "rel": 0.003
+ }
+}

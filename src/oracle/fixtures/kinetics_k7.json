@@ -1,0 +1,54 @@
+{
+ "design": "DESIGN 9.2.3",
+ "generator": "scripts/export-fixtures.py",
+ "ignition_coolant_only_C": 47.44931577594855,
+ "ignition_feed_and_coolant_C": 33.06078958959972,
+ "inputs": {
+  "A_per_h": 16960000000000.0,
+  "CA0_kmol_m3": 2.114,
+  "E_MJ_kmol": 75.36,
+  "Q_m3_h": 5.0,
+  "T0_C": 25.0,
+  "Tc_C": 25.0,
+  "UA_MJ_h_K": 10.0,
+  "V_m3": 0.1,
+  "dH_MJ_kmol": -251.2,
+  "rho_cp_MJ_m3_K": 3.57
+ },
+ "notes": "Jacketed CSTR, propylene oxide hydrolysis, first order: k = 16.96e12 exp(-E/RT) 1/h with E = 75.36 MJ/kmol EXACTLY (75.4 moves the unstable state 63.1 -> 63.45 C), dH = -251.2 MJ/kmol (Fogler x3 variant), CA0 = 2.114 kmol/m3, rho cp = 3.57 MJ/(m3 K), R = 8.314e-3 MJ/(kmol K). Steady states G(T) = R(T) with G = -dH CA0 Q X, X = (V/Q)k/(1+(V/Q)k), R = Q rho cp (T - T0) + UA (T - Tc). ignition_coolant_only: lowest Tc (feed stays 25 C) with a low branch (47.4 C). ignition_feed_and_coolant: lowest T0 = Tc (33.1 C). UA drop: from the hot state at t = 0.1 h UA falls to 30 % (-70 %), LSODA dynamics (CA, T), time for T to rise 5/10/20 K above the hot state; the new hot steady state is ~152 C. Stability test: d(G-R)/dT < 0.",
+ "source": "docs/research/kinetics_cstr_si.py",
+ "steady_states": [
+  {
+   "T_C": 27.55107880040879,
+   "X": 0.026758049382410193,
+   "stable": true
+  },
+  {
+   "T_C": 63.09842108127759,
+   "X": 0.39961111060987947,
+   "stable": false
+  },
+  {
+   "T_C": 117.00392184077032,
+   "X": 0.9650213406172425,
+   "stable": true
+  }
+ ],
+ "tolerance": {
+  "abs_T_K": 0.3,
+  "rel": 0.01
+ },
+ "ua_drop": {
+  "T_after_1h_C": 151.65696877442377,
+  "frac": 0.3,
+  "from_T_C": 117.00392184077032,
+  "new_states_C": [
+   28.87383217873264,
+   52.370894428707516,
+   151.65696877442196
+  ],
+  "t_plus_10K_s": 18.59999999999995,
+  "t_plus_20K_s": 48.599999999999945,
+  "t_plus_5K_s": 8.999999999999957
+ }
+}
