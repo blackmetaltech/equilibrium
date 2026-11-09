@@ -27,3 +27,8 @@ Deviations from `docs/BUILD-PLAN.md` / `docs/DESIGN.md` are recorded here with a
   literature-K variant and an engine-K variant; the engine is asserted against the engine-K variant.
 - 2026-11-10 · P22 round-trip tolerance is 1e-12·max(|x|, 1) (relative above 1, absolute below): °C and bar(g) near zero
   cannot round-trip to 1e-12 relative through the 273.15 / 1.01325 offsets.
+- 2026-11-10 · M1.9: bounded Wegstein (q ∈ [−5, 0], DESIGN §3.6) contracts at −5 + 6s per pass, i.e. 0.94 at s = 0.99, so
+  on its own it needs 338 passes at a 1 % purge — the DESIGN's "≤ 30 Wegstein passes" is not achievable with that bound.
+  The solver hands off to Broyden as soon as the Wegstein contraction estimate predicts more passes than a Broyden restart
+  costs (dimension + 8): 16-17 passes at 0.5-10 % purge, `method: 'broyden'`. `qMin` stays configurable. The L20
+  "loop filling" animation uses the stored tear history whatever the method.
