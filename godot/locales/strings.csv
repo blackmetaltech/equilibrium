@@ -1,33 +1,47 @@
 keys,en
-TANK_TAGLINE,Torricelli's law · mass balance
-TANK_BLURB,"Water comes in through a valve and leaves through a hole at the bottom. Hold the depth in the band by working out the opening, not by guessing."
+EQ_TAGLINE,Real thermodynamics · real kinetics · one plant
+EQ_BLURB,"Build a chemical plant where equilibrium, kinetics and energy balances are the rules. Turn a knob and watch the curve move."
 MODE_LEARNER,LEARNER
-MODE_LEARNER_DESC,"New to fluids · the tank explains itself, equations on screen"
+MODE_LEARNER_DESC,"New to chemistry or process design · the plant explains itself, costs never fail a goal"
 MODE_ENGINEER,ENGINEER
-MODE_ENGINEER_DESC,"I know the basics · fewer hints, same physics"
+MODE_ENGINEER_DESC,"I know the basics · rigorous thermodynamics, costs and emissions count"
 MODE_SANDBOX,SANDBOX
-MODE_SANDBOX_DESC,Just give me the tank
-DOCK_VALVE,VALVE
-DOCK_LEVEL,LEVEL
+MODE_SANDBOX_DESC,"All units, any feed, no goals"
+DOCK_PLANT,PLANT
 DOCK_CODEX,CODEX
 TICK_BUTTON,NEXT ▶
-KEY_SPACE_DESC,Advance the tank one tick (10 s of simulated time)
-KEY_DOCK_DESC,"Valve, Level, Codex"
-KEY_WHEEL,Click the valve wheel
-KEY_WHEEL_DESC,Open the valve controls
-HUD_DEPTH,DEPTH
-HUD_VALVE,VALVE
-HUD_HELD,HELD
-HUD_TIME,TICK %d · %d s
-COACH_TANK_TITLE,This is your tank
-COACH_TANK_BODY,Water comes in through the valve on the left and leaves through the hole at the bottom. The gauge shows the depth; the dashed band is your target.
-COACH_TANK_WHY,The depth is the running total of what flows in minus what flows out: A·dh/dt = q_in − q_out.
-COACH_CONTROLS_TITLE,Open the valve controls
-COACH_CONTROLS_BODY,"{click} VALVE in the dock. The drawer has the opening, the flows in litres per second, and the equation behind them."
-COACH_CONTROLS_WHY,"You will set the opening there, and see what it does to q_in and the depth the tank settles at."
-COACH_VALVE_TITLE,Open the valve a little
-COACH_VALVE_BODY,"Drag the slider, or use the +10 % and +1 % buttons. The stream into the tank gets thicker."
-COACH_VALVE_WHY,Inflow is proportional to the opening: q_in = opening × q_max.
-COACH_HOLD_TITLE,Let time pass and hold the band
-COACH_HOLD_BODY,"Press {tick}. Keep the depth inside the dashed band for 3 ticks in a row. Watch the jet: the deeper the water, the farther it shoots."
-COACH_HOLD_WHY,"Outflow grows with √h, so one fixed valve always settles at one depth: where q_in = q_out."
+KEY_SPACE_DESC,Advance the plant clock
+KEY_DOCK_DESC,"Plant, Codex"
+KEY_ROTATE,Q / E
+KEY_ROTATE_DESC,Turn the view a quarter turn
+KEY_WHEEL,Mouse wheel
+KEY_WHEEL_DESC,Zoom the plot
+KEY_PAN,Right or middle drag
+KEY_PAN_DESC,Pan the plot
+HUD_PHASE,PHASE
+HUD_THERMO,THERMO
+HUD_TIME,PLANT TIME %02d:%02d
+PHASE_DESIGN,DESIGN
+PHASE_COMMISSIONED,COMMISSIONED
+PHASE_FIRSTRUN,FIRST RUN
+PHASE_SHIFT,SHIFT
+PHASE_REPORT,REPORT
+THERMO_RIGOROUS,RIGOROUS
+THERMO_TEXTBOOK,TEXTBOOK
+THERMO_BOOK,BOOK DATA
+PLANT_TITLE,The plant
+PLANT_HINT,"Your plot, its units and pipes, and where the plant is in its life."
+PLANT_STATUS,Status
+PLANT_WORKS,Works
+PLANT_PHASE,Phase
+PLANT_UNITS,Units
+PLANT_PIPES,Pipes
+PLANT_SPECIES,Species
+PLANT_EMPTY,"The plot is fenced and empty. Units, pipes and the commission button arrive in the next build."
+PLANT_VIEW_HINT,"Q and E turn the view, the wheel zooms, a right or middle drag pans."
+COACH_PLOT_TITLE,This is your plot
+COACH_PLOT_BODY,"The fenced square is the build grid: every cell is 2 m. Units will snap to it. Q and E turn the view."
+COACH_PLOT_WHY,"Everything you build is placed on this grid and joined by pipes; the chemistry decides whether it works."
+COACH_PLANT_TITLE,Open the plant drawer
+COACH_PLANT_BODY,"{click} PLANT in the dock. The drawer tells you the phase of the plant and what stands on the plot."
+COACH_PLANT_WHY,"A plant moves from design to commissioned to a running shift, and then to a report."

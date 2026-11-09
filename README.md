@@ -1,6 +1,6 @@
 # EQUILIBRIUM
 
-A COBANANA learning game: real equations are the rules. Built on [cobanana-core](https://github.com/ixaxaar/cobanana-core)
+A COBANANA learning game: a chemical-plant sim where real thermodynamics and kinetics are the rules. Built on [cobanana-core](https://github.com/ixaxaar/cobanana-core)
 (TypeScript engine as a Node sidecar under a Godot 4.7 front-end; Linux, Windows, macOS and Android; mouse, controller and touch).
 
 ## Run from source

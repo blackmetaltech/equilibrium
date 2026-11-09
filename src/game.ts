@@ -1,99 +1,77 @@
-// The game definition the core engine runs. Everything the Godot front-end shows comes from queries; every player command
-// is an action returning {ok, message} with a teaching message. Add actions/queries here (or split into files as it grows).
-import { baseState, fail, log, need, ok, withRng, type GameDef, type System } from '@core/kit';
-import { formatMoney, type RegionPack } from '@core/regions';
-import { RIG, type TankState } from './state';
-import { advance, inflow, outflow, steadyDepth, valveFor } from './sim/hydraulics';
+// The EQUILIBRIUM game definition the core engine runs (DESIGN §8). M0.2 is the skeleton: an empty plant, the region seam, strings
+// and the plant query. Actions, systems, levels and metrics arrive with M1 (tasks 1.9 to 1.13) and M2.
+import { baseState, log, type GameDef } from '@core/kit';
+import { t } from './i18n';
 import { LEVELS } from './levels';
 import { PERSONAS } from './personas';
-import { t } from './i18n';
 import { REGIONS } from './regions';
-import type { TankRegionData } from './regions/data';
+import { MAX_SPECIES, PHASES, THERMO_DETAILS, emptyFlowsheet, emptyProgress, type EqState } from './state';
 
 export const GAME_ID = 'equilibrium';
 
-/** A regional string the game needs; a pack that lacks one is a bug in the pack. */
-function regionString(p: RegionPack<TankRegionData>, key: string): string {
-  const v = p.strings[key]; if (v === undefined) throw new Error(`Region '${p.id}' has no string '${key}'.`);
-  return v;
+/** Works name of the state's region pack (a regional string; a pack that lacks it is a bug caught by validateEqPackStrings). */
+function worksName(region: string): string {
+  const p = REGIONS.get(region);
+  return p.strings[p.data.setting.worksName] ?? '';
 }
 
-const SYSTEMS: System<TankState>[] = [
-  { id: 'hydraulics', run: (s) => {
-    s.waterUsedM3 = Math.round((s.waterUsedM3 + inflow(s.valve) * RIG.dt) * 1e6) / 1e6;
-    s.h = advance(s.h, s.valve, RIG.dt);
-    if (s.h > RIG.H) { s.h = RIG.H; s.overflows++; log(s, t('log.overflow', { operator: s.operator, qin: (inflow(s.valve) * 1000).toFixed(1), qout: (outflow(RIG.H) * 1000).toFixed(1) }), 'bad'); }
-  } },
-  { id: 'band', run: (s) => {
-    const inBand = s.h >= s.band[0] && s.h <= s.band[1];
-    s.held = inBand ? s.held + 1 : 0;
-    s.history.push(Math.round(s.h * 1e4) / 1e4); if (s.history.length > 120) s.history.shift();
-  } },
-];
+/** Every number anywhere inside a JSON-like value is finite (path of the first offender, or null). */
+function firstNonFinite(v: unknown, path = '', depth = 0): string | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? null : path;
+  if (depth > 12 || v === null || typeof v !== 'object') return null;
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+    const r = firstNonFinite(x, path ? `${path}.${k}` : k, depth + 1);
+    if (r !== null) return r;
+  }
+  return null;
+}
 
-export const GAME: GameDef<TankState> = {
+export const GAME: GameDef<EqState> = {
   id: GAME_ID,
   title: 'EQUILIBRIUM',
   saveVersion: 1,
   /** Game-wide rules version: part of every solution code's ruleset id. Bump when a rule change can change a level score. */
   rulesetVersion: 1,
   regions: REGIONS,
-  /** Level scores for leaderboards: the verifier returns these after replaying a solution code. */
-  metrics: (s) => ({ ticks: s.tick - s.levelStart, waterUsedM3: s.waterUsedM3 }),
+  modes: ['learner', 'engineer', 'sandbox'],
+  /** The three histogram metrics of each level (DESIGN §8.8); filled in M1.12. */
+  metrics: () => ({}),
   newGame: (seed, mode, ctx) => {
-    const s: TankState = { ...baseState(GAME_ID, seed, mode, ctx.region.id), h: 0, valve: 0, held: 0, band: [1.0, 1.2], holdTicks: 10, history: [], overflows: 0, waterUsedM3: 0,
-      site: regionString(ctx.region, 'site'), operator: regionString(ctx.region, 'operator') };
-    s.h = withRng(s, (r) => Math.round(r.range(0.2, 0.4) * 1000) / 1000);   // seeded: same seed, same starting depth
-    s.history.push(s.h);
-    log(s, t('log.start', { site: s.site, h: s.h.toFixed(2), lo: s.band[0], hi: s.band[1] }));
+    const s: EqState = {
+      ...baseState(GAME_ID, seed, mode, ctx.region.id),
+      phase: 'design', thermoDetail: 'rigorous', species: [], flowsheet: emptyFlowsheet(), feeds: {}, solved: null, shift: null,
+      trends: {}, replay: [], runs: [], prediction: null, progress: emptyProgress(), ui: { pinned: [], coachStep: null },
+    };
+    log(s, t('log.start', { works: ctx.region.strings[ctx.region.data.setting.worksName] ?? '' }));
     return s;
   },
-  actions: {
-    /** Open the supply valve to `pct` percent. */
-    setValve: (s, pct: unknown) => {
-      need(typeof pct === 'number' && Number.isFinite(pct), t('valve.notNumber'));
-      if (pct < 0 || pct > 100) fail(t('valve.range', { pct }));
-      s.valve = Math.round(pct * 10) / 1000;
-      const hs = steadyDepth(s.valve);
-      return ok(t('valve.ok', { pct: pct.toFixed(1), qin: (inflow(s.valve) * 1000).toFixed(2), settle: hs > RIG.H ? t('valve.settle.overflow') : t('valve.settle.depth', { h: hs.toFixed(2) }) }));
-    },
-  },
+  /** Campaign meta state only; nothing a level's rules read (codes are verified without it). */
+  carryOver: (prev) => ({ progress: structuredClone(prev.progress) }),
+  actions: {},
   queries: {
-    /** Everything the HUD needs about the flows right now. */
-    flows: (s) => ({ h: s.h, valve: s.valve, qIn: inflow(s.valve), qOut: outflow(s.h), steady: steadyDepth(s.valve), band: s.band, held: s.held, holdTicks: s.holdTicks, overflows: s.overflows }),
-    /** Valve (percent) that would hold a given depth. */
-    valveFor: (_s, h: unknown) => Math.round(valveFor(Number(h)) * 1000) / 10,
-    history: (s) => s.history,
-    /** What the supply water costs at the current opening, formatted for the region (currency, grouping). */
-    costPerHour: (s) => {
-      const p = REGIONS.get(s.region); const perM3 = p.data.supplyPricePerM3; const m3PerHour = inflow(s.valve) * 3600; const perHour = m3PerHour * perM3;
-      return { m3PerHour, perM3, perHour, text: t('cost.line', { price: formatMoney(perM3, p), perHour: formatMoney(perHour, p) }) };
-    },
+    /** The plant as the Plant screen draws it: placed units, pipes, phase and the active species. */
+    plant: (s) => ({ phase: s.phase, thermoDetail: s.thermoDetail, species: s.species, units: s.flowsheet.units, streams: s.flowsheet.streams }),
   },
-  systems: SYSTEMS,
-  catalogues: () => ({ rig: RIG }),
-  missions: [
-    { id: 'first-valve', title: t('mission.first-valve.title'), hint: t('mission.first-valve.hint'), lesson: t('mission.first-valve.lesson'), done: (s) => s.valve > 0, go: 'controls' },
-    { id: 'steady', title: t('mission.steady.title'), hint: t('mission.steady.hint'), lesson: t('mission.steady.lesson'), done: (s) => s.held >= 5, go: 'controls' },
-  ],
   concepts: [
-    { id: 'torricelli', name: t('concept.torricelli.name'), icon: '💧', what: t('concept.torricelli.what'),
-      why: t('concept.torricelli.why'),
-      equation: 'q_out = Cd · a · √(2 g h)', simplification: t('concept.torricelli.simplification'), source: 'White, Fluid Mechanics, §6.12', go: 'controls' },
-    { id: 'mass-balance', name: t('concept.mass-balance.name'), icon: '⚖', what: t('concept.mass-balance.what'), why: t('concept.mass-balance.why'), equation: 'A dh/dt = q_in − q_out' },
+    { id: 'extent', name: t('concept.extent.name'), icon: 'ξ', what: t('concept.extent.what'), why: t('concept.extent.why'),
+      equation: 'n_i = n_i,0 + ν_i · ξ', simplification: t('concept.extent.simplification'), source: 'Felder & Rousseau, Elementary Principles of Chemical Processes, ch 4' },
+    { id: 'equilibrium', name: t('concept.equilibrium.name'), icon: '⇌', what: t('concept.equilibrium.what'), why: t('concept.equilibrium.why'),
+      equation: 'ΔG° = −R T ln K', simplification: t('concept.equilibrium.simplification'), source: 'Atkins, Physical Chemistry, ch 6' },
   ],
   levels: LEVELS,
   personas: PERSONAS,
-  scenarios: [{ id: 'half-full', title: t('scenario.half-full.title'), description: t('scenario.half-full.description'), seed: 3, horizon: 60, setup: (s) => { s.h = 1.0; s.history = [1.0]; } }],
   invariants: (s) => {
     const v: { rule: string; detail: string }[] = [];
-    if (s.h < 0 || s.h > RIG.H + 1e-9) v.push({ rule: 'depth out of the tank', detail: String(s.h) });
-    if (s.valve < 0 || s.valve > 1) v.push({ rule: 'valve out of range', detail: String(s.valve) });
-    if (s.held < 0) v.push({ rule: 'negative hold counter', detail: String(s.held) });
+    const bad = firstNonFinite(s.flowsheet) ?? firstNonFinite(s.feeds) ?? firstNonFinite(s.solved) ?? firstNonFinite(s.progress);
+    if (bad !== null) v.push({ rule: 'numbers are finite', detail: bad });
+    if (!PHASES.includes(s.phase)) v.push({ rule: 'phase is valid', detail: String(s.phase) });
+    if (!THERMO_DETAILS.includes(s.thermoDetail)) v.push({ rule: 'thermo detail is valid', detail: String(s.thermoDetail) });
+    if (s.species.length > MAX_SPECIES) v.push({ rule: 'at most 12 active species', detail: String(s.species.length) });
+    const ids = s.flowsheet.units.map((u) => u.id);
+    if (new Set(ids).size !== ids.length) v.push({ rule: 'unit ids are unique', detail: ids.join(',') });
+    if (!Number.isInteger(s.flowsheet.nextId) || s.flowsheet.nextId < 1) v.push({ rule: 'next id is a positive integer', detail: String(s.flowsheet.nextId) });
     return v;
   },
-  saveLabel: (s) => t('save.label', { h: s.h.toFixed(2), valve: (s.valve * 100).toFixed(0), tick: s.tick }),
-  describe: (s) => `Tick ${s.tick}: depth ${s.h.toFixed(3)} m (band ${s.band[0]}–${s.band[1]} m, held ${s.held}/${s.holdTicks}), valve ${(s.valve * 100).toFixed(1)} %, status ${s.status}.`,
-  reward: (_p, n) => -Math.abs(n.h - (n.band[0] + n.band[1]) / 2) * 0.01,
-  legalActions: (_s, full) => Array.from({ length: full ? 101 : 11 }, (_, i) => ({ name: 'setValve', args: [full ? i : i * 10] })),
+  saveLabel: (s) => t('save.label', { works: worksName(s.region), phase: t(`phase.${s.phase}`), units: s.flowsheet.units.length, tick: s.tick }),
+  describe: (s) => t('describe.plant', { tick: s.tick, works: worksName(s.region), phase: t(`phase.${s.phase}`), units: s.flowsheet.units.length, streams: s.flowsheet.streams.length, species: s.species.length, thermo: t(`thermo.${s.thermoDetail}`) }),
 };

@@ -1,61 +1,114 @@
-// Engine-level tests: actions teach on failure, determinism, saves, protocol, levels, personas, goldens.
+// Engine-level tests of the EQUILIBRIUM skeleton: empty plant, carry-over, plant query, invariants, determinism, saves, protocol,
+// and (through a TEST-LOCAL GameDef with one made-up level) core's solvability, persona and golden machinery on our state shape.
 import { describe, expect, it } from 'vitest';
-import { Engine, Env, MemoryKV, checkAllLevels, createProtocol, play } from '@core/kit';
+import { Engine, Env, MemoryKV, checkAllLevels, createProtocol, fail, need, play, type GameDef, type Level } from '@core/kit';
 import { goldenFile, trajectory } from '@core/kit/golden';
 import { GAME } from './game';
+import { PERSONAS } from './personas';
+import type { EqState } from './state';
 
-describe('sample game', () => {
-  it('setValve rejects impossible openings with a teaching message', () => {
+/** A level that exists only in this file: pin three of four widgets in time, never touch the trap. */
+const WIDGETS = ['a', 'b', 'c', 'd'];
+const testLevel: Level<EqState> = {
+  id: 'T1', title: 'Test level', brief: 'Pin three widgets.',
+  setup: () => {},
+  goal: (s) => s.ui.pinned.length >= 3,
+  fail: (s) => (s.ui.coachStep === 'trap' ? 'Trap sprung.' : null),
+  maxTicks: 40,
+  solver: () => (s) => { const w = WIDGETS.find((x) => !s.ui.pinned.includes(x)); return w ? [{ name: 'testPin', args: [w] }] : []; },
+};
+const TEST: GameDef<EqState> = {
+  ...GAME, levels: [testLevel],
+  personas: { ...PERSONAS, solver: testLevel.solver! },
+  actions: {
+    testPin: (s, w: unknown) => { need(typeof w === 'string' && WIDGETS.includes(w), 'Unknown widget.'); if (s.ui.pinned.includes(w as string)) fail('Already pinned.'); s.ui.pinned.push(w as string); },
+    testTrap: (s) => { s.ui.coachStep = 'trap'; },
+  },
+  legalActions: () => [...WIDGETS.map((w) => ({ name: 'testPin', args: [w] })), { name: 'testTrap' }],
+  metrics: (s) => ({ pinned: s.ui.pinned.length, ticks: s.tick - s.levelStart }),
+};
+
+describe('EquilibriumState skeleton', () => {
+  it('a new game is an empty plant in the design phase', () => {
+    const s = new Engine(GAME).state;
+    expect(GAME.id).toBe('equilibrium'); expect(GAME.title).toBe('EQUILIBRIUM');
+    expect(GAME.saveVersion).toBe(1); expect(GAME.rulesetVersion).toBe(1);
+    expect(s.phase).toBe('design'); expect(s.thermoDetail).toBe('rigorous'); expect(s.species).toEqual([]);
+    expect(s.flowsheet).toEqual({ units: [], streams: [], nextId: 1 });
+    expect(s.feeds).toEqual({}); expect(s.solved).toBeNull(); expect(s.shift).toBeNull(); expect(s.prediction).toBeNull();
+    expect(s.trends).toEqual({}); expect(s.replay).toEqual([]); expect(s.runs).toEqual([]);
+    expect(s.progress).toEqual({ stars: {}, best: {}, codex: [], rank: 0, flags: [], pendingScores: 0 });
+    expect(s.ui).toEqual({ pinned: [], coachStep: null });
+    expect(s.region).toBe('global'); expect(s.ruleset).toBe('equilibrium:global@1.1'); expect(s.status).toBe('playing');
+    expect(s.log[0]!.text).toMatch(/^Kestrel Bay Works: the plot is fenced and empty/);
+  });
+  it('the plant query answers units, streams, phase, detail and species', () => {
     const e = new Engine(GAME);
-    const r = e.act('setValve', [140]);
-    expect(r.ok).toBe(false); expect(r.message).toMatch(/0 % .* 100 %/);
-    expect(e.act('setValve', ['lots']).message).toMatch(/number of percent/);
-    expect(e.state.valve).toBe(0);
+    expect(e.q('plant')).toEqual({ phase: 'design', thermoDetail: 'rigorous', species: [], units: [], streams: [] });
+    const init = e.init() as any; expect(init.game.id).toBe('equilibrium');
   });
-  it('setValve tells the player where the tank will settle', () => {
-    const e = new Engine(GAME); const r = e.act('setValve', [63]);
-    expect(r.ok).toBe(true); expect(r.message).toMatch(/settle near 1\.10 m/);
+  it('state is plain JSON: a JSON round trip changes nothing', () => {
+    const s = new Engine(GAME).state;
+    expect(JSON.parse(JSON.stringify(s))).toEqual(s);
   });
-  it('same seed, same game', () => {
-    const a = new Env(GAME), b = new Env(GAME);
-    a.reset({ seed: 9 }); b.reset({ seed: 9 });
-    for (let i = 0; i < 20; i++) { a.step({ name: 'setValve', args: [i * 5] }); a.step({ name: 'tick' }); b.step({ name: 'setValve', args: [i * 5] }); b.step({ name: 'tick' }); }
-    expect(a.hash()).toBe(b.hash());
-    const c = new Env(GAME); c.reset({ seed: 10 }); expect(c.state.h).not.toBe(a.engine.state.history[0]);
+  it('starting a level keeps the campaign progress and nothing else (carryOver)', () => {
+    const e = new Engine(TEST);
+    const prev = structuredClone(e.state) as EqState; prev.progress.stars.L01 = 2; prev.progress.codex.push('extent'); prev.phase = 'report'; prev.ui.pinned.push('a');
+    e.setState(prev);
+    expect(e.act('startLevel', ['T1', 1, 'learner']).ok).toBe(true);
+    expect(e.state.progress.stars.L01).toBe(2); expect(e.state.progress.codex).toEqual(['extent']);
+    expect(e.state.phase).toBe('design'); expect(e.state.ui.pinned).toEqual([]);
+    expect(GAME.carryOver!(prev)).toEqual({ progress: prev.progress });
   });
-  it('save and load round-trip through storage', () => {
+  it('invariants are real: finite numbers, valid phase, species cap, unique ids', () => {
+    const ok = new Engine(GAME).state; expect(GAME.invariants!(ok, null)).toEqual([]);
+    const bad = structuredClone(ok) as any;
+    bad.flowsheet.units.push({ id: 'U1', type: 'x', pos: { x: NaN, y: 0 }, rot: 0, params: {} }, { id: 'U1', type: 'x', pos: { x: 0, y: 0 }, rot: 0, params: {} });
+    bad.phase = 'dreaming'; bad.thermoDetail = 'vague'; bad.species = Array(13).fill('N2'); bad.flowsheet.nextId = 0;
+    const rules = GAME.invariants!(bad, null).map((v) => v.rule).sort();
+    expect(rules).toEqual(['at most 12 active species', 'next id is a positive integer', 'numbers are finite', 'phase is valid', 'thermo detail is valid', 'unit ids are unique']);
+  });
+  it('same seed, same game; a tick outside a shift changes nothing but the clock', () => {
+    const a = new Env(GAME), b = new Env(GAME); a.reset({ seed: 9 }); b.reset({ seed: 9 });
+    for (let i = 0; i < 20; i++) { a.step({ name: 'tick' }); b.step({ name: 'tick' }); }
+    expect(a.hash()).toBe(b.hash()); expect(a.state.tick).toBe(20); expect(a.state.flowsheet.units).toEqual([]);
+  });
+  it('save and load round-trip through storage; the save label names the works and phase', () => {
     const kv = new MemoryKV(); const e = new Engine(GAME, { storage: kv });
-    e.act('setValve', [50]); e.act('tick', [5]); const h = e.state.h;
+    e.act('tick', [5]);
     expect(e.act('save', ['slot2']).ok).toBe(true);
-    e.act('tick', [5]); expect(e.state.h).not.toBe(h);
-    expect(e.act('load', ['slot2']).ok).toBe(true); expect(e.state.h).toBe(h);
+    e.act('tick', [5]); expect(e.state.tick).toBe(10);
+    expect(e.act('load', ['slot2']).ok).toBe(true); expect(e.state.tick).toBe(5);
     const e2 = new Engine(GAME, { storage: kv });
-    expect((e2.q('saves') as any[]).map((x) => x.slot)).toContain('slot2');
+    const slot = (e2.q('saves') as any[]).find((x) => x.slot === 'slot2'); expect(slot.label).toBe('Kestrel Bay Works · Design · 0 units · tick 5');
   });
-  it('protocol: init, act, q, claim, env', () => {
+  it('protocol: init lists the concepts and the plant query; unknown queries teach', () => {
     const h = createProtocol(new Engine(GAME));
-    const init = h({ id: 1, fn: 'init' }); expect(init.ok).toBe(true); expect((init.result as any).actions).toContain('setValve');
-    expect(h({ id: 2, fn: 'act', name: 'setValve', args: [30] }).ok).toBe(true);
-    expect((h({ id: 3, fn: 'claim' }).result as any[])[0]?.id).toBe('first-valve');
-    expect((h({ id: 4, fn: 'q', name: 'flows' }).result as any).valve).toBeCloseTo(0.3);
-    expect(h({ id: 5, fn: 'q', name: 'nope' }).error).toMatch(/Unknown query 'nope'/);
-    expect((h({ id: 6, fn: 'env', name: 'autoplay', args: ['expert', 30] }).result as any).tick).toBeGreaterThan(0);
+    const init = h({ id: 1, fn: 'init' }); expect(init.ok).toBe(true);
+    expect((init.result as any).concepts.map((c: any) => c.id)).toEqual(['extent', 'equilibrium']);
+    expect((h({ id: 2, fn: 'q', name: 'plant' }).result as any).phase).toBe('design');
+    expect(h({ id: 3, fn: 'q', name: 'nope' }).error).toMatch(/Unknown query 'nope'/);
   });
-  it('every level is solvable, not won by idling, not cheesable in two moves', () => {
-    for (const r of checkAllLevels(GAME, { seed: 1 })) expect(r.problems, r.level).toEqual([]);
+  it('the three modes are offered', () => expect(GAME.modes).toEqual(['learner', 'engineer', 'sandbox']));
+});
+
+describe('core machinery on our state shape (test-local level T1)', () => {
+  it('the level is solvable, not won by idling, not cheesable in two moves, rarely won at random', () => {
+    for (const r of checkAllLevels(TEST, { seed: 1 })) expect(r.problems, r.level).toEqual([]);
   });
-  it('personas play without violations', () => {
-    for (const p of ['expert', 'idle', 'random']) for (const seed of [1, 2]) {
-      const r = play(GAME, { persona: p, seed, ticks: 80 });
-      expect(r.violations, `${p}/${seed}`).toEqual([]);
-    }
-    expect(play(GAME, { persona: 'expert', seed: 1, ticks: 120, level: 'steady' }).status).toBe('won');
-    expect(play(GAME, { persona: 'idle', seed: 1, ticks: 200, level: 'steady' }).status).toBe('lost');
+  it('the real game has no levels yet, and checkAllLevels agrees', () => {
+    expect(GAME.levels).toEqual([]); expect(checkAllLevels(GAME, { seed: 1 })).toEqual([]);
+  });
+  it('personas play without violations, in the real game and the test level', () => {
+    for (const p of ['idle', 'random']) for (const seed of [1, 2]) expect(play(GAME, { persona: p, seed, ticks: 80 }).violations, `${p}/${seed}`).toEqual([]);
+    expect(play(TEST, { persona: 'solver', seed: 1, ticks: 40, level: 'T1' }).status).toBe('won');
+    expect(play(TEST, { persona: 'idle', seed: 1, ticks: 60, level: 'T1' }).status).toBe('lost');
+    expect(play(TEST, { persona: 'solver', seed: 1, ticks: 40, level: 'T1' }).violations).toEqual([]);
   });
   it('golden trajectories are unchanged (GOLDEN_UPDATE=1 to regenerate deliberately)', () => {
     const g = goldenFile(new URL('./__golden__/trajectories.json', import.meta.url).pathname);
-    g.check('expert-1', trajectory(GAME, { seed: 1, ticks: 40, persona: 'expert' }));
-    g.check('random-2', trajectory(GAME, { seed: 2, ticks: 40, persona: 'random' }));
-    g.check('level-steady', trajectory(GAME, { seed: 1, ticks: 60, persona: 'expert', level: 'steady' }));
+    g.check('idle-1', trajectory(GAME, { seed: 1, ticks: 30, persona: 'idle' }));
+    g.check('random-2', trajectory(TEST, { seed: 2, ticks: 30, persona: 'random' }));
+    g.check('level-T1', trajectory(TEST, { seed: 1, ticks: 20, persona: 'solver', level: 'T1' }));
   });
 });
