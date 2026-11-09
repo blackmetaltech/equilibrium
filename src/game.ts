@@ -32,6 +32,8 @@ export const GAME: GameDef<EqState> = {
   saveVersion: 1,
   /** Game-wide rules version: part of every solution code's ruleset id. Bump when a rule change can change a level score. */
   rulesetVersion: 1,
+  /** Consecutive tick(n) entries merge in solution codes (valid: shift results are partition-invariant, property P21). */
+  mergeTicks: true,
   regions: REGIONS,
   modes: ['learner', 'engineer', 'sandbox'],
   /** The three histogram metrics of each level (DESIGN §8.8); filled in M1.12. */
