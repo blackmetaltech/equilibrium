@@ -21,3 +21,9 @@ Deviations from `docs/BUILD-PLAN.md` / `docs/DESIGN.md` are recorded here with a
 - 2026-11-10 · EQ-CE-026 / §3.3: the engine's NIST/JANAF K(700 K) for R1 is 8.75e-5 rigorous / 3.18e-4 textbook; the
   DESIGN text quotes the Smith-table row (8.56e-5 / 3.08e-4). Oracles carry their own book data; Codex numbers come from
   the engine.
+- 2026-11-10 · M0.3: `haber_loop.json` needs CoolProp (NH3 Psat) to regenerate: `PYLIB=<dir with CoolProp> python3 -I
+  scripts/export-fixtures.py` (CoolProp 8.0.0 matched the research's 6.x numbers). EQ-NC-026 uses the corrected DESIGN
+  statement ([H2] = 0.06754), not the research script's mislabelled HI problem. K1/K2 fixtures carry both the research's
+  literature-K variant and an engine-K variant; the engine is asserted against the engine-K variant.
+- 2026-11-10 · P22 round-trip tolerance is 1e-12·max(|x|, 1) (relative above 1, absolute below): °C and bar(g) near zero
+  cannot round-trip to 1e-12 relative through the 273.15 / 1.01325 offsets.
