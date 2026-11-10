@@ -31,9 +31,11 @@ func game_build_world(parent: Node) -> Node:
 	return plant_world
 
 func game_on_changed() -> void:
+	if chrome != null: chrome.refresh()   # intercom coach, annunciator, recorder and key follow the engine
 	if plant_world == null: return
 	var p = b.q("plant")
 	if p is Dictionary: plant_world.set_state(p)
+	plant_world.set_snapshot(b.g)   # live looks: stream colours/flow, unit heat and alarms, Cute critters
 
 func game_time_text() -> String:
 	var t := int(b.g.get("tick", 0))
@@ -92,6 +94,7 @@ func game_build_chrome(r: Control) -> void:
 func game_chrome_visible(v: bool) -> void:
 	if chrome != null: chrome.set_chrome_visible(v)
 	if audio_eq != null: audio_eq.set_title(not v)
+	if plant_world != null: plant_world.set_title(not v)   # the title layout shifts the view left; a level centres it again
 func game_relayout() -> void:
 	if chrome != null: chrome.layout()
 func game_toast(text: String, level: String) -> bool:

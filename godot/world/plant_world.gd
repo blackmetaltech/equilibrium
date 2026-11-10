@@ -68,7 +68,7 @@ func _ready() -> void:
 	critters = Critters.new(); add_child(critters)   # Cute mode molecule critters on the pipes
 	_apply()
 
-func set_cover(px: float) -> void: cover = px; _apply()
+func set_cover(px: float) -> void: cover = 0.0 if app != null and app.is_custom() else px; _apply()   # custom chrome has no side drawer (the blank home screen reports one)
 func set_cover_left(px: float) -> void: cover_left = px; _apply()
 func set_cover_bottom(px: float) -> void: cover_bottom = px; _apply()
 ## Cute mode (EqSettings): critters get faces, the cat and flamingos appear.
@@ -247,6 +247,21 @@ func set_units(arr: Array) -> void:
 		if not seen.has(id):
 			(_units[id] as Node).queue_free(); _units.erase(id); _unit_state.erase(id)
 			if id == selected_id: selected_id = ""
+	if _units.size() != _fit_n and not gallery: _fit_n = _units.size(); fit_view()
+
+var _fit_n := -1
+## Frame the plant: the camera centres on the placed units (plus room to grow) and zooms so they fill the space above the console.
+## With nothing placed it frames the whole plot. Called when the unit count changes, so a player's own pan/zoom survives knob changes.
+func fit_view() -> void:
+	if _units.is_empty():
+		cam_rig.look_at_ground(Vector3.ZERO); cam_rig.set_size(46.0); return
+	var lo := Vector3(1e9, 0, 1e9); var hi := Vector3(-1e9, 0, -1e9)
+	for id in _units:
+		var p: Vector3 = (_units[id] as Node3D).position
+		lo.x = minf(lo.x, p.x); lo.z = minf(lo.z, p.z); hi.x = maxf(hi.x, p.x); hi.z = maxf(hi.z, p.z)
+	var c := (lo + hi) * 0.5; var ext := maxf(hi.x - lo.x, hi.z - lo.z)
+	cam_rig.look_at_ground(c)
+	cam_rig.set_size(clampf(ext * 0.9 + 14.0, 20.0, 50.0))
 
 func set_display(id: String, d: Dictionary) -> void:
 	if _units.has(id): (_units[id] as UnitModel).set_display(d)

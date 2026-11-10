@@ -94,7 +94,7 @@ func _sync_pipe(id: String, pts: Array, rad: float, wanted: Array, speed: float,
 		spr.texture = _texture(sp, "lost" if lost else "happy")
 		spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		spr.shaded = false; spr.no_depth_test = false; spr.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-		spr.pixel_size = 0.0105 * sc
+		spr.pixel_size = 0.024 * sc
 		add_child(spr)
 		crit.append({"sp": sp, "t": float(k) / wanted.size(), "node": spr, "lift": rad + TEX * 0.5 * spr.pixel_size * 0.8, "ph": float(k) * 1.7})
 	_pipes[id] = {"key": key, "pts": pts, "cum": cum, "len": maxf(length, 0.01), "crit": crit, "speed": speed, "lost": lost}
@@ -259,7 +259,7 @@ func _rx_clear(id: String) -> void:
 func _rx_sprite(sp: String) -> Sprite3D:
 	var spr := Sprite3D.new(); spr.texture = _texture(sp, "happy")
 	spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED; spr.shaded = false; spr.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	spr.pixel_size = 0.0105 * pow(float(MOLAR.get(sp, 28.0)) / 28.0, 1.0 / 3.0)
+	spr.pixel_size = 0.024 * pow(float(MOLAR.get(sp, 28.0)) / 28.0, 1.0 / 3.0)
 	add_child(spr)
 	return spr
 

@@ -38,9 +38,9 @@ static func t(k: String) -> String: return S.get(k, k)
 ## Engine query that never returns null (a missing query or a failed one gives {}).
 static func q(app, name: String, args: Array = []) -> Variant:
 	if app == null or app.b == null: return {}
-	if _missing.has(name): return {}
-	var r = app.b.q(name, args)
-	if r == null and name in ["levelInfo", "resultCard"]: _missing[name] = true   # an engine without the level contract: ask once, then use stubs
+	var known: Array = app.b.init_data.get("queries", []) if app.b.init_data is Dictionary else []
+	if not known.is_empty() and not known.has(name): return {}   # an engine without the level contract: use stubs
+	var r = app.b.q(name, args)   # null outside a level (title, sandbox) is normal; ask again next time
 	return r if r != null else {}
 
 ## Unit symbol for display: the shell's catalogue symbol when it has one, else the engine's own label (kg/h, m³, ...).

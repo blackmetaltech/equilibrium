@@ -134,7 +134,8 @@ static func open(app) -> bool:
 		var nt := PanelContainer.new(); nt.name = "Margin"; var ns := StyleBoxEmpty.new(); ns.content_margin_top = 8; nt.add_theme_stylebox_override("panel", ns)
 		var nl := EqTheme.label("%s: %s" % [str(li.get("setter", PaperStrings.t("PR_MARA"))), str(rc.lesson)], 19, EqTheme.PEN_BLUE, "sans"); nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; nt.add_child(nl)
 		nt.rotation_degrees = -0.8; vb.add_child(nt)
-	if str(rc.get("designCode", "")) != "": _line(vb, "CODE " + str(rc.designCode), INKC.lerp(Color.WHITE, 0.4), 16, "Code")
+	var code := str(rc.get("designCode", ""))   # the full code goes to the clipboard; the sheet prints a short fingerprint
+	if code != "": _line(vb, "CODE %s…%s  (%d chars)" % [code.substr(0, 10), code.substr(code.length() - 6), code.length()], INKC.lerp(Color.WHITE, 0.4), 16, "Code")
 	# buttons on the paper edge
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); vb0.add_child(row)
 	var retry := EqTheme.key_button(PaperStrings.t("PR_RETRY"), not won, 18); retry.name = "Retry"

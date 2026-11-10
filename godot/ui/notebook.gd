@@ -193,7 +193,8 @@ static func _tab_sb(state: String) -> StyleBoxFlat:
 class Watch extends Node:
 	var app = null
 	func _process(_dt: float) -> void:
-		if app == null or not app.started or app.modal() != null: return
+		if app == null or not app.started or app.modal() != null:
+			return
 		var li := Notebook.info(app)
 		if li.is_empty(): return
 		var key := str(app.get_instance_id())
