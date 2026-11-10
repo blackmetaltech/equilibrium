@@ -5,6 +5,10 @@ extends Node3D
 ## with Mara's cat on the roof (Cute mode; it hides during alarms), a sulfur ship at the jetty and gulls. Also owns the time-of-day light:
 ## EQUILIBRIUM is daylight-to-dusk (the night belongs to GRID). Nothing here is physics; it never reads engine numbers.
 ## Use: var s := Scenery.new(); world.add_child(s); s.set_hour(17.5); s.set_revived(chapters_done); s.set_alarm(bool); s.set_cute(bool)
+## Revival (campaign): `set_revived(n)` lights the first n chapters; `set_revived(n, [1, 2, 5])` lights exactly those (chapters 8 and 9 open after 5, so the
+## done set is not always a prefix). Site -> chapter: QC lab 1 (beacon + fume steam), burner tank 2, converter tank 3, catalyst tank 4, cooling tower 5 (steam),
+## containment tank + the stack 6 (smoke), the integrated Works 7 (flare), control room 8, turnaround yard 9 (crane lamps); the sulfur ship sails in at chapter 2
+## and lights its deck at chapter 6; the dead pipe rack lays one pipe per two chapters done.
 
 const LAND := Vector2(84.0, 60.0)
 const RUST := Color("#6E4632")
@@ -16,7 +20,13 @@ const DYKE := Color("#8C7A62")
 var _rng := RandomNumberGenerator.new()
 var _flamingos: Array[Node3D] = []
 var _gulls: Array[Node3D] = []
-var _revive: Array = []            # [{node: MeshInstance3D windows, light: OmniLight3D, chapter}]
+var _revive: Array = []            # [{mat, light, chapter}]
+var _done := {}                    # chapter -> true (the campaign's finished chapters)
+var _puffs: Array = []             # steam / smoke sources: [{nodes: Array[MeshInstance3D], base: Vector3, chapter, rise, col}]
+var _pipes: Array = []             # [{mat, need}] the rack pipes, lit by the number of chapters done
+var _ship: Node3D
+var _ship_lamps: StandardMaterial3D
+var _flare: Node3D
 var _cat: Node3D
 var _cat_home := Vector3.ZERO
 var _alarm := false
@@ -27,10 +37,14 @@ func _ready() -> void:
 	_rng.seed = 7041
 	_build_salt_pans()
 	_build_old_works()
+	_build_extra_sites()
 	_build_qc_lab()
 	_build_ship()
 	_build_gulls()
 	set_hour(_hour)
+	var pw := get_parent()
+	if pw != null and "app" in pw and pw.app != null and pw.app.get("b") != null: WorksMap.Campaign.attach(pw.app)
+	_apply_revival()
 
 # ------------------------------------------------------------------ helpers
 static func _mat(c: Color, rough := 0.9, metal := 0.0) -> StandardMaterial3D:
@@ -92,25 +106,31 @@ func _build_old_works() -> void:
 		var p := Vector3(-34.0 + i * 9.0, 0.0, z - 4.0)
 		_cyl(3.4, 3.4, 7.0, p + Vector3(0, 3.5, 0), rust if i % 2 == 0 else rust_d)
 		_cyl(3.5, 3.5, 0.3, p + Vector3(0, 7.1, 0), rust_d)
-		_add_revive(p + Vector3(0, 7.6, 0), 1 + i % 3)
+		_add_revive(p + Vector3(0, 7.6, 0), [2, 3, 4, 6][i])
+		_add_puff(p + Vector3(0, 7.6, 0), [2, 3, 4, 6][i], 0.7, Color(1, 1, 1, 0.5))
 	# the big chimney with bands
 	var cp := Vector3(10.0, 0.0, z - 10.0)
 	_cyl(1.3, 2.2, 38.0, cp + Vector3(0, 19.0, 0), rust)
 	for k in range(3): _cyl(1.55 - k * 0.05, 1.6 - k * 0.05, 1.2, cp + Vector3(0, 30.0 + k * 3.0, 0), _mat(Color("#B33A2E"), 0.9))
-	_add_revive(cp + Vector3(0, 38.5, 0), 2)
+	_add_revive(cp + Vector3(0, 38.5, 0), 6)
+	_add_puff(cp + Vector3(0, 38.5, 0), 6, 2.2, Color(0.45, 0.45, 0.47, 0.55))
 	# cooling tower (hyperbolic shell approximated by two frusta)
 	var tp := Vector3(32.0, 0.0, z - 8.0)
 	var conc := _mat(Color("#7B776E"), 1.0)
 	_cyl(7.0, 9.0, 12.0, tp + Vector3(0, 6.0, 0), conc, self, 28)
 	_cyl(8.0, 7.0, 8.0, tp + Vector3(0, 16.0, 0), conc, self, 28)
-	_add_revive(tp + Vector3(0, 20.5, 0), 3)
+	_add_revive(tp + Vector3(0, 20.5, 0), 5)
+	_add_puff(tp + Vector3(0, 20.5, 0), 5, 2.6, Color(1, 1, 1, 0.55))
 	# a dead pipe rack linking them
 	var steel := _mat(Color("#4E4A44"), 0.8, 0.5)
 	for i in range(10):
 		var x := -30.0 + i * 7.0
 		_box(Vector3(0.4, 5.0, 0.4), Vector3(x, 2.5, z + 6.0), steel)
 	_box(Vector3(66.0, 0.3, 1.6), Vector3(4.5, 5.0, z + 6.0), steel)
-	for k in range(3): _cyl(0.35, 0.35, 66.0, Vector3(4.5, 5.5, z + 5.5 + k * 0.5), rust_d).rotation.z = PI * 0.5
+	for k in range(3):
+		var pm := StandardMaterial3D.new(); pm.albedo_color = RUST_DARK; pm.roughness = 0.6; pm.metallic = 0.3; pm.emission_enabled = true; pm.emission = Color("#2EC4B6"); pm.emission_energy_multiplier = 0.0
+		_cyl(0.35, 0.35, 66.0, Vector3(4.5, 5.5, z + 5.5 + k * 0.5), pm).rotation.z = PI * 0.5
+		_pipes.append({"mat": pm, "need": 2 + k * 2})
 
 ## A revivable lamp/window cluster: dark now, warm once its chapter is done.
 func _add_revive(pos: Vector3, chapter: int) -> void:
@@ -118,12 +138,85 @@ func _add_revive(pos: Vector3, chapter: int) -> void:
 	var mi := _box(Vector3(1.2, 0.5, 1.2), pos, m, self, false)
 	var l := OmniLight3D.new(); l.light_color = Color("#FFC27A"); l.light_energy = 0.0; l.omni_range = 14.0; l.position = pos; add_child(l)
 	_revive.append({"mat": m, "light": l, "chapter": chapter})
+	mi.name = "Lamp%d_%d" % [chapter, _revive.size()]
 
-func set_revived(chapters_done: int) -> void:
+## A column of soft puffs (six translucent spheres rising and fading) above `pos`, visible only once `chapter` is done.
+func _add_puff(pos: Vector3, chapter: int, rise: float, col: Color) -> void:
+	var nodes: Array = []
+	for i in range(6):
+		var m := StandardMaterial3D.new(); m.albedo_color = col; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		var mi := _sphere(0.7 + rise * 0.25, pos, m, self); mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; mi.visible = false
+		nodes.append(mi)
+	_puffs.append({"nodes": nodes, "base": pos, "chapter": chapter, "rise": rise, "col": col})
+
+## Chapters 1..n are done (or exactly `done` when given). Lights, steam, the ship and the laid pipes follow.
+func set_revived(chapters_done: int, done: Array = []) -> void:
+	_done.clear()
+	if done.is_empty():
+		for c in range(1, chapters_done + 1): _done[c] = true
+	else:
+		for c in done: _done[int(c)] = true
+	_apply_revival()
+
+func revived_chapters() -> Array:
+	var a: Array = _done.keys(); a.sort(); return a
+
+func _apply_revival() -> void:
+	var n := _done.size()
 	for r in _revive:
-		var on: bool = chapters_done >= int(r.chapter)
+		var on: bool = _done.has(int(r.chapter))
 		(r.mat as StandardMaterial3D).emission_energy_multiplier = 4.0 if on else 0.0
 		(r.light as OmniLight3D).light_energy = 1.6 if on else 0.0
+	for p in _pipes:
+		(p.mat as StandardMaterial3D).emission_energy_multiplier = 1.6 if n >= int(p.need) else 0.0
+	if _ship != null: _ship.visible = _done.has(2)
+	if _ship_lamps != null: _ship_lamps.emission_energy_multiplier = 3.0 if _done.has(6) else 0.0
+	if _flare != null: _flare.visible = _done.has(7) or _done.has(9)
+	for q in _puffs:
+		var on2: bool = _done.has(int(q.chapter))
+		for nd in q.nodes: (nd as MeshInstance3D).visible = on2
+
+func lit_count() -> int:
+	var k := 0
+	for r in _revive: if (r.mat as StandardMaterial3D).emission_energy_multiplier > 0.0: k += 1
+	return k
+
+func puffs_visible() -> int:
+	var k := 0
+	for q in _puffs: if (q.nodes[0] as MeshInstance3D).visible: k += 1
+	return k
+
+# ------------------------------------------------------------------ the sites only the later chapters light: control room (8), turnaround yard (9), flare (7)
+func _build_extra_sites() -> void:
+	var z := -LAND.y * 0.5 - 14.0
+	var wall := _mat(Color("#8E8778"), 0.95)
+	var steel := _mat(Color("#4E4A44"), 0.8, 0.5)
+	# control room: a low block with a window strip and a mast
+	var cp := Vector3(-47.0, 0.0, z + 1.0)
+	_box(Vector3(9.0, 4.2, 6.0), cp + Vector3(0, 2.1, 0), wall)
+	_box(Vector3(9.6, 0.3, 6.6), cp + Vector3(0, 4.35, 0), _mat(RUST_DARK, 0.9))
+	_cyl(0.12, 0.12, 6.0, cp + Vector3(3.5, 7.2, 0), steel, self, 6)
+	var strip := StandardMaterial3D.new(); strip.albedo_color = Color("#1A1A1A"); strip.emission_enabled = true; strip.emission = Color("#FFD48A"); strip.emission_energy_multiplier = 0.0
+	_box(Vector3(7.6, 1.0, 0.1), cp + Vector3(0, 2.6, 3.03), strip, self, false)
+	var cl := OmniLight3D.new(); cl.light_color = Color("#FFD48A"); cl.light_energy = 0.0; cl.omni_range = 12.0; cl.position = cp + Vector3(0, 3.0, 5.0); add_child(cl)
+	_revive.append({"mat": strip, "light": cl, "chapter": 8})
+	# turnaround yard: scaffold bays, a crane and an amber lamp
+	var tp := Vector3(52.0, 0.0, z + 2.0)
+	for i in range(3):
+		var x := -5.0 + i * 5.0
+		for lvl in range(3): _box(Vector3(4.6, 0.12, 3.0), tp + Vector3(x, 1.4 + lvl * 2.6, 0), steel)
+		for sx in [-2.3, 2.3]:
+			for sz in [-1.5, 1.5]: _box(Vector3(0.14, 8.0, 0.14), tp + Vector3(x + sx, 4.0, sz), steel)
+	_cyl(0.3, 0.45, 18.0, tp + Vector3(-9.0, 9.0, 4.0), _mat(Color("#C99A2E"), 0.7, 0.3))
+	_box(Vector3(14.0, 0.5, 0.5), tp + Vector3(-3.0, 18.0, 4.0), _mat(Color("#C99A2E"), 0.7, 0.3))
+	_add_revive(tp + Vector3(-9.0, 18.8, 4.0), 9)
+	# the flare stack: a thin tower, a flame that appears when the Works is whole
+	var fp := Vector3(-14.0, 0.0, z - 16.0)
+	_cyl(0.3, 0.5, 26.0, fp + Vector3(0, 13.0, 0), steel, self, 8)
+	_flare = Node3D.new(); _flare.position = fp + Vector3(0, 26.5, 0); add_child(_flare)
+	var fm := StandardMaterial3D.new(); fm.albedo_color = Color("#FF9A3A"); fm.emission_enabled = true; fm.emission = Color("#FF7A1A"); fm.emission_energy_multiplier = 3.0; fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var fl := _cyl(0.0, 0.5, 2.4, Vector3(0, 1.0, 0), fm, _flare, 8); fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_flare.visible = false
 
 # ------------------------------------------------------------------ QC lab (lit) + the cat
 func _build_qc_lab() -> void:
@@ -136,6 +229,8 @@ func _build_qc_lab() -> void:
 	_box(Vector3(1.2, 2.2, 0.08), p + Vector3(3.6, 1.1, -3.02), _mat(Color("#2C4A45"), 0.7))
 	# fume-hood stack
 	_cyl(0.25, 0.25, 2.0, p + Vector3(2.8, 5.2, -1.5), _mat(Color("#8E98A6"), 0.4, 0.8))
+	_add_puff(p + Vector3(2.8, 6.4, -1.5), 1, 0.45, Color(1, 1, 1, 0.5))
+	_add_revive(p + Vector3(-4.0, 4.7, -2.5), 1)   # the pilot-skid beacon on the roof: lit when the Bench is done
 	# the cat (black, sitting on the roof edge)
 	_cat = Node3D.new(); add_child(_cat)
 	_cat_home = p + Vector3(-2.5, 4.35, 2.4)
@@ -161,13 +256,16 @@ func set_alarm(on: bool) -> void: _alarm = on
 func _build_ship() -> void:
 	var hull := _mat(Color("#2E3B4E"), 0.6, 0.3)
 	var p := Vector3(LAND.x * 0.5 + 18.0, -0.6, -19.0)
-	_box(Vector3(30.0, 3.0, 7.0), p + Vector3(0, 0.6, 0), hull)
-	_box(Vector3(30.2, 0.4, 7.2), p + Vector3(0, 2.0, 0), _mat(Color("#8C2F2A"), 0.7))
-	_box(Vector3(6.0, 4.5, 6.0), p + Vector3(11.0, 4.3, 0), _mat(Color("#E7E3D8"), 0.8))
+	_ship = Node3D.new(); add_child(_ship)
+	_box(Vector3(30.0, 3.0, 7.0), p + Vector3(0, 0.6, 0), hull, _ship)
+	_box(Vector3(30.2, 0.4, 7.2), p + Vector3(0, 2.0, 0), _mat(Color("#8C2F2A"), 0.7), _ship)
+	_box(Vector3(6.0, 4.5, 6.0), p + Vector3(11.0, 4.3, 0), _mat(Color("#E7E3D8"), 0.8), _ship)
 	var sulfur := _mat(Color("#E8D44D"), 1.0)
 	for i in range(2):
-		var pile := _cyl(0.4, 3.0, 2.2, p + Vector3(-8.0 + i * 8.0, 3.2, 0), sulfur, self, 12)
+		var pile := _cyl(0.4, 3.0, 2.2, p + Vector3(-8.0 + i * 8.0, 3.2, 0), sulfur, _ship, 12)
 		pile.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_ship_lamps = StandardMaterial3D.new(); _ship_lamps.albedo_color = Color("#222222"); _ship_lamps.emission_enabled = true; _ship_lamps.emission = Color("#FFD48A"); _ship_lamps.emission_energy_multiplier = 0.0
+	for i in range(6): _box(Vector3(0.5, 0.5, 0.5), p + Vector3(-12.0 + i * 5.0, 2.5, 3.7), _ship_lamps, _ship, false)
 
 func _build_gulls() -> void:
 	var white := _mat(Color("#F2F2EE"), 0.7)
@@ -187,6 +285,16 @@ func _process(dt: float) -> void:
 		var r := float(g.get_meta("r"))
 		g.position = centre + Vector3(cos(a) * r, float(g.get_meta("h")) + sin(_t * 1.1 + a) * 0.6, sin(a) * r)
 		g.rotation.y = -a
+	for q in _puffs:   # steam and smoke columns: each puff rises, swells and fades, staggered
+		if not (q.nodes[0] as MeshInstance3D).visible: continue
+		var k := 0
+		for nd in q.nodes:
+			var ph := fposmod(_t * 0.18 * (0.6 + float(q.rise) * 0.4) + float(k) / float((q.nodes as Array).size()), 1.0)
+			(nd as MeshInstance3D).position = (q.base as Vector3) + Vector3(ph * 2.2, ph * 7.0 * (0.5 + float(q.rise) * 0.5), ph * 0.8)
+			(nd as MeshInstance3D).scale = Vector3.ONE * (0.5 + ph * 1.6)
+			((nd as MeshInstance3D).material_override as StandardMaterial3D).albedo_color = Color((q.col as Color).r, (q.col as Color).g, (q.col as Color).b, (q.col as Color).a * (1.0 - ph))
+			k += 1
+	if _flare != null and _flare.visible: _flare.scale = Vector3(1.0, 0.85 + 0.25 * sin(_t * 9.0), 1.0)
 	for i in range(_flamingos.size()):   # slow wade
 		_flamingos[i].rotation.y += dt * 0.05 * (1 if i % 2 == 0 else -1)
 	if _cat:   # hides behind the fume-hood stack during alarms, comes back when it clears

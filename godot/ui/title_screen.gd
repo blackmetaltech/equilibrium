@@ -29,7 +29,8 @@ static func build(app: CbApp, root: Control) -> bool:
 	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", int((5 if compact else 9) * k)); plate.add_child(vb)
 	var saves: Array = app.b.q("saves") if app.b.q("saves") is Array else []
 	var entries: Array = []
-	if saves.size() > 0: entries.append(["continue", T("TITLE_CONTINUE"), func(): app.load_slot(str((saves[0] as Dictionary).slot))])
+	WorksMap.Campaign.attach(app)   # the campaign record and the backdrop's revival follow the running game
+	if saves.size() > 0: entries.append(["continue", T("TITLE_CONTINUE"), func(): continue_play(app, saves[0] as Dictionary)])
 	entries.append(["new", T("TITLE_NEW"), func(): new_works(app)])
 	entries.append(["map", T("TITLE_MAP"), func(): WorksMap.open(app)])
 	entries.append(["sandbox", T("TITLE_SANDBOX"), func(): app.new_game("sandbox")])
@@ -52,8 +53,11 @@ static func build(app: CbApp, root: Control) -> bool:
 	var foot := EqTheme.label(T("TITLE_FOOT"), 15, EqTheme.DIM, "sans"); foot.name = "Foot"
 	foot.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT); foot.grow_horizontal = Control.GROW_DIRECTION_BEGIN; foot.grow_vertical = Control.GROW_DIRECTION_BEGIN; foot.offset_right = -20.0; foot.offset_bottom = -12.0
 	root.add_child(foot)
-	if first != null: first.call_deferred("grab_focus")
+	if first != null: _focus_later.call_deferred(first)
 	return true
+
+static func _focus_later(b: Control) -> void:
+	if is_instance_valid(b) and b.is_inside_tree(): b.grab_focus()
 
 ## The dusk grade over the world: a cool sky at the top, a low amber glow at the horizon, and a left scrim for the text.
 static func _dusk(vw: float, vh: float, app: CbApp) -> Control:
@@ -70,9 +74,28 @@ static func _grad(from: Vector2, to: Vector2, cols: Array, offs: Array, width_fr
 	r.set_anchors_preset(Control.PRESET_FULL_RECT); r.anchor_right = width_frac
 	return r
 
-## New works: the first job as a Learner (the notebook opens over the dimmed plant), or a plain new game when the engine lists no levels yet.
-static func new_works(app: CbApp) -> void:
+## Continue: the newest save, but never a finished level. A save that ends in a win (the engine autosaves on the win, and a level begun afterwards used to be
+## lost if the game was left before its first tick) goes on to the next job; a lost level is run again; anything else loads as saved.
+static func continue_play(app: CbApp, info: Dictionary) -> void:
+	var lvl := str(info.get("level", "")) if info.get("level", null) != null else ""
+	var st := str(info.get("status", "playing"))
+	if lvl != "" and st == "won":
+		WorksMap.Campaign.record(lvl, 1, false)   # a no-op when the stars are already known
+		WorksMap.Campaign.push_world(app)
+		var nxt := WorksMap.Campaign.next_after(lvl)
+		if nxt != "": app.start_level(nxt, true)
+		else: WorksMap.open(app)
+		return
+	if lvl != "" and st == "lost": app.start_level(lvl, true); return
+	app.load_slot(str(info.get("slot", "main")))
+
+## New works: the first job as a Learner (the notebook opens over the dimmed plant), or a plain new game when the engine lists no levels yet. Stars already
+## won ask first: a new works puts the lights out again.
+static func new_works(app: CbApp, confirmed := false) -> void:
+	if not confirmed and WorksMap.Campaign.total_stars() > 0:
+		CbKit.confirm(app, WorksMap.T("MAP_NEW_ASK"), func(): new_works(app, true), WorksMap.T("MAP_NEW_YES")); return
 	if CbSettings.last_mode == "" or CbSettings.last_mode == "sandbox": CbSettings.last_mode = "learner"
+	WorksMap.Campaign.reset(); WorksMap.Campaign.push_world(app)
 	var lv: Array = app.b.levels()
 	if lv.is_empty(): app.new_game(app._mode_pref()); return
 	app.start_level(str((lv[0] as Dictionary).get("id", "")), true)
