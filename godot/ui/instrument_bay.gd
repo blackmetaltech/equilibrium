@@ -109,6 +109,7 @@ func refresh(force := false) -> void:
 	var pick: Dictionary = {"kind": _forced_kind, "unit": _unit} if _forced_kind != "" else choose(p.get("units", []), lid)
 	var k := str(pick.kind)
 	if _forced_kind == "" and k == "eqwin" and ["L01", "L02", "L03", "L04"].has(lid) and not _has_equilibrium(p): k = ""
+	if _forced_kind == "" and k == "ledger" and _only_feeds(p): k = ""   # no empty "No reading yet" slab before anything is placed
 	_set_kind(k)
 	if k == "": return
 	_unit = str(pick.unit)
@@ -118,6 +119,10 @@ func refresh(force := false) -> void:
 	_sig = sig
 	if d is Dictionary: view.set_data(d)
 	visible = true
+
+func _only_feeds(p: Dictionary) -> bool:
+	for u in p.get("units", []): if str(u.get("type", "")) != "feed": return false
+	return true
 
 func _has_equilibrium(p: Dictionary) -> bool:
 	for u in p.get("units", []): if EQ_TYPES.has(str(u.get("type", ""))): return true

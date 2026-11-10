@@ -85,6 +85,11 @@ func clear() -> void: lines.clear(); current = ""; _show_last()
 
 func set_current(step_id: String) -> void: current = step_id; _show_last()
 
+## Remove the newest line when it is exactly `text` (a fault line whose fault is gone).
+func drop_last_if(text: String) -> bool:
+	if lines.is_empty() or str(lines.back().text) != text: return false
+	lines.pop_back(); chars = 1.0e6; _show_last(); return true
+
 func last() -> Dictionary: return lines.back() if not lines.is_empty() else {}
 
 func shown_text() -> String: return _text.text
@@ -102,8 +107,13 @@ func _show_last() -> void:
 	_tick.color = EqTheme.TEAL if live else Color(0, 0, 0, 0)
 	_why.visible = live and str(l.get("why", "")) != "" and not l.get("why_said", false)
 	_got.visible = live and bool(l.get("got_it", false))
-	_text.label_settings = EqStrings.ls(15, _color(str(l.get("kind", "info"))))
-	_text.text = str(l.get("text", "")).substr(0, int(chars)) if not l.is_empty() else ""
+	# a long line steps its type down (15 -> 12) until it fits the box, so no word is cut; only then does it scroll (the log has the whole text)
+	var col := _color(str(l.get("kind", "info")))
+	var full := str(l.get("text", "")) if not l.is_empty() else ""
+	for fs in [15, 14, 13, 12]:
+		_text.label_settings = EqStrings.ls(fs, col); _text.lines_skipped = 0; _text.text = full
+		if _text.get_line_count() <= _text.max_lines_visible or _text.size.x < 40.0: break
+	_text.text = full.substr(0, int(chars)) if not l.is_empty() else ""
 	_follow()
 	_lamps.queue_redraw(); _grille.queue_redraw()
 	tooltip_text = ""

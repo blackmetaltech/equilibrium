@@ -109,8 +109,11 @@ func _on_act(name: String, args: Array) -> void:
 	refresh(true)
 
 func _on_dial(key: String, value: float) -> void:
+	var li0 = PaperStrings.q(app, "levelInfo")
+	var was := str(li0.get("phase", "design")) if li0 is Dictionary else "design"
 	var r: Dictionary = app.b.act("levelAct", ["setDial", key, value])
 	if not bool(r.get("ok", false)) and r.has("message"): app.toast(str(r.get("message", "")), "warn")
+	elif was != "design" and app.chrome != null: app.chrome.intercom.say("MARA", PaperStrings.t("IC_DIAL_RESET"), "info")   # a dial edit clears the run: say so, never silently
 	refresh(true)
 
 func _process(_dt: float) -> void:

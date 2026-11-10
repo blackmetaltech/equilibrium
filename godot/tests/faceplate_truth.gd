@@ -37,7 +37,7 @@ func _initialize() -> void:
 		# knobs: shown value = engine param in display units
 		for k in card.knobs:
 			var kn: Knob = fp.knobs.get(str(k.key))
-			check(kn != null, "%s has a knob for %s" % [id, k.key])
+			check(kn != null or fp.pickers.has(str(k.key)), "%s has a knob or picker for %s" % [id, k.key])
 			if kn == null or str(k.kind) == "choice": continue
 			var d := EqFmt.to_disp(float(k.value), str(k.unit))
 			same(PaperStrings.num(kn.value, kn.integer), d, "%s knob %s" % [id, k.key])

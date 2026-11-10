@@ -175,6 +175,9 @@ func refresh() -> void:
 	recorder.feed(li, runs, int(app.b.g.get("tick", 0)))
 	_sync_key()
 	_poll_coach(li)
+	if not li.is_empty() and intercom.lines.is_empty() and qa_li.is_empty():   # no coach (Engineer mode): the intercom is never blank at the start of a job
+		var notes: Array = li.get("note", []) if li.get("note") is Array else []
+		intercom.say(str(li.get("setter", "mara")), str(notes[0]) if not notes.is_empty() else EqStrings.T("IC_IDLE"), "info")
 	_explain_run(li, runs)
 	_stale_lines(li)
 	_bank_hint(li)
@@ -221,7 +224,8 @@ func _explain_run(li: Dictionary, runs: Array) -> void:
 		if lesson != "": intercom.say(who, lesson, "info"); _outcome_said = true
 		return
 	intercom.say("MARA", PaperStrings.t("IC_GOAL_MET") % "; ".join(met), "info"); _outcome_said = true
-	if ph == "firstrun": intercom.say("MARA", PaperStrings.t("IC_FIRSTRUN"), "info")
+	var rl = li.get("runLine")   # the engine says what a run is (a control level is not "making product")
+	if rl != null and str(rl) != "": intercom.say("MARA", str(rl), "info")
 
 ## The plant went back to design after an edit: nothing on the intercom may talk about the old design. Speak the current coach line again, else a neutral one.
 func _stale_lines(li: Dictionary) -> void:
@@ -254,6 +258,7 @@ func _bank_hint(li: Dictionary) -> void:
 ## A failed solve: a red chevron over the unit that failed (the world) and TOMAS names its tag and says why in the engine's words. Once per failure.
 var _fail_sig := ""
 var _last_fail_msg := ""
+var _fail_text := ""
 func _failure() -> void:
 	if app == null or app.world == null: return
 	var f = app.b.g.get("failure")
@@ -264,7 +269,9 @@ func _failure() -> void:
 	if app.world.has_method("set_fail_focus"): app.world.call("set_fail_focus", uid)
 	if sig == _fail_sig: return
 	_fail_sig = sig
-	if sig == "": return
+	if sig == "":   # the fault cleared: its line must not stay up as if it were still true
+		if _fail_text != "" and intercom.drop_last_if(_fail_text): _fail_text = ""; _back_to_coach(level_info())
+		_fail_text = ""; return
 	var msg := ""
 	if uid != "":
 		var c = PaperStrings.q(app, "unitCard", [uid])
@@ -274,7 +281,8 @@ func _failure() -> void:
 			if nd is Dictionary and not nd.is_empty(): msg = str(nd.get("text", ""))
 	if msg == "": msg = _last_fail_msg
 	if msg == "": msg = str(f.get("code", ""))
-	intercom.say("TOMAS", (PaperStrings.t("FAIL_AT") % [uid if uid != "" else "-", msg]), "bad")
+	_fail_text = PaperStrings.t("FAIL_AT") % [uid if uid != "" else "-", msg]
+	intercom.say("TOMAS", _fail_text, "bad")
 	app.sfx("bad")
 
 func _sync_key() -> void:
@@ -284,6 +292,13 @@ func _sync_key() -> void:
 		"commissioned": want = 1
 		"shift", "firstrun": want = 2
 	keys.set_pos(want)
+	var nx := -1; var nt := ""
+	if key_available() and str(app.b.g.get("status", "playing")) == "playing":
+		match phase:
+			"design": nx = 1; nt = PaperStrings.t("KH_DESIGN")
+			"commissioned": nx = 2; nt = PaperStrings.t("KH_COMMISSIONED")
+			"shift": nx = 0; nt = PaperStrings.t("KH_RUN")
+	keys.set_next(nx, nt)
 	keys.set_speed_enabled(phase == "shift" or phase == "firstrun")
 	if phase != "shift" and phase != "firstrun" and app.speed != 0 and str(app.b.g.get("status", "playing")) == "playing" and app.started: app.set_speed(0); keys.set_speed_pos(0)
 
@@ -310,13 +325,31 @@ func turn_key() -> Dictionary:
 			_failure()   # names the failed tag (a no-op when the changed signal already did)
 			if not (app.b.g.get("failure") is Dictionary): app.toast(_last_fail_msg, "bad")
 			keys.set_pos(0); return r
-		keys.set_pos(1); return r
+		keys.set_pos(1); Notebook.started[str(level_info().get("id", ""))] = true
+		# a level with a shift: commissioning starts the shift clock (no silent second turn that leaves 0 of N s on the board)
+		if int(level_info().get("shiftLen", 0)) > 0:
+			var rs: Dictionary = app.b.act("startShift", ["shift"])
+			if rs.get("ok", false):
+				keys.set_pos(2); app.game_on_changed(); choose_speed(1); phase = engine_phase()
+				intercom.say("MARA", PaperStrings.t("IC_RUNNING"), "info"); _outcome_said = true
+		return r
 	elif phase == "commissioned":
 		var r2: Dictionary = app.b.act("startShift", ["shift"])
 		if not r2.get("ok", false): app.toast(str(r2.get("message", "")), "warn"); return r2
 		keys.set_pos(2); choose_speed(1); return r2
+	elif phase == "shift": return stop_and_edit()
 	else:
-		app.toast(EqStrings.T("KEY_SHIFT_ON"), "info"); return {}
+		app.toast(PaperStrings.t("IC_FIRST_EDIT"), "info"); return {}
+
+## RUN -> DESIGN: the engine has no stop action, so the level restarts with the player's build and Call it answers put back (ui/build_keeper.gd).
+func stop_and_edit() -> Dictionary:
+	if level_info().is_empty(): return {}
+	var r := BuildKeeper.restart(app, true)
+	app.set_speed(0); keys.set_speed_pos(0)
+	phase = engine_phase()
+	intercom.say("MARA", PaperStrings.t("IC_STOPPED") if int(r.get("fails", 0)) == 0 else PaperStrings.t("IC_STOP_FAIL") % int(r.fails), "info")
+	app.sfx("key")
+	return r
 
 func choose_speed(i: int) -> void:
 	if app == null or not app.started: return

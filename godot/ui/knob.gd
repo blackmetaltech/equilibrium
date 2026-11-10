@@ -18,6 +18,7 @@ var value := 0.0
 var integer := false
 var choices: Array = []
 var editable := true
+var relative := false        ## the wheel steps by a share of the value in 1/2/5 steps (log-like), not a fixed share of the range
 var _drag := false
 var _last_ang := 0.0
 var _f := 0.0
@@ -49,9 +50,21 @@ func _snap(v: float, step: float) -> float:
 
 func _fine_mod() -> bool: return Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL) or Input.get_joy_axis(0, JOY_AXIS_TRIGGER_LEFT) > 0.4 or Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT) > 0.4
 
+## A round step (1, 2, 5 x 10^n) at or just under x.
+static func nice(x: float) -> float:
+	if x <= 0.0: return 1.0
+	var e := pow(10.0, floorf(log(x) / log(10.0))); var m := x / e
+	return e * (5.0 if m >= 5.0 else 2.0 if m >= 2.0 else 1.0)
+
+func rel_step(fine_step: bool) -> float:
+	var floor_st := maxf((hi - lo) * 1e-5, 1e-9)
+	return maxf(nice(absf(value) * (0.002 if fine_step else 0.02)), nice(floor_st))
+
 func _step(dir: int, fine_step: bool) -> void:
 	var st := 1.0 if (integer or not choices.is_empty()) else (fine if fine_step else coarse)
+	if relative and not integer and choices.is_empty(): st = rel_step(fine_step)
 	var v := value + dir * st
+	if relative and choices.is_empty(): v = snappedf(v, st * 0.001); set_value(v); changing.emit(value); _timer.start(); return
 	if not choices.is_empty(): v = wrapf(v, lo, hi + 1.0)   # options wrap around like a selector
 	set_value(_snap(v, st)); changing.emit(value); _timer.start()
 
@@ -164,7 +177,9 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var disp := Label.new(); disp.label_settings = EqTheme.settings(30, EqTheme.INK, "mono_bold"); disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var field := PanelContainer.new(); var fsb := StyleBoxFlat.new(); fsb.bg_color = Color("#FFFFFF"); fsb.border_color = EqTheme.INK; fsb.set_border_width_all(2); fsb.set_corner_radius_all(3); fsb.set_content_margin_all(8)
 	field.add_theme_stylebox_override("panel", fsb); field.add_child(disp); vb.add_child(field)
-	var hint := EqTheme.label((PaperStrings.t("KEYPAD_RANGE") % [PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))]) + (" " + unit if unit != "" else ""), 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans")
+	var absurd := hi >= 1.0e6 or lo <= -1.0e6   # a bound nobody could type: say only what the number is in
+	var hint_t := (PaperStrings.t("KEYPAD_IN") % unit if unit != "" else "") if absurd else (PaperStrings.t("KEYPAD_RANGE") % [PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))]) + (" " + unit if unit != "" else "")
+	var hint := EqTheme.label(hint_t, 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans")
 	if allow_range: vb.add_child(hint)
 	var buf := [initial if initial != "" else ""]
 	var upd := func() -> void: disp.text = (buf[0] if buf[0] != "" else "0") + (" " + unit if unit != "" else "")

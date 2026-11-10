@@ -75,7 +75,7 @@ func _rules() -> void:
 	_star_ch([3, 4, 5])
 	check(C.ch_done(5) and C.lock_reason("L29") == "" and C.lock_reason("L34") == "" and C.lock_reason("L24") == "", "chapters 6, 8 and 9 open after chapter 5")
 	check(C.lock_reason("L30") != "", "inside chapter 8 the levels go in order")
-	check(not C.ch_done(7) and C.chapter_ids(7).is_empty() and C.lock_reason("L28") == "" or C.chapter_ids(7).is_empty(), "the integrated Works has no levels yet and is never 'done'")
+	check(C.chapter_ids(7).has("L28"), "the integrated Works holds L28 (Feed the World)")
 	C.reset(); check(C.rank_name() == "Trainee", "rank starts at Trainee")
 	for i in range(1, 8): C.stars["L%02d" % i] = 3
 	check(C.total_stars() == 21 and C.rank_name() == "Senior Engineer", "21 stars is Senior Engineer (%s)" % C.rank_name())

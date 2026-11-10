@@ -13,10 +13,10 @@ var _tw: Tween
 
 const S := {
 	"INS_EQWIN": "Equilibrium window", "INS_XT": "X-T staircase", "INS_SEM": "Semenov plot", "INS_LEDGER": "Heat ledger",
-	"INS_X": "conversion %", "INS_T": "T °C", "INS_NOW": "now", "INS_ASLEEP": "catalyst asleep", "INS_SINTER": "sinters",
+	"INS_X": "conversion %", "INS_T": "T °C", "INS_NOW": "actual", "INS_ASLEEP": "catalyst asleep", "INS_SINTER": "sinters",
 	"INS_G": "heat made", "INS_R": "heat removed", "INS_STABLE": "stable", "INS_UNSTABLE": "unstable", "INS_KW": "kW",
 	"INS_RELEASED": "released", "INS_RECOVERED": "recovered", "INS_LOST": "lost", "INS_DUTY": "duty", "INS_MW": "MW",
-	"INS_BED": "bed %d", "INS_COOL": "cooler", "INS_EQ": "equilibrium", "INS_BEAM_LEVEL": "level", "INS_QK_HI": "too much product", "INS_QK_LO": "too little product",
+	"INS_BED": "bed %d", "INS_COOL": "cooler", "INS_EQ": "equilibrium ceiling", "INS_BEAM_LEVEL": "level", "INS_QK_HI": "too much product", "INS_QK_LO": "too little product",
 	"INS_NONE": "No reading yet", "INS_CLOSE": "Close", "INS_TAP": "tap to enlarge", "INS_MORE": "+%d more", "INS_TOTAL": "total",
 	"INS_FROM": "ribbon", "INS_ROAD": "all roads", "INS_BEAM": "Q/K",
 }

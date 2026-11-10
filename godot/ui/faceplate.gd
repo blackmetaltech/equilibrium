@@ -23,6 +23,7 @@ var _knob_box: GridContainer
 var _body: VBoxContainer
 var _last_pos := Vector2(-1, -1)
 var _order := 0
+var _warn: Label
 var _cmd := {}                       # knob key -> SI value commanded during a shift (the ramp target; shown as SP until the plant gets there)
 var _bank := false                   # a cylinder bank (L01 / L04): species chips and one kg/h knob
 var _bank_sp: Array = []             # the species a bank can carry (levelInfo.bankSpecies)
@@ -161,7 +162,7 @@ func refresh() -> void:
 
 func _rebuild() -> void:
 	for ch in get_children(): ch.queue_free()
-	knobs.clear(); _cells.clear(); _chips.clear(); _bank_kg = null; _kmol_lbl = null; _carry_lbl = null
+	knobs.clear(); pickers.clear(); _cells.clear(); _chips.clear(); _bank_kg = null; _kmol_lbl = null; _carry_lbl = null
 	var li0 := _li()
 	_bank_sp = li0.get("bankSpecies", []) if str(card.type) == "feed" else []
 	_bank = not _bank_sp.is_empty() and card.get("feed") != null
@@ -206,7 +207,13 @@ func _rebuild() -> void:
 	# readouts, two cells per row (kmol/h beside kg/h)
 	var grid := GridContainer.new(); grid.columns = 2; grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 2); _body.add_child(grid)
 	for key in ["flow", "mass", "T", "P", "duty"]: _cell(grid, key)
-	_need = EqTheme.label("", 14, EqTheme.RED, "semi"); _need.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _need.custom_minimum_size = Vector2(150, 0); _body.add_child(_need)
+	# fixed slots: error text never moves the fields above it (a heater also has a loud 0 kW warning slot)
+	_warn = null
+	if str(card.type) in ["heater", "cooler"]:
+		_warn = EqTheme.label("", 15, Color("#FFFFFF"), "semi"); _warn.name = "Warn"; _warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _warn.custom_minimum_size = Vector2(210, 44)
+		_warn.max_lines_visible = 2; _warn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		var wp := PanelContainer.new(); wp.name = "WarnBox"; var wsb := StyleBoxFlat.new(); wsb.bg_color = Color("#C4262F"); wsb.set_corner_radius_all(3); wsb.set_content_margin_all(4); wp.add_theme_stylebox_override("panel", wsb); wp.add_child(_warn); _body.add_child(wp); _warn.set_meta("box", wp)
+	_need = EqTheme.label("", 14, EqTheme.RED, "semi"); _need.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _need.custom_minimum_size = Vector2(210, 38); _need.max_lines_visible = 2; _need.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; _body.add_child(_need)
 	var bt := HBoxContainer.new(); bt.add_theme_constant_override("separation", 4); _body.add_child(bt)
 	_why = _btn(PaperStrings.t("FP_WHY"), _on_why); _lens = _btn(PaperStrings.t("FP_LENS"), func(): _open_extra("open_lens")); _win = _btn(PaperStrings.t("FP_WINDOW"), func(): _open_extra("open_window"))
 	for b in [_why, _lens, _win]: bt.add_child(b)
@@ -255,21 +262,45 @@ func _cell(grid: GridContainer, key: String) -> void:
 	v.add_child(cap); v.add_child(val); _cells[key] = [cap, val, v]
 
 func _add_knob(k: Dictionary) -> void:
+	if str(k.kind) == "choice": _add_picker(k); return
 	var kn := Knob.new(); kn.app = app
 	var unit := str(k.unit)
 	var lab := str(k.label)
-	if str(k.kind) == "choice":
-		var opts: Array = k.options
-		kn.setup(lab, "", 0.0, float(opts.size() - 1), 1.0, 1.0, float(opts.find(str(k.value))), true, opts)
-	else:
+	if true:
 		var d0 := EqFmt.to_disp(0.0, unit); var lo := EqFmt.to_disp(float(k.min), unit); var hi := EqFmt.to_disp(float(k.max), unit)
 		var span := hi - lo
-		var coarse := _nice(span * 0.01); var fine := _nice(span * 0.001)   # the wheel moves 1 % of the engine's range, 0.1 % with Shift
+		var coarse := _nice(span * 0.01); var fine := _nice(span * 0.001)   # floors of the relative wheel step
 		if bool(k.get("int", false)): coarse = 1.0; fine = 1.0
+		else: kn.relative = true   # the wheel moves ~2 % of the value (0.2 % with Shift) in 1/2/5 steps: fine enough to land a narrow window
 		kn.setup(lab, PaperStrings.usym(unit), lo, hi, coarse, fine, EqFmt.to_disp(float(k.value), unit), bool(k.get("int", false)))
 	kn.name = "Knob_" + str(k.key); kn.set_meta("key", str(k.key)); kn.set_meta("spec", k)
 	kn.committed.connect(func(v: float) -> void: _commit(k, v))
 	_knob_box.add_child(kn); knobs[str(k.key)] = kn
+
+## A choice knob as a labelled picker: one toggle per option (a heater's utility: fired / steam / cooling water / refrigerant / none).
+const CHOICE_ORDER := ["fired", "steam", "cw", "refrig", ""]
+var pickers := {}                    # param key -> {option -> Button}
+func _add_picker(k: Dictionary) -> void:
+	var key := str(k.key)
+	var box := VBoxContainer.new(); box.name = "Picker_" + key; box.add_theme_constant_override("separation", 2); box.custom_minimum_size = Vector2(150, 0)
+	box.add_child(EqTheme.dymo(str(k.label), 12))
+	var opts: Array = (k.options as Array).duplicate()
+	opts.sort_custom(func(a, b): return (CHOICE_ORDER.find(str(a)) if CHOICE_ORDER.has(str(a)) else 99) < (CHOICE_ORDER.find(str(b)) if CHOICE_ORDER.has(str(b)) else 99))
+	var fl := HFlowContainer.new(); fl.add_theme_constant_override("h_separation", 3); fl.add_theme_constant_override("v_separation", 3); box.add_child(fl)
+	var m := {}
+	for o in opts:
+		var bt := Button.new(); bt.name = "Opt_" + (str(o) if str(o) != "" else "none"); bt.toggle_mode = true; bt.focus_mode = Control.FOCUS_ALL
+		bt.text = _opt_label(key, str(o)); bt.custom_minimum_size = Vector2(0, 30)
+		bt.add_theme_font_override("font", EqStrings.font("cap")); bt.add_theme_font_size_override("font_size", EqTheme.fs(14))
+		bt.add_theme_stylebox_override("normal", _chip_sb(false)); bt.add_theme_stylebox_override("hover", _chip_sb(false, true)); bt.add_theme_stylebox_override("pressed", _chip_sb(true)); bt.add_theme_stylebox_override("hover_pressed", _chip_sb(true)); bt.add_theme_stylebox_override("focus", _chip_sb(false, true))
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]: bt.add_theme_color_override(c, EqTheme.INK if c != "font_pressed_color" and c != "font_hover_pressed_color" else Color("#0B1F1C"))
+		var ov := str(o); bt.pressed.connect(func(): _commit(k, float((k.options as Array).find(ov)))); fl.add_child(bt); m[ov] = bt
+	pickers[key] = m
+	_knob_box.add_child(box)
+
+func _opt_label(key: String, o: String) -> String:
+	if key == "utility": return PaperStrings.t("UT_" + (o.to_upper() if o != "" else "NONE")).to_upper()
+	return o.to_upper() if o != "" else "—"
 
 ## A round step (1, 2, 5 x 10^n) at or just under `x`, so the wheel lands on readable numbers.
 static func _nice(x: float) -> float:
@@ -327,7 +358,10 @@ func _update() -> void:
 	var flow: Variant = float(feed.flow) if is_feed and feed.has("flow") else (st.get("flow") if st.has("flow") else null)
 	_set_cell("flow", PaperStrings.t("FP_FLOW") + " " + PaperStrings.t("FP_KMOLH"), flow, "kmol/h")
 	var mass: Variant = null
-	if st.has("mass"): mass = float(st.mass) * 3600.0
+	if st.has("mass"):
+		mass = float(st.mass) * 3600.0
+		# one source: a feed's mass is the solved stream's mass per mole scaled to the flow the knob shows (a stale solve never disagrees with the knob)
+		if is_feed and flow != null and st.has("flow") and float(st.flow) > 1e-12: mass = mass * float(flow) / float(st.flow)
 	for k in ["massKgh", "kgh", "mass_kgh"]:
 		if is_feed and feed.has(k) and mass == null: mass = float(feed[k])
 	_set_cell("mass", PaperStrings.t("FP_MASS") + " " + PaperStrings.t("FP_KGH"), mass, "kg/h", "raw")
@@ -357,6 +391,9 @@ func _update() -> void:
 	for k in card.knobs:
 		var kn: Knob = knobs.get(str(k.key))
 		if _cmd.has(str(k.key)) and (not running or str(k.kind) == "choice" or absf(float(k.value) - float(_cmd[str(k.key)])) <= 1e-6 * maxf(1.0, absf(float(_cmd[str(k.key)])))): _cmd.erase(str(k.key))
+		if str(k.kind) == "choice" and pickers.has(str(k.key)):
+			for o in pickers[str(k.key)]: (pickers[str(k.key)][o] as Button).set_pressed_no_signal(str(o) == str(k.value))
+			continue
 		if kn == null or kn._drag: continue
 		if str(k.kind) == "choice": kn.set_value(float((k.options as Array).find(str(k.value))))
 		elif _cmd.has(str(k.key)): kn.set_value(EqFmt.to_disp(float(_cmd[str(k.key)]), str(k.unit)))
@@ -364,7 +401,14 @@ func _update() -> void:
 	_update_feed_info()
 	var need = PaperStrings.q(app, "needs", [unit_id])
 	_need.text = str(need.text) if need is Dictionary and not (need as Dictionary).is_empty() else (PaperStrings.t("FP_FAILED") if bool(card.get("failed", false)) else "")
-	_need.visible = _need.text != ""
+	_need.modulate.a = 1.0 if _need.text != "" else 0.0   # the slot stays, so nothing below it jumps
+	if _warn != null:
+		var utl := ""
+		for k in card.knobs: if str(k.key) == "utility": utl = str(k.value)
+		var res2: Variant = card.get("results")
+		var zero: bool = utl == "" or (res2 is Dictionary and (res2 as Dictionary).has("duty") and absf(float(res2.duty)) < 1.0)
+		_warn.text = PaperStrings.t("UT_ZERO") if zero else ""
+		(_warn.get_meta("box") as Control).modulate.a = 1.0 if zero else 0.0
 	_lens.disabled = app == null or not app.has_method("open_lens"); _win.disabled = app == null or not app.has_method("open_window")
 	reset_size()
 
@@ -405,6 +449,13 @@ func _place(force := false) -> void:
 	var ch = app.get("chrome")
 	var bottom := vr.y - (float(ch.console_height()) if ch != null and ch.has_method("console_height") else 190.0) - 10.0
 	var pos := Vector2(maxf(8.0, x), maxf(56.0, bottom - sz.y))
+	# never over the instrument bay or the level-view bay: step left of whatever is in the way
+	for bayn in ["bay", "lvbay"]:
+		var bw = app.get(bayn)
+		if bw == null or not is_instance_valid(bw) or not (bw as Control).visible: continue
+		if bayn == "lvbay" and not bw.active(): continue
+		var br: Rect2 = (bw as Control).get_global_rect()
+		if Rect2(pos, sz).intersects(br.grow(6.0)): pos.x = maxf(8.0, br.position.x - 10.0 - sz.x)
 	var sp := Vector2.ZERO
 	if app.world != null and app.world.has_method("unit_screen_pos"): sp = app.world.unit_screen_pos(unit_id)
 	if not force and pos.is_equal_approx(position) and sp.is_equal_approx(_last_pos): return
@@ -418,7 +469,7 @@ func _draw() -> void:   # the leader line from the plate's edge to the unit
 	var sp: Vector2 = app.world.unit_screen_pos(unit_id) - global_position
 	if sp.x < -3000.0: return
 	var from := Vector2(0.0 if sp.x < size.x * 0.5 else size.x, clampf(sp.y, 14.0, size.y - 14.0))
-	draw_line(from, sp, EqTheme.PORCELAIN, 2.0, true); draw_circle(sp, 4.0, EqTheme.TEAL)
+	draw_dashed_line(from, sp, EqTheme.INK, 1.0, 5.0, true); draw_circle(sp, 3.0, EqTheme.INK)   # thin, dashed, ink: never mistaken for a pipe
 
 # ---- the piping hub ----------------------------------------------------------------------------------------------------------
 class Hub extends Node:
@@ -586,17 +637,22 @@ class Hub extends Node:
 
 	## The tiny cap beside a port pip: outlets V / L / OUT by their engine port name (vap / liq / out), inlets IN (IN1, IN2 when numbered).
 	static func cap(port: String, inlet: bool) -> String:
-		if inlet: return "IN" + (port.right(1) if port.right(1).is_valid_int() else "")
 		match port:
+			"hot_in": return "HOT IN"
+			"hot_out": return "HOT OUT"
+			"cold_in": return "COLD IN"
+			"cold_out": return "COLD OUT"
 			"vap": return "V"
 			"liq": return "L"
 			"out": return "OUT"
+		if inlet: return "IN" + (port.right(1) if port.right(1).is_valid_int() else "")
 		return port.to_upper().left(5)
 
 	func show_free_ports(id: String) -> void: app.world.show_ports(_free_ports(id))
 
 	func clear_pipe() -> void:
 		from_unit = ""; from_port = ""; legal = []
+		if app != null and app.world != null and app.world.has_method("set_pipe_ghost"): app.world.set_pipe_ghost("", "", false)
 
 	func _light_targets() -> void:
 		var q = PaperStrings.q(app, "legalPorts", [from_unit, from_port])
@@ -618,7 +674,8 @@ class Hub extends Node:
 			from_unit = unit; from_port = port; from_inlet = inlet
 			_light_targets()
 			if legal.is_empty(): app.toast(PaperStrings.t("PIPE_NONE") % [unit, port], "warn"); clear_pipe(); show_free_ports(unit); return
-			app.toast(PaperStrings.t("PIPE_FROM") % unit, "info"); return
+			app.world.set_pipe_ghost(unit, port, inlet)
+			app.toast((PaperStrings.t("PIPE_FROM") if not inlet else PaperStrings.t("PIPE_FROM_IN")) % unit, "info"); return
 		if unit == from_unit and port == from_port: clear_pipe(); show_free_ports(unit); return
 		if inlet == from_inlet:   # same kind: restart from this port
 			clear_pipe(); _on_port(unit, port, inlet); return

@@ -30,7 +30,9 @@ func set_pos(p: int, animate := true) -> void:
 
 func set_speed_pos(i: int) -> void: speed.pos = clampi(i, 0, 3); speed.queue_redraw()
 func set_speed_enabled(on: bool) -> void: speed.enabled = on; speed.queue_redraw()
-func set_compact(c: bool) -> void: key.custom_minimum_size = Vector2(190, 76) if c else Vector2(190, 96); speed.custom_minimum_size = Vector2(100, 76) if c else Vector2(124, 96); key.compact = c; speed.compact = c; key.queue_redraw(); speed.queue_redraw()
+func set_next(i: int, text: String) -> void:
+	if key.next != i or key.next_text != text: key.next = i; key.next_text = text; key.queue_redraw()
+func set_compact(c: bool) -> void: key.custom_minimum_size = Vector2(230, 76) if c else Vector2(250, 96); speed.custom_minimum_size = Vector2(100, 76) if c else Vector2(124, 96); key.compact = c; speed.compact = c; key.queue_redraw(); speed.queue_redraw()
 
 ## The chunky key.
 class KeyDial extends Control:
@@ -39,9 +41,11 @@ class KeyDial extends Control:
 	var angle := -PI / 3.0
 	var compact := false
 	var coach := false
+	var next := -1      ## the position one more turn leads to (its lamp pulses and a caption says what it does)
+	var next_text := ""
 	const DEG := PI / 3.0
 	func _init() -> void:
-		custom_minimum_size = Vector2(190, 96); mouse_filter = Control.MOUSE_FILTER_STOP; focus_mode = CbKit.focus_mode()
+		custom_minimum_size = Vector2(250, 96); mouse_filter = Control.MOUSE_FILTER_STOP; focus_mode = CbKit.focus_mode()
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		focus_entered.connect(queue_redraw); focus_exited.connect(queue_redraw)
 	func target_angle() -> float: return (pos - 1) * DEG
@@ -50,6 +54,7 @@ class KeyDial extends Control:
 			angle = move_toward(angle, target_angle(), 7.0 * dt) if not CbSettings.reduced_motion else target_angle()
 			queue_redraw()
 	func _gui_input(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]: accept_event(); return   # the wheel over the key never zooms the camera
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: sw.step_requested.emit(); accept_event()
 		elif e is InputEventScreenTouch and e.pressed: sw.step_requested.emit(); accept_event()
 		elif e is InputEventKey and e.pressed and not e.echo and (e.keycode == KEY_ENTER or e.keycode == KEY_KP_ENTER): sw.step_requested.emit(); accept_event()
@@ -67,11 +72,16 @@ class KeyDial extends Control:
 			var on := i == pos
 			draw_circle(lp, 5.5, Color("#0E1A18")); draw_circle(lp, 4.0, EqTheme.TEAL if on else EqTheme.TEAL.darkened(0.8))
 			if on: draw_circle(lp, 8.0, Color(EqTheme.TEAL, 0.2))
+			if i == next and not on:   # one more turn goes here: a pulsing amber ring
+				draw_arc(lp, 9.0 + 2.0 * sin(Time.get_ticks_msec() * 0.008), 0, TAU, 20, Color(EqTheme.AMBER, 0.55 + 0.4 * sin(Time.get_ticks_msec() * 0.008)), 2.5); queue_redraw()
 			var col := EqTheme.TEXT if on else EqTheme.DIM
 			var tw := f.get_string_size(names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 			if i == 0: draw_string(f, Vector2(lp.x - 10.0 - tw, lp.y + sz * 0.35 + 4.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
 			elif i == 1: draw_string(f, Vector2(lp.x - tw * 0.5, lp.y - 9.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
 			else: draw_string(f, Vector2(lp.x + 10.0, lp.y + sz * 0.35 + 4.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
+		if next_text != "":   # the caption under the right-hand labels: what one more turn does
+			draw_string(f, Vector2(c.x + 34.0, size.y - 22.0), EqStrings.T("KH_TURN") if EqStrings.T("KH_TURN") != "KH_TURN" else PaperStrings.t("KH_TURN"), HORIZONTAL_ALIGNMENT_LEFT, size.x - c.x - 36.0, EqTheme.fs(11), EqTheme.DIM)
+			draw_string(f, Vector2(c.x + 34.0, size.y - 8.0), next_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - c.x - 36.0, EqTheme.fs(12), EqTheme.AMBER)
 		# escutcheon plate and the key
 		draw_circle(c, 29.0, Color("#0B1413")); draw_circle(c, 27.0, EqTheme.ENAMEL_HI); draw_circle(c, 23.0, Color("#1A2B28"))
 		draw_set_transform(c, angle, Vector2.ONE)

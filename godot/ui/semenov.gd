@@ -3,7 +3,15 @@ extends InstrPaper
 ## The Semenov plot (DESIGN 2.7 L24): heat generated G(T) (red pen, the S-curve) and heat removed R(T) (blue pen, a straight line) on chart-recorder
 ## paper. Each crossing is a steady state: a filled disc if stable, a ring with a cross if unstable. The operating point rides a dot on the
 ## paper. When the cooling changes the R line rotates (morph over 0.4 s). Data is the engine's `semenov(unitId)`: {T,G,R,states:[{T,stable}],op:{T}}.
-func has_reading() -> bool: return arr(data.get("T", [])).size() > 1
+var _y_hold := 0.0     ## kW: the axis only grows while a plant is on show, so it does not jump between 0-1000 and 0-1.0 as the curves move
+func has_reading() -> bool:
+	var ts := arr(data.get("T", []))
+	if ts.size() < 2 or absf(float(ts[ts.size() - 1]) - float(ts[0])) < 1.0: _y_hold = 0.0; return false   # no temperature span: nothing to draw (no vertical line)
+	var m := 0.0
+	for v in arr(data.get("G", [])): m = maxf(m, absf(float(v)))
+	for v in arr(data.get("R", [])): m = maxf(m, absf(float(v)))
+	if m < 1.0: _y_hold = 0.0; return false   # a degenerate plant (no heat anywhere)
+	return true
 
 func _draw_body() -> void:
 	if not has_reading(): empty_note(); return
@@ -11,7 +19,12 @@ func _draw_body() -> void:
 	var t_lo := kelvin_c(float(ts[0])); var t_hi := kelvin_c(float(ts[ts.size() - 1]))
 	var gmax := 0.0
 	for v in gs: gmax = maxf(gmax, float(v))
-	var y_hi := nice_ceil(maxf(gmax * 1.2, 1000.0) / 1000.0) * 1000.0
+	var rmax := 0.0
+	for v in rs: rmax = maxf(rmax, float(v))
+	var y_kw := nice_ceil(maxf(maxf(gmax, minf(rmax, gmax * 3.0)) * 1.2, 100000.0) / 1000.0)   # kW, never below a 100 kW sheet
+	_y_hold = maxf(_y_hold, y_kw)
+	if mirror_of != null and mirror_of is SemenovView: _y_hold = maxf(_y_hold, (mirror_of as SemenovView)._y_hold)
+	var y_hi := _y_hold * 1000.0
 	var y_lo := 0.0
 	var xr := Vector2(t_lo, t_hi); var yr := Vector2(y_lo / 1000.0, y_hi / 1000.0)
 	var pl := paper(xr, yr, func(v: float): return "%.0f" % v, func(v: float): return "%.0f" % v if absf(v) >= 10.0 else "%.1f" % v, 40.0, 18.0, 20.0, 6.0)

@@ -116,7 +116,7 @@ func refresh() -> void:
 func pick(type: String) -> void:
 	for t in tiles:
 		if (t as Tile).type == type:
-			if not (t as Tile).available: app.toast(PaperStrings.t("RACK_LIMIT") % int((t as Tile).limit), "warn"); return
+			if not (t as Tile).available: app.toast(PaperStrings.t("RACK_LIMIT1") if int((t as Tile).limit) == 1 else PaperStrings.t("RACK_LIMIT") % int((t as Tile).limit), "warn"); return
 	if app.world == null: return
 	if app.world.placing == type: app.world.cancel_place(); return
 	app.world.begin_place(type)

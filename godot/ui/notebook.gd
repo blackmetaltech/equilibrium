@@ -4,6 +4,7 @@ extends RefCounted
 ## ruled lines with tick boxes, the budget, three flask stars, the Call-it answer line (keypad -> `callIt`), the Learner/Engineer chip on the first job and
 ## the teal "Start work" key. Everything comes from the `levelInfo` query. It folds into a tab at the top left.
 static var stub := {}          # a levelInfo-shaped dict for galleries/tests; used when the engine has none
+static var started := {}       # level id -> the job has been worked on (commissioned, or restarted with the build kept): the key says Back to work
 static var _seen := {}         # app instance id -> last level id the watcher opened for
 
 class Grid extends Control:
@@ -92,8 +93,10 @@ static func open(app) -> Control:
 
 ## Wrapped labels size late: once the page has its width, shrink the panel to its content, re-centre it and slide it up.
 static func _settle(app, pn: Control, w: float) -> void:
-	for i in 2: await pn.get_tree().process_frame
 	if not is_instance_valid(pn): return
+	for i in 2:
+		await pn.get_tree().process_frame
+		if not is_instance_valid(pn): return
 	pn.reset_size(); app.center(pn, w, 0.0)
 	await pn.get_tree().process_frame
 	if not is_instance_valid(pn): return
@@ -126,8 +129,12 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); row.name = "Goal_" + str(g.key)
 		var tb := TickBox.new(); tb.met = bool(g.met); row.add_child(tb)
 		var gl := EqTheme.label(str(g.text), 18, EqTheme.INK, "sans"); gl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; row.add_child(gl)
-		if g.has("value") and g.get("value") != null:
-			var vt := PaperStrings.num(float(g.value)) + ("  / " + PaperStrings.num(float(g.target)) if g.get("target") != null else "")
+		if g.get("readout") != null and str(g.readout) != "":
+			row.add_child(EqTheme.label(str(g.readout), 16, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.25), "mono"))
+		elif bool(g.get("pending", false)) and not bool(g.met):
+			row.add_child(EqTheme.label(PaperStrings.t("NB_PENDING"), 16, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.4), "mono"))
+		elif g.has("value") and g.get("value") != null:
+			var vt := PaperStrings.t("NB_NOW") % PaperStrings.num(float(g.value)) + ((" · " + PaperStrings.t("NB_TARGET") % PaperStrings.num(float(g.target))) if g.get("target") != null else "")   # "now 16.67 · target 10.25", never two bare numbers
 			row.add_child(EqTheme.label(vt, 16, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.25), "mono"))
 		gv.add_child(row)
 		var rule := ColorRect.new(); rule.color = Color(EqTheme.INK, 0.28); rule.custom_minimum_size = Vector2(0, 1); gv.add_child(rule)
@@ -142,27 +149,36 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	var fl := VBoxContainer.new(); fl.add_child(EqTheme.dymo(PaperStrings.t("NB_STARS"), 13)); fv.add_child(fl)
 	for i in range(3):
 		var cell := HBoxContainer.new(); cell.add_theme_constant_override("separation", 6); cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var f := Flask.new(); f.name = "Flask_%d" % i; f.filled = i < int(st.get("have", 0)); cell.add_child(f)
-		if i == 2 and li.get("callIt") is Dictionary and bool(li.callIt.get("answered", false)): f.armed = true
+		var earned: Array = st.get("earned", []) if st.get("earned") is Array else []
+		var f := Flask.new(); f.name = "Flask_%d" % i; f.filled = bool(earned[i]) if i < earned.size() else i < int(st.get("have", 0)); cell.add_child(f)   # each flask is its own star (the second can be lit without the first being "the count")
+		if i == 2 and ((li.get("callIt") is Dictionary and bool(li.callIt.get("answered", false))) or (li.get("callIts") is Array and not (li.callIts as Array).is_empty() and bool((li.callIts[0] as Dictionary).get("answered", false)))): f.armed = true
 		var rl := EqTheme.label(str((st.get("rules", []) as Array)[i]) if i < (st.get("rules", []) as Array).size() else "", 14, EqTheme.INK, "sans")
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rl.custom_minimum_size = Vector2(120, 0); cell.add_child(rl); fv.add_child(cell)
-	# call it
-	var ci = li.get("callIt")
-	if ci is Dictionary:
-		var cr := HBoxContainer.new(); cr.name = "CallIt"; cr.add_theme_constant_override("separation", 10); vb.add_child(cr)
+	# call it: one row per prediction (levelInfo.callIts when the level has several, else the single callIt)
+	var cis: Array = []
+	if li.get("callIts") is Array and not (li.callIts as Array).is_empty(): cis = li.callIts
+	elif li.get("callIt") is Dictionary: cis = [li.callIt]
+	for ci in cis:
+		if not (ci is Dictionary): continue
+		var ckey := str(ci.get("key", ""))
+		var cr := HBoxContainer.new(); cr.name = "CallIt" if cis.size() == 1 else "CallIt_" + ckey; cr.add_theme_constant_override("separation", 10); vb.add_child(cr)
 		cr.add_child(EqTheme.dymo(PaperStrings.t("NB_CALLIT"), 13))
 		var pl := EqTheme.label(str(ci.prompt) + ":", 18, EqTheme.INK, "sans"); pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cr.add_child(pl)
 		var an := Answer.new(); an.name = "Answer"; an.unit = str(ci.unit)
-		if bool(ci.get("answered", false)) and ci.get("value") != null: an.text = PaperStrings.num(float(ci.value))
+		var answered := bool(ci.get("answered", false)) and ci.get("value") != null
+		if answered: an.text = PaperStrings.num(float(ci.value))
 		cr.add_child(an)
 		cr.add_child(EqTheme.label(str(ci.unit), 18, EqTheme.INK, "mono"))
 		var cnote := EqTheme.label("", 15, EqTheme.RED, "semi"); cnote.name = "CallNote"; cnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cnote.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cnote.visible = false
+		if answered:   # the locked answer is written under the line, and stays there when the notebook is reopened
+			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "")
+			cnote.add_theme_color_override("font_color", EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK); cnote.label_settings = EqStrings.ls(15, EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK, "semi"); cnote.visible = true
 		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); vb.remove_child(cr); cwrap.add_child(cr); cwrap.add_child(cnote); vb.add_child(cwrap); vb.move_child(cwrap, pi)
 		an.tapped.connect(func(): Knob.keypad(app, str(ci.prompt), str(ci.unit), an.text, 0.0, 1e9, func(v: float) -> void:
-			var r: Dictionary = app.b.act("callIt", [v])
+			var r: Dictionary = app.b.act("callIt", [v] if ckey == "" else [v, ckey])
 			if not bool(r.get("ok", false)):   # the engine's refusal is shown on the page itself, and the typed value stays on the line
 				an.text = PaperStrings.num(v); an.refused = true; an.queue_redraw()
-				cnote.text = PaperStrings.t("NB_REFUSED") % str(r.get("message", "")); cnote.visible = true
+				cnote.text = PaperStrings.t("NB_REFUSED") % str(r.get("message", "")); cnote.add_theme_color_override("font_color", EqTheme.RED); cnote.label_settings = EqStrings.ls(15, EqTheme.RED, "semi"); cnote.visible = true
 			else: _rebuild(app, host, vb)))
 	# mode chip (first job only), then the key
 	var foot := HBoxContainer.new(); foot.add_theme_constant_override("separation", 10); vb.add_child(foot)
@@ -173,7 +189,7 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 			var b := EqTheme.key_button(PaperStrings.t("NB_" + m.to_upper()), on, 15); b.name = "Mode_" + m; b.custom_minimum_size = Vector2(0, 36)
 			b.pressed.connect(func(): app.b.act("setMode", [m]); _rebuild(app, host, vb)); foot.add_child(b)
 	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; foot.add_child(sp)
-	var go := EqTheme.key_button(PaperStrings.t("NB_START") if int(li.get("spentUSD", 0)) == 0 else PaperStrings.t("NB_RESUME"), true, 20); go.name = "Start"; go.custom_minimum_size = Vector2(190, 50)
+	var go := EqTheme.key_button(PaperStrings.t("NB_RESUME") if (bool(started.get(str(li.get("id", "")), false)) or str(li.get("phase", "design")) != "design" or int(app.b.g.get("tick", 0)) > 0 or (PaperStrings.q(app, "runs") is Array and not (PaperStrings.q(app, "runs") as Array).is_empty())) else PaperStrings.t("NB_START"), true, 20); go.name = "Start"; go.custom_minimum_size = Vector2(190, 50)
 	go.pressed.connect(func(): host.queue_free()); foot.add_child(go)
 
 static func _is_first(app, id: String) -> bool:

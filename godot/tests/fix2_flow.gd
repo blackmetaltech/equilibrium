@@ -144,7 +144,7 @@ func _intercom_and_recorder() -> void:
 	ch.turn_key(); app.game_on_changed(); await frames(3)
 	var txt := lines_text()
 	check(txt.contains("Goal met: "), "a winning commission says Goal met")
-	check(str(ch.intercom.last().text).begins_with("First run"), "...then the first-run line (%s)" % ch.intercom.last().text)
+	check(str(ch.intercom.last().text) == str(app.b.q("levelInfo").get("runLine", "")) and str(ch.intercom.last().text) != "", "...then the engine's run line (%s)" % ch.intercom.last().text)
 	check(rec.runs.size() == 2 and rec.runs[0].n == 1 and rec.runs[1].n == 2, "every commission stays on the recorder: two runs (%d)" % rec.runs.size())
 	check(app.speed == 1, "the first run starts at 1x (speed %d)" % app.speed)
 	# the first-run counter rolls with plant time

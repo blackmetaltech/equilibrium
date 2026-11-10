@@ -30,6 +30,7 @@ var app
 var cover := 0.0
 var cover_left := 0.0
 var cover_bottom := 0.0
+var board_cover := 0.0              # px of the right side a board level's worksheet covers (the display scene frames itself in the rest)
 var fp_table := {}                  # unit type -> Vector2i (engine footprint, rot 0): the grid follows the engine, models scale to fit
 var place_ignore := ""              # a unit being moved does not block its own ghost
 var pipes: PipeLayer
@@ -72,7 +73,10 @@ func _ready() -> void:
 
 func set_cover(px: float) -> void: cover = 0.0 if app != null and app.is_custom() else px; _apply()   # custom chrome has no side drawer (the blank home screen reports one)
 func set_cover_left(px: float) -> void: cover_left = px; _apply()
-func set_cover_bottom(px: float) -> void: cover_bottom = px; _apply()
+func set_cover_bottom(px: float) -> void:
+	var was := _cam_untouched() and absf(px - cover_bottom) > 4.0 and _fit_n >= 0
+	cover_bottom = px; _apply()
+	if was and not (_units.is_empty() and _deco_level == ""): fit_view()   # the console arrived after the first fit: frame again until the player has touched the camera
 ## Cute mode (EqSettings): critters get faces, the cat and flamingos appear.
 func set_cute(on: bool) -> void:
 	if critters: critters.set_cute(on)
@@ -87,6 +91,31 @@ func set_state(p: Dictionary) -> void:
 	if not gallery:
 		set_units(p.get("units", []))
 		pipes.set_pipes(p.get("streams", []), _unit_state)
+		_sync_display_scene(p)
+
+## Board levels have no engine units: a display-only scene stands on the slab instead (ui scene per level id).
+var _deco: DisplayScene
+var _deco_level := ""
+func _sync_display_scene(p: Dictionary) -> void:
+	var lid := str(app.b.g.get("level", "")) if app != null and app.b != null else ""
+	var want := lid if DisplayScene.UNITS.has(lid) else ""   # the carrier feed and tank of a board level are hidden behind its scene
+	for id in _units: (_units[id] as Node3D).visible = want == ""
+	if want == _deco_level: return
+	_deco_level = want
+	var bc := 0.0
+	if want != "" and app.get("lvbay") != null: bc = minf(820.0, get_viewport().get_visible_rect().size.x * 0.45)
+	board_cover = bc; _apply()
+	if _deco == null: _deco = DisplayScene.new(); _deco.world = self; _deco.name = "DisplayScene"; add_child(_deco)
+	_deco.clear()
+	if want != "":
+		_deco.build(want); fit_deco(want)
+func deco_level() -> String: return _deco_level
+func fit_deco(id: String) -> void:
+	var pts: Array = []
+	for u in DisplayScene.UNITS[id]:
+		var fp := UnitModels.footprint(str(u[0]), int(u[3]))
+		pts.append([Vector2i(int(u[1]), int(u[2])), fp])
+	_fit_boxes(pts)
 
 ## Engine footprints from the palette query ({cats:[{items:[{type,w,h}]}]}).
 func set_footprints(pal: Dictionary) -> void:
@@ -245,6 +274,7 @@ func set_units(arr: Array) -> void:
 		if st.is_empty() or st[0] != type:
 			if _units.has(id): (_units[id] as Node).queue_free()
 			var m := UnitModels.create(type, id); add_child(m); _units[id] = m; _fit(m, type)
+			if type == "hx": _label_hx_ports(m)
 			if id == selected_id: m.set_selected(true)
 			st = []
 		_unit_state[id] = [type, x, y, rot]
@@ -266,15 +296,53 @@ var _fit_n := -1
 ## With nothing placed it frames the whole plot. Called when the unit count changes, so a player's own pan/zoom survives knob changes.
 func fit_view() -> void:
 	if _units.is_empty():
-		cam_rig.look_at_ground(Vector3.ZERO); cam_rig.set_size(46.0); return
-	var lo := Vector3(1e9, 0, 1e9); var hi := Vector3(-1e9, 0, -1e9)
+		if _deco_level != "": fit_deco(_deco_level); return
+		cam_rig.look_at_ground(Vector3.ZERO); cam_rig.set_size(46.0); _note_fit(); return
+	var pts: Array = []
 	for id in _units:
-		var p: Vector3 = (_units[id] as Node3D).position
-		lo.x = minf(lo.x, p.x); lo.z = minf(lo.z, p.z); hi.x = maxf(hi.x, p.x); hi.z = maxf(hi.z, p.z)
-	var c := (lo + hi) * 0.5; var ext := maxf(hi.x - lo.x, hi.z - lo.z)
-	c = c.lerp(Vector3.ZERO, clampf(1.0 - _units.size() / 6.0, 0.0, 0.6))   # a lone first unit: keep the plot in view
+		var st: Array = _unit_state[id]
+		pts.append([Vector2i(int(st[1]), int(st[2])), footprint_of(st[0], st[3])])
+	_fit_boxes(pts, _units.size() < 3)
+
+## Frame tile boxes [[tile, footprint]]: every unit fully inside the space above the console, whatever the yaw (a pre-placed bank is never cropped).
+func _fit_boxes(boxes: Array, keep_plot := false) -> void:
+	var lo := Vector3(1e9, 0, 1e9); var hi := Vector3(-1e9, 0, -1e9)
+	for bx in boxes:
+		var c0 := tile_to_world(bx[0], bx[1]); var half := Vector3(bx[1].x * GRID * 0.5, 0, bx[1].y * GRID * 0.5)
+		lo.x = minf(lo.x, c0.x - half.x); lo.z = minf(lo.z, c0.z - half.z); hi.x = maxf(hi.x, c0.x + half.x); hi.z = maxf(hi.z, c0.z + half.z)
+	var c := (lo + hi) * 0.5
+	if keep_plot: c = c.lerp(Vector3.ZERO, 0.4)
+	var yaw := deg_to_rad(cam_rig._yaw_to)
+	var right := Vector3.RIGHT.rotated(Vector3.UP, yaw); var fwd := Vector3.FORWARD.rotated(Vector3.UP, yaw)
+	var hx := 0.0; var hy := 0.0
+	for x in [lo.x, hi.x]:
+		for z in [lo.z, hi.z]:
+			var d := Vector3(x, 0, z) - c
+			hx = maxf(hx, absf(d.dot(right))); hy = maxf(hy, absf(d.dot(fwd)) * sin(deg_to_rad(PITCH)))
+	var vr := get_viewport().get_visible_rect().size
+	var frac := clampf((vr.y - cover_bottom) / maxf(vr.y, 1.0), 0.4, 1.0)
+	var need_h := 2.0 * (hy + 4.0) / frac + 4.0          # +4 m: models stand up above their footprint
+	var need_w := 2.0 * (hx + 3.0) * (vr.y / maxf(vr.x - board_cover, 1.0)) + 4.0
 	cam_rig.look_at_ground(c)
-	cam_rig.set_size(clampf(ext * 0.9 + 16.0, 34.0, 50.0))   # never closer than a third of the plot: the player needs room to build
+	cam_rig.set_size(clampf(maxf(maxf(need_h, need_w), 34.0), PlantCamera.ZMIN, PlantCamera.ZMAX))
+	_note_fit()
+
+var _fit_pan := Vector3.ZERO
+var _fit_size := 0.0
+func _note_fit() -> void: _fit_pan = cam_rig._pan_to; _fit_size = cam_rig._size_to
+func _cam_untouched() -> bool: return cam_rig._pan_to.is_equal_approx(_fit_pan) and absf(cam_rig._size_to - _fit_size) < 0.01
+
+const HX_CAPS := {"hot_in": "HOT IN", "hot_out": "HOT OUT", "cold_in": "COLD IN", "cold_out": "COLD OUT"}
+## Exchanger nozzles carry permanent tags, so hot and cold sides are never guessed.
+func _label_hx_ports(m: UnitModel) -> void:
+	for pn in m.ports:
+		var cap: String = HX_CAPS.get(str(pn), str(pn).replace("_", " ").to_upper())
+		var lb := Label3D.new(); lb.name = "Cap_" + str(pn); lb.text = cap; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true; lb.pixel_size = 0.0009; lb.font_size = 34
+		lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.85); lb.modulate = Color("#FF9A8A") if str(pn).begins_with("hot") else Color("#8AD7FF"); lb.font = EqTheme.font("semi")
+		lb.render_priority = 6; lb.outline_render_priority = 5
+		var pdir: Vector3 = (m.ports[pn] as Marker3D).get_meta("dir", Vector3.ZERO)
+		var hot := str(pn).begins_with("hot")   # hot tags ride high, cold tags low, pushed outward along the nozzle: no two tags overlap
+		lb.position = (m.ports[pn] as Marker3D).position + pdir * 0.9 + Vector3(0, 1.9 if hot else 0.7, 0); m.add_child(lb)
 
 func set_display(id: String, d: Dictionary) -> void:
 	if _units.has(id): (_units[id] as UnitModel).set_display(d)
@@ -398,7 +466,7 @@ func _click_at(p: Vector2) -> void:
 			place_at(_cursor.x, _cursor.y)
 		return
 	var pk := _pick_port(p)
-	if not pk.is_empty(): port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
+	if not pk.is_empty(): _press_port = pk; port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
 	var id := _pick_unit(p)
 	var pid := pipes.pick(p, cam, 12.0 if id == "" else 6.0)   # over a unit only a click right on the pipe's line picks the pipe: ports, then units, then loose pipes
 	if pid != "": select(""); pipes.select(pid); pipe_clicked.emit(pid); return
@@ -407,8 +475,14 @@ func _click_at(p: Vector2) -> void:
 ## A pipe in front of a unit wins when the cursor is on its centre line closer than the unit's screen centre (pipes ride above the ground).
 func pipes_over(_pid: String, _uid: String, _p: Vector2) -> bool: return true
 
+var _press_port := {}           ## the port a left press started on: releasing over another port finishes a drag-to-connect
 func _unhandled_input(e: InputEvent) -> void:
-	if not input_ok(): return
+	if not input_ok(): _press_port = {}; return
+	if e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT and not _press_port.is_empty():
+		var rel := _pick_port(e.position)
+		var from := _press_port; _press_port = {}
+		if not rel.is_empty() and (str(rel.unit) != str(from.unit) or str(rel.port) != str(from.port)): port_clicked.emit(str(rel.unit), str(rel.port), bool(rel.inlet))
+		return
 	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION:
 		var h := pipes.pick(e.position, cam)
 		if h != _hover_pipe or h != "": _hover_pipe = h; pipe_hover.emit(h, e.position)
@@ -453,8 +527,43 @@ func _on_btn(which: String) -> void:
 		"rot_l": cam_rig.rotate_view(-1)
 		"rot_r": cam_rig.rotate_view(1)
 
+## A pipe being made: a ghost line from the chosen outlet (or inlet) follows the cursor and snaps to a lit port under it.
+var _ghost_line: MeshInstance3D
+var _ghost_im: ImmediateMesh
+var _ghost_from := {}
+func set_pipe_ghost(unit: String, port: String, inlet: bool) -> void:
+	_ghost_from = {} if unit == "" else {"unit": unit, "port": port, "inlet": inlet}
+	if unit == "" and _ghost_line != null: _ghost_line.visible = false
+func pipe_ghost_active() -> bool: return not _ghost_from.is_empty()
+func _tick_ghost() -> void:
+	if _ghost_from.is_empty(): return
+	var f := port_frame(str(_ghost_from.unit), str(_ghost_from.port), bool(_ghost_from.inlet))
+	if f.is_empty(): return
+	if _ghost_line == null:
+		_ghost_im = ImmediateMesh.new(); _ghost_line = MeshInstance3D.new(); _ghost_line.mesh = _ghost_im
+		var m := StandardMaterial3D.new(); m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.albedo_color = Color("#FFB703"); m.no_depth_test = true; m.render_priority = 7
+		_ghost_line.material_override = m; _ghost_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(_ghost_line)
+	var mp := get_viewport().get_mouse_position()
+	var a: Vector3 = f.pos + Vector3(0, 0.4, 0)
+	var b := a
+	var snap := _pick_port(mp)
+	if not snap.is_empty() and (str(snap.unit) != str(_ghost_from.unit) or str(snap.port) != str(_ghost_from.port)):
+		var sf := port_frame(str(snap.unit), str(snap.port), bool(snap.inlet))
+		if not sf.is_empty(): b = sf.pos + Vector3(0, 0.4, 0)
+	else:
+		var g = _ground_at(mp)
+		if g != null: b = Vector3(g.x, 0.9, g.z)
+	_ghost_im.clear_surfaces()
+	# dashed: short segments along the line, so it never reads as a laid pipe
+	var d := b - a; var n := int(d.length() / 0.7)
+	_ghost_im.surface_begin(Mesh.PRIMITIVE_LINES)
+	for i in range(0, maxi(n, 1), 2):
+		_ghost_im.surface_add_vertex(a + d * (float(i) / maxf(n, 1))); _ghost_im.surface_add_vertex(a + d * (minf(float(i + 1), maxf(n, 1)) / maxf(n, 1)))
+	_ghost_im.surface_end()
+	_ghost_line.visible = true
+
 func _process(dt: float) -> void:
-	_coach_tick()
+	_coach_tick(); _tick_ghost()
 	if _btn_layer != null:
 		var show_btn: bool = (CbLayout.touch or OS.get_environment("CB_CAM_BUTTONS") != "") and input_ok() and not title_mode and app.started
 		_btn_layer.visible = show_btn
@@ -470,7 +579,7 @@ func _process(dt: float) -> void:
 func _apply() -> void:
 	if cam_rig == null: return
 	var vr := get_viewport().get_visible_rect().size
-	cam_rig.h_shift_px = -vr.x * 0.2 if title_mode else (cover - cover_left) * 0.5   # the title menu sits on the left; a drawer covers the right
+	cam_rig.h_shift_px = -vr.x * 0.2 if title_mode else (cover + board_cover - cover_left) * 0.5   # the title menu sits on the left; a drawer covers the right
 	cam_rig.v_shift_px = 0.0 if title_mode else cover_bottom
 	cam_rig.apply()
 

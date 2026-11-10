@@ -16,6 +16,7 @@ var nix: Nixie
 var bump_key: Button
 var knobs := {}              ## key -> Knob / Selector
 var _dial_sig := ""
+var _pv_sig := ""
 var _bump := false
 var _hint: Label
 var _title: Label
@@ -82,7 +83,14 @@ func set_view(d: Dictionary) -> void:
 		if k is Knob and (k as Knob)._drag: continue
 		if absf(k.value - v) > 1e-9: k.set_value(v)
 	_size_chart()
+	var psig := str((d.get("series", {}) as Dictionary).get("pv", []).hash()) if d.get("series") is Dictionary else ""
+	if psig != _pv_sig and _bump: _bump = false   # a new run: back to the loop trace
+	_pv_sig = psig
 	chart.set_data(d)
+	var li = PaperStrings.q(app_ref, "levelInfo") if app_ref != null else {}
+	var gok := true; var gn := 0
+	if li is Dictionary: for g in li.get("goals", []): if g is Dictionary: gn += 1; if not bool(g.get("met", false)): gok = false
+	nix.goals_ok = gok and gn > 0
 	nix.set_data(d.get("metric", {}))
 	bump_key.visible = d.has("bump")
 	_apply_bump()
@@ -246,9 +254,10 @@ class Chart extends Control:
 # ---------------------------------------------------------------------------------------------------------------- Nixie metric counter
 class Nixie extends Control:
 	var m := {}
+	var goals_ok := false
 	func _init() -> void: custom_minimum_size = Vector2(170, 96); mouse_filter = Control.MOUSE_FILTER_IGNORE
 	func set_data(v: Dictionary) -> void: m = v; queue_redraw()
-	static func fmt(v: float) -> String: return "%d" % int(round(v)) if absf(v) >= 100.0 else ("%.1f" % v)
+	static func fmt(v: float) -> String: return CbKit.num(v, 0) if absf(v) >= 100.0 else ("%.1f" % v)   # thousands separated: 1,562,000 reads at a glance
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color("#14100E")); draw_rect(Rect2(Vector2.ZERO, size), Color("#5A4A3A"), false, 2.0)
 		if m.is_empty(): return
@@ -257,15 +266,20 @@ class Nixie extends Control:
 		draw_rect(Rect2(4, 4, lw, 16), EqTheme.DYMO_TAPE); draw_string(lf, Vector2(8, 16), lt, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, lsz, EqTheme.DYMO_TEXT)
 		var v := float(m.get("value", 0.0)); var s3 := float(m.get("star3", 0.0)); var met := v <= s3 and v > 0.0
 		var nf := EqTheme.font("mono_bold"); var nsz := EqTheme.fs(32)
-		var txt := fmt(v); var tw := nf.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, nsz).x
-		var base := Vector2(maxf(6.0, (size.x - tw) * 0.5), 58.0)
+		var txt := fmt(v); var un := str(m.get("unit", ""))
+		var uw0 := EqTheme.font("sans").get_string_size(" " + un, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x
+		var tw := nf.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, nsz).x
+		while tw + uw0 + 12.0 > size.x and nsz > 14: nsz -= 2; tw = nf.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, nsz).x   # the whole reading and its unit fit the tube
+		var base := Vector2(maxf(6.0, (size.x - tw - uw0) * 0.5), 58.0)
 		var glow := Color("#FF7A1A")
 		for o in [Vector2(-1.5, 0), Vector2(1.5, 0), Vector2(0, -1.5), Vector2(0, 1.5)]:
 			draw_string(nf, base + o, txt, HORIZONTAL_ALIGNMENT_LEFT, size.x, nsz, Color(glow, 0.28))
 		draw_string(nf, base, txt, HORIZONTAL_ALIGNMENT_LEFT, size.x, nsz, Color("#FFB070"))
-		draw_string(EqTheme.font("sans"), Vector2(base.x + tw + 4, base.y), str(m.get("unit", "")), HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(12), Color("#C0805A"))
-		var sc := EqTheme.AMBER if met else Color("#7A6A58")
-		draw_string(EqTheme.font("semi"), Vector2(8, 84), "★★★ ≤ %s" % fmt(s3), HORIZONTAL_ALIGNMENT_LEFT, size.x - 10, EqTheme.fs(14), sc)
+		draw_string(EqTheme.font("sans"), Vector2(base.x + tw + 4, base.y), un, HORIZONTAL_ALIGNMENT_LEFT, size.x - base.x - tw - 4, EqTheme.fs(12), Color("#C0805A"))
+		# the third-star line lights only when the goals are met as well; a metric under the line with goals open is "metric only"
+		var sc := EqTheme.AMBER if (met and goals_ok) else Color("#7A6A58")
+		var line := ("★★★ ≤ %s" % fmt(s3)) if not (met and not goals_ok) else ("metric only ≤ %s" % fmt(s3))
+		draw_string(EqTheme.font("semi"), Vector2(8, 84), line, HORIZONTAL_ALIGNMENT_LEFT, size.x - 10, EqTheme.fs(14), sc)
 
 # ---------------------------------------------------------------------------------------------------------------- rotary selector switch
 class Selector extends Control:

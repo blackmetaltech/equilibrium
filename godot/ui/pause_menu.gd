@@ -42,7 +42,7 @@ static func toggle(app: CbApp) -> bool:
 
 static func _restart(app: CbApp) -> void:
 	var li = app.b.q("levelInfo") if app.started and (app.b.init_data.get("queries", []) as Array).has("levelInfo") else null
-	if li is Dictionary and li.has("id"): app.start_level(str(li.id), true)
+	if li is Dictionary and li.has("id"): BuildKeeper.ask_restart(app)   # keep the build (or clear it), keep the Call it answers, and ask first
 	else: app.new_game(app._mode_pref())
 
 ## The Cute mode row (also usable elsewhere): a dim Dymo strip that reads "Cute mode: on / off".

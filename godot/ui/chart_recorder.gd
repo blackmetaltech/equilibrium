@@ -207,6 +207,9 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
 func _fmt(v: float) -> String:
+	# a 52 px label used to clip 1562000 to "156200" (a silent factor of ten): big numbers are written compactly instead
+	if absf(v) >= 1.0e6: return "%.2fM" % (v / 1.0e6)
+	if absf(v) >= 1.0e4: return "%.0fk" % (v / 1.0e3)
 	if absf(v) >= 1000.0: return "%.0f" % v
 	if absf(v) >= 100.0: return "%.1f" % v
 	return "%.2f" % v

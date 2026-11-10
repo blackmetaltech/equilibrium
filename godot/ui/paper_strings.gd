@@ -3,14 +3,14 @@ extends RefCounted
 ## Player-facing text of the paper layer (parts rack, faceplates, tags, notebook, printout) and a few shared helpers. One dict, keys UPPER_SNAKE.
 ## Numbers never live here: they come from the engine (unitCard, stream, levelInfo, resultCard).
 const S := {
-	"RACK_TITLE": "PARTS", "RACK_LOCKED": "Not on this job", "RACK_LIMIT": "All %d placed", "RACK_PRICE": "$%s",
+	"RACK_TITLE": "PARTS", "RACK_LOCKED": "Not on this job", "RACK_LIMIT": "All %d placed", "RACK_LIMIT1": "Already placed: this job allows one", "NB_PENDING": "pending", "RACK_PRICE": "$%s",
 	"FP_WHY": "Why?", "FP_LENS": "Lens", "FP_WINDOW": "Window", "FP_PIN": "Pin", "FP_UNPIN": "Unpin", "FP_CLOSE": "Close",
 	"FP_PV": "PV", "FP_SP": "SP", "FP_NOSOLVE": "Commission to read the meters", "FP_FLOW": "FLOW", "FP_MASS": "MASS", "FP_DUTY": "DUTY", "FP_WORK": "SHAFT",
 	"FP_OUT": "OUT", "FP_BANK_KG": "Bank flow", "FP_MASKED": "FUEL · unknown", "FP_KMOLH": "kmol/h", "FP_KGH": "kg/h", "FP_FAILED": "FAILED",
-	"PIPE_FROM": "Pipe from %s: pick a lit inlet", "PIPE_NONE": "No free inlet fits %s %s", "PIPE_DONE": "Piped %s to %s",
+	"PIPE_FROM": "Pipe from %s: now click an inlet (a lit amber square), or Esc to drop it", "PIPE_FROM_IN": "Pipe into %s: now click an outlet (a lit teal ball), or Esc to drop it", "PIPE_NONE": "No free inlet fits %s %s", "PIPE_DONE": "Piped %s to %s",
 	"TAG_FLOW": "FLOW", "TAG_T": "T", "TAG_P": "P", "TAG_NODATA": "No flow yet: commission the plant", "TAG_KMOL": "kmol/h", "TAG_KG": "kg/h",
 	"NB_TAB": "NOTEBOOK", "NB_GOALS": "GOALS", "NB_BUDGET": "Budget", "NB_SPENT": "spent", "NB_STARS": "FLASKS", "NB_CALLIT": "CALL IT", "NB_START": "Start work", "NB_RESUME": "Back to work",
-	"NB_MODE": "MODE", "NB_LEARNER": "Learner", "NB_ENGINEER": "Engineer", "NB_ANSWER": "answer", "NB_LOCKED": "locked in", "NB_TAP": "tap to enter",
+	"NB_PREDICTED": "predicted: %s %s", "NB_NOW": "now %s", "NB_TARGET": "target %s", "NB_MODE": "MODE", "NB_LEARNER": "Learner", "NB_ENGINEER": "Engineer", "NB_ANSWER": "answer", "NB_LOCKED": "locked in", "NB_TAP": "tap to enter",
 	"PR_HEAD": "KESTREL BAY WORKS", "PR_RUN": "RUN %03d", "PR_PASS": "PASS", "PR_FAIL": "FAIL", "PR_ABORT": "*** RUN ABORTED ***", "PR_DONE": "*** RUN COMPLETE ***",
 	"PR_YOU": "◄ YOU", "PR_CALLIT": "CALL IT", "PR_MARA": "MARA", "PR_RETRY": "Retry", "PR_NEXT": "Next job", "PR_COPY": "Copy design code", "PR_COPIED": "Design code copied",
 	"PR_METRICS": "METRICS", "PR_HIST": "WORKS RUNS", "PR_CAUSE": "CAUSE", "PR_LESSON": "NOTE", "PR_STARS": "FLASKS", "PR_WENT": "SHEET %d",
@@ -19,7 +19,15 @@ const S := {
 	"IC_GOAL_MET": "Goal met: %s", "IC_FIRSTRUN": "First run: the plant is making product. Watch the recorder.", "IC_EDITED": "Design changed. Commission to test it.",
 	"IC_BANKS_SAME": "Both banks carry %s: switch one to %s with its chip.", "FAIL_AT": "%s failed to solve: %s",
 	"NB_REFUSED": "Not accepted: %s", "REC_RUN": "RUN %d",
-	"KEYPAD_OK": "Enter", "KEYPAD_CLEAR": "Clear", "KEYPAD_RANGE": "%s to %s",
+	"RST_TITLE": "Restart this job?", "RST_BODY": "The shift clock and the recorder start again. Your Call it answers are kept.", "RST_KEEP": "Restart, keep my build",
+	"RST_CLEAR": "Restart and clear the plot", "RST_CANCEL": "Cancel",
+	"IC_RUNNING": "Commissioned and RUNNING: the shift clock is on. Turn the key again to STOP and edit (your build is kept).",
+	"IC_STOPPED": "Stopped. Back in DESIGN with your plant as you built it; the shift clock is reset.", "IC_STOP_FAIL": "Stopped, but %d things could not be put back; check the plant.",
+	"IC_DIAL_RESET": "You turned a dial: the run was cleared. Commission again to test the new setting.",
+	"IC_FIRST_EDIT": "The first run is on show: change anything in the design to stop it.", "KH_DESIGN": "COMMISSION", "KH_COMMISSIONED": "RUN", "KH_RUN": "STOP + EDIT", "KH_TURN": "TURN FOR",
+	"HX_HOT_IN": "HOT IN", "HX_HOT_OUT": "HOT OUT", "HX_COLD_IN": "COLD IN", "HX_COLD_OUT": "COLD OUT",
+	"UT_FIRED": "fired", "UT_STEAM": "steam", "UT_CW": "cooling water", "UT_REFRIG": "refrigerant", "UT_NONE": "none (adiabatic)", "UT_ZERO": "This heater does 0 kW: pick a utility and a duty.",
+	"KEYPAD_OK": "Enter", "KEYPAD_CLEAR": "Clear", "KEYPAD_IN": "in %s", "KEYPAD_RANGE": "%s to %s",
 }
 ## One solved stream (flow mol/s, mass kg/s, T K, P Pa, top-3) from `streamTable`, or {} when the plant is not solved.
 static func stream_row(app, id: String) -> Dictionary:

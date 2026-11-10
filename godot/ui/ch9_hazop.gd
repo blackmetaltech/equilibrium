@@ -95,10 +95,10 @@ func _rows() -> void:
 	for r in rows:
 		var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 10); body.add_child(h)
 		var graded := bool(r.get("graded", false))
-		h.add_child(lbl("%s/%s" % [r.param, r.guide], 13, Color("#1E2A2E"), "mono_bold"))
-		for f in [["cause", "causeOk", view.get("causes", [])], ["cons", "consOk", view.get("consequences", [])], ["safe", "safeOk", view.get("safeguards", [])]]:
+		h.add_child(lbl("%s / %s" % [str(r.get("paramLabel", r.param)), str(r.get("guideLabel", r.guide))], 13, Color("#1E2A2E"), "mono_bold"))
+		for f in [["cause", "causeOk", view.get("causes", []), "causeLabel"], ["cons", "consOk", view.get("consequences", []), "consLabel"], ["safe", "safeOk", view.get("safeguards", []), "safeLabel"]]:
 			var ok := bool(r.get(f[1], true)); var col := PENCIL if not graded else (OKGREEN if ok else STAMP_RED)
-			h.add_child(lbl(("› " if f[0] != "cause" else "") + _label_of(f[2], str(r[f[0]])) + ("" if not graded else (" ✓" if ok else " ✗")), 12, col))
+			h.add_child(lbl(("› " if f[0] != "cause" else "") + str(r.get(f[3], _label_of(f[2], str(r[f[0]])))) + ("" if not graded else (" ✓" if ok else " ✗")), 12, col))
 		h.add_child(key("×", func(): emit_act("removeRow", [r.param, r.guide])))
 
 class Grid extends Control:
