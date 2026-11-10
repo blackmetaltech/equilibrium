@@ -95,7 +95,7 @@ func route(a: Vector2i, ad: int, b: Vector2i, bd: int) -> Array[Vector2i]:
 				cost += BEND_COST
 			else:
 				cost += _step_cost(t, nd) + (BEND_COST if nd != d else 0.0)
-			var ni := (ty * W + tx) * 4 + nd
+			var ni: int = (ty * W + tx) * 4 + nd
 			if cost < g[ni]:
 				g[ni] = cost; from[ni] = cur
 				_push(cost + float(absi(tx - b.x) + absi(ty - b.y)), ni)
