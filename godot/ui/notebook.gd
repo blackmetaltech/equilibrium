@@ -26,13 +26,17 @@ class TickBox extends Control:
 
 class Flask extends Control:
 	var filled := false
+	var armed := false            ## the third flask while a Call it answer is locked in: outlined, waiting to be earned
 	func _init() -> void: custom_minimum_size = Vector2(46, 46); mouse_filter = Control.MOUSE_FILTER_IGNORE
-	func _draw() -> void: PidSymbols.flask(self, size * 0.5, 38.0, EqTheme.INK, filled, EqTheme.TEAL)
+	func _draw() -> void:
+		PidSymbols.flask(self, size * 0.5, 38.0, EqTheme.INK, filled, EqTheme.TEAL)
+		if armed and not filled: draw_arc(size * 0.5, 22.0, 0.0, TAU, 40, EqTheme.TEAL, 3.0, true)
 
 class Answer extends Control:
 	var text := ""
 	var unit := ""
 	var locked := false
+	var refused := false          ## the engine turned the typed value down: it stays on the line, in red
 	signal tapped
 	func _init() -> void: custom_minimum_size = Vector2(190, 38); mouse_default_cursor_shape = Control.CURSOR_IBEAM; focus_mode = Control.FOCUS_ALL
 	func _gui_input(e: InputEvent) -> void:
@@ -41,7 +45,7 @@ class Answer extends Control:
 		draw_line(Vector2(0, size.y - 4), Vector2(size.x, size.y - 4), EqTheme.INK, 2.0)
 		var f := EqTheme.font("mono_bold"); var fs := EqTheme.fs(22)
 		if text == "": draw_string(EqTheme.font("sans"), Vector2(4, size.y - 12), PaperStrings.t("NB_TAP"), HORIZONTAL_ALIGNMENT_LEFT, size.x - 8, EqTheme.fs(15), EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.55))
-		else: draw_string(f, Vector2(4, size.y - 10), text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 8, fs, EqTheme.PEN_BLUE)
+		else: draw_string(f, Vector2(4, size.y - 10), text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 8, fs, EqTheme.RED if refused else EqTheme.PEN_BLUE)
 		if has_focus(): draw_rect(Rect2(0, 0, size.x, size.y), EqTheme.TEAL, false, 3.0)
 
 # ---- query ---------------------------------------------------------------------------------------------------------------
@@ -138,7 +142,8 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	var fl := VBoxContainer.new(); fl.add_child(EqTheme.dymo(PaperStrings.t("NB_STARS"), 13)); fv.add_child(fl)
 	for i in range(3):
 		var cell := HBoxContainer.new(); cell.add_theme_constant_override("separation", 6); cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var f := Flask.new(); f.filled = i < int(st.get("have", 0)); cell.add_child(f)
+		var f := Flask.new(); f.name = "Flask_%d" % i; f.filled = i < int(st.get("have", 0)); cell.add_child(f)
+		if i == 2 and li.get("callIt") is Dictionary and bool(li.callIt.get("answered", false)): f.armed = true
 		var rl := EqTheme.label(str((st.get("rules", []) as Array)[i]) if i < (st.get("rules", []) as Array).size() else "", 14, EqTheme.INK, "sans")
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rl.custom_minimum_size = Vector2(120, 0); cell.add_child(rl); fv.add_child(cell)
 	# call it
@@ -151,9 +156,13 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 		if bool(ci.get("answered", false)) and ci.get("value") != null: an.text = PaperStrings.num(float(ci.value))
 		cr.add_child(an)
 		cr.add_child(EqTheme.label(str(ci.unit), 18, EqTheme.INK, "mono"))
-		an.tapped.connect(func(): Knob.keypad(app, str(ci.prompt).left(28), str(ci.unit), an.text, 0.0, 1e9, func(v: float) -> void:
+		var cnote := EqTheme.label("", 15, EqTheme.RED, "semi"); cnote.name = "CallNote"; cnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cnote.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cnote.visible = false
+		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); vb.remove_child(cr); cwrap.add_child(cr); cwrap.add_child(cnote); vb.add_child(cwrap); vb.move_child(cwrap, pi)
+		an.tapped.connect(func(): Knob.keypad(app, str(ci.prompt), str(ci.unit), an.text, 0.0, 1e9, func(v: float) -> void:
 			var r: Dictionary = app.b.act("callIt", [v])
-			if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
+			if not bool(r.get("ok", false)):   # the engine's refusal is shown on the page itself, and the typed value stays on the line
+				an.text = PaperStrings.num(v); an.refused = true; an.queue_redraw()
+				cnote.text = PaperStrings.t("NB_REFUSED") % str(r.get("message", "")); cnote.visible = true
 			else: _rebuild(app, host, vb)))
 	# mode chip (first job only), then the key
 	var foot := HBoxContainer.new(); foot.add_theme_constant_override("separation", 10); vb.add_child(foot)

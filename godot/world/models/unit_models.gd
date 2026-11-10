@@ -4,7 +4,7 @@ extends RefCounted
 ## valve, sink, product, vent) plus the ones coming with the engine lanes (eq_reactor, packed_bed, multibed, cstr, flash, nh3_sep, boiler,
 ## absorber, stack, relief, flare); unknown types fall back to a small box labelled by nothing (never a crash).
 const ALIAS := {"mixer3": "mixer", "mixer4": "mixer", "eq_reactor": "converter", "packed_bed": "converter", "multibed": "converter", "cstr": "converter",
-	"nh3_sep": "flash", "absorber": "flash", "boiler": "hx", "sink": "product", "vent": "stack", "converter": "converter"}
+	"stoich_reactor": "converter", "burner": "converter", "gasifier": "converter", "co_burner": "converter", "nh3_sep": "flash", "absorber": "flash", "boiler": "hx", "sink": "product", "vent": "stack", "converter": "converter"}
 const TYPES: Array[String] = ["feed", "compressor", "heater", "cooler", "hx", "converter", "flash", "splitter", "mixer", "flare", "stack", "product", "relief", "valve"]
 
 static func kind(type: String) -> String: return ALIAS.get(type, type)

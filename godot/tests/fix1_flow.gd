@@ -118,7 +118,7 @@ func _keypad_and_esc() -> void:
 	key(KEY_ESCAPE); await frames(3)
 	check(got2.is_empty() and app.modal() == null, "Esc closes the keypad without committing")
 	check(app.menu_ui == null, "...and does not open the pause plate")
-	# Esc order: stream tag -> faceplates/selection -> placement ghost -> pause
+	# Esc clears everything in one press: stream tag + pipe highlight, faceplates + selection, placement ghost, half-made pipe; only then the pause plate
 	app.start_level("L00", true); await frames(4)
 	var hub = Faceplate.attach(app)
 	var w: PlantWorld = app.plant_world
@@ -126,25 +126,20 @@ func _keypad_and_esc() -> void:
 	check(Faceplate.plates.size() == 1 and w.selected_id == "C-105", "a unit is selected with its faceplate")
 	var tag: StreamTag = StreamTag.attach(app)
 	tag._pin_t = 5.0; tag.show_for("S-118", Vector2(400, 300)); await frames(1)
+	w.pipes.select("S-118")
 	w.begin_place("heater")
-	check(tag.visible and w.placing != "", "tag open and a placement ghost up")
-	key(KEY_ESCAPE); await frames(3)
-	check(not tag.visible and Faceplate.plates.size() == 1 and w.placing != "" and app.menu_ui == null, "Esc 1: the stream tag closes only")
-	key(KEY_ESCAPE); await frames(3)
-	check(Faceplate.plates.is_empty() and w.selected_id == "" and w.placing != "" and app.menu_ui == null, "Esc 2: faceplates and selection close")
-	key(KEY_ESCAPE); await frames(3)
-	check(w.placing == "" and app.menu_ui == null, "Esc 3: the placement ghost goes")
 	hub.from_unit = "C-105"; hub.from_port = "out"; hub.from_inlet = false
+	check(tag.visible and w.placing != "" and w.pipes.selected != "", "tag, pipe highlight, selection, ghost and a half-made pipe are all up")
 	key(KEY_ESCAPE); await frames(3)
-	check(hub.from_unit == "" and app.menu_ui == null, "Esc 4: a half-made pipe is cancelled")
+	check(not tag.visible and w.pipes.selected == "" and Faceplate.plates.is_empty() and w.selected_id == "" and w.placing == "" and hub.from_unit == "" and app.menu_ui == null, "Esc 1 clears everything and the pause plate stays shut")
 	key(KEY_ESCAPE); await frames(3)
-	check(app.menu_ui != null, "Esc 5: only then the pause plate opens")
+	check(app.menu_ui != null, "Esc 2: only then the pause plate opens")
 	key(KEY_ESCAPE); await frames(3)
 	check(app.menu_ui == null, "Esc closes the pause plate")
 	# the stream tag: never blocks, closes on any click or drag elsewhere
 	tag._pin_t = 5.0; tag.show_for("S-118", Vector2(400, 300)); await frames(1)
 	var blockers := 0
-	for c in tag.find_children("*", "Control", true, false): if (c as Control).mouse_filter == Control.MOUSE_FILTER_STOP and c.name != "Close" and not (c.get_parent() is Button): blockers += 1
+	for c in tag.find_children("*", "Control", true, false): if (c as Control).mouse_filter == Control.MOUSE_FILTER_STOP and c.name != "Close" and c.name != "Trash" and not (c.get_parent() is Button): blockers += 1
 	check(tag.mouse_filter == Control.MOUSE_FILTER_IGNORE and blockers == 0, "the stream tag takes no mouse except its close button (%d blockers)" % blockers)
 	click_at(Vector2(60, 200)); await frames(2)
 	check(not tag.visible, "a click elsewhere closes the pinned tag")

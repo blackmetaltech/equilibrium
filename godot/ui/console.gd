@@ -159,7 +159,9 @@ func refresh() -> void:
 	if app == null or not app.started or intercom == null: return
 	var li := level_info()
 	var id := str(li.get("id", "")) if not li.is_empty() else ""
-	if id != _level: _level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false
+	if id != _level:
+		_level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false; _outcome_said = false; _bank_dup = ""; _fail_sig = ""
+		_close_paper()
 	_gl = str(app.b.g.get("level", ""))
 	phase = engine_phase()
 	# a shift that is running (a level that opens mid-shift, or the key just turned) starts at 1x: nothing moves at pause and the coach seems stuck
@@ -174,26 +176,106 @@ func refresh() -> void:
 	_sync_key()
 	_poll_coach(li)
 	_explain_run(li, runs)
+	_stale_lines(li)
+	_bank_hint(li)
+	_failure()
+
+## A level change closes every faceplate, the stream tag, the selection and any half-made pipe (a stale plate would ask the engine about a unit that is gone).
+func _close_paper() -> void:
+	Faceplate.close_all()
+	var hub = app.root.get_node_or_null("PaperHub") if app != null else null
+	if hub != null: hub.close_one()
+	elif app != null and app.world != null and app.world.has_method("select"): app.world.select("")
 
 var _shift_seen := false
 func reset_shift_seen() -> void: _shift_seen = false
+## A level (re)start, even of the same level: the next refresh clears the intercom and closes every plate, tag, strip and half-made pipe.
+func level_begun() -> void:
+	_level = "<new>"
+	if recorder != null: recorder.level_id = "<new>"   # a restarted level starts a clean paper
 var _gl := ""
 ## A level change that did not come with an engine `changed` signal still wipes the intercom (no stale coach line from the last job).
 func _process(_dt: float) -> void:
 	if _on and app != null and app.started and app.b != null and str(app.b.g.get("level", "")) != _gl: refresh()
 
-## After a commission that misses the goal, Mara explains it on the intercom with the player's own numbers (levelInfo.lesson), once per run.
+## After a commission the intercom says the outcome with the player's own numbers: a miss gives the lesson (levelInfo.lesson), a win gives "Goal met: ..." and,
+## when the first run starts, the first-run line. Once per commission.
 var _explained_runs := -1
+var _outcome_said := false        ## the newest outcome line is on the intercom: a design edit must drop back to the coach line
+var _bank_dup := ""               ## species when both banks carry the same one and Mara has said so
 func _explain_run(li: Dictionary, runs: Array) -> void:
 	if li.is_empty() or not qa_li.is_empty(): return
 	if _explained_runs < 0 or runs.size() < _explained_runs: _explained_runs = runs.size(); return
 	if runs.size() == _explained_runs: return
 	_explained_runs = runs.size()
-	if str(li.get("phase", "")) != "commissioned": return
-	var missed := false
-	for g in li.get("goals", []): if g is Dictionary and not bool(g.get("met", false)): missed = true
-	var lesson := str(li.get("lesson", ""))
-	if missed and lesson != "": intercom.say(str(li.get("setter", "mara")), lesson, "info")
+	var ph := str(li.get("phase", ""))
+	if ph != "commissioned" and ph != "firstrun" and ph != "won": return
+	var missed := false; var met: Array = []
+	for g in li.get("goals", []):
+		if g is Dictionary:
+			if not bool(g.get("met", false)): missed = true
+			else: met.append(str(g.get("text", "")))
+	var who := str(li.get("setter", "mara"))
+	if missed:
+		var lesson := str(li.get("lesson", ""))
+		if lesson != "": intercom.say(who, lesson, "info"); _outcome_said = true
+		return
+	intercom.say("MARA", PaperStrings.t("IC_GOAL_MET") % "; ".join(met), "info"); _outcome_said = true
+	if ph == "firstrun": intercom.say("MARA", PaperStrings.t("IC_FIRSTRUN"), "info")
+
+## The plant went back to design after an edit: nothing on the intercom may talk about the old design. Speak the current coach line again, else a neutral one.
+func _stale_lines(li: Dictionary) -> void:
+	if not _outcome_said or phase != "design" or li.is_empty() or not qa_li.is_empty(): return
+	_outcome_said = false
+	_back_to_coach(li)
+
+func _back_to_coach(li: Dictionary) -> void:
+	if CbSettings.tutorial != "off" and li.get("coach") is Dictionary:
+		_coach_id = "<unset>"; _poll_coach(li)
+	else: intercom.say("MARA", PaperStrings.t("IC_EDITED"), "info")
+
+## Two banks carrying the same species (both N2): Mara says so, once per occurrence, and drops back to the coach line when it is fixed.
+func _bank_hint(li: Dictionary) -> void:
+	if li.is_empty() or not qa_li.is_empty() or phase != "design": return
+	var banks: Array = li.get("banks", []); var opts: Array = li.get("bankSpecies", [])
+	var dup := ""
+	if banks.size() >= 2 and opts.size() >= 2:
+		dup = str(banks[0].get("species", ""))
+		for b in banks: if str(b.get("species", "")) != dup: dup = ""
+	if dup != "" and dup != _bank_dup:
+		_bank_dup = dup
+		var other := ""
+		for o in opts: if str(o) != dup: other = str(o); break
+		intercom.say("MARA", PaperStrings.t("IC_BANKS_SAME") % [EqStrings.formula(dup), EqStrings.formula(other)], "info")
+	elif dup == "" and _bank_dup != "":
+		_bank_dup = ""
+		_back_to_coach(li)
+
+## A failed solve: a red chevron over the unit that failed (the world) and TOMAS names its tag and says why in the engine's words. Once per failure.
+var _fail_sig := ""
+var _last_fail_msg := ""
+func _failure() -> void:
+	if app == null or app.world == null: return
+	var f = app.b.g.get("failure")
+	var uid := ""; var sig := ""
+	if f is Dictionary:
+		uid = str(f.get("unitId", "")) if f.get("unitId") != null else ""
+		sig = str(f.get("code", "")) + "|" + uid
+	if app.world.has_method("set_fail_focus"): app.world.call("set_fail_focus", uid)
+	if sig == _fail_sig: return
+	_fail_sig = sig
+	if sig == "": return
+	var msg := ""
+	if uid != "":
+		var c = PaperStrings.q(app, "unitCard", [uid])
+		if c is Dictionary and not (c.get("diags", []) as Array).is_empty(): msg = str(c.diags[0].get("message", ""))
+		if msg == "":
+			var nd = PaperStrings.q(app, "needs", [uid])
+			if nd is Dictionary and not nd.is_empty(): msg = str(nd.get("text", ""))
+	if msg == "": msg = _last_fail_msg
+	if msg == "": msg = str(f.get("code", ""))
+	intercom.say("TOMAS", (PaperStrings.t("FAIL_AT") % [uid if uid != "" else "-", msg]), "bad")
+	app.sfx("bad")
 
 func _sync_key() -> void:
 	var want := keys.pos
@@ -223,7 +305,11 @@ func turn_key() -> Dictionary:
 	if phase == "design":
 		var r: Dictionary = app.b.act("commission")
 		if not r.get("ok", false): app.toast(str(r.get("message", "")), "warn"); keys.set_pos(0); return r
-		if not r.get("commissioned", true): app.toast(str(r.get("message", "")) if str(r.get("message", "")) != "" else EqStrings.T("KEY_SOLVE_FAIL"), "bad"); keys.set_pos(0); return r
+		if not r.get("commissioned", true):
+			_last_fail_msg = str(r.get("message", "")) if str(r.get("message", "")) != "" else EqStrings.T("KEY_SOLVE_FAIL")
+			_failure()   # names the failed tag (a no-op when the changed signal already did)
+			if not (app.b.g.get("failure") is Dictionary): app.toast(_last_fail_msg, "bad")
+			keys.set_pos(0); return r
 		keys.set_pos(1); return r
 	elif phase == "commissioned":
 		var r2: Dictionary = app.b.act("startShift", ["shift"])
@@ -237,7 +323,8 @@ func choose_speed(i: int) -> void:
 	phase = engine_phase()
 	if phase != "shift" and phase != "firstrun": keys.set_speed_pos(0); return
 	i = clampi(i, 0, 3)
-	var r: Dictionary = app.b.act("setSpeed", [SPEEDS[i]])
+	# the engine's setSpeed belongs to a shift; the level first run (no shift object) is paced by the client clock alone, so refusing there would freeze its counter at 0
+	var r: Dictionary = {"ok": true} if phase == "firstrun" else app.b.act("setSpeed", [SPEEDS[i]])
 	if r.get("ok", false): app.set_speed(i); keys.set_speed_pos(i); app.sfx("click")
 
 # ---- toasts and coach from the shell ------------------------------------------------------------------------------------------------------

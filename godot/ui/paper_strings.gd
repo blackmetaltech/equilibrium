@@ -14,6 +14,11 @@ const S := {
 	"PR_HEAD": "KESTREL BAY WORKS", "PR_RUN": "RUN %03d", "PR_PASS": "PASS", "PR_FAIL": "FAIL", "PR_ABORT": "*** RUN ABORTED ***", "PR_DONE": "*** RUN COMPLETE ***",
 	"PR_YOU": "◄ YOU", "PR_CALLIT": "CALL IT", "PR_MARA": "MARA", "PR_RETRY": "Retry", "PR_NEXT": "Next job", "PR_COPY": "Copy design code", "PR_COPIED": "Design code copied",
 	"PR_METRICS": "METRICS", "PR_HIST": "WORKS RUNS", "PR_CAUSE": "CAUSE", "PR_LESSON": "NOTE", "PR_STARS": "FLASKS", "PR_WENT": "SHEET %d",
+	"FP_TRIPPED": "Plant tripped: reset the interlock first",
+	"DEL_ASK": "Delete %s and its %d pipes?", "DEL_ASK1": "Delete %s and its pipe?", "DEL_YES": "Delete", "DEL_NO": "Keep", "DEL_TIP": "Delete (Del)",
+	"IC_GOAL_MET": "Goal met: %s", "IC_FIRSTRUN": "First run: the plant is making product. Watch the recorder.", "IC_EDITED": "Design changed. Commission to test it.",
+	"IC_BANKS_SAME": "Both banks carry %s: switch one to %s with its chip.", "FAIL_AT": "%s failed to solve: %s",
+	"NB_REFUSED": "Not accepted: %s", "REC_RUN": "RUN %d",
 	"KEYPAD_OK": "Enter", "KEYPAD_CLEAR": "Clear", "KEYPAD_RANGE": "%s to %s",
 }
 ## One solved stream (flow mol/s, mass kg/s, T K, P Pa, top-3) from `streamTable`, or {} when the plant is not solved.

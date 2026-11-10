@@ -10,6 +10,7 @@ var _pin_t := 0.0
 var _hide_t := 0.0
 var _anchor := Vector2.ZERO
 var _box: VBoxContainer
+var _trash: Control
 var _x: Button                     # the close button: the only part of the tag that takes the mouse
 
 static func attach(app) -> StreamTag:
@@ -45,7 +46,9 @@ func dismiss() -> void: _pin_t = 0.0; _hide_t = 0.0; visible = false
 ## A press or a drag anywhere else closes the tag; the event goes on to whatever is under it (a port, a unit), the tag never blocks it.
 func _input(e: InputEvent) -> void:
 	if not visible: return
-	if e is InputEventMouseButton and e.pressed: dismiss()
+	if e is InputEventMouseButton and e.pressed:
+		if _trash != null and is_instance_valid(_trash) and _trash.is_visible_in_tree() and _trash.get_global_rect().has_point(e.position): return   # the bin key-cap handles its own press
+		dismiss()
 	elif e is InputEventMouseMotion and e.button_mask != 0: dismiss()
 
 func _process(dt: float) -> void:
@@ -60,12 +63,16 @@ func _process(dt: float) -> void:
 func show_for(id: String, pos: Vector2) -> bool:
 	stream_id = id; _anchor = pos
 	for c in _box.get_children(): c.queue_free()
+	_trash = null
 	readouts.clear(); top = []
 	var d: Dictionary = PaperStrings.stream_row(app, id)
 	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 6); _box.add_child(head)
 	var tg := EqTheme.dymo(id, 14); tg.name = "Tag"; head.add_child(tg)
 	if _pin_t > 0.0:
 		var sp_ := Control.new(); sp_.size_flags_horizontal = Control.SIZE_EXPAND_FILL; sp_.mouse_filter = Control.MOUSE_FILTER_IGNORE; head.add_child(sp_)
+		var tr_ := Faceplate.TrashButton.new(); tr_.mouse_filter = Control.MOUSE_FILTER_STOP; tr_.custom_minimum_size = Vector2(28, 24)
+		tr_.pressed.connect(func(): var h = app.root.get_node_or_null("PaperHub"); if h != null: h.delete_pipe(stream_id))
+		head.add_child(tr_); _trash = tr_
 		_x = EqTheme.key_button("×", false, 14); _x.name = "Close"; _x.custom_minimum_size = Vector2(28, 24); _x.focus_mode = Control.FOCUS_NONE; _x.pressed.connect(dismiss); head.add_child(_x)
 	var has := d.has("flow")
 	if not has:

@@ -159,7 +159,8 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var host: Control = d.host; var pn: PanelContainer = d.panel; var vb: VBoxContainer = d.vb
 	pn.add_theme_stylebox_override("panel", EqTheme.porcelain_sb(6, 18.0))
 	vb.add_theme_constant_override("separation", 10)
-	var head := HBoxContainer.new(); vb.add_child(head); var ttl := EqTheme.dymo(title if title != "" else "VALUE", 14); ttl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; head.add_child(ttl)
+	var head := HBoxContainer.new(); vb.add_child(head); var ttl := EqTheme.dymo(title if title != "" else "VALUE", 14); ttl.name = "Title"; ttl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; head.add_child(ttl)
+	var ttl_l := ttl.get_child(0) as Label; ttl_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ttl_l.custom_minimum_size = Vector2(minf(280.0, 24.0 + 9.0 * title.length()), 0)   # a long title wraps on the tape, never truncates
 	var disp := Label.new(); disp.label_settings = EqTheme.settings(30, EqTheme.INK, "mono_bold"); disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var field := PanelContainer.new(); var fsb := StyleBoxFlat.new(); fsb.bg_color = Color("#FFFFFF"); fsb.border_color = EqTheme.INK; fsb.set_border_width_all(2); fsb.set_corner_radius_all(3); fsb.set_content_margin_all(8)
 	field.add_theme_stylebox_override("panel", fsb); field.add_child(disp); vb.add_child(field)

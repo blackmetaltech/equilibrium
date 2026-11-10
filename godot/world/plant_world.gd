@@ -361,23 +361,33 @@ func _ground_at(p: Vector2) -> Variant:
 	var t := -o.y / n.y
 	return o + n * t
 
+## The unit under a screen point. A tall model (stack, converter) would otherwise hide its neighbours behind its whole height: a unit whose body (the lowest
+## PICK_LOW metres) is hit wins over one that is only hit high up, then the nearest entry wins.
+const PICK_LOW := 3.2
 func _pick_unit(p: Vector2) -> String:
 	var o := cam.project_ray_origin(p); var n := cam.project_ray_normal(p)
-	var best := ""; var bt := INF
+	var best_low := ""; var bt_low := INF; var best_hi := ""; var bt_hi := INF
 	for id in _units:
 		var m: UnitModel = _units[id]; var st: Array = _unit_state[id]
 		var fp := footprint_of(st[0], st[3]); var c := m.position
-		var lo := Vector3(c.x - fp.x * GRID * 0.5, 0.0, c.z - fp.y * GRID * 0.5); var hi := Vector3(c.x + fp.x * GRID * 0.5, m.height * m.scale.y, c.z + fp.y * GRID * 0.5)
-		var t0 := -INF; var t1 := INF; var ok := true
-		for a in range(3):
-			var oa := o[a]; var na := n[a]
-			if absf(na) < 0.00001:
-				if oa < lo[a] or oa > hi[a]: ok = false; break
-			else:
-				var ta := (lo[a] - oa) / na; var tb := (hi[a] - oa) / na
-				t0 = maxf(t0, minf(ta, tb)); t1 = minf(t1, maxf(ta, tb))
-		if ok and t0 <= t1 and t1 > 0.0 and t0 < bt: bt = t0; best = id
-	return best
+		var top := m.height * m.scale.y
+		for tier in range(2):
+			var h := minf(top, PICK_LOW) if tier == 0 else top
+			if tier == 1 and top <= PICK_LOW: break
+			var lo := Vector3(c.x - fp.x * GRID * 0.5, 0.0, c.z - fp.y * GRID * 0.5); var hi := Vector3(c.x + fp.x * GRID * 0.5, h, c.z + fp.y * GRID * 0.5)
+			var t0 := -INF; var t1 := INF; var ok := true
+			for a in range(3):
+				var oa := o[a]; var na := n[a]
+				if absf(na) < 0.00001:
+					if oa < lo[a] or oa > hi[a]: ok = false; break
+				else:
+					var ta := (lo[a] - oa) / na; var tb := (hi[a] - oa) / na
+					t0 = maxf(t0, minf(ta, tb)); t1 = minf(t1, maxf(ta, tb))
+			if ok and t0 <= t1 and t1 > 0.0:
+				if tier == 0 and t0 < bt_low: bt_low = t0; best_low = id
+				if tier == 1 and t0 < bt_hi: bt_hi = t0; best_hi = id
+				if tier == 0: break
+	return best_low if best_low != "" else best_hi
 
 func _click_at(p: Vector2) -> void:
 	if placing != "":
@@ -389,9 +399,9 @@ func _click_at(p: Vector2) -> void:
 		return
 	var pk := _pick_port(p)
 	if not pk.is_empty(): port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
-	var pid := pipes.pick(p, cam) if _mark_nodes.is_empty() or true else ""
 	var id := _pick_unit(p)
-	if pid != "" and (id == "" or pipes_over(pid, id, p)): select(""); pipes.select(pid); pipe_clicked.emit(pid); return
+	var pid := pipes.pick(p, cam, 12.0 if id == "" else 6.0)   # over a unit only a click right on the pipe's line picks the pipe: ports, then units, then loose pipes
+	if pid != "": select(""); pipes.select(pid); pipe_clicked.emit(pid); return
 	pipes.select(""); select(id); unit_clicked.emit(id)
 
 ## A pipe in front of a unit wins when the cursor is on its centre line closer than the unit's screen centre (pipes ride above the ground).
@@ -576,12 +586,32 @@ func set_coach_focus(id: String) -> void:
 	if _coach_mark == null:
 		var cm := CylinderMesh.new(); cm.top_radius = 0.9; cm.bottom_radius = 0.0; cm.height = 1.4; cm.radial_segments = 4
 		var m := StandardMaterial3D.new(); m.albedo_color = TEAL; m.emission_enabled = true; m.emission = TEAL; m.emission_energy_multiplier = 2.2
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 3   # never hidden behind a neighbouring model
 		_coach_mark = MeshInstance3D.new(); _coach_mark.mesh = cm; _coach_mark.material_override = m
 		_coach_mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(_coach_mark)
 	_coach_mark.visible = _coach_unit != ""
 
+## A failed solve: a red chevron pulses over the unit that failed ("" hides it).
+var _fail_mark: MeshInstance3D
+var _fail_unit := ""
+func set_fail_focus(id: String) -> void:
+	_fail_unit = id if _units.has(id) else ""
+	if _fail_mark == null:
+		var cm := CylinderMesh.new(); cm.top_radius = 1.0; cm.bottom_radius = 0.0; cm.height = 1.6; cm.radial_segments = 4
+		var m := StandardMaterial3D.new(); m.albedo_color = Color("#FF3B47"); m.emission_enabled = true; m.emission = Color("#FF3B47"); m.emission_energy_multiplier = 2.6
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 4
+		_fail_mark = MeshInstance3D.new(); _fail_mark.mesh = cm; _fail_mark.material_override = m
+		_fail_mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(_fail_mark)
+	_fail_mark.visible = _fail_unit != ""
+func fail_focus() -> String: return _fail_unit
+
 func _coach_tick() -> void:
+	if _fail_mark != null and _fail_mark.visible:
+		if _units.has(_fail_unit):
+			var tf := Time.get_ticks_msec() * 0.001
+			_fail_mark.global_position = anchor_world(_fail_unit) + Vector3(0, 2.4 + 0.5 * absf(sin(tf * 5.0)), 0)
+			_fail_mark.scale = Vector3.ONE * (1.0 + 0.18 * sin(tf * 8.0)); _fail_mark.rotation.y = tf * 1.5
+		else: _fail_mark.visible = false
 	if _coach_mark != null and _coach_mark.visible and _units.has(_coach_unit):
 		var t := Time.get_ticks_msec() * 0.001
 		_coach_mark.global_position = anchor_world(_coach_unit) + Vector3(0, 2.2 + 0.35 * sin(t * 3.0), 0)

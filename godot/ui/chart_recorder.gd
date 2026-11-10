@@ -18,6 +18,7 @@ var src: ChartRecorder      ## a full-size recorder mirrors the small one
 var _target := 0.0
 var _sig := ""
 var _last_tick := -1
+var _phase_prev := ""
 var _demo := true
 var first_run := {}         ## levelInfo.firstRun {t, len, madeKg} while a first run plays
 const RUN_W := 60.0
@@ -39,6 +40,8 @@ func _pull() -> void:
 	if absf(paper - src.paper) > 0.01: paper = src.paper
 
 func _running() -> bool: return phase == "shift" or phase == "firstrun"
+## The paper scrolls in plant time during a shift (and after a trip when the level never had a commission: L00's trace stays on the paper).
+func _scroll() -> bool: return phase == "shift" or (runs.is_empty() and not samples.is_empty() and phase != "design")
 
 func _num(v) -> float:
 	return float(v) if (v is float or v is int) and is_finite(float(v)) else 0.0
@@ -50,25 +53,28 @@ func feed(li: Dictionary, run_list: Array, tick: int) -> void:
 	if li.is_empty(): return
 	var id := str(li.get("id", ""))
 	if id != level_id:
-		level_id = id; runs = []; samples = []; paper = 0.0; _target = 0.0; _sig = ""; _last_tick = -1
+		level_id = id; runs = []; samples = []; paper = 0.0; _target = 0.0; _sig = ""; _last_tick = -1; _phase_prev = ""
 	if li.get("hero") is Dictionary: hero = li.hero; _demo = false
 	sec = li.secondary if li.get("secondary") is Dictionary else {}
 	third = li.third if li.get("third") is Dictionary else {}
 	phase = str(li.get("phase", "design"))
 	first_run = li.firstRun if li.get("firstRun") is Dictionary and phase == "firstrun" else {}
 	var hv := _num(hero.get("value", 0.0)); var sv := _num(sec.get("value", 0.0)); var tv := _num(third.get("value", 0.0))
-	if _running():
+	if phase == "shift":
 		if tick != _last_tick:
 			_last_tick = tick
 			samples.append({"h": hv, "s": sv, "t": tv})
 			if samples.size() > 900: samples.pop_front()
 			_target += SAMPLE_W
-	elif phase != "design":
+	elif phase != "design" and phase != "lost":
+		# every commission is one point on the paper, kept for the whole level: recorded the moment the plant leaves design (a first run counts too);
+		# a game loaded mid-level records its last run once
 		var lt := int((run_list.back() as Dictionary).get("tick", 0)) if not run_list.is_empty() else 0
 		var sig := "%s|%d|%d" % [str(hero.get("value", "")), lt, run_list.size()]
-		if sig != _sig and _has(hero, "value"):
-			_sig = sig
-			record_run(hv, sv, tv)
+		var fresh := _phase_prev == "design" or (runs.is_empty() and samples.is_empty()) or (phase == "commissioned" and sig != _sig)
+		if fresh and _has(hero, "value"):
+			_sig = sig; record_run(hv, sv, tv)
+	_phase_prev = phase
 	queue_redraw()
 
 func record_run(h: float, s := 0.0, t := 0.0) -> void:
@@ -93,20 +99,29 @@ func _plot() -> Rect2:
 	var gl := 46.0 if big else 40.0
 	return Rect2(gl, 4.0, size.x - gl - 60.0, size.y - 8.0 - 16.0)
 
+## The hero pen's axis: the target band and every plotted value (and the live reading) with a margin, so no trace ever leaves the paper.
 func _range() -> Vector2:
-	var lo := 0.0; var hi := _num(hero.get("hi", 1.0)) * 1.35
-	var arr := _pts()
-	for p in arr:
-		hi = maxf(hi, _num(p.h) * 1.12); lo = minf(lo, _num(p.h))
-	if hi <= lo: hi = lo + 1.0
+	var vmin := INF; var vmax := -INF
+	if _has(hero, "lo"): vmin = _num(hero.lo)
+	if _has(hero, "hi"): vmax = _num(hero.hi)
+	var vals: Array = []
+	for p in _pts(): vals.append(_num(p.h))
+	if _has(hero, "value"): vals.append(_num(hero.value))
+	for v in vals: vmin = minf(vmin, float(v)); vmax = maxf(vmax, float(v))
+	if not is_finite(vmin) or not is_finite(vmax): vmin = 0.0; vmax = 1.0
+	var span := maxf(maxf(vmax - vmin, absf(vmax) * 0.02), 1e-6)
+	var pad := span * 0.14
+	var lo := vmin - pad; var hi := vmax + pad
+	if vmin >= 0.0 and lo < 0.0: lo = 0.0   # a quantity that cannot go below nothing never shows a negative axis
 	return Vector2(lo, hi)
 
 func _srange() -> Vector2:
 	var hi := maxf(_num(sec.get("limit", 0.0)) * 1.5, 0.0)
 	for p in _pts(): hi = maxf(hi, _num(p.s) * 1.12)
+	if _has(sec, "value"): hi = maxf(hi, _num(sec.value) * 1.12)
 	return Vector2(0.0, hi if hi > 0.0 else 1.0)
 
-func _pts() -> Array: return samples if (_running() and not samples.is_empty()) else runs
+func _pts() -> Array: return samples if _scroll() else runs
 
 func _y(v: float, r: Vector2, pl: Rect2) -> float: return pl.end.y - (v - r.x) / (r.y - r.x) * pl.size.y
 
@@ -136,14 +151,14 @@ func _draw() -> void:
 		_dash(Vector2(pl.position.x, ly), Vector2(pl.end.x + 60.0, ly), EqTheme.PEN_RED)
 	# traces
 	var pts := _pts()
-	var shiftm := _running() and not samples.is_empty()
-	var step := SAMPLE_W if shiftm else RUN_W
-	var px := pl.end.x - 20.0
-	if shiftm: px = pl.end.x - 2.0
+	var shiftm := _scroll()
 	var n := pts.size()
+	# runs: every commission of the level is on the paper, spread to fit (never scrolled off); a shift scrolls in plant time
+	var step := SAMPLE_W if shiftm else minf(RUN_W, maxf(4.0, (pl.size.x - 24.0) / float(maxi(n - 1, 1))))
+	var px := pl.end.x - 2.0 if shiftm else pl.position.x + 12.0
 	var hp := PackedVector2Array(); var sp := PackedVector2Array(); var tp := PackedVector2Array()
 	for i in n:
-		var xi := px - (paper - float(i) * step)
+		var xi := (px - (paper - float(i) * step)) if shiftm else (px + float(i) * step)
 		hp.append(Vector2(xi, _y(_num(pts[i].h), r, pl)))
 		sp.append(Vector2(xi, _y(_num(pts[i].s), sr, pl)))
 		tp.append(Vector2(xi, _y(_num(pts[i].t), r, pl)))
@@ -158,7 +173,7 @@ func _draw() -> void:
 			if not sec.is_empty(): draw_line(Vector2(xi - 10.0, sp[i].y), Vector2(xi + 10.0, sp[i].y), EqTheme.PEN_RED, 3.0)
 			if not third.is_empty(): draw_line(Vector2(xi - 10.0, tp[i].y), Vector2(xi + 10.0, tp[i].y), EqTheme.PEN_GREEN, 3.0)
 			draw_line(Vector2(xi, pl.end.y), Vector2(xi, pl.end.y + 6.0), EqTheme.INK, 1.5)
-			draw_string(mono, Vector2(xi - 20.0, size.y - 2.0), "%d" % int(pts[i].n), HORIZONTAL_ALIGNMENT_CENTER, 40.0, fsz, EqTheme.INK)
+			if step >= 18.0 or i == n - 1 or i % 2 == 0: draw_string(mono, Vector2(xi - 20.0, size.y - 2.0), "%d" % int(pts[i].n), HORIZONTAL_ALIGNMENT_CENTER, 40.0, fsz, EqTheme.INK)
 	elif n > 0:
 		draw_circle(hp[n - 1], 3.0, EqTheme.PEN_BLUE)
 	# gutters over the traces: left axis, right pen readout
@@ -181,11 +196,14 @@ func _draw() -> void:
 			draw_string(mono, Vector2(rx + 4.0, sy), _fmt(_num(pts[n - 1].s)), HORIZONTAL_ALIGNMENT_LEFT, 52.0, fsz, EqTheme.PEN_RED)
 	else:
 		draw_string(EqStrings.font("body"), Vector2(pl.position.x + 8.0, pl.position.y + pl.size.y * 0.5 + 5.0), EqStrings.T("REC_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, pl.size.x - 10.0, fsz, Color("#6B7C76"))
-	# pen legends on dymo tape
-	var lab := str(hero.get("label", ""))
-	_tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), lab + ("" if str(hero.get("unit", "")) == "" else " " + str(hero.unit)), EqTheme.PEN_BLUE)
+	# pen legends on dymo tape: each pen's label and unit in its own ink (blue hero, red secondary, green third)
+	var avail := pl.size.x + 52.0
+	var ly := pl.position.y + 2.0
+	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero), EqTheme.PEN_BLUE, avail)
+	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec), EqTheme.PEN_RED, avail)
+	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail)
 	if not first_run.is_empty():   # a rolling "made so far" counter while the first run plays
-		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 21.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL)
+		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 21.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
 func _fmt(v: float) -> String:
@@ -198,10 +216,16 @@ func _dash(a: Vector2, b: Vector2, col: Color) -> void:
 	while t < l:
 		draw_line(a + dir * t, a + dir * minf(t + 6.0, l), col, 1.5); t += 11.0
 
-func _tape(p: Vector2, text: String, accent: Color) -> void:
+func _legend(d: Dictionary) -> String:
+	var u := str(d.get("unit", ""))
+	return str(d.get("label", "")) + ("" if u == "" else " " + u)
+
+## One strip of Dymo tape (clipped to `avail` px); returns the y for the next strip below it.
+func _tape(p: Vector2, text: String, accent: Color, avail := 1.0e6) -> float:
 	var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
-	var w := f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0
+	var w := minf(f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0, avail)
 	draw_rect(Rect2(p, Vector2(w, 17.0)), EqTheme.DYMO_TAPE)
 	draw_rect(Rect2(p + Vector2(0, 17.0), Vector2(w, 1.0)), Color(1, 1, 1, 0.12))
 	draw_rect(Rect2(p, Vector2(3.0, 17.0)), accent.lightened(0.2))
-	draw_string(f, p + Vector2(7.0, 13.0), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, sz, EqTheme.DYMO_TEXT)
+	draw_string(f, p + Vector2(7.0, 13.0), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, sz, EqTheme.DYMO_TEXT)
+	return p.y + 19.0

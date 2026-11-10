@@ -153,7 +153,7 @@ func game_menu() -> bool:
 	return PauseMenu.toggle(self)
 ## A level (re)start: the shift-speed latch resets so a level that opens mid-shift (L00) starts at 1x.
 func _begin() -> void:
-	if chrome != null: chrome.reset_shift_seen()
+	if chrome != null: chrome.reset_shift_seen(); chrome.level_begun()
 	super()
 func game_end_screen() -> bool:
 	sfx("printer")

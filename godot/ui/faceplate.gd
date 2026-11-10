@@ -30,8 +30,24 @@ var _chips := {}                     # species -> Button
 var _bank_kg: Knob
 var _kmol_lbl: Label
 var _carry_lbl: Label
+var _name_lbl: Label                 # the Dymo name under the tag (a bank's follows its species chip)
+var _level_id := ""                  # the level this plate was opened in: a level change closes it
+var _trash: Button
 static var _seq := 0
 const MAX_PLATES := 2
+
+## The bin key-cap: Delete this unit (drawn, no font carries a bin glyph everywhere).
+class TrashButton extends Button:
+	func _init() -> void:
+		name = "Trash"; focus_mode = Control.FOCUS_NONE; custom_minimum_size = Vector2(30, 28); tooltip_text = "Delete (Del)"
+		for st in ["normal", "hover", "pressed", "disabled"]:
+			var sb := EqTheme.key_sb(false, st); sb.content_margin_left = 5; sb.content_margin_right = 5; sb.content_margin_top = 1; sb.content_margin_bottom = 1; add_theme_stylebox_override(st, sb)
+	func _draw() -> void:
+		var c := size * 0.5 + Vector2(0, -1.0); var col := EqTheme.RED
+		draw_rect(Rect2(c.x - 6.0, c.y - 3.0, 12.0, 11.0), col, false, 2.0)
+		draw_line(Vector2(c.x - 8.0, c.y - 5.0), Vector2(c.x + 8.0, c.y - 5.0), col, 2.0)
+		draw_rect(Rect2(c.x - 2.5, c.y - 8.0, 5.0, 3.0), col, false, 1.5)
+		draw_line(Vector2(c.x - 2.0, c.y - 0.5), Vector2(c.x - 2.0, c.y + 5.0), col, 1.5); draw_line(Vector2(c.x + 2.0, c.y - 0.5), Vector2(c.x + 2.0, c.y + 5.0), col, 1.5)
 
 # ---- the PV bar --------------------------------------------------------------------------------------------------------------
 class PvBar extends Control:
@@ -129,6 +145,11 @@ func _stream_id(c: Dictionary) -> String:
 
 func refresh() -> void:
 	if app == null: return
+	var lv := str(app.b.g.get("level", ""))
+	if _level_id == "": _level_id = lv
+	var alive := false
+	for u in app.b.g.get("units", []): if str(u.get("id", "")) == unit_id: alive = true
+	if lv != _level_id or not alive: close(); return   # a level change or a deleted unit closes the plate before it asks the engine about it
 	var c := _query_card()
 	if c.is_empty(): close(); return
 	card = c
@@ -150,9 +171,11 @@ func _rebuild() -> void:
 	var tags := VBoxContainer.new(); tags.add_theme_constant_override("separation", 2); tags.size_flags_horizontal = Control.SIZE_EXPAND_FILL; head.add_child(tags)
 	var tag := EqTheme.dymo(str(card.id), 16); tag.name = "Tag"; tags.add_child(tag)
 	var nm := EqTheme.dymo(str(card.label) if not _bank else EqStrings.formula(str(_bank_sp[0])) + " BANK", 12); nm.name = "Name"; tags.add_child(nm)
+	_name_lbl = nm.get_child(0) as Label
 	if str(card.type) == "feed":   # every feed says what it carries
 		_carry_lbl = EqTheme.label("", 14, EqTheme.INK, "mono_bold"); _carry_lbl.name = "Carries"; _carry_lbl.label_settings = EqStrings.ls(14, EqTheme.INK, "cap"); tags.add_child(_carry_lbl)
 	_pin = _tiny(PaperStrings.t("FP_PIN"), func(): pinned = not pinned; _pin.text = PaperStrings.t("FP_UNPIN") if pinned else PaperStrings.t("FP_PIN")); head.add_child(_pin)
+	_trash = TrashButton.new(); _trash.pressed.connect(func(): _delete_me()); head.add_child(_trash)
 	var x := _tiny("×", func(): close()); x.name = "Close"; head.add_child(x)
 	# body: PV bar + knobs
 	var mid := HBoxContainer.new(); mid.add_theme_constant_override("separation", 6); _body.add_child(mid)
@@ -211,6 +234,11 @@ func _commit_bank(v: float) -> void:
 	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
 	refresh()
 
+## The bin: delete this unit (the hub confirms when it has pipes).
+func _delete_me() -> void:
+	var hub = app.root.get_node_or_null("PaperHub")
+	if hub != null: hub.delete_unit(unit_id, false)
+
 func _tiny(text: String, cb: Callable) -> Button:
 	var b := EqTheme.key_button(text, false, 13); b.custom_minimum_size = Vector2(0, 28); b.add_theme_stylebox_override("normal", EqTheme.key_sb(false)); b.pressed.connect(cb)
 	for st in ["normal", "hover", "pressed", "disabled"]: var sb := EqTheme.key_sb(false, st); sb.content_margin_left = 7; sb.content_margin_right = 7; sb.content_margin_top = 1; sb.content_margin_bottom = 1; b.add_theme_stylebox_override(st, sb)
@@ -235,16 +263,32 @@ func _add_knob(k: Dictionary) -> void:
 		kn.setup(lab, "", 0.0, float(opts.size() - 1), 1.0, 1.0, float(opts.find(str(k.value))), true, opts)
 	else:
 		var d0 := EqFmt.to_disp(0.0, unit); var lo := EqFmt.to_disp(float(k.min), unit); var hi := EqFmt.to_disp(float(k.max), unit)
-		var coarse := EqFmt.to_disp(float(k.coarse), unit) - d0; var fine := EqFmt.to_disp(float(k.fine), unit) - d0
+		var span := hi - lo
+		var coarse := _nice(span * 0.01); var fine := _nice(span * 0.001)   # the wheel moves 1 % of the engine's range, 0.1 % with Shift
+		if bool(k.get("int", false)): coarse = 1.0; fine = 1.0
 		kn.setup(lab, PaperStrings.usym(unit), lo, hi, coarse, fine, EqFmt.to_disp(float(k.value), unit), bool(k.get("int", false)))
 	kn.name = "Knob_" + str(k.key); kn.set_meta("key", str(k.key)); kn.set_meta("spec", k)
 	kn.committed.connect(func(v: float) -> void: _commit(k, v))
 	_knob_box.add_child(kn); knobs[str(k.key)] = kn
 
+## A round step (1, 2, 5 x 10^n) at or just under `x`, so the wheel lands on readable numbers.
+static func _nice(x: float) -> float:
+	if x <= 0.0: return 1.0
+	var e := pow(10.0, floorf(log(x) / log(10.0))); var m := x / e
+	return e * (5.0 if m >= 5.0 else 2.0 if m >= 2.0 else 1.0)
+
+## A plant whose interlock (or any trip) has fired, or that is lost: its knobs are not live set points until the trip is reset.
+func _tripped() -> bool:
+	var sh = app.b.g.get("shift")
+	var trips: Array = sh.get("trips", []) if sh is Dictionary else []
+	return not trips.is_empty() or str(app.b.g.get("status", "playing")) == "lost" or _phase() == "lost"
+
 func _commit(k: Dictionary, v: float) -> void:
 	var val: Variant
 	if str(k.kind) == "choice": val = str((k.options as Array)[clampi(int(round(v)), 0, (k.options as Array).size() - 1)])
 	else: val = EqFmt.to_si(v, str(k.unit))
+	if _tripped():   # a tripped plant takes no set points: say why instead of silently moving the SP
+		app.toast(PaperStrings.t("FP_TRIPPED"), "warn"); refresh(); return
 	var shift := _phase() == "shift"   # during a shift the knob is a set point: the actuator ramps the plant to it (setParam is a design-phase action)
 	var r: Dictionary = app.b.act("setpoint" if shift else "setParam", [unit_id, str(k.key), val])
 	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
@@ -339,7 +383,11 @@ func _update_feed_info() -> void:
 	if be.is_empty(): return
 	for sp in _chips: (_chips[sp] as Button).set_pressed_no_signal(str(sp) == str(be.species))
 	if _bank_kg != null and not _bank_kg._drag: _bank_kg.set_value(float(be.kgPerH))
-	if _kmol_lbl != null: _kmol_lbl.text = "= " + PaperStrings.num(float(be.kmolPerH)) + " kmol/h"
+	if _name_lbl != null: _name_lbl.text = (EqStrings.formula(str(be.species)) + " BANK").to_upper()   # the tape follows the chip
+	var kt := "%.2f" % float(be.kmolPerH)   # one number, one rounding: the engine's banks[].kmolPerH, everywhere
+	if _kmol_lbl != null: _kmol_lbl.text = "= " + kt + " kmol/h"
+	if _cells.has("flow") and readouts.has("flow"):
+		(_cells.flow[1] as Label).text = kt; readouts["flow"]["text"] = kt
 
 # ---- placement on screen -----------------------------------------------------------------------------------------------------
 ## Plates dock to the right edge of the screen above the console (never over the unit being piped); the second plate sits to the left of the first.
@@ -391,23 +439,104 @@ class Hub extends Node:
 		if app.b != null and not app.b.changed.is_connected(_on_changed): app.b.changed.connect(_on_changed)
 		StreamTag.attach(app)
 
-	## Esc, one layer at a time (main.gd game_menu): the open stream tag, then faceplates and the selection, then a placement ghost or a half-made pipe.
-	## Returns true when something was closed (the pause menu stays shut).
+	## Esc clears everything in one press: the stream tag and pipe highlight, faceplates and the selection, a placement ghost, a half-made pipe and the delete
+	## strip. Returns true when something was cleared (the pause menu stays shut).
 	func close_one() -> bool:
 		var w = app.world
+		var did := false
 		var tag = app.root.get_node_or_null("StreamTag")
-		if tag != null and tag.visible:
-			tag.dismiss()
-			if w != null and w.pipes != null: w.pipes.select("")
-		elif not Faceplate.plates.is_empty() or (w != null and w.selected_id != ""):
+		if tag != null and tag.visible: tag.dismiss(); did = true
+		if w != null and w.pipes != null and w.pipes.selected != "": w.pipes.select(""); did = true
+		if not Faceplate.plates.is_empty() or (w != null and w.selected_id != ""):
 			Faceplate.close_all()
 			if w != null: w.select("")
-			hover_id = ""
-			_refresh_ports()
-		elif w != null and w.placing != "": w.cancel_place()
-		elif from_unit != "": clear_pipe(); _refresh_ports()
-		else: return false
-		return true
+			hover_id = ""; did = true
+		if w != null and w.placing != "": w.cancel_place(); did = true
+		if from_unit != "": clear_pipe(); did = true
+		if _confirm != null: _drop_confirm(); did = true
+		if did: _refresh_ports()
+		return did
+
+	# ---- delete: Delete / Backspace, the bin key-caps, pad X held --------------------------------------------------------------------------------
+	var _confirm: PanelContainer
+	var _hold := 0.0
+	var _holding := false
+
+	func _unhandled_key_input(e: InputEvent) -> void:
+		if not (e is InputEventKey) or not e.pressed or e.echo or app == null or not app.started or app.modal() != null: return
+		if e.keycode != KEY_DELETE and e.keycode != KEY_BACKSPACE: return
+		var f = get_viewport().gui_get_focus_owner()
+		if f is LineEdit or f is TextEdit: return
+		if delete_selected(false): get_viewport().set_input_as_handled()
+
+	func _input(e: InputEvent) -> void:
+		if e is InputEventJoypadButton and e.button_index == JOY_BUTTON_X and CbPad.enabled and app != null and app.started and app.world.placing == "":
+			_holding = e.pressed; _hold = 0.0
+
+	func _process(dt: float) -> void:
+		if not _holding: return
+		_hold += dt
+		if _hold >= 0.8:
+			_holding = false; _hold = 0.0
+			delete_selected(true)
+
+	## What a Delete press acts on: a highlighted pipe first, else the selected unit.
+	func delete_selected(confirmed: bool) -> bool:
+		var w = app.world
+		if w == null: return false
+		if w.pipes != null and w.pipes.selected != "": return delete_pipe(str(w.pipes.selected))
+		if w.selected_id != "": return delete_unit(str(w.selected_id), confirmed)
+		return false
+
+	func pipes_of(id: String) -> int:
+		var c = PaperStrings.q(app, "unitCard", [id]); var n := 0
+		if not (c is Dictionary): return 0
+		for k in ["inlets", "outlets"]: for p in c.get(k, []): if p.get("stream") != null: n += 1
+		return n
+
+	func delete_pipe(id: String) -> bool:
+		var r: Dictionary = app.b.act("disconnect", [id])
+		if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn"); return false
+		var tag = app.root.get_node_or_null("StreamTag")
+		if tag != null: tag.dismiss()
+		if app.world.pipes != null: app.world.pipes.select("")
+		_refresh_ports(); return true
+
+	## Delete a unit. With pipes on it the first call shows the small Dymo confirm strip (or deletes at once when `confirmed`, a held X).
+	func delete_unit(id: String, confirmed: bool) -> bool:
+		var n := pipes_of(id)
+		if n > 0 and not confirmed:
+			_ask(id, n); return true
+		return _do_delete(id)
+
+	func _do_delete(id: String) -> bool:
+		_drop_confirm()
+		if Faceplate.plates.has(id) and is_instance_valid(Faceplate.plates[id]): (Faceplate.plates[id] as Faceplate).close()
+		app.world.select(""); hover_id = ""   # before the engine changes: nothing may ask about the unit once it is gone
+		var r: Dictionary = app.b.act("deleteUnit", [id])
+		if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn"); return false
+		app.world.select(""); hover_id = ""; clear_pipe(); _refresh_ports(); return true
+
+	func _drop_confirm() -> void:
+		if _confirm != null and is_instance_valid(_confirm): _confirm.queue_free()
+		_confirm = null
+
+	func _ask(id: String, n: int) -> void:
+		_drop_confirm()
+		var pn := PanelContainer.new(); pn.name = "DeleteAsk"; pn.add_theme_stylebox_override("panel", EqTheme.porcelain_sb(4, 8.0))
+		var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 10); pn.add_child(hb)
+		hb.add_child(EqTheme.dymo(id, 14))
+		var txt := PaperStrings.t("DEL_ASK1") % id if n == 1 else PaperStrings.t("DEL_ASK") % [id, n]
+		hb.add_child(EqTheme.label(txt, 16, EqTheme.INK, "semi"))
+		var yes := EqTheme.key_button(PaperStrings.t("DEL_YES"), true, 15); yes.name = "Yes"; yes.custom_minimum_size = Vector2(0, 36); yes.pressed.connect(func(): _do_delete(id)); hb.add_child(yes)
+		var no := EqTheme.key_button(PaperStrings.t("DEL_NO"), false, 15); no.name = "No"; no.custom_minimum_size = Vector2(0, 36); no.pressed.connect(_drop_confirm); hb.add_child(no)
+		app.root.add_child(pn); _confirm = pn
+		var vr := pn.get_viewport().get_visible_rect().size
+		var ch = app.get("chrome")
+		pn.reset_size(); await pn.get_tree().process_frame
+		if not is_instance_valid(pn): return
+		var bottom := vr.y - (float(ch.console_height()) if ch != null and ch.has_method("console_height") else 190.0) - 12.0
+		pn.position = Vector2((vr.x - pn.size.x) * 0.5, bottom - pn.size.y)
 
 	func _on_place(type: String, x: int, y: int, rot: int) -> void:
 		var r: Dictionary = app.b.act("placeUnit", [type, x, y, rot])
@@ -434,9 +563,14 @@ class Hub extends Node:
 		var marks: Array = []
 		var seen := {}
 		for id in [app.world.selected_id, hover_id]:
-			if str(id) == "" or seen.has(str(id)) or not app.world.unit_ids().has(str(id)): continue
+			if str(id) == "" or seen.has(str(id)) or not app.world.unit_ids().has(str(id)) or not _alive(str(id)): continue
 			seen[str(id)] = true; marks.append_array(_free_ports(str(id)))
 		app.world.show_ports(marks)
+
+	## The engine still has this unit (the world may be a frame behind a deletion).
+	func _alive(id: String) -> bool:
+		for u in app.b.g.get("units", []): if str(u.get("id", "")) == id: return true
+		return false
 
 	func _on_changed() -> void:
 		if from_unit != "": _light_targets()
