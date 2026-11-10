@@ -6,7 +6,7 @@
 import { dmath } from '@core/numerics';
 import { solveEquilibrium } from '../chem/equilibrium';
 import { lnKeq } from '../chem/reactions';
-import { totalFlow } from '../thermo';
+import { enthalpyFlowAt, makeMixture, totalFlow } from '../thermo';
 import { R_GAS } from '../thermo/shomate';
 import type { SimResult, UnitOp } from '../types';
 import { failResult, okResult } from '../types';
@@ -51,5 +51,8 @@ export const labFlask: UnitOp = (inlets, u, ctx) => {
     P_bar: Pbar, alpha: n0 > 0 ? 1 - n[iA]! / n0 : 0, K, Kp_bar: pN > 0 ? (pD * pD) / pN : 0, V,
     no2_mol_m3: V > 0 ? n[iB]! / V : 0, T_out: T,
   };
-  return okResult({ outlets: { out: { n, T, P } }, duty: 0, info });
+  // the reaction heat of the dissociation leaves as the duty (isothermal vessel): H_out(T) - H_in, so the plant's energy balance closes
+  const mx = makeMixture(sp);
+  const duty = enthalpyFlowAt(mx, n, T) - enthalpyFlowAt(mx, s.n, s.T);
+  return okResult({ outlets: { out: { n, T, P } }, duty, info });
 };
