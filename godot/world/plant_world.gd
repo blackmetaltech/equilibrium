@@ -12,6 +12,9 @@ extends Node3D
 ##   set_cover / set_blocked / set_title (from the shell), pad_move (sticks).
 signal place_requested(type: String, x: int, y: int, rot: int)
 signal unit_clicked(id: String)
+signal pipe_hover(id: String, pos: Vector2)
+signal pipe_clicked(id: String)
+signal port_clicked(unit: String, port: String, inlet: bool)
 const GRID := 2.0
 const PLOT := Vector2(48.0, 32.0)          # fenced plot, m (24 x 16 cells)
 const NX := 24
@@ -23,6 +26,13 @@ const LAMP := Color("#FFB35A")
 const TEAL := Color("#2EC4B6")
 var app
 var cover := 0.0
+var cover_left := 0.0
+var fp_table := {}                  # unit type -> Vector2i (engine footprint, rot 0): the grid follows the engine, models scale to fit
+var place_ignore := ""              # a unit being moved does not block its own ghost
+var pipes: PipeLayer
+var _marks: Array = []
+var _mark_nodes: Array = []
+var _hover_pipe := ""
 var title_mode := false
 var blocked := false
 var plant: Dictionary = {}
@@ -50,10 +60,11 @@ var _fps_sum := 0.0
 var _fps_on := OS.get_environment("CB_FPS") != ""
 
 func _ready() -> void:
-	_build_environment(); _build_land(); _build_sea(); _build_grid(); _build_fence(); _build_lamps(); _build_camera(); _build_buttons()
+	_build_environment(); _build_land(); _build_sea(); _build_grid(); _build_fence(); _build_lamps(); _build_camera(); _build_buttons(); pipes = PipeLayer.new(); pipes.world = self; add_child(pipes)
 	_apply()
 
 func set_cover(px: float) -> void: cover = px; _apply()
+func set_cover_left(px: float) -> void: cover_left = px; _apply()
 func set_blocked(b: bool) -> void: blocked = b; visible = not b
 func set_title(on: bool) -> void: title_mode = on; _apply()
 func input_ok() -> bool: return not blocked and visible and app != null and app.modal() == null
@@ -61,7 +72,80 @@ func input_ok() -> bool: return not blocked and visible and app != null and app.
 ## The engine's plant query. Its units (if any) are shown unless the gallery owns the plot.
 func set_state(p: Dictionary) -> void:
 	plant = p
-	if not gallery: set_units(p.get("units", []))
+	if not gallery:
+		set_units(p.get("units", []))
+		pipes.set_pipes(p.get("streams", []), _unit_state)
+
+## Engine footprints from the palette query ({cats:[{items:[{type,w,h}]}]}).
+func set_footprints(pal: Dictionary) -> void:
+	for c in pal.get("cats", []):
+		for it in c.get("items", []): fp_table[str(it.type)] = Vector2i(int(it.w), int(it.h))
+
+func footprint_of(type: String, rot := 0) -> Vector2i:
+	var t: Vector2i = fp_table.get(type, UnitModels.footprint(type, 0))
+	return t if rot % 2 == 0 else Vector2i(t.y, t.x)
+
+func _fit(m: UnitModel, type: String) -> void:   ## models drawn for their own footprint shrink to the engine's when it is smaller
+	var f: Vector2i = fp_table.get(type, m.tiles)
+	var k := minf(1.0, minf(float(f.x) / m.tiles.x, float(f.y) / m.tiles.y))
+	m.scale = Vector3(k, k, k)
+
+## Live display from the engine snapshot: stream looks, unit heat and alarms.
+func set_snapshot(g: Dictionary) -> void:
+	var al := {}
+	for a in g.get("alarms", []): al[str(a.get("unit", ""))] = maxi(int(al.get(str(a.get("unit", "")), 0)), int(a.get("tier", 0)) if int(a.get("rtn", 0)) == 0 else 0)
+	for u in g.get("units", []):
+		var id := str(u.get("id", ""))
+		if not _units.has(id): continue
+		var d := {"alarm": 2 if bool(u.get("failed", false)) else clampi(int(al.get(id, 0)), 0, 2)}
+		if float(u.get("T", 0.0)) > 0.0: d["T_K"] = float(u["T"]); d["glow"] = float(u.get("glow", 0.0))
+		(_units[id] as UnitModel).set_display(d)
+	pipes.set_streams(g.get("streams", []), g.get("colours", []))
+
+# ---- ports (pipe mode) ----------------------------------------------------------------------------------------------------
+
+## World frame {pos, dir (horizontal, unit length)} of a unit port. Models without that port get a nozzle on the left (inlets) or right (outlets).
+func port_frame(id: String, port: String, inlet: bool) -> Dictionary:
+	if not _units.has(id): return {}
+	var m: UnitModel = _units[id]
+	var pos: Vector3; var dir: Vector3
+	if m.ports.has(port):
+		pos = m.port_pos(port); dir = m.port_dir(port)
+	else:
+		var n := absi(port.hash()) % 3 - 1
+		var half := Vector3(m.tiles.x * GRID * 0.5 + 0.1, 0.0, 0.0) * (-1.0 if inlet else 1.0)
+		var lp := half + Vector3(0, 1.0, n * 0.5)
+		pos = m.to_global(lp); dir = (m.global_transform.basis * Vector3(-1.0 if inlet else 1.0, 0, 0))
+	dir.y = 0.0
+	if dir.length() < 0.3:
+		dir = pos - m.global_position; dir.y = 0.0
+		if dir.length() < 0.3: dir = m.global_transform.basis * Vector3(-1.0 if inlet else 1.0, 0, 0)
+	return {"pos": pos, "dir": dir.normalized()}
+
+## Show port markers: [{unit, port, inlet, hot}]. Outlets are spheres, inlets cubes, legal targets are larger and brighter.
+func show_ports(list: Array) -> void:
+	for n in _mark_nodes: (n as Node).queue_free()
+	_mark_nodes.clear(); _marks = list
+	for it in list:
+		var f := port_frame(str(it.unit), str(it.port), bool(it.inlet))
+		if f.is_empty(): continue
+		var mi := MeshInstance3D.new(); var hot: bool = bool(it.get("hot", false))
+		var r := 0.42 if hot else 0.3
+		if bool(it.inlet): var bm := BoxMesh.new(); bm.size = Vector3(r, r, r) * 1.7; mi.mesh = bm
+		else: var sm := SphereMesh.new(); sm.radius = r; sm.height = r * 2.0; mi.mesh = sm
+		var col := Color("#FFB703") if bool(it.inlet) else TEAL
+		var m := StandardMaterial3D.new(); m.albedo_color = col; m.emission_enabled = true; m.emission = col; m.emission_energy_multiplier = 2.5 if hot else 1.1
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 5
+		mi.material_override = m; mi.position = f.pos + f.dir * 0.3 + Vector3(0, 0.0, 0); add_child(mi); _mark_nodes.append(mi)
+
+func _pick_port(p: Vector2) -> Dictionary:
+	var best := {}; var bd := (30.0 if CbLayout.touch else 20.0)
+	for i in range(_mark_nodes.size()):
+		var n: Node3D = _mark_nodes[i]
+		if cam.is_position_behind(n.global_position): continue
+		var d := cam.unproject_position(n.global_position).distance_to(p)
+		if d < bd: bd = d; best = _marks[i]
+	return best
 func unit_count() -> int: return _units.size()
 func lamp_count() -> int: return _lamps.size()
 func yaw_degrees() -> float: return cam_rig.yaw_degrees()
@@ -109,13 +193,13 @@ func _occupied(ignore := "") -> Dictionary:
 	var occ := {}
 	for id in _unit_state:
 		if id == ignore: continue
-		var s: Array = _unit_state[id]; var fp := UnitModels.footprint(s[0], s[3])
+		var s: Array = _unit_state[id]; var fp := footprint_of(s[0], s[3])
 		for i in range(fp.x):
 			for j in range(fp.y): occ[Vector2i(s[1] + i, s[2] + j)] = id
 	return occ
 
 func can_place(type: String, x: int, y: int, rot := 0, ignore := "") -> bool:
-	var fp := UnitModels.footprint(type, rot)
+	var fp := footprint_of(type, rot)
 	if x < 0 or y < 0 or x + fp.x > NX or y + fp.y > NZ: return false
 	var occ := _occupied(ignore)
 	for i in range(fp.x):
@@ -134,12 +218,12 @@ func set_units(arr: Array) -> void:
 		var st: Array = _unit_state.get(id, [])
 		if st.is_empty() or st[0] != type:
 			if _units.has(id): (_units[id] as Node).queue_free()
-			var m := UnitModels.create(type, id); add_child(m); _units[id] = m
+			var m := UnitModels.create(type, id); add_child(m); _units[id] = m; _fit(m, type)
 			if id == selected_id: m.set_selected(true)
 			st = []
 		_unit_state[id] = [type, x, y, rot]
 		var mm: UnitModel = _units[id]
-		var fp := mm.footprint(rot)
+		var fp := footprint_of(type, rot)
 		mm.position = tile_to_world(Vector2i(x, y), fp); mm.rotation_degrees.y = -90.0 * rot
 		if u.has("display") and u["display"] is Dictionary: mm.set_display(u["display"])
 	for id in _units.keys():
@@ -197,7 +281,7 @@ func _gallery_units() -> Array:
 func begin_place(type: String, rot := 0) -> void:
 	cancel_place()
 	placing = type; place_rot = rot % 4
-	_ghost = UnitModels.create(type, "ghost"); _ghost.make_ghost(Color("#38D96B")); add_child(_ghost)
+	_ghost = UnitModels.create(type, "ghost"); _ghost.make_ghost(Color("#38D96B")); add_child(_ghost); _fit(_ghost, type)
 	_foot = MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(1, 0.06, 1); _foot.mesh = bm
 	_foot_mat = StandardMaterial3D.new(); _foot_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; _foot_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_foot.material_override = _foot_mat; _foot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(_foot)
@@ -212,14 +296,14 @@ func rotate_ghost() -> void:
 	if placing != "": place_rot = (place_rot + 1) % 4; _update_ghost()
 
 func place_at(x: int, y: int) -> bool:
-	if placing == "" or not can_place(placing, x, y, place_rot): return false
+	if placing == "" or not can_place(placing, x, y, place_rot, place_ignore): return false
 	place_requested.emit(placing, x, y, place_rot); return true
 
 func _update_ghost() -> void:
 	if _ghost == null: return
-	var fp := UnitModels.footprint(placing, place_rot)
+	var fp := footprint_of(placing, place_rot)
 	var t := Vector2i(clampi(_cursor.x, 0, NX - fp.x), clampi(_cursor.y, 0, NZ - fp.y))
-	_cursor_valid = can_place(placing, t.x, t.y, place_rot)
+	_cursor_valid = can_place(placing, t.x, t.y, place_rot, place_ignore)
 	var col := Color("#38D96B") if _cursor_valid else Color("#E63946")
 	_ghost.position = tile_to_world(t, fp); _ghost.rotation_degrees.y = -90.0 * place_rot; _ghost.tint_ghost(col)
 	_foot.position = _ghost.position + Vector3(0, 0.12, 0); (_foot.mesh as BoxMesh).size = Vector3(fp.x * GRID - 0.1, 0.06, fp.y * GRID - 0.1)
@@ -237,8 +321,8 @@ func _pick_unit(p: Vector2) -> String:
 	var best := ""; var bt := INF
 	for id in _units:
 		var m: UnitModel = _units[id]; var st: Array = _unit_state[id]
-		var fp := m.footprint(st[3]); var c := m.position
-		var lo := Vector3(c.x - fp.x * GRID * 0.5, 0.0, c.z - fp.y * GRID * 0.5); var hi := Vector3(c.x + fp.x * GRID * 0.5, m.height, c.z + fp.y * GRID * 0.5)
+		var fp := footprint_of(st[0], st[3]); var c := m.position
+		var lo := Vector3(c.x - fp.x * GRID * 0.5, 0.0, c.z - fp.y * GRID * 0.5); var hi := Vector3(c.x + fp.x * GRID * 0.5, m.height * m.scale.y, c.z + fp.y * GRID * 0.5)
 		var t0 := -INF; var t1 := INF; var ok := true
 		for a in range(3):
 			var oa := o[a]; var na := n[a]
@@ -254,18 +338,29 @@ func _click_at(p: Vector2) -> void:
 	if placing != "":
 		var g = _ground_at(p)
 		if g != null:
-			var fp := UnitModels.footprint(placing, place_rot); var t := world_to_tile(g)
+			var fp := footprint_of(placing, place_rot); var t := world_to_tile(g)
 			_cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
 			place_at(_cursor.x, _cursor.y)
 		return
-	var id := _pick_unit(p); select(id); unit_clicked.emit(id)
+	var pk := _pick_port(p)
+	if not pk.is_empty(): port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
+	var pid := pipes.pick(p, cam) if _mark_nodes.is_empty() or true else ""
+	var id := _pick_unit(p)
+	if pid != "" and (id == "" or pipes_over(pid, id, p)): select(""); pipes.select(pid); pipe_clicked.emit(pid); return
+	pipes.select(""); select(id); unit_clicked.emit(id)
+
+## A pipe in front of a unit wins when the cursor is on its centre line closer than the unit's screen centre (pipes ride above the ground).
+func pipes_over(_pid: String, _uid: String, _p: Vector2) -> bool: return true
 
 func _unhandled_input(e: InputEvent) -> void:
 	if not input_ok(): return
+	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION:
+		var h := pipes.pick(e.position, cam)
+		if h != _hover_pipe or h != "": _hover_pipe = h; pipe_hover.emit(h, e.position)
 	if e is InputEventMouseMotion and placing != "" and e.device != InputEvent.DEVICE_ID_EMULATION and (e.button_mask & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) == 0:
 		var g = _ground_at(e.position)
 		if g != null:
-			var fp := UnitModels.footprint(placing, place_rot); var t := world_to_tile(g); _cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
+			var fp := footprint_of(placing, place_rot); var t := world_to_tile(g); _cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
 	elif e is InputEventMouseButton and e.pressed and e.device != InputEvent.DEVICE_ID_EMULATION:
 		if e.button_index == MOUSE_BUTTON_LEFT: _click_at(e.position)
 		elif e.button_index == MOUSE_BUTTON_RIGHT and placing != "": cancel_place()
@@ -317,7 +412,7 @@ func _process(dt: float) -> void:
 func _apply() -> void:
 	if cam_rig == null: return
 	var vr := get_viewport().get_visible_rect().size
-	cam_rig.h_shift_px = -vr.x * 0.2 if title_mode else cover * 0.5   # the title menu sits on the left; a drawer covers the right
+	cam_rig.h_shift_px = -vr.x * 0.2 if title_mode else (cover - cover_left) * 0.5   # the title menu sits on the left; a drawer covers the right
 	cam_rig.apply()
 
 # ---- scene construction -------------------------------------------------------------------------------------------------

@@ -46,3 +46,5 @@ green on push (GitHub run 42688646054); `CB_SMOKE=1` → `SMOKE OK screens=2`; c
 - WATER_ABSORBER_MIST has no consequence yet (decide in dynamics); boiler reports steam only in `info`.
 - Esc cannot cancel placement (CbApp eats it): right-click / pad B used.
 - No workers are in flight. Phone lock never taken.
+
+- 2026-11-10 HALTED by user order: M1 done (1162 tests, bench/convergence docs); M2 WIP committed unverified (src/levels/, lab_flask, godot pipe_router/pipe_layer); P23 methanol {R4,R5} degenerate-extent solver gap open; resume from M2.1/M2.3.

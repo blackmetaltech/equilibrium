@@ -6,6 +6,7 @@ import { UNIT_DEFS } from '../sim/units/registry';
 import { UNIT_DEFS_B } from '../sim/units/registryB';
 import { UNIT_DEFS_RX } from '../sim/units/registryRx';
 import { UNIT_DEFS_CSTR } from '../sim/units/registryCstr';
+import { labFlask } from '../sim/units/lab_flask';
 import type { UnitDefM16 } from '../sim/units/registry';
 import type { PhaseHook, Registry, UnitDef } from '../sim/flowsheet';
 import type { UnitInst } from '../sim/types';
@@ -47,7 +48,9 @@ export interface UnitMeta {
 }
 
 /** Lanes still to come (CSTR / batch rig, M1.8) are added here. */
-const EXTRA_DEFS: Record<string, UnitDefM16>[] = [UNIT_DEFS_RX, UNIT_DEFS_CSTR];
+/** M2.1: lab_flask (L14) is the level lane's own unit (src/sim/units/lab_flask.ts). */
+const UNIT_DEFS_LAB: Record<string, UnitDefM16> = { lab_flask: { inlets: ['in'], outlets: ['out'], fn: labFlask, phaseIn: { in: 'V' } } };
+const EXTRA_DEFS: Record<string, UnitDefM16>[] = [UNIT_DEFS_RX, UNIT_DEFS_CSTR, UNIT_DEFS_LAB];
 export const RAW_DEFS: Readonly<Record<string, UnitDefM16>> = Object.assign({}, UNIT_DEFS, UNIT_DEFS_B, ...EXTRA_DEFS);
 export const UNIT_TYPES: string[] = Object.keys(RAW_DEFS).sort();
 
@@ -86,6 +89,7 @@ const META_LIST: UnitMeta[] = [
   m('eq_reactor', 4, 4, 'react', [T_K(700), dP()]), m('eq_bed', 4, 4, 'react', [dP()]),
   m('packed_bed', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), dP()], { catalyst: true }),
   m('multibed', 4, 4, 'react', [dP()], { catalyst: true }), m('cstr', 4, 4, 'react'),
+  m('lab_flask', 2, 2, 'react', [num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'm³'), num('T', 150, 1500, 25, 5, 400, 'degC'), choice('hold', ['V', 'P'], 'V'), num('Pfix', 1e4, 4e7, 5e5, 1e5, 1e6, 'bar')]),
 ];
 export const META: Readonly<Record<string, UnitMeta>> = Object.fromEntries(META_LIST.map((x) => [x.type, x]));
 /** Fallback for a registered type nobody described yet (a new lane): a 2x2 box with no knobs, shown in the palette under 'react'. */
