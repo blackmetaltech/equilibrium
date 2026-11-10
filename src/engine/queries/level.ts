@@ -5,7 +5,8 @@ import { Rng, encodeSolution, fail, need, seedState } from '@core/kit';
 import type { ActionFn, QueryFn } from '@core/kit';
 import { SPECIES } from '../../data/species';
 import { t } from '../../i18n';
-import { SPEC_BY_ID, specOf } from '../../levels/registry';
+import { FIRSTRUN_S } from '../../data/events';
+import { SPEC_BY_ID, firstRunT, madeKg, specOf } from '../../levels/registry';
 import type { GoalEval, LevelSpec, Measures } from '../../levels/spec';
 import { commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, type Prediction } from '../../levels/util';
 import { REGIONS } from '../../regions';
@@ -58,9 +59,10 @@ function goalText(s: S, spec: LevelSpec, g: GoalEval): string {
   return t(g.key === 'budget' ? 'lv.goal.budget' : `lv.${spec.id}.goal.${g.key}`, vars);
 }
 
-function phaseOf(s: S): 'design' | 'commissioned' | 'shift' | 'won' | 'lost' {
+function phaseOf(s: S): 'design' | 'commissioned' | 'firstrun' | 'shift' | 'won' | 'lost' {
   if (s.status === 'won') return 'won';
   if (s.status === 'lost') return 'lost';
+  if (s.phase === 'firstrun') return 'firstrun';
   return s.phase === 'design' ? 'design' : s.phase === 'commissioned' ? 'commissioned' : s.phase === 'report' ? 'won' : 'shift';
 }
 
@@ -128,6 +130,8 @@ const levelInfo: QueryFn<EqState> = (s) => {
     secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), unit: sec.unit, value: fin(sec.value), limit: fin(sec.limit) },
     annunciators: spec.annunciators(s, m, goals),
     phase: phaseOf(s),
+    /** The level first run (L01-L04): plant seconds rolled, its length, and the product made so far; null outside it. */
+    firstRun: spec.firstRun === true && s.phase === 'firstrun' ? { t: firstRunT(s), len: FIRSTRUN_S, madeKg: fin(madeKg(s, spec)) } : null,
     coach: coachOf(s, spec),
     lesson: t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
     mode: s.mode,
@@ -140,6 +144,7 @@ const resultCard: QueryFn<EqState> = (s) => {
   const spec = specOf(s);
   if (!spec) return null;
   const ended = s.status !== 'playing';
+  if (!ended && spec.firstRun === true && s.phase === 'firstrun') return null;   // the plant works first; the printout comes when the first run ends
   if (s.solved === null && !ended && !(spec.shiftLen > 0 && s.shift !== null && s.shift.ended !== '')) return null;
   const m = spec.measures(s), goals = spec.goals(s, m), st = starsOf(s, spec, m, goals);
   const won = s.status === 'won';

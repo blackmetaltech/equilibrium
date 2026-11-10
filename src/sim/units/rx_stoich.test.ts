@@ -92,6 +92,65 @@ describe('burners and the gasifier (L02, L03, L07)', () => {
   });
 });
 
+describe('rich burns make CO (partial oxidation, then CO + 1/2 O2)', () => {
+  // species order: CH4 C3H8 O2 N2 CO2 H2O CO. Feed 10 kmol/h-equivalent (10 mol) fuel, air = O2 x 79/21.
+  const sp = ['CH4', 'C3H8', 'O2', 'N2', 'CO2', 'H2O', 'CO'];
+  const ctx: SimCtx = { species: sp, thermoDetail: 'rigorous' };
+  const burn = (ch4: number, c3: number, o2: number) =>
+    ok<Out>(stoichReactor({ in: { n: [ch4, c3, o2, (o2 * 79) / 21, 0, 0, 0], T: 400, P: 1e5 } }, mk('burner', { mode: 'adiabatic' }), ctx));
+  const IDX = { CH4: 0, C3H8: 1, O2: 2, N2: 3, CO2: 4, H2O: 5, CO: 6 };
+  const at = (v: Out, k: keyof typeof IDX) => v.outlets.out!.n[IDX[k]]!;
+
+  it('CH4 at 80 % of stoichiometric air: O2 = 16 for 10 CH4. Step 1 takes 15 (CO 10, H2O 20), the 1 left burns 2 CO: CO 8, CO2 2, O2 0', () => {
+    const v = burn(10, 0, 16);
+    expect(at(v, 'CH4')).toBeCloseTo(0, 9); expect(at(v, 'CO')).toBeCloseTo(8, 9); expect(at(v, 'CO2')).toBeCloseTo(2, 9);
+    expect(at(v, 'H2O')).toBeCloseTo(20, 9); expect(at(v, 'O2')).toBeCloseTo(0, 9);
+  });
+  it('CH4 at 100 %: O2 = 20. Step 1 takes 15, step 2 takes the last 5 for 10 CO: CO2 10, H2O 20, no CO, no O2', () => {
+    const v = burn(10, 0, 20);
+    expect(at(v, 'CO')).toBeCloseTo(0, 9); expect(at(v, 'CO2')).toBeCloseTo(10, 9); expect(at(v, 'H2O')).toBeCloseTo(20, 9); expect(at(v, 'O2')).toBeCloseTo(0, 9);
+  });
+  it('CH4 at 120 %: O2 = 24; 15 + 5 used, 4 left over; CO2 10, H2O 20, CO 0', () => {
+    const v = burn(10, 0, 24);
+    expect(at(v, 'CO')).toBeCloseTo(0, 9); expect(at(v, 'CO2')).toBeCloseTo(10, 9); expect(at(v, 'O2')).toBeCloseTo(4, 9);
+  });
+  it('CH4 below the step-1 requirement (50 %: O2 = 10 < 15): 10/1.5 = 6.667 CH4 reacts to CO, 3.333 CH4 slips, no CO2, no O2', () => {
+    const v = burn(10, 0, 10);
+    expect(at(v, 'CH4')).toBeCloseTo(10 - 10 / 1.5, 9); expect(at(v, 'CO')).toBeCloseTo(10 / 1.5, 9); expect(at(v, 'CO2')).toBeCloseTo(0, 12);
+    expect(at(v, 'H2O')).toBeCloseTo(2 * (10 / 1.5), 9); expect(at(v, 'O2')).toBeCloseTo(0, 9);
+  });
+  it('C3H8 at 80 % (O2 = 40 for 10 C3H8; stoich 50): step 1 takes 35 (CO 30, H2O 40), 5 left burns 10 CO: CO 20, CO2 10, H2O 40', () => {
+    const v = burn(0, 10, 40);
+    expect(at(v, 'C3H8')).toBeCloseTo(0, 9); expect(at(v, 'CO')).toBeCloseTo(20, 9); expect(at(v, 'CO2')).toBeCloseTo(10, 9); expect(at(v, 'H2O')).toBeCloseTo(40, 9);
+  });
+  it('lean and stoichiometric burns end all CO2 exactly as the single-step burn did (C3H8 55 O2: CO2 30, H2O 40, O2 5)', () => {
+    const v = burn(0, 10, 55);
+    expect(at(v, 'CO2')).toBeCloseTo(30, 9); expect(at(v, 'H2O')).toBeCloseTo(40, 9); expect(at(v, 'O2')).toBeCloseTo(5, 9); expect(at(v, 'CO')).toBeCloseTo(0, 9);
+  });
+  it('energy balance closes (adiabatic duty 0), atoms balance, and a rich burn is cooler than the complete one', () => {
+    const mx = makeMixture(sp);
+    const rich = burn(10, 0, 16), full = burn(10, 0, 20);
+    for (const [v, o2] of [[rich, 16], [full, 20]] as const) {
+      const hin = enthalpyFlow(mx, { n: [10, 0, o2, (o2 * 79) / 21, 0, 0, 0], T: 400, P: 1e5 });
+      const hout = enthalpyFlow(mx, v.outlets.out!);
+      expect(Math.abs(hout - hin)).toBeLessThan(1e-6 * Math.abs(hin) + 1e-3);
+      expect(Math.abs(v.duty)).toBeLessThan(1e-6 * Math.abs(hin) + 1e-3);
+      const el = elementTotals(sp, v.outlets.out!.n);
+      expect(el.C).toBeCloseTo(10, 9); expect(el.H).toBeCloseTo(40, 9);
+    }
+    expect(rich.outlets.out!.T).toBeLessThan(full.outlets.out!.T);
+  });
+  it('the heat released at 298 K isothermal follows the extents: rich 80 % = 10 R19 + 2 R15 (-519.3 x 10 - 283.0 x 2 kJ)', () => {
+    const r = ok<Out>(stoichReactor({ in: { n: [10, 0, 16, 0, 0, 0, 0], T: 298.15, P: 1e5 } }, mk('burner', { mode: 'isothermal' }), { ...ctx, species: ['CH4', 'C3H8', 'O2', 'N2', 'CO2', 'H2O', 'CO'] }));
+    expect(r.duty / 1000).toBeCloseTo(10 * -519.3 + 2 * -283.0, -1);
+  });
+  it('without CO in the species list the burner is the old complete-or-clamped one (no species missing)', () => {
+    const c2: SimCtx = { species: ['CH4', 'O2', 'N2', 'CO2', 'H2O'], thermoDetail: 'rigorous' };
+    const v = ok<Out>(stoichReactor({ in: { n: [10, 16, 60, 0, 0], T: 400, P: 1e5 } }, mk('burner', { mode: 'adiabatic' }), c2));
+    expect(v.outlets.out!.n[3]).toBeCloseTo(8, 9);
+  });
+});
+
 describe('registry metadata', () => {
   it('reactors have fixed ports, consume their reactants and never let species exit', () => {
     for (const t of ['stoich_reactor', 'burner', 'gasifier', 'co_burner', 'eq_reactor', 'eq_bed', 'packed_bed', 'multibed']) {

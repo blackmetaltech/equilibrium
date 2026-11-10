@@ -1,7 +1,8 @@
 // L03 · The Unknown Fuel (DESIGN 2.6). A fuel line of unknown gas (seeded identity: CH4 or C3H8, 10 kmol/h, hidden from the cards) and an air intake feed a boiler
 // burner; the flue analyser (the stack) reads CO2, H2O, O2 and CO in kmol/h. The job: 10 +- 1 % excess air and complete combustion, found from a test burn:
 // CO2 : H2O = 1 : 2 means CH4, 3 : 4 means C3H8.
-// Engine note (reported to the director): the stoichiometric burner is complete-or-clamped, so a rich burn shows as unburnt fuel at the analyser, not as CO.
+// Engine: the burner oxidises in two steps (fuel -> CO + H2O, then CO -> CO2 with the O2 left), so a rich burn shows CO at the analyser and a very rich one
+// also shows unburnt fuel (FUEL SLIP).
 import type { Action } from '@core/kit';
 import { findReaction } from '../data/reactions';
 import { fmtNumber } from '../engine/solved';
@@ -79,7 +80,7 @@ const COACH: CoachStep[] = [
 ];
 
 /** Plant ids: F-101 fuel line, F-102 air intake (pre-placed), then K-103 blower, M-104 mixer, R-105 burner, B-106 boiler, Z-107 stack. */
-function fuelBuild(air: number, last: Action[]): Action[] {
+export function fuelBuild(air: number, last: Action[]): Action[] {
   return [
     { name: 'placeUnit', args: ['compressor', 4, 4, 0] }, { name: 'placeUnit', args: ['mixer', 10, 2, 0] }, { name: 'placeUnit', args: ['burner', 14, 0, 0] },
     { name: 'placeUnit', args: ['boiler', 18, 6, 0] }, { name: 'placeUnit', args: ['stack', 22, 10, 0] },
@@ -122,7 +123,7 @@ const naive = () => {
 };
 
 export const L03: LevelSpec = {
-  id: 'L03', chapter: 1, index: 3, setter: 'manager', budgetUSD: L03_BUDGET, units: L03_UNITS, notes: 2, shiftLen: 0,
+  id: 'L03', firstRun: true, chapter: 1, index: 3, setter: 'manager', budgetUSD: L03_BUDGET, units: L03_UNITS, notes: 2, shiftLen: 0,
   setup: (s) => {
     baseSetup(s, L03_SPECIES, L03_UNITS, PRESETS);
     putFeed(s, 0, 0, { [fuelOfSeed(s.seed)]: 1 }, L03_FUEL_KMOL_H, T_AMB, P_FEED);
@@ -147,12 +148,13 @@ export const L03: LevelSpec = {
   secondary: (_s, m) => ({ key: 'test_burns', unit: '', value: m.v.test_burns!, limit: 3 }),
   annunciators: (s, m, g): Annunciator[] => {
     const failed = s.solved !== null && !s.solved.ok;
-    const slip = m.ok && m.v.slip! > 1e-6;
+    const slip = m.ok && m.v.slip! > 1e-6, co = m.ok && m.v.co! > 1e-6, rich = slip || co;
     return [
-      { key: 'o2lo', legend: t('lv.L03.ann.o2lo'), state: !m.ok ? 'off' : slip || m.v.excess_air! < EXCESS_PCT - EXCESS_TOL ? 'high' : 'normal' },
+      { key: 'o2lo', legend: t('lv.L03.ann.o2lo'), state: !m.ok ? 'off' : rich || m.v.excess_air! < EXCESS_PCT - EXCESS_TOL ? 'high' : 'normal' },
       { key: 'o2hi', legend: t('lv.L03.ann.o2hi'), state: !m.ok ? 'off' : m.v.excess_air! > EXCESS_PCT + EXCESS_TOL ? 'high' : 'normal' },
-      { key: 'co', legend: t('lv.L03.ann.co'), state: !m.ok ? 'off' : slip ? 'critical' : 'normal' },
-      { key: 'soot', legend: t('lv.L03.ann.soot'), state: !m.ok ? 'off' : slip ? 'high' : 'normal' },
+      { key: 'co', legend: t('lv.L03.ann.co'), state: !m.ok ? 'off' : co ? 'critical' : 'normal' },
+      { key: 'slip', legend: t('lv.L03.ann.slip'), state: !m.ok ? 'off' : slip ? 'critical' : 'normal' },
+      { key: 'soot', legend: t('lv.L03.ann.soot'), state: !m.ok ? 'off' : rich ? 'high' : 'normal' },
       { key: 'solve', legend: t('lv.L03.ann.solve'), state: failed ? 'critical' : 'off' },
       { key: 'goal', legend: t('lv.L03.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },
     ];
@@ -161,7 +163,7 @@ export const L03: LevelSpec = {
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
-    if (m.v.slip! > 1e-6) return { key: 'rich', cause: t('lv.L03.cause.rich', { air: f(s, m.v.air!), o2: f(s, m.v.o2_fed!), slip: f(s, m.v.slip_pct!) }) };
+    if (m.v.slip! > 1e-6 || m.v.co! > 1e-6) return { key: 'rich', cause: t('lv.L03.cause.rich', { air: f(s, m.v.air!), o2: f(s, m.v.o2_fed!), co: f(s, m.v.co!), slip: f(s, m.v.slip_pct!) }) };
     if (m.v.excess_air! > EXCESS_PCT + EXCESS_TOL) return { key: 'lean', cause: t('lv.L03.cause.lean', { x: f(s, m.v.excess_air!), loss: f(s, m.v.stack_loss_mw!), T: f(s, m.v.stack_T!) }) };
     return { key: 'tight', cause: t('lv.L03.cause.tight', { x: f(s, m.v.excess_air!) }) };
   },

@@ -19,10 +19,12 @@ import { flowSnap, recordDiff, redoStep, undoStep } from '../undo';
 type Fn = ActionFn<EqState>;
 
 // ---- shared guards ----
-const editable = (s: EqState): boolean => s.phase === 'design' || s.phase === 'commissioned';
+/** The level first run (no shift in progress) is a plant on show, not a lock: editing it ends the run. */
+const inFirstRun = (s: EqState): boolean => s.phase === 'firstrun' && s.shift === null;
+const editable = (s: EqState): boolean => s.phase === 'design' || s.phase === 'commissioned' || inFirstRun(s);
 export function needEditable(s: EqState): void { need(editable(s), t('err.design.locked')); }
 /** A design change makes the last solve stale. */
-export function invalidate(s: EqState): void { s.solved = null; if (s.phase === 'commissioned') s.phase = 'design'; }
+export function invalidate(s: EqState): void { s.solved = null; if (s.phase === 'commissioned' || inFirstRun(s)) s.phase = 'design'; }
 
 /** Run a design edit as one undo step. */
 export function edit<R>(s: EqState, body: () => R): R {

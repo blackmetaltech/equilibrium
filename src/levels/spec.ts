@@ -54,6 +54,10 @@ export interface LevelSpec {
   /** Seconds of the scripted shift (L00) or 0. */
   shiftLen: number;
   maxTicks?: number;
+  /** A commission that meets every goal first runs the plant for FIRSTRUN_S plant seconds (phase 'firstrun'); only then is the level won. */
+  firstRun?: boolean;
+  /** Product rate in kg/h for the first-run counter when the generic plant KPI is not the level's product. */
+  madeKgH?: (s: Readonly<EqState>, m: Measures) => number;
   /** Fill a fresh state. Deterministic. `s.level` is still null when this runs. */
   setup: (s: EqState) => void;
   measures: (s: Readonly<EqState>) => Measures;

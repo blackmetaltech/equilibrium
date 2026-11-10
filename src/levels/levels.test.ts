@@ -13,7 +13,7 @@ import { fmtNumber } from '../engine/solved';
 import { NAIVE, SPEC_BY_ID, SPECS } from './registry';
 import { L01_H2_KG_H, L01_NH3_KG_H, L01_NH3_KMOL_H } from './l01';
 import { L02_S_KMOL_H } from './l02';
-import { FUELS, airFor, fuelOfSeed } from './l03';
+import { FUELS, airFor, fuelBuild, fuelOfSeed } from './l03';
 import { L00_EVENT_AT } from './l00';
 import type { EqState } from '../state';
 
@@ -37,10 +37,13 @@ function play(id: string, persona: PersonaFactory<EqState>, opts: { seed?: numbe
   }
   return env;
 }
-const solve = (id: string, o: { seed?: number; mode?: string } = {}) => play(id, SPEC_BY_ID[id]!.solver, { ...o, ticks: id === 'L00' ? 700 : 5 });
+/** The solver commissions at turn 1-2, then the 30 s first run has to play out before the level is won. */
+const solve = (id: string, o: { seed?: number; mode?: string } = {}) => play(id, SPEC_BY_ID[id]!.solver, { ...o, ticks: id === 'L00' ? 700 : 40 });
 const info = (e: Env<EqState>): any => e.engine.q('levelInfo');
 const card = (e: Env<EqState>): any => e.engine.q('resultCard');
 const act = (e: Env<EqState>, name: string, ...args: unknown[]) => e.step({ name, args });
+/** Let the 30 s first run play out (stops at the win; harmless when the plant is not in a first run). */
+const roll = (e: Env<EqState>): Env<EqState> => { if (e.state.status === 'playing') act(e, 'tick', 40); return e; };
 
 /** Evaluate `left = right ...`: the arithmetic on the left (numbers, × ÷ + − and parentheses; thousands commas stripped) against the number the right starts with. */
 function equationHolds(eq: string): boolean {
@@ -73,7 +76,7 @@ describe('solvability (the expert persona)', () => {
   for (const id of CH1) {
     it(`${id}: the solver wins with all three stars, idle does not, no short cheese`, () => {
       const level = LEVELS.find((l) => l.id === id)!;
-      const r = checkLevel(GAME, level, { seed: 1003, cheeseDepth: 2, cheeseBudget: 400, randomRollouts: 4, randomTicks: 20, solverTicks: 5, idleTicks: 20 });
+      const r = checkLevel(GAME, level, { seed: 1003, cheeseDepth: 2, cheeseBudget: 400, randomRollouts: 4, randomTicks: 20, solverTicks: 40, idleTicks: 20 });
       expect(r.problems).toEqual([]);
       const e = solve(id);
       expect(e.state.status).toBe('won');
@@ -120,6 +123,83 @@ describe('solvability (the expert persona)', () => {
     expect(e.state.shift!.q.map((x) => [x.type, x.at])).toEqual([['cw_pump_trip', L00_EVENT_AT]]);
     expect(info(e).phase).toBe('shift');
     expect(info(e).coach.text).toMatch(/converter/i);
+  });
+});
+
+describe('the first run (L01-L04): the plant visibly works before the printout', () => {
+  /** Play the solver until the phase becomes firstrun (never past it). */
+  function untilFirstRun(id: string): Env<EqState> {
+    const e = start(id), agent = SPEC_BY_ID[id]!.solver(1003), rng = new Rng(1003);
+    for (let t = 0; t < 10 && info(e).phase !== 'firstrun'; t++) { for (const a of agent(e.state, e.ctx(rng))) e.step(a); if (info(e).phase !== 'firstrun') e.step(TICK); }
+    return e;
+  }
+  for (const id of CH1) {
+    it(`${id}: a commission that meets every goal enters the first run, rolls 30 plant seconds, then wins with the same stars`, () => {
+      const e = untilFirstRun(id);
+      expect(info(e).phase).toBe('firstrun');
+      expect(e.state.phase).toBe('firstrun');
+      expect(e.state.status).toBe('playing');
+      expect(card(e)).toBeNull();                                   // no printout yet
+      expect(info(e).firstRun).toEqual({ t: 0, len: 30, madeKg: 0 });
+      let last = 0;
+      for (let k = 1; k <= 29; k++) {
+        e.step(TICK);
+        const f = info(e).firstRun;
+        expect(f.t).toBe(k); expect(f.len).toBe(30); expect(f.madeKg).toBeGreaterThanOrEqual(last); last = f.madeKg;
+        expect(e.state.status).toBe('playing'); expect(info(e).phase).toBe('firstrun');
+      }
+      e.step(TICK);
+      expect(e.state.status).toBe('won');
+      expect(info(e).phase).toBe('won');
+      expect(info(e).firstRun).toMatchObject({ t: 30, len: 30 });
+      expect(card(e).won).toBe(true);
+      expect(card(e).stars.have).toBeGreaterThanOrEqual(1);
+    });
+  }
+  it('L01: made-so-far is the NH3 rate integrated over the plant seconds (kg/h / 3600 x t)', () => {
+    const e = untilFirstRun('L01');
+    for (let k = 0; k < 12; k++) e.step(TICK);
+    const rate = SPEC_BY_ID.L01!.measures(e.state).v.nh3_kg_h!;
+    expect(rate).toBeGreaterThan(0);
+    expect(info(e).firstRun.madeKg).toBeCloseTo((rate / 3600) * 12, 9);
+    expect(info(e).hero.value).toBeGreaterThan(0);                  // the hero keeps the rate
+  });
+  it('one big tick(10000) stops the moment the first run ends', () => {
+    const e = untilFirstRun('L01');
+    const t0 = e.state.tick;
+    act(e, 'tick', 10000);
+    expect(e.state.status).toBe('won');
+    expect(e.state.tick - t0).toBe(30);
+  });
+  it('any design edit during the first run returns to design and cancels the win; recommissioning starts a fresh first run', () => {
+    const e = untilFirstRun('L01');
+    for (let k = 0; k < 10; k++) e.step(TICK);
+    const r = act(e, 'setBank', 'F-102', 'H2', 100);
+    expect(r.info.ok).toBe(true);
+    expect(e.state.phase).toBe('design'); expect(info(e).phase).toBe('design'); expect(info(e).firstRun).toBeNull();
+    for (let k = 0; k < 50; k++) e.step(TICK);
+    expect(e.state.status).toBe('playing');
+    const e2 = untilFirstRun('L01');
+    for (let k = 0; k < 10; k++) e2.step(TICK);
+    expect(act(e2, 'commission').info.ok).toBe(true);
+    expect(info(e2).firstRun).toEqual({ t: 0, len: 30, madeKg: 0 });
+    act(e2, 'tick', 29); expect(e2.state.status).toBe('playing');
+    act(e2, 'tick', 1); expect(e2.state.status).toBe('won');
+  });
+  it('a commission that misses a goal stays commissioned (no first run), and idle never wins', () => {
+    const e = play('L01', NAIVE.L01!);
+    expect(info(e).phase).toBe('commissioned'); expect(info(e).firstRun).toBeNull();
+    for (let k = 0; k < 50; k++) e.step(TICK);
+    expect(e.state.status).toBe('playing');
+  });
+  it('the solution code of a first-run win verifies: same win, same metrics, in every chapter-1 level', () => {
+    for (const id of CH1) {
+      const e = solve(id);
+      expect(e.state.status, id).toBe('won');
+      const c = card(e).designCode as string;
+      const v = verify(id, c);
+      expect(v.ok, id + ' ' + v.reason).toBe(true);
+    }
   });
 });
 
@@ -215,6 +295,25 @@ describe('the failures DESIGN names', () => {
     expect(SPEC_BY_ID.L03!.measures(lean.state).v.stack_loss_mw).toBeGreaterThan(0);
     expect(card(lean).cause).toContain('MW');
   });
+  it('L03 rich burn: methane at 80 % of stoichiometric air shows CO 8, CO2 2 (kmol/h per 10 fuel), lights CO IN FLUE but not FUEL SLIP; at 100 % the CO is gone', () => {
+    const states = (e: Env<EqState>) => Object.fromEntries(info(e).annunciators.map((a: any) => [a.key, a.state]));
+    const run = (o2: number) => play('L03', () => { let d = false; return () => { if (d) return []; d = true; return fuelBuild(o2 / 0.21, [{ name: 'commission' }]); }; }, { seed: 1002, ticks: 1 });
+    const rich = run(16);
+    const m = SPEC_BY_ID.L03!.measures(rich.state);
+    expect(m.v.co).toBeCloseTo(8, 6); expect(m.v.co2).toBeCloseTo(2, 6); expect(m.v.h2o).toBeCloseTo(20, 6); expect(m.v.slip).toBe(0); expect(m.v.o2).toBeCloseTo(0, 6);
+    expect(states(rich).co).toBe('critical'); expect(states(rich).slip).toBe('normal'); expect(states(rich).soot).toBe('high');
+    expect(info(rich).annunciators.find((a: any) => a.key === 'co').legend).toMatch(/CO IN FLUE/);
+    expect(card(rich).verdictKey).toBe('rich');
+    expect(card(rich).cause).toContain('CO');
+    expect(info(rich).goals.map((g: any) => g.met)).toEqual([false, false]);
+    const stoich = run(20);
+    expect(SPEC_BY_ID.L03!.measures(stoich.state).v.co).toBeCloseTo(0, 6);
+    expect(states(stoich).co).toBe('normal');
+    // very rich (50 %): fuel slips as well
+    const veryRich = run(10);
+    expect(states(veryRich).slip).toBe('critical'); expect(states(veryRich).co).toBe('critical');
+    expect(info(veryRich).annunciators.find((a: any) => a.key === 'slip').legend).toMatch(/FUEL SLIP/);
+  });
   it('L04: the units slip (tonnes typed as kmol/h) fails the build against the notebook', () => {
     const e = play('L04', NAIVE.L04!);
     expect(card(e).verdictKey).toBe('off_build'); expect(card(e).won).toBe(false); expect(card(e).histogram).toBeNull();
@@ -229,7 +328,7 @@ describe('Call it grading at the oracle tolerance', () => {
     const script = id === 'L01' ? SPEC_BY_ID.L01!.solver : SPEC_BY_ID.L04!.solver;
     const agent = script(1003);
     for (const a of agent(e.state, e.ctx(new Rng(1)))) if (a.name !== 'callIt') act(e, a.name, ...(a.args ?? []));
-    return e;
+    return roll(e);
   };
   it('L01: H2 kg/h within 1 % of 30.24 earns the third star; outside it does not', () => {
     expect(L01_H2_KG_H).toBeCloseTo(30.24, 2);
@@ -276,7 +375,7 @@ describe('Call it grading at the oracle tolerance', () => {
       act(e, 'callIt', guess);
       const agent = SPEC_BY_ID.L02!.solver(1003);
       for (const a of agent(e.state, e.ctx(new Rng(1)))) if (a.name !== 'callIt') act(e, a.name, ...(a.args ?? []));
-      return e;
+      return roll(e);
     };
     const m = SPEC_BY_ID.L02!.measures(run(11).state);
     expect(m.v.o2_pct).toBeCloseTo(11.0, 6);
@@ -284,7 +383,7 @@ describe('Call it grading at the oracle tolerance', () => {
     expect(card(run(11 * 1.019)).stars.earned[2]).toBe(true);
     expect(card(run(11 * 1.021)).stars.earned[2]).toBe(false);
     expect(card(run(21)).stars.earned[2]).toBe(false);
-    const wrong = play('L03', (seed) => { const s = SPEC_BY_ID.L03!.solver(seed); return (st, ctx) => s(st, ctx).map((a) => (a.name === 'callIt' ? { name: 'callIt', args: [1] } : a)); });
+    const wrong = play('L03', (seed) => { const s = SPEC_BY_ID.L03!.solver(seed); return (st, ctx) => s(st, ctx).map((a) => (a.name === 'callIt' ? { name: 'callIt', args: [1] } : a)); }, { ticks: 40 });
     expect(wrong.state.status).toBe('won');
     expect(card(wrong).stars.earned).toEqual([true, true, false]);
   });
@@ -306,7 +405,7 @@ describe('Call it grading at the oracle tolerance', () => {
 });
 
 describe('levelInfo contract', () => {
-  const KEYS = ['id', 'chapter', 'index', 'title', 'setter', 'place', 'note', 'goals', 'budgetUSD', 'spentUSD', 'stars', 'callIt', 'allowedUnits', 'hero', 'secondary', 'annunciators', 'phase', 'coach', 'lesson', 'mode'];
+  const KEYS = ['id', 'chapter', 'index', 'title', 'setter', 'place', 'note', 'goals', 'budgetUSD', 'spentUSD', 'stars', 'callIt', 'allowedUnits', 'hero', 'secondary', 'annunciators', 'phase', 'firstRun', 'coach', 'lesson', 'mode'];
   for (const id of ['L00', ...CH1]) {
     it(`${id}: every field is present, numbers finite, 4-8 annunciators with caps legends of at most 14 characters, at start and after the solver`, () => {
       for (const mode of ['learner', 'engineer', 'sandbox']) for (const e of [start(id, 1003, mode), solve(id, { mode })]) {
@@ -320,7 +419,7 @@ describe('levelInfo contract', () => {
         expect(q.stars.rules).toHaveLength(3); expect(q.stars.have).toBeGreaterThanOrEqual(0); expect(q.stars.have).toBeLessThanOrEqual(3);
         expect(q.annunciators.length).toBeGreaterThanOrEqual(4); expect(q.annunciators.length).toBeLessThanOrEqual(8);
         for (const a of q.annunciators) { expect(a.legend).toBe(a.legend.toUpperCase()); expect(a.legend.length).toBeLessThanOrEqual(14); expect(['off', 'normal', 'high', 'critical']).toContain(a.state); }
-        expect(['design', 'commissioned', 'shift', 'won', 'lost']).toContain(q.phase);
+        expect(['design', 'commissioned', 'firstrun', 'shift', 'won', 'lost']).toContain(q.phase);
         expect(q.hero.label.length).toBeGreaterThan(2); expect(q.hero.hi).toBeGreaterThanOrEqual(q.hero.lo);
         if (q.secondary) expect(q.secondary.label.length).toBeGreaterThan(2);
         expect(q.lesson.length).toBeGreaterThan(20); expect(q.lesson).not.toMatch(/\{/);

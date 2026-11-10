@@ -57,3 +57,11 @@ describe('reaction catalogue (DESIGN 4.2)', () => {
     for (const [name, ids] of Object.entries(REACTOR_SETS)) for (const id of ids) expect(findReaction(id), `${name}:${id}`).toBeDefined();
   });
 });
+
+describe('partial oxidation rows (rich burns, L03)', () => {
+  it('R19 CH4 + 3/2 O2 -> CO + 2 H2O and R20 C3H8 + 7/2 O2 -> 3 CO + 4 H2O are catalogued as must rows with provenance', () => {
+    expect(reactionOf('R19').nu).toEqual({ CH4: -1, O2: -1.5, CO: 1, H2O: 2 });
+    expect(reactionOf('R20').nu).toEqual({ C3H8: -1, O2: -3.5, CO: 3, H2O: 4 });
+    for (const id of ['R19', 'R20']) { expect(reactionOf(id).tier).toBe('must'); expect(reactionOf(id).reversible).toBe(false); expect(reactionOf(id).conf).not.toBe('UNVERIFIED'); expect(reactionOf(id).src.length).toBeGreaterThan(10); }
+  });
+});

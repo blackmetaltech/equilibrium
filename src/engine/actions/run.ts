@@ -8,6 +8,7 @@ import { solveFlowsheet, validateTopology } from '../../sim/flowsheet';
 import type { Diag, UnitInst } from '../../sim/types';
 import { t } from '../../i18n';
 import { THERMO_DETAILS, type DiagRec, type EqState, type RunRecord, type SolveResult, type UnitResult } from '../../state';
+import { entersFirstRun, specOf } from '../../levels/registry';
 import { bindRegistry, phaseHook } from '../registry';
 import { ctxOf, economics, messageOf, syncFeed } from '../solved';
 import { invalidate, needEditable } from './design';
@@ -108,6 +109,9 @@ const commission: Fn = (s) => {
     kpis: econ.kpis, prediction: s.prediction ? { ...s.prediction } : null,
   });
   if (s.runs.length > MAX_RUNS) s.runs.splice(0, s.runs.length - MAX_RUNS);
+  // L01-L04: a commission that meets every goal first runs the plant for 30 plant seconds; the win comes when it has rolled (levels/registry goal)
+  const spec = specOf(s);
+  if (spec !== undefined && s.status === 'playing' && entersFirstRun(spec, s)) s.phase = 'firstrun';
   const message = t('log.commissioned', { units: s.flowsheet.units.length, streams: s.flowsheet.streams.length, passes: sol.passes });
   log(s, message, 'good');
   return ok(message, { commissioned: true });

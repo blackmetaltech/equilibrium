@@ -182,16 +182,27 @@ export function reactStoich(spec: StoichSpec, model: EnergyModel): SimResult<Sto
 }
 
 // ------------------------------------------------------------------------------------------------ unit
-/** Burner with no `reactions`: the fuel reactions whose fuel is in the feed, in the catalogue order. */
+/** Partial-oxidation step (fuel -> CO) of each fuel burned in two steps; the second step is `CO_BURN` for all of them. */
+const PARTIAL_OX: Readonly<Record<string, string>> = { R13: 'R19', R16: 'R20' };
+const CO_BURN = 'R15';
+
+/** Burner with no `reactions`: the fuel reactions whose fuel is in the feed, in the catalogue order. With CO in the species list
+ *  the hydrocarbons burn in sequence (fuel + O2 -> CO + H2O for every fuel, then CO + 1/2 O2 -> CO2 with the O2 left), so a rich burn
+ *  leaves CO and a very rich one leaves fuel; without CO the burn is the single complete step. */
 function burnerReactions(u: UnitInst, s: StreamState, species: readonly string[]): string[] {
   const out: string[] = [];
+  let partial = false;
+  const twoStep = species.includes('CO');
   for (const id of BURNER_REACTIONS) {
     const rx = findReaction(id);
     if (rx === undefined) continue;
     const fuel = Object.keys(rx.nu).find((k) => rx.nu[k]! < 0 && k !== 'O2');
     const i = fuel === undefined ? -1 : species.indexOf(fuel);
-    if (i >= 0 && s.n[i]! > 0) out.push(id);
+    if (i < 0 || !(s.n[i]! > 0)) continue;
+    const p = PARTIAL_OX[id];
+    if (twoStep && p !== undefined) { out.push(p); partial = true; } else out.push(id);
   }
+  if (partial) out.push(CO_BURN);
   void u;
   return out;
 }

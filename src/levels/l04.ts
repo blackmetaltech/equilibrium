@@ -40,7 +40,7 @@ const COACH: CoachStep[] = [
 void BENCH_COACH;
 
 export const L04: LevelSpec = {
-  id: 'L04', chapter: 1, index: 4, setter: 'mentor', budgetUSD: BENCH_BUDGET, units: BENCH_UNITS, notes: 2, shiftLen: 0,
+  id: 'L04', firstRun: true, chapter: 1, index: 4, setter: 'mentor', budgetUSD: BENCH_BUDGET, units: BENCH_UNITS, notes: 2, shiftLen: 0,
   setup: (s) => { baseSetup(s, BENCH_SPECIES, BENCH_UNITS, BENCH_PRESETS); sealSetup(s); },
   measures: benchMeasures,
   goals: (s, m) => {

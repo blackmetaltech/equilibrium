@@ -23,7 +23,7 @@ const MASS_N2 = 42.6, MASS_H2 = 127.7;
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 
 export const L01: LevelSpec = {
-  id: 'L01', chapter: 1, index: 1, setter: 'mentor', budgetUSD: BENCH_BUDGET, units: BENCH_UNITS, notes: 2, shiftLen: 0,
+  id: 'L01', firstRun: true, chapter: 1, index: 1, setter: 'mentor', budgetUSD: BENCH_BUDGET, units: BENCH_UNITS, notes: 2, shiftLen: 0,
   setup: (s) => { baseSetup(s, BENCH_SPECIES, BENCH_UNITS, BENCH_PRESETS); sealSetup(s); },
   measures: benchMeasures,
   goals: (s, m) => {

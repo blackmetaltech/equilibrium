@@ -76,7 +76,7 @@ function sulfurBuild(air: number): Action[] {
 const o2PctAt = (air: number): number => ((AIR_O2 * air - L02_S_KMOL_H) / air) * 100;
 
 export const L02: LevelSpec = {
-  id: 'L02', chapter: 1, index: 2, setter: 'supervisor', budgetUSD: L02_BUDGET, units: L02_UNITS, notes: 2, shiftLen: 0,
+  id: 'L02', firstRun: true, chapter: 1, index: 2, setter: 'supervisor', budgetUSD: L02_BUDGET, units: L02_UNITS, notes: 2, shiftLen: 0,
   setup: (s) => {
     baseSetup(s, L02_SPECIES, L02_UNITS, PRESETS);
     putFeed(s, 0, 0, { S: 1 }, L02_S_KMOL_H, T_PIT, P_FEED, 'sulfur');

@@ -71,6 +71,9 @@ ROWS = [
     ('R16', {'C3H8': -1, 'O2': -5, 'CO2': 3, 'H2O': 4}, False, 'must', [], 'furnaces, L08', None),
     ('R17', {'H2O2(aq)': -1, 'H2O(l)': 1, 'O2': 0.5}, False, 'must', ['iodide', 'catalase'], 'L18', None),
     ('R18', {'C3H6O': -1, 'H2O(l)': -1, 'C3H8O2': 1}, False, 'must', [], 'L24', None),
+    # Partial oxidation (rich burns make CO, DESIGN 2.6 L03): step 1 of the sequential burner, then R15 burns the CO with the O2 left.
+    ('R19', {'CH4': -1, 'O2': -1.5, 'CO': 1, 'H2O': 2}, False, 'must', [], 'L03 rich burn', None),
+    ('R20', {'C3H8': -1, 'O2': -3.5, 'CO': 3, 'H2O': 4}, False, 'must', [], 'L03 rich burn', None),
 ]
 
 # Lab reactions whose species carry molar mass only: dH298 (kJ/mol) with its own provenance.
@@ -105,6 +108,9 @@ for rid, nu, rev, tier, cats, used, rkey in ROWS:
     conf = max(confs, key=CONF_ORDER.index) if thermo else BOOK[rid]['conf']
     if rid in BOOK:
         src = BOOK[rid]['src']
+    elif rid in ('R19', 'R20'):
+        src = ('partial oxidation to CO + H2O(g), textbook burner step 1 (Felder & Rousseau ch 4 incomplete combustion); dH298 from the species '
+               'polynomials = -519.3 (CH4) / -1194.2 (C3H8) kJ/mol, checked against NIST webbook heats of formation in src/sim/chem/partial_ox.test.ts')
     else:
         src = ('docs/research/thermo.py RX[%s] (DESIGN 4.2); K(T) rigorous from the species polynomials, checked against NIST-JANAF log Kf'
                % rkey) if rkey else 'stoichiometry only; dH, dS, K(T) computed from the species data (DESIGN 4.2 extra rows)'
