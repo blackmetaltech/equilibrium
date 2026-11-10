@@ -74,3 +74,38 @@ export const lit = (ok: boolean, met: boolean, bad: 'high' | 'critical' = 'high'
 export const goalLamp = (ok: boolean, g: GoalEval[]): Annunciator['state'] => (ok && g.every((x) => x.met) ? 'normal' : 'off');
 
 export const LATE = (ids: string[]) => (s: S): boolean => ids.includes(s.ui.coachStep ?? '');
+
+// ------------------------------------------------------------------------------------------------ the control view (levelView query)
+export interface DialMeta { key: string; unit: string; min: number; max: number; step: number; choices?: string[] }
+const MAX_SAMPLES = 240;
+const fin = (x: number): number => (Number.isFinite(x) ? x : 0);
+/** At most about 240 samples, always keeping the last one; every value finite. */
+export function decimate(a: number[]): number[] {
+  const stride = Math.max(1, Math.ceil(a.length / MAX_SAMPLES)), out: number[] = [];
+  for (let i = 0; i < a.length; i += stride) out.push(fin(a[i]!));
+  if (a.length > 0 && (a.length - 1) % stride !== 0) out.push(fin(a[a.length - 1]!));
+  return out;
+}
+export interface ControlViewIn {
+  s: S; id: string; dials: DialMeta[];
+  series: { [k: string]: number[] } | null;
+  /** Series keys beyond pv, sp, op. */
+  extras?: string[];
+  bump?: { t: number[]; pv: number[]; op: number[]; fit: { K: number; tau: number; theta: number } };
+  metric: { value: number; unit: string; star3: number };
+}
+export function controlView(v: ControlViewIn): Record<string, unknown> {
+  const vals = dialValues(v.s, v.dials.length), keys = ['t', 'pv', 'sp', 'op', ...(v.extras ?? [])];
+  const series: Record<string, number[]> = {}, seriesLabels: Record<string, string> = {};
+  for (const k of keys) { series[k] = decimate(v.series?.[k] ?? []); if (k !== 't') seriesLabels[k] = t(`lv.${v.id}.series.${k}`); }
+  return {
+    kind: 'control',
+    dials: v.dials.map((d, i) => ({
+      key: d.key, label: t(`lv.${v.id}.dial.${d.key}`), unit: d.unit, value: fin(vals[i]!), min: d.min, max: d.max, step: d.step,
+      ...(d.choices ? { choices: d.choices.map((c) => t(`lv.ch8.choice.${c}`)) } : {}),
+    })),
+    series, seriesLabels,
+    ...(v.bump ? { bump: { t: decimate(v.bump.t), pv: decimate(v.bump.pv), op: decimate(v.bump.op), fit: { K: fin(v.bump.fit.K), tau: fin(v.bump.fit.tau), theta: fin(v.bump.fit.theta) } } } : {}),
+    metric: { label: t(`lv.${v.id}.view.metric`), value: fin(v.metric.value), unit: v.metric.unit, star3: fin(v.metric.star3) },
+  };
+}

@@ -6,7 +6,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { ACTIONS, CSTR, SCENARIOS, evaluate, hwCost, runScenario, secondsToCritical, type Design, type Eval } from '../sim/control/cstr';
 import type { EqState } from '../state';
-import { dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
+import { controlView, dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
 import { commissions, predictionOf, relErr, shown } from './util';
 
@@ -48,12 +48,22 @@ function measures(s: S): Measures {
   return { ok: true, v: { sensors: des.sensors, k: des.k, tripC: d[2]!, action: ACTIONS.indexOf(des.action) + 1, miss: ev.misses, spurious: ev.spurious, cost: ev.annualCost, hw: hwCost(des), peakLoss: by('loss').peak - C0, tripLoss: by('loss').trippedAt, missLoss: by('loss').missed ? 1 : 0, missBlind: by('loss_stuck_low').missed ? 1 : 0, spHigh: by('stuck_high').spurious ? 1 : 0, spSpikes: by('spikes').spurious ? 1 : 0, spUpset: by('cooling_upset').spurious ? 1 : 0, ...base } };
 }
 
+const VIEW = (s: S) => {
+  const r = l33Series(s);
+  return controlView({
+    s, id: 'L33', dials: [{ key: 'sensors', unit: '', min: 1, max: 3, step: 1 }, { key: 'k', unit: '', min: 1, max: 3, step: 1 }, { key: 'tripC', unit: '°C', min: 60, max: 140, step: 1 }, { key: 'action', unit: '', min: 1, max: 3, step: 1, choices: ['cut_feed', 'full_coolant', 'dump'] }],
+    series: r === null ? null : { t: r.t, pv: r.T.map((x) => x - C0), sp: r.T.map(() => r.trip - C0), op: r.open.map((x) => x - C0) },
+    metric: { value: measures(s).v.cost!, unit: 'USD/yr', star3: L33_COST_STAR },
+  });
+};
+
 export const L33: LevelSpec = {
   id: 'L33', firstRun: true, chapter: 8, index: 33, setter: 'safety', budgetUSD: L33_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [
     { key: 'sensors', def: { learner: 3, engineer: 1 } }, { key: 'k', def: { learner: 1, engineer: 1 } }, { key: 'tripC', def: { learner: 89, engineer: 100 } }, { key: 'action', def: { learner: 1, engineer: 1 } },
   ]),
   actions: dialActions,
+  view: (s) => VIEW(s),
   measures,
   goals: (s, m) => {
     const g: GoalEval[] = [

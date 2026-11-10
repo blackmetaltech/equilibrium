@@ -202,3 +202,32 @@ describe('levelInfo, resultCard, equation, determinism', () => {
     expect(L29_REF.kc).toBe(4);
   });
 });
+
+describe('levelView', () => {
+  const clean = (v: unknown, path = ''): string | null => {
+    if (typeof v === 'number') return Number.isFinite(v) ? null : path;
+    if (v === undefined || typeof v === 'function') return path;
+    if (v === null || typeof v !== 'object') return null;
+    for (const [k, x] of Object.entries(v)) { const r = clean(x, `${path}.${k}`); if (r) return r; }
+    return null;
+  };
+  for (const id of IDS) {
+    it(`${id}: view is JSON-clean, finite, decimated, at start and after the solver`, () => {
+      for (const e of [start(id), solve(id)]) {
+        const v = e.engine.q('levelView') as any;
+        expect(v.kind).toBe('control');
+        expect(clean(v)).toBeNull();
+        expect(JSON.parse(JSON.stringify(v))).toEqual(v);
+        expect(v.dials.length).toBeGreaterThanOrEqual(2);
+        for (const d of v.dials) { expect(d.label.length).toBeGreaterThan(1); expect(d.max).toBeGreaterThan(d.min); expect(d.value).toBeGreaterThanOrEqual(d.min); expect(d.value).toBeLessThanOrEqual(d.max); }
+        for (const k of Object.keys(v.series)) expect(v.series[k].length).toBe(v.series.t.length);
+        expect(v.series.t.length).toBeLessThanOrEqual(242);
+        for (const k of Object.keys(v.seriesLabels)) expect(v.seriesLabels[k].length).toBeGreaterThan(1);
+        expect(v.metric.label.length).toBeGreaterThan(1); expect(v.metric.star3).toBeGreaterThan(0);
+      }
+      const after = solve(id).engine.q('levelView') as any;
+      expect(after.series.t.length).toBeGreaterThan(50);
+      if (id === 'L30') { expect(after.bump.fit.tau).toBeGreaterThan(40); expect(after.bump.t.length).toBeLessThanOrEqual(242); }
+    });
+  }
+});

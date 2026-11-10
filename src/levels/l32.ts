@@ -4,7 +4,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { L32_RIG, runL32, type L32Out } from '../sim/control/rigs';
 import type { EqState } from '../state';
-import { dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
+import { controlView, dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
 import { commissions, predictionOf, relErr, shown } from './util';
 
@@ -34,6 +34,11 @@ function measures(s: S): Measures {
   return { ok: true, v: { on: on ? 1 : 0, mKc: d[1]!, mTauI: d[2]!, sKc: d[3]!, sTauI: d[4]!, hdr: out.hdrPeak, peak: out.peakDev, iae: out.iae, sat: out.satShare, hw: on ? L32_HW_CASCADE : L32_HW_SINGLE, K: L32_RIG.procM.K, dist: -L32_RIG.hdr, open: l32OpenLoopRise() } };
 }
 
+const VIEW = (s: S) => controlView({
+  s, id: 'L32', dials: [{ key: 'on', unit: '', min: 0, max: 1, step: 1, choices: ['off', 'on'] }, { key: 'mKc', unit: '', min: 0, max: 10, step: 0.1 }, { key: 'mTauI', unit: 's', min: 0, max: 600, step: 5 }, { key: 'sKc', unit: '', min: 0, max: 10, step: 0.1 }, { key: 'sTauI', unit: 's', min: 0, max: 60, step: 0.5 }],
+  series: l32Series(s), extras: ['flow'], metric: { value: measures(s).v.iae!, unit: 'K s', star3: L32_IAE_STAR },
+});
+
 export const L32: LevelSpec = {
   id: 'L32', firstRun: true, chapter: 8, index: 32, setter: 'mentor', budgetUSD: L32_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [
@@ -41,6 +46,7 @@ export const L32: LevelSpec = {
     { key: 'sKc', def: { learner: 2, engineer: 1 } }, { key: 'sTauI', def: { learner: 6, engineer: 0 } },
   ]),
   actions: dialActions,
+  view: (s) => VIEW(s),
   measures,
   goals: (s, m) => {
     const g: GoalEval[] = [

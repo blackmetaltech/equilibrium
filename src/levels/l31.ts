@@ -4,7 +4,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { L31_RIG, runL31, type L31Out } from '../sim/control/rigs';
 import type { EqState } from '../state';
-import { dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
+import { controlView, dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
 import { commissions, predictionOf, relErr, shown } from './util';
 
@@ -36,10 +36,16 @@ function measures(s: S): Measures {
 }
 const truthR = (): number => L31_R;
 
+const VIEW = (s: S) => controlView({
+  s, id: 'L31', dials: [{ key: 'on', unit: '', min: 0, max: 1, step: 1, choices: ['off', 'on'] }, { key: 'R', unit: 'mol/mol', min: 0, max: 6, step: 0.05 }, { key: 'kc', unit: '', min: 0, max: 10, step: 0.1 }, { key: 'tauI', unit: 's', min: 0, max: 60, step: 0.5 }],
+  series: l31Series(s), extras: ['n2'], metric: { value: measures(s).v.h2vent!, unit: '%', star3: L31_H2_STAR },
+});
+
 export const L31: LevelSpec = {
   id: 'L31', firstRun: true, chapter: 8, index: 31, setter: 'mentor', budgetUSD: L31_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [{ key: 'on', def: { learner: 0, engineer: 0 } }, { key: 'R', def: { learner: 1, engineer: 1 } }, { key: 'kc', def: { learner: 1.5, engineer: 0.3 } }, { key: 'tauI', def: { learner: 6, engineer: 0 } }]),
   actions: dialActions,
+  view: (s) => VIEW(s),
   measures,
   goals: (s, m) => {
     const g: GoalEval[] = [

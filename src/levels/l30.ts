@@ -5,7 +5,7 @@ import { t } from '../i18n';
 import { bumpL30, L30_PROC, L30_RIG, runL30, type L30Out } from '../sim/control/rigs';
 import { fitFopdt, imcPI } from '../sim/control';
 import type { EqState } from '../state';
-import { dialActions, dialScript, dialValues, goalLamp, lit, rigOk, rigSetup, LATE } from './ch8_common';
+import { controlView, dialActions, dialScript, dialValues, goalLamp, lit, rigOk, rigSetup, LATE } from './ch8_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
 import { commissions, predictionOf, relErr, shown } from './util';
 
@@ -39,10 +39,19 @@ function measures(s: S): Measures {
 }
 const truthKc = (): number => imcPI(L30_PROC, L30_LAMBDA).kc;
 
+const VIEW = (s: S) => {
+  const b = l30Bump(), fit = l30Fit(), m = measures(s);
+  return controlView({
+    s, id: 'L30', dials: [{ key: 'kc', unit: '%/K', min: 0.1, max: 10, step: 0.05 }, { key: 'tauI', unit: 's', min: 0, max: 300, step: 1 }, { key: 'tauD', unit: 's', min: 0, max: 30, step: 0.5 }],
+    series: l30Series(s) as Record<string, number[]> | null, bump: { t: b.t, pv: b.y.map((y) => L30_RIG.T0 + y), op: b.t.map(() => L30_RIG.bias + b.du), fit }, metric: { value: m.v.iae!, unit: 'K s', star3: L30_IAE_STAR },
+  });
+};
+
 export const L30: LevelSpec = {
   id: 'L30', firstRun: true, chapter: 8, index: 30, setter: 'mentor', budgetUSD: L30_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [{ key: 'kc', def: { learner: 0.5, engineer: 1 } }, { key: 'tauI', def: { learner: 45, engineer: 0 } }, { key: 'tauD', def: { learner: 0, engineer: 0 } }]),
   actions: dialActions,
+  view: (s) => VIEW(s),
   measures,
   goals: (s, m) => {
     const g: GoalEval[] = [

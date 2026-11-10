@@ -4,7 +4,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { L29_RIG, l29Offset, runL29, type L29Out } from '../sim/control/rigs';
 import type { EqState } from '../state';
-import { dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
+import { controlView, dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
 import { commissions, predictionOf, relErr, shown } from './util';
 
@@ -34,10 +34,13 @@ function measures(s: S): Measures {
   return { ok: true, v: { kc, tauI: d[1]!, offset: out.offsetPct, peak: out.peakDev, over: out.overshootPct, iae: out.m.iae, moves: out.moves, sat: out.m.satShare, hw: L29_HW, dq: L29_RIG.qin1 - L29_RIG.qin0, poff: kc > 0 ? l29Offset(kc) : 0 } };
 }
 
+const VIEW = (s: S) => controlView({ s, id: 'L29', dials: [{ key: 'kc', unit: '', min: 0.1, max: 20, step: 0.1 }, { key: 'tauI', unit: 's', min: 0, max: 300, step: 5 }], series: l29Series(s) as Record<string, number[]> | null, metric: { value: measures(s).v.iae!, unit: '% s', star3: L29_IAE_STAR } });
+
 export const L29: LevelSpec = {
   id: 'L29', firstRun: true, chapter: 8, index: 29, setter: 'mentor', budgetUSD: L29_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [{ key: 'kc', def: { learner: 1, engineer: 1 } }, { key: 'tauI', def: { learner: 60, engineer: 0 } }]),
   actions: dialActions,
+  view: (s) => VIEW(s),
   measures,
   goals: (s, m) => {
     const g: GoalEval[] = [
