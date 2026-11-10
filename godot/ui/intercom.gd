@@ -104,6 +104,7 @@ func _show_last() -> void:
 	_got.visible = live and bool(l.get("got_it", false))
 	_text.label_settings = EqStrings.ls(15, _color(str(l.get("kind", "info"))))
 	_text.text = str(l.get("text", "")).substr(0, int(chars)) if not l.is_empty() else ""
+	_follow()
 	_lamps.queue_redraw(); _grille.queue_redraw()
 	tooltip_text = ""
 
@@ -114,6 +115,7 @@ func _process(dt: float) -> void:
 	if chars < n:
 		chars = minf(float(n), chars + CPS * dt)
 		_text.text = str(l.text).substr(0, int(chars)); _grille.talk = true
+		_follow()
 	elif _grille.talk: _grille.talk = false; _grille.queue_redraw()
 
 func _gui_input(e: InputEvent) -> void:
@@ -187,3 +189,8 @@ class Grille extends Control:
 func set_max_lines(n: int) -> void:
 	max_lines = n; _text.max_lines_visible = n
 	_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS if n == 1 else TextServer.OVERRUN_NO_TRIMMING
+
+## Long lines scroll like a teleprinter: the newest words stay in view (the full text is in the log).
+func _follow() -> void:
+	_text.lines_skipped = 0
+	_text.lines_skipped = maxi(0, _text.get_line_count() - _text.max_lines_visible)

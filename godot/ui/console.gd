@@ -159,13 +159,27 @@ func refresh() -> void:
 	if app == null or not app.started or intercom == null: return
 	var li := level_info()
 	var id := str(li.get("id", "")) if not li.is_empty() else ""
-	if id != _level: _level = id; intercom.clear(); _coach_id = "<unset>"
+	if id != _level: _level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1
 	phase = engine_phase()
 	annunciator.set_windows(li.get("annunciators", []) if li.get("annunciators") is Array else [])
 	var runs: Array = qa_runs if not qa_li.is_empty() else (app.b.q("runs") if app.b.q("runs") is Array else [])
 	recorder.feed(li, runs, int(app.b.g.get("tick", 0)))
 	_sync_key()
 	_poll_coach(li)
+	_explain_run(li, runs)
+
+## After a commission that misses the goal, Mara explains it on the intercom with the player's own numbers (levelInfo.lesson), once per run.
+var _explained_runs := -1
+func _explain_run(li: Dictionary, runs: Array) -> void:
+	if li.is_empty() or not qa_li.is_empty(): return
+	if _explained_runs < 0 or runs.size() < _explained_runs: _explained_runs = runs.size(); return
+	if runs.size() == _explained_runs: return
+	_explained_runs = runs.size()
+	if str(li.get("phase", "")) != "commissioned": return
+	var missed := false
+	for g in li.get("goals", []): if g is Dictionary and not bool(g.get("met", false)): missed = true
+	var lesson := str(li.get("lesson", ""))
+	if missed and lesson != "": intercom.say(str(li.get("setter", "mara")), lesson, "info")
 
 func _sync_key() -> void:
 	var want := keys.pos
