@@ -30,6 +30,8 @@ var cover_left := 0.0
 var fp_table := {}                  # unit type -> Vector2i (engine footprint, rot 0): the grid follows the engine, models scale to fit
 var place_ignore := ""              # a unit being moved does not block its own ghost
 var pipes: PipeLayer
+var scenery: Scenery
+var critters: Critters
 var _marks: Array = []
 var _mark_nodes: Array = []
 var _hover_pipe := ""
@@ -61,6 +63,8 @@ var _fps_on := OS.get_environment("CB_FPS") != ""
 
 func _ready() -> void:
 	_build_environment(); _build_land(); _build_sea(); _build_grid(); _build_fence(); _build_lamps(); _build_camera(); _build_buttons(); pipes = PipeLayer.new(); pipes.world = self; add_child(pipes)
+	scenery = Scenery.new(); add_child(scenery)   # salt pans, old Works, QC lab + cat, ship, gulls; owns the time-of-day light
+	critters = Critters.new(); add_child(critters)   # Cute mode molecule critters on the pipes
 	_apply()
 
 func set_cover(px: float) -> void: cover = px; _apply()
@@ -101,6 +105,7 @@ func set_snapshot(g: Dictionary) -> void:
 		if float(u.get("T", 0.0)) > 0.0: d["T_K"] = float(u["T"]); d["glow"] = float(u.get("glow", 0.0))
 		(_units[id] as UnitModel).set_display(d)
 	pipes.set_streams(g.get("streams", []), g.get("colours", []))
+	if critters: critters.update(pipes, g.get("streams", []), g.get("species", []), _lost_pipes())
 
 # ---- ports (pipe mode) ----------------------------------------------------------------------------------------------------
 
@@ -146,6 +151,10 @@ func _pick_port(p: Vector2) -> Dictionary:
 		var d := cam.unproject_position(n.global_position).distance_to(p)
 		if d < bd: bd = d; best = _marks[i]
 	return best
+## Read-only helpers for the paper UI (faceplates, tags, rack). Screen positions are in the viewport's logical pixels, the same space as Control positions.
+func world_to_screen(p: Vector3) -> Vector2: return cam.unproject_position(p) if not cam.is_position_behind(p) else Vector2(-9999.0, -9999.0)
+func pick(screen_pos: Vector2) -> String: return _pick_unit(screen_pos)
+func unit_screen_pos(id: String) -> Vector2: return world_to_screen(anchor_world(id)) if _units.has(id) else Vector2(-9999.0, -9999.0)
 func unit_count() -> int: return _units.size()
 func lamp_count() -> int: return _lamps.size()
 func yaw_degrees() -> float: return cam_rig.yaw_degrees()
@@ -440,7 +449,7 @@ func _build_environment() -> void:
 	moon.shadow_enabled = true; moon.directional_shadow_max_distance = 140.0; add_child(moon)
 
 func _build_land() -> void:
-	_box(Vector3(LAND.x, 3.0, LAND.y), Vector3(0, -1.5, 0), _mat(Color("#2A2823"), 1.0))            # salt-flat apron, quay edge at the sea
+	_box(Vector3(LAND.x, 3.0, LAND.y), Vector3(0, -1.5, 0), _mat(Color("#9C907C"), 1.0))            # salt-flat apron, quay edge at the sea
 	var pad := _mat(Color("#3A3C42"), 0.85)
 	_box(Vector3(PLOT.x, 0.12, PLOT.y), Vector3(0, 0.0, 0), pad, false)                              # the plot's concrete pad
 	# a jetty into the bay on the +x side, with a pier deck and piles
@@ -506,3 +515,15 @@ func _build_buttons() -> void:
 	_btn_layer = CanvasLayer.new(); _btn_layer.layer = 5; add_child(_btn_layer)
 	_btns = CamButtons.new(); _btns.pressed.connect(_on_btn); _btn_layer.add_child(_btns); _btn_layer.visible = false
 	cam_rig.tapped.connect(_click_at)
+
+## Pipes that end in a vent, flare or stack: their critters look lost (Cute mode).
+func _lost_pipes() -> Dictionary:
+	var out := {}
+	for id in pipes.pipe_ids():
+		var ends: Array = pipes.endpoints(id)
+		if ends.size() < 2: continue
+		var to = ends[1]
+		var uid := str(to.get("unit", "")) if to is Dictionary else str(to)
+		var st: Array = _unit_state.get(uid, [])
+		if st.size() > 0 and str(st[0]) in ["vent", "flare", "stack"]: out[id] = true
+	return out
