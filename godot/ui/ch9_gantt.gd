@@ -30,8 +30,17 @@ func _build() -> void:
 
 class Plan extends Control:
 	var view := {}
-	const LW := 190.0
-	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE
+	const LW := 150.0
+	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_PASS
+	static func fit_text(f: Font, t: String, w: float, fs: int) -> String:
+		if f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= w: return t
+		while t.length() > 1 and f.get_string_size(t + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w: t = t.left(t.length() - 1)
+		return t + "…"
+	func _get_tooltip(at: Vector2) -> String:
+		var jobs: Array = view.get("jobs", []); var i := int((at.y - 18.0) / 15.0)
+		if at.x < LW + 4 and i >= 0 and i < jobs.size():
+			var j: Dictionary = jobs[i]; return "%s: %d d, days %d to %d, float %d d%s" % [j.label, int(j.days), int(j.start), int(j.finish), int(j.float), ", critical" if bool(j.critical) else ""]
+		return ""
 	func _draw() -> void:
 		var jobs: Array = view.get("jobs", []); var hz := maxf(float(view.get("horizon", 1)), 1.0); var win := float(view.get("window", 0))
 		var x0 := LW; var pw := size.x - LW - 16.0; var f := EqTheme.font("mono"); var fb := EqTheme.font("mono_bold"); var fs := EqTheme.fs(11)
@@ -45,7 +54,7 @@ class Plan extends Control:
 		for i in jobs.size():
 			var j: Dictionary = jobs[i]; var y := top + i * rh
 			if i % 2 == 1: draw_rect(Rect2(x0, y, pw, rh), Color(0, 0, 0, 0.04))
-			draw_string(f, Vector2(2, y + 11), str(j.label), HORIZONTAL_ALIGNMENT_LEFT, LW - 6, fs, Color("#1E2A2E"))
+			draw_string(f, Vector2(2, y + 11), fit_text(f, str(j.label), LW - 8, fs), HORIZONTAL_ALIGNMENT_LEFT, LW - 6, fs, Color("#1E2A2E"))
 			var s := float(j.start); var e := float(j.finish); var fl := float(j.float)
 			if fl > 0: draw_rect(Rect2(x0 + e * dx, y + 5, fl * dx, 5), Color(0.5, 0.5, 0.5, 0.22))
 			var crit := bool(j.critical); var col := Color("#C8323C") if crit else Color("#3C7E8C")
@@ -77,7 +86,7 @@ class Chips extends Control:
 	var _sel := -1
 	const CH := 26.0
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_DRAG
-	func _w(i: int) -> float: return EqTheme.font("mono").get_string_size(str(chips[i].label), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 34.0
+	func _w(i: int) -> float: return minf(maxf(size.x, 120.0), minf(190.0, EqTheme.font("mono").get_string_size(str(chips[i].label), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 34.0))
 	func _layout() -> Array:
 		var out: Array = []; var x := 0.0; var y := 0.0
 		for i in chips.size():
@@ -90,6 +99,10 @@ class Chips extends Control:
 		var l := _layout(); custom_minimum_size.y = (l.back().end.y if not l.is_empty() else CH) + 2.0
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_RESIZED or what == NOTIFICATION_READY: _fix()
+	func _get_tooltip(at: Vector2) -> String:
+		var l := _layout()
+		for i in l.size(): if (l[i] as Rect2).has_point(at): return str(chips[i].label)
+		return ""
 	func _gui_input(e: InputEvent) -> void:
 		var l := _layout()
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
@@ -110,7 +123,7 @@ class Chips extends Control:
 			var r: Rect2 = l[i]; var c: Dictionary = chips[i]
 			var col := Color("#C8323C") if bool(c.crit) else Color("#3C7E8C")
 			draw_rect(r, Color(col, 0.35) if i == _drag else col); draw_rect(r, col.darkened(0.4), false, 1.0)
-			draw_string(f, r.position + Vector2(8, 17), "%d %s" % [i + 1, str(c.label)], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, EqTheme.fs(12), Color.WHITE)
+			draw_string(f, r.position + Vector2(8, 17), "%d %s" % [i + 1, Plan.fit_text(f, str(c.label), r.size.x - 30, EqTheme.fs(12))], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, EqTheme.fs(12), Color.WHITE)
 		if _drag >= 0:
 			var r2: Rect2 = l[_drag]; r2.position = _pos - r2.size * 0.5
 			draw_rect(r2, Color("#1E2A2E")); draw_string(f, r2.position + Vector2(8, 17), str(chips[_drag].label), HORIZONTAL_ALIGNMENT_LEFT, r2.size.x - 8, EqTheme.fs(12), Color.WHITE)

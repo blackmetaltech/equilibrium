@@ -19,6 +19,7 @@ func active() -> bool: return visible and kind != ""
 
 func layout() -> void:
 	if app == null: return
+	if kind != "" and kind != "control": _hide_rack(true)
 	var k := CbLayout.kind
 	var tap := maxf(CbLayout.tap(), 44.0)
 	var vw: float = app.vw(); var vh: float = app.vs_h()
@@ -27,12 +28,13 @@ func layout() -> void:
 	var board := kind != "" and kind != "control"
 	var w := minf(vw - 20.0, 620.0 if k == "desktop" else (560.0 if k == "handheld" else (640.0 if not portrait else vw - 20.0)))
 	if board: w = minf(vw - 20.0, 800.0 if not portrait else vw - 20.0)
-	var bottom_gap := 250.0 if not portrait else 230.0
+	var bottom_gap := (250.0 if not portrait else 230.0) - (90.0 if board else 0.0)
 	var h := vh - top - bottom_gap
 	set_anchors_preset(Control.PRESET_TOP_RIGHT); grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	offset_right = -10.0; offset_left = -10.0 - w; offset_top = top; offset_bottom = top + h
 	custom_minimum_size = Vector2(w, 0); size = Vector2(w, h)
-	if panel is Ch9Board: (panel as Ch9Board).fit(w, h, portrait or w < 620.0)
+	if panel is Ch9Board:
+		(panel as Ch9Board).fit(w, h, portrait or w < 620.0)
 	elif panel != null:
 		panel.fit(h, w, portrait)
 		panel.custom_minimum_size = Vector2(w, 0); panel.size = Vector2(w, 0)
@@ -55,7 +57,7 @@ func refresh(force := false) -> void:
 	_last_ms = now; _dirty = false
 	var d = _query()
 	if not (d is Dictionary) or str(d.get("kind", "")) == "":
-		kind = ""; visible = false
+		kind = ""; visible = false; _hide_rack(false)
 		if panel != null: panel.visible = false
 		return
 	var k := str(d.kind)
@@ -67,22 +69,39 @@ func refresh(force := false) -> void:
 				var cp := ControlPanel.new(); cp.app_ref = app; panel = cp; add_child(cp)
 				cp.dial_set.connect(_on_dial)
 				layout()
-			"hazop", "sop", "permit", "reconcile", "gantt":
+			"hazop", "sop", "permit", "reconcile", "gantt", "career":
 				match k:
 					"hazop": panel = Ch9Hazop.new()
 					"sop", "permit": panel = Ch9Cards.new()
 					"reconcile": panel = Ch9Recon.new()
+					"career": var cb := CareerBoard.new(); cb.app_ref = app; panel = cb
 					_: panel = Ch9Gantt.new()
 				add_child(panel); (panel as Ch9Board).act.connect(_on_act)
 				layout()
 			_: kind = ""; visible = false; return
 	if app.bay != null: app.bay.visible = false
 	visible = true; panel.visible = true
+	_hide_rack(kind != "control")
 	var sig := JSON.stringify(d)
 	if sig == _sig: return
 	_sig = sig
 	panel.set_view(d)
 	if not (panel is Ch9Board): panel.reset_size()
+
+var _rack_hidden := false
+## Board levels (HAZOP, SOP, permit, reconcile, planning, CAREER) have no plant to build: the parts rack goes away while they are on, and returns after.
+func _hide_rack(on: bool) -> void:
+	if app == null or app.chrome == null: return
+	var c = app.chrome
+	if on:
+		c.rack_open = false
+		if c.rack_wrap != null: c.rack_wrap.visible = false
+		if c.parts_btn != null: c.parts_btn.visible = false
+		if c._rack_float != null: c._rack_float.visible = false
+		_rack_hidden = true
+	elif _rack_hidden:
+		_rack_hidden = false; if c.rack_wrap != null: c.rack_wrap.visible = true
+		c.layout()
 
 func _on_act(name: String, args: Array) -> void:
 	var r: Dictionary = app.b.act("levelAct", [name] + args)

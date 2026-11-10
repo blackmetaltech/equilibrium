@@ -112,6 +112,20 @@ class Grid extends Control:
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	func _cw() -> float: return (size.x - HW) / maxf(view.get("guides", []).size(), 1)
 	func _rect(i: int, j: int) -> Rect2: return Rect2(HW + j * _cw(), TOPH + i * CH, _cw(), CH)
+	func _get_tooltip(at: Vector2) -> String:
+		var ps: Array = view.get("params", []); var gs: Array = view.get("guides", [])
+		for i in ps.size():
+			if at.x < HW and at.y >= TOPH + i * CH and at.y < TOPH + (i + 1) * CH: return str(ps[i].label)
+			for j in gs.size():
+				if _rect(i, j).has_point(at):
+					for x in view.get("cells", []):
+						if x.param == ps[i].id and x.guide == gs[j].id:
+							if not bool(x.meaningful): return "%s / %s: no meaningful deviation" % [ps[i].label, gs[j].label]
+							if bool(x.simulated): return "%s / %s: %s (T out %d K)" % [ps[i].label, gs[j].label, x.sim.cls, int(round(float(x.sim.tOut)))]
+							return "%s / %s: tap to simulate" % [ps[i].label, gs[j].label]
+		for j in gs.size():
+			if at.y < TOPH and at.x >= HW + j * _cw() and at.x < HW + (j + 1) * _cw(): return str(gs[j].label)
+		return ""
 	func _gui_input(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			var ps: Array = view.get("params", []); var gs: Array = view.get("guides", [])
@@ -122,7 +136,7 @@ class Grid extends Control:
 		var f := EqTheme.font("mono"); var fb := EqTheme.font("mono_bold")
 		for j in gs.size(): draw_string(fb, Vector2(HW + j * _cw() + 4, 20), str(gs[j].label).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, _cw() - 6, EqTheme.fs(12), Ch9Board.PENCIL)
 		for i in ps.size():
-			draw_string(fb, Vector2(2, TOPH + i * CH + 22), str(ps[i].label).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, HW - 6, EqTheme.fs(12), Ch9Board.PENCIL)
+			draw_multiline_string(fb, Vector2(2, TOPH + i * CH + 14), str(ps[i].label).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, HW - 6, EqTheme.fs(10), 2, Ch9Board.PENCIL)
 			for j in gs.size():
 				var r := _rect(i, j).grow(-1.5); var c := {}
 				for x in view.get("cells", []): if x.param == ps[i].id and x.guide == gs[j].id: c = x

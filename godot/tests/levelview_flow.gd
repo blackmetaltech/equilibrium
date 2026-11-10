@@ -72,6 +72,7 @@ func _run() -> void:
 	app.lvbay.refresh(true)
 	check(not app.lvbay.active(), "leaving the level hides the view")
 	await _ch9()
+	await _career()
 
 func get_root_shot(tag: String) -> void:
 	if shots == "": return
@@ -125,3 +126,29 @@ func _ch9() -> void:
 	await _act("setCrane", [2]); check(int(gt.view.crane) == 2, "crane switch")
 	await get_root_shot("l38")
 	await _act("move", [3, 0]); await _act("reset", []); check(int(gt.view.crane) == 1, "reset")
+
+func _career() -> void:
+	await level("CAREER"); app.lvbay.refresh(true); await frames(2)
+	check(app.lvbay.kind == "career" and app.lvbay.panel is CareerBoard, "CAREER shows the manager's office")
+	check(not app.chrome.rack_wrap.visible, "a board level hides the parts rack")
+	var cb: CareerBoard = app.lvbay.panel
+	check((cb.view.plants as Array).size() == 4, "four plants")
+	await get_root_shot("career_start")
+	var offers: Array = cb.view.offers
+	if not offers.is_empty():
+		var n0 := (cb.view.contracts as Array).size()
+		await _act("accept", [offers[0].id]); check((cb.view.contracts as Array).size() == n0 + 1, "accept signs a contract")
+	await _act("setRate", ["nh3", 0.9]); check(is_equal_approx(float(cb.view.plants[0].rate), 0.9), "the rate knob sets the plant rate")
+	await _act("invest", ["heat"]); check(int(cb.view.options.invest.heat.level) == 1, "invest buys a level")
+	await _act("advance", [6])
+	check(int(cb.view.dashboard.month) == 6, "advance moves the calendar")
+	await get_root_shot("career_mid")
+	await _act("advance", [6])
+	check((cb.view.review as Array).size() == 1, "a review at month 12")
+	await get_root_shot("career_review")
+	cb.scroll.scroll_vertical = 100000; await frames(3)
+	await get_root_shot("career_review_memo")
+	await level("L38"); app.lvbay.refresh(true); await frames(2)
+	check(app.chrome.rack_wrap.visible == false, "still hidden on another board")
+	await level("L01"); app.lvbay.refresh(true); await frames(2)
+	check(app.chrome.rack_wrap.visible, "the rack returns on a plant level")
