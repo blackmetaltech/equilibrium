@@ -16,6 +16,7 @@ type S = Readonly<EqState>;
 export const L00_SPECIES = ['N2', 'H2', 'Ar', 'NH3'];
 export const L00_LEN_S = 600;
 export const L00_EVENT_AT = 20;
+export const L00_DECIDED_S = L00_EVENT_AT + 75;
 /** Pins above the converter outlet temperature at shift start (K): High, Critical, and the interlock set point. Learner events are gentler (x 0.6 of the
  *  deviation, data/events.ts), so the set points sit lower there; both put the trip 40-55 s after the pump trip when nothing is done (a test asserts it). GAME numbers. */
 export const PIN_HI = 12;
@@ -61,7 +62,11 @@ export function loopMeasures(s: S): Measures {
   v.nom_K = mon?.nom ?? 0; v.tier = mon?.tier ?? 0;
   v.cw_trip = sh.act.some((e) => e.type === 'cw_pump_trip') ? 1 : 0;
   v.tripped = Object.keys(sh.trips).length > 0 ? 1 : 0;
-  v.high_s = sh.stat.highS; v.crit_s = sh.stat.critS; v.ended = sh.ended === 'time' ? 1 : 0;
+  v.high_s = sh.stat.highS; v.crit_s = sh.stat.critS;
+  // DESIGN: the cold open lasts <= 2 minutes. The story is decided 75 s after the pump trips (saved by the dial, or tripped by the
+  // interlock ~45 s after the event); the night is "over" then, so the payoff card comes at ~95 s instead of after the 600 s shift.
+  v.ended = sh.ended === 'time' || (v.cw_trip === 1 && sh.t >= L00_DECIDED_S) ? 1 : 0;
+  v.len = Math.min(sh.len, L00_DECIDED_S);
   v.peak_K = Math.max(...(rx !== undefined ? s.trends['T:' + rx.id] ?? [0] : [0]), v.conv_K);
   v.prod_kg = sh.acc.prodKg;
   v.dial_K = cool !== undefined && typeof cool.params.T === 'number' ? cool.params.T : 0;
