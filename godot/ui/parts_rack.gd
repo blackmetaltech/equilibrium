@@ -22,6 +22,7 @@ class Tile extends Control:
 	var hint := ""
 	var selected := false
 	var focused := false
+	var coach := false      ## the coach points here: a pulsing teal ring
 	var _hover := false
 	func _init() -> void: custom_minimum_size = PartsRack.TILE; mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND; focus_mode = Control.FOCUS_ALL
 	func _gui_input(e: InputEvent) -> void:
@@ -38,6 +39,10 @@ class Tile extends Control:
 		if selected: bg = EqTheme.ENAMEL_HI.lerp(EqTheme.TEAL, 0.25)
 		draw_rect(r.grow(-1), bg); draw_rect(Rect2(1, 1, size.x - 2, 2), Color(1, 1, 1, 0.18))
 		draw_rect(r.grow(-1), EqTheme.TEAL if (selected or has_focus() or focused) else EqTheme.ENAMEL_LO, false, 3.0 if (selected or has_focus() or focused) else 1.5)
+		if coach:
+			var a := 0.45 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
+			draw_rect(r.grow(2), Color(EqTheme.TEAL, a), false, 4.0)
+			queue_redraw()
 		var col := EqTheme.TEXT if available else EqTheme.DIM.darkened(0.2)
 		PidSymbols.draw(self, type, Rect2(8, 8, size.x - 16, size.y - 54), col, EqTheme.AMBER if available else col)
 		# Dymo name
@@ -177,3 +182,10 @@ static func gallery(app, what: String) -> void:
 		"notebook": Notebook.stub = Notebook.stub_info() if Notebook.stub.is_empty() else Notebook.stub; Notebook.open(app)
 		"pass": Notebook.stub = Notebook.stub_info() if Notebook.stub.is_empty() else Notebook.stub; Printout.stub = Notebook.result_stub(true) if Printout.stub.is_empty() else Printout.stub; Printout.open(app)
 		"fail": Notebook.stub = Notebook.stub_info() if Notebook.stub.is_empty() else Notebook.stub; Printout.stub = Notebook.result_stub(false); Printout.open(app)
+
+## The coach points at a part: its tile pulses until the coach moves on ("" clears).
+func set_coach(type: String) -> void:
+	for t in tiles:
+		if t is Tile:
+			var on: bool = (t as Tile).type == type
+			if (t as Tile).coach != on: (t as Tile).coach = on; (t as Tile).queue_redraw()

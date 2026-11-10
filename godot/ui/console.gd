@@ -194,8 +194,9 @@ func _sync_key() -> void:
 func _poll_coach(li: Dictionary) -> void:
 	if li.is_empty() or CbSettings.tutorial == "off": return
 	var c = li.get("coach")
-	if not (c is Dictionary): return
+	if not (c is Dictionary): _point(null); return
 	var cid := "%s:%s" % [str(li.id), str(c.get("step", ""))]
+	_point(c.get("focus"))
 	if cid != _coach_id:
 		_coach_id = cid
 		intercom.say(str(c.get("speaker", "MARA")), str(c.get("text", "")), "coach", cid, str(c.get("why", "")))
@@ -295,3 +296,15 @@ class GearButton extends Button:
 			draw_line(c + Vector2(cos(a), sin(a)) * r, c + Vector2(cos(a), sin(a)) * (r + 4.5), col, 4.0)
 		draw_arc(c, r, 0.0, TAU, 28, col, 3.5)
 		draw_circle(c, r * 0.38, col)
+
+## Point at what the coach talks about: a unit in the world (chevron), a parts-rack tile (pulse) or the key.
+var rack: Node = null
+func _point(f) -> void:
+	var unit := ""; var tile := ""
+	if f is Dictionary:
+		unit = str(f.get("unit", "")); tile = str(f.get("rack", ""))
+		if keys != null and keys.has_method("set_coach"): keys.call("set_coach", bool(f.get("key", false)))
+	if app != null and app.world != null and app.world.has_method("set_coach_focus"): app.world.call("set_coach_focus", unit)
+	if rack == null and rack_slot != null:
+		for ch in rack_slot.get_children(): if ch.has_method("set_coach"): rack = ch
+	if rack != null: rack.call("set_coach", tile)

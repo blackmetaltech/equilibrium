@@ -65,12 +65,15 @@ function phaseOf(s: S): 'design' | 'commissioned' | 'shift' | 'won' | 'lost' {
 }
 
 /** The coach line: the first step whose predicate is false; null when done, when the level is over or the mode does not coach (DESIGN 7.6: Learner coaches L01-L04, every non-sandbox mode gets L00's two lines). */
-function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker: string; text: string; why: string } | null {
+function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker: string; text: string; why: string; focus: { unit?: string; rack?: string; key?: boolean } | null } | null {
   if (s.status !== 'playing' || s.mode === 'sandbox' || (spec.id !== 'L00' && s.mode !== 'learner')) return null;
   const i = spec.coach.findIndex((c) => !c.done(s));
   if (i < 0) return null;
   const c = spec.coach[i]!;
-  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`), why: t(`lv.${spec.id}.coach.${c.id}.why`) };
+  let focus: { unit?: string; rack?: string; key?: boolean } | null = null;
+  if (c.focus === 'key') focus = { key: true };
+  else if (c.focus) { const u = s.flowsheet.units.find((x) => x.type === c.focus); focus = u ? { unit: u.id } : { rack: c.focus }; }
+  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`), why: t(`lv.${spec.id}.coach.${c.id}.why`), focus };
 }
 
 /** The offline "simulated engineers" sample of DESIGN 9.6, deterministic per (level, metric): 200 values around the reference, 12 bins. */

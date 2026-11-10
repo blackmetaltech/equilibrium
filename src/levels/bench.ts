@@ -39,12 +39,12 @@ export function benchMeasures(s: Readonly<EqState>): Measures {
 const LATE = (ids: string[]) => (s: Readonly<EqState>): boolean => ids.includes(s.ui.coachStep ?? '');
 /** The eight steps of L01 (the plant-check job of L04 reuses the last three). */
 export const BENCH_COACH: CoachStep[] = [
-  { id: 'place_feed', role: 'mentor', done: (s) => unitsOfType(s, 'feed').length >= 1 },
-  { id: 'set_flow', role: 'mentor', done: (s) => unitsOfType(s, 'feed').some((u) => (s.feeds[u.id]?.flow ?? 1) !== 1 && (s.feeds[u.id]?.flow ?? 0) > 0) },
-  { id: 'place_reactor', role: 'mentor', done: (s) => unitsOfType(s, 'stoich_reactor').length >= 1 },
+  { id: 'place_feed', role: 'mentor', focus: 'feed', done: (s) => unitsOfType(s, 'feed').length >= 1 },
+  { id: 'set_flow', role: 'mentor', focus: 'feed', done: (s) => unitsOfType(s, 'feed').some((u) => (s.feeds[u.id]?.flow ?? 1) !== 1 && (s.feeds[u.id]?.flow ?? 0) > 0) },
+  { id: 'place_reactor', role: 'mentor', focus: 'stoich_reactor', done: (s) => unitsOfType(s, 'stoich_reactor').length >= 1 },
   { id: 'pipe_up', role: 'mentor', done: (s) => s.flowsheet.streams.length >= 6 },
-  { id: 'commission', role: 'mentor', done: (s) => commissions(s) >= 1 },
-  { id: 'read_tank', role: 'mentor', done: LATE(['read_tank', 'open_stream', 'why']) },
+  { id: 'commission', role: 'mentor', focus: 'key', done: (s) => commissions(s) >= 1 },
+  { id: 'read_tank', role: 'mentor', focus: 'product', done: LATE(['read_tank', 'open_stream', 'why']) },
   { id: 'open_stream', role: 'mentor', done: LATE(['open_stream', 'why']) },
   { id: 'why', role: 'mentor', done: LATE(['why']) },
 ];

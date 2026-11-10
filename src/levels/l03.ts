@@ -68,13 +68,13 @@ export function fuelMeasures(s: S): Measures {
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const burn = (s: S): boolean => commissions(s) >= 1;
 const COACH: CoachStep[] = [
-  { id: 'set_air', role: 'manager', done: (s) => unitsOfType(s, 'compressor').length >= 1 },
-  { id: 'place_mixer', role: 'manager', done: (s) => unitsOfType(s, 'mixer').length >= 1 },
-  { id: 'place_burner', role: 'manager', done: (s) => unitsOfType(s, 'burner').length >= 1 },
-  { id: 'place_boiler', role: 'manager', done: (s) => unitsOfType(s, 'boiler').length >= 1 && unitsOfType(s, 'stack').length >= 1 },
+  { id: 'set_air', role: 'manager', focus: 'compressor', done: (s) => unitsOfType(s, 'compressor').length >= 1 },
+  { id: 'place_mixer', role: 'manager', focus: 'mixer', done: (s) => unitsOfType(s, 'mixer').length >= 1 },
+  { id: 'place_burner', role: 'manager', focus: 'burner', done: (s) => unitsOfType(s, 'burner').length >= 1 },
+  { id: 'place_boiler', role: 'manager', focus: 'boiler', done: (s) => unitsOfType(s, 'boiler').length >= 1 && unitsOfType(s, 'stack').length >= 1 },
   { id: 'pipe_up', role: 'manager', done: (s) => s.flowsheet.streams.length >= 6 },
-  { id: 'test_burn', role: 'manager', done: burn },
-  { id: 'read_analyser', role: 'manager', done: (s) => ['read_analyser', 'why'].includes(s.ui.coachStep ?? '') },
+  { id: 'test_burn', role: 'manager', focus: 'key', done: burn },
+  { id: 'read_analyser', role: 'manager', focus: 'stack', done: (s) => ['read_analyser', 'why'].includes(s.ui.coachStep ?? '') },
   { id: 'why', role: 'manager', done: (s) => s.ui.coachStep === 'why' },
 ];
 

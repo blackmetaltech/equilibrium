@@ -69,8 +69,8 @@ export function loopMeasures(s: S): Measures {
 }
 
 const COACH: CoachStep[] = [
-  { id: 'tap_converter', role: 'supervisor', done: (s) => s.ui.pinned.includes('eqwin') || (s.shift?.t ?? 0) >= L00_EVENT_AT },
-  { id: 'inlet_down', role: 'supervisor', done: (s) => s.shift === null || s.shift.ended !== '' || Object.keys(s.shift.ramps).length > 0 || (unitsOfType(s, 'cooler')[0]?.params.T as number) < T_COOL - 20 },
+  { id: 'tap_converter', role: 'supervisor', focus: 'eq_reactor', done: (s) => s.ui.pinned.includes('eqwin') || (s.shift?.t ?? 0) >= L00_EVENT_AT },
+  { id: 'inlet_down', role: 'supervisor', focus: 'cooler', done: (s) => s.shift === null || s.shift.ended !== '' || Object.keys(s.shift.ramps).length > 0 || (unitsOfType(s, 'cooler')[0]?.params.T as number) < T_COOL - 20 },
 ];
 
 const solver = () => {

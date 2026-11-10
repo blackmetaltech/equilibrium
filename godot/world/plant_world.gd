@@ -260,8 +260,9 @@ func fit_view() -> void:
 		var p: Vector3 = (_units[id] as Node3D).position
 		lo.x = minf(lo.x, p.x); lo.z = minf(lo.z, p.z); hi.x = maxf(hi.x, p.x); hi.z = maxf(hi.z, p.z)
 	var c := (lo + hi) * 0.5; var ext := maxf(hi.x - lo.x, hi.z - lo.z)
+	c = c.lerp(Vector3.ZERO, clampf(1.0 - _units.size() / 6.0, 0.0, 0.6))   # a lone first unit: keep the plot in view
 	cam_rig.look_at_ground(c)
-	cam_rig.set_size(clampf(ext * 0.9 + 14.0, 20.0, 50.0))
+	cam_rig.set_size(clampf(ext * 0.9 + 16.0, 34.0, 50.0))   # never closer than a third of the plot: the player needs room to build
 
 func set_display(id: String, d: Dictionary) -> void:
 	if _units.has(id): (_units[id] as UnitModel).set_display(d)
@@ -429,6 +430,7 @@ func _on_btn(which: String) -> void:
 		"rot_r": cam_rig.rotate_view(1)
 
 func _process(dt: float) -> void:
+	_coach_tick()
 	if _btn_layer != null:
 		var show_btn: bool = (CbLayout.touch or OS.get_environment("CB_CAM_BUTTONS") != "") and input_ok() and not title_mode and app.started
 		_btn_layer.visible = show_btn
@@ -551,3 +553,22 @@ func _lost_pipes() -> Dictionary:
 		var st: Array = _unit_state.get(uid, [])
 		if st.size() > 0 and str(st[0]) in ["vent", "flare", "stack"]: out[id] = true
 	return out
+
+## The coach points at a unit: a teal chevron bobs above it ("" hides it).
+var _coach_mark: MeshInstance3D
+var _coach_unit := ""
+func set_coach_focus(id: String) -> void:
+	_coach_unit = id if _units.has(id) else ""
+	if _coach_mark == null:
+		var cm := CylinderMesh.new(); cm.top_radius = 0.9; cm.bottom_radius = 0.0; cm.height = 1.4; cm.radial_segments = 4
+		var m := StandardMaterial3D.new(); m.albedo_color = TEAL; m.emission_enabled = true; m.emission = TEAL; m.emission_energy_multiplier = 2.2
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_coach_mark = MeshInstance3D.new(); _coach_mark.mesh = cm; _coach_mark.material_override = m
+		_coach_mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(_coach_mark)
+	_coach_mark.visible = _coach_unit != ""
+
+func _coach_tick() -> void:
+	if _coach_mark != null and _coach_mark.visible and _units.has(_coach_unit):
+		var t := Time.get_ticks_msec() * 0.001
+		_coach_mark.global_position = anchor_world(_coach_unit) + Vector3(0, 2.2 + 0.35 * sin(t * 3.0), 0)
+		_coach_mark.rotation.y = t * 1.5

@@ -38,6 +38,7 @@ class KeyDial extends Control:
 	var pos := 0
 	var angle := -PI / 3.0
 	var compact := false
+	var coach := false
 	const DEG := PI / 3.0
 	func _init() -> void:
 		custom_minimum_size = Vector2(190, 96); mouse_filter = Control.MOUSE_FILTER_STOP; focus_mode = CbKit.focus_mode()
@@ -56,6 +57,9 @@ class KeyDial extends Control:
 		var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
 		var cy := size.y - (24.0 if compact else 30.0); var c := Vector2(size.x * 0.5, cy)
 		var rr := 38.0
+		if coach:   # the coach points at the key: a pulsing teal ring
+			draw_arc(c, rr + 14.0, 0, TAU, 48, Color(EqTheme.TEAL, 0.45 + 0.45 * sin(Time.get_ticks_msec() * 0.006)), 4.0)
+			queue_redraw()
 		var names := [EqStrings.T("KEY_DESIGN"), EqStrings.T("KEY_COMMISSION"), EqStrings.T("KEY_RUN")]
 		for i in 3:
 			var a := (i - 1) * DEG
@@ -134,3 +138,7 @@ class SpeedDial extends Control:
 		draw_rect(Rect2(-2.5, -17, 5, 12), EqTheme.TEAL * Color(1, 1, 1, dim))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if has_focus(): draw_rect(Rect2(Vector2.ZERO, size), EqTheme.TEAL, false, 2.0)
+
+## The coach points at the key (pulse until the step is done).
+func set_coach(on: bool) -> void:
+	if key != null and key.coach != on: key.coach = on; key.queue_redraw()

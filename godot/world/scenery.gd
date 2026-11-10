@@ -219,7 +219,7 @@ func set_hour(h: float) -> void:
 			var sm: ProceduralSkyMaterial = env.sky.sky_material
 			sm.sky_top_color = (a[1] as Color).lerp(b[1], t); sm.sky_horizon_color = (a[2] as Color).lerp(b[2], t)
 			sm.ground_horizon_color = sm.sky_horizon_color.darkened(0.35); sm.ground_bottom_color = Color("#1B2A33")
-		env.ambient_light_color = (a[5] as Color).lerp(b[5], t); env.ambient_light_energy = 1.0
+		env.ambient_light_color = (a[5] as Color).lerp(b[5], t); env.ambient_light_energy = 0.7; env.tonemap_exposure = 0.95
 	if sun:
 		sun.light_color = (a[3] as Color).lerp(b[3], t); sun.light_energy = lerpf(float(a[4]), float(b[4]), t)
 		sun.rotation_degrees = Vector3(lerpf(float(a[6]), float(b[6]), t), -35.0, 0.0)

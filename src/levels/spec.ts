@@ -14,7 +14,11 @@ export interface GoalEval { key: string; met: boolean; value?: number; target?: 
 export interface Annunciator { key: string; legend: string; state: AnnState }
 
 /** One coach step: advances from engine state, never from clicks (DESIGN 7.2). `speaker` is a cast role. */
-export interface CoachStep { id: string; role: Role; done: (s: Readonly<EqState>) => boolean }
+export interface CoachStep {
+  id: string; role: Role; done: (s: Readonly<EqState>) => boolean;
+  /** What the front-end points at: a unit type (the first such unit is highlighted, or its parts-rack tile while none is placed), or 'key'. */
+  focus?: string;
+}
 
 /** The optional prediction of a level. `truth` is the engine / oracle value the answer is graded against. */
 export interface CallItSpec {

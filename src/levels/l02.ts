@@ -51,13 +51,13 @@ const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 type S = Readonly<import('../state').EqState>;
 const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
 const COACH: CoachStep[] = [
-  { id: 'set_air', role: 'supervisor', done: (s) => has(s, 'compressor') },
-  { id: 'place_mixer', role: 'supervisor', done: (s) => has(s, 'mixer') },
-  { id: 'place_burner', role: 'supervisor', done: (s) => has(s, 'burner') },
-  { id: 'place_stack', role: 'supervisor', done: (s) => has(s, 'stack') },
+  { id: 'set_air', role: 'supervisor', focus: 'compressor', done: (s) => has(s, 'compressor') },
+  { id: 'place_mixer', role: 'supervisor', focus: 'mixer', done: (s) => has(s, 'mixer') },
+  { id: 'place_burner', role: 'supervisor', focus: 'burner', done: (s) => has(s, 'burner') },
+  { id: 'place_stack', role: 'supervisor', focus: 'stack', done: (s) => has(s, 'stack') },
   { id: 'pipe_up', role: 'supervisor', done: (s) => s.flowsheet.streams.length >= 5 },
-  { id: 'commission', role: 'supervisor', done: (s) => commissions(s) >= 1 },
-  { id: 'read_stack', role: 'supervisor', done: (s) => ['read_stack', 'why'].includes(s.ui.coachStep ?? '') },
+  { id: 'commission', role: 'supervisor', focus: 'key', done: (s) => commissions(s) >= 1 },
+  { id: 'read_stack', role: 'supervisor', focus: 'stack', done: (s) => ['read_stack', 'why'].includes(s.ui.coachStep ?? '') },
   { id: 'why', role: 'supervisor', done: (s) => s.ui.coachStep === 'why' },
 ];
 
