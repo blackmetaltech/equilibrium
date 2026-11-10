@@ -101,7 +101,7 @@ const naive = () => {
 };
 
 export const L06: LevelSpec = {
-  id: 'L06', chapter: 2, index: 6, setter: 'safety', budgetUSD: L06_BUDGET, units: L06_UNITS, notes: 2, shiftLen: L06_LEN_S, maxTicks: L06_LEN_S + 120,
+  id: 'L06', chapter: 2, index: 6, setter: 'safety', budgetUSD: L06_BUDGET, units: L06_UNITS, requires: ['burner', 'boiler', 'stack'], notes: 3, shiftLen: L06_LEN_S, maxTicks: L06_LEN_S + 120,
   setup: (s) => {
     baseSetup(s, FIRE_SPECIES, L06_UNITS, PRESETS);
     putFeed(s, 0, 0, { S: 1 }, FIRE_S_KMOL_H, T_PIT, 1.1e5);

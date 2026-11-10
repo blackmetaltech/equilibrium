@@ -11,6 +11,7 @@ import type { ExplainRecord, Fmt, ResolveFn, UnitFacts } from '../../sim/explain
 import { solveFlowsheet } from '../../sim/flowsheet';
 import { reactionIdsOf } from '../../sim/units/rx_stoich';
 import { t } from '../../i18n';
+import { en } from '../../locales/en';
 import type { EqState, SolveResult, UnitResult } from '../../state';
 import { unitsForSolve } from '../actions/run';
 import { defOf, bindRegistry, hasUnitType, phaseHook } from '../registry';
@@ -93,7 +94,27 @@ const fmtOf = (s: Readonly<EqState>): Fmt => ({
   name: (id) => speciesName(id),
 });
 
+const dispT = (K: number, region: string): string => `${fmtNumber(K - 273.15, region)} °C`;
 export const explainQueries: Record<string, QueryFn<EqState>> = {
+  /** { sentences }: the Why of a unit: what it does, the lever, and (once commissioned) the player's own numbers. */
+  unitWhy: (s, unitId: unknown) => {
+    const u = s.flowsheet.units.find((x) => x.id === unitId);
+    if (!u) fail(t('err.unit.unknown', { id: String(unitId) }));
+    const has = (k: string): boolean => k in en;
+    const out: string[] = [];
+    out.push(has(`why.unit.${u.type}.what`) ? t(`why.unit.${u.type}.what`) : t('why.unit.generic'));
+    if (has(`why.unit.${u.type}.lever`)) out.push(t(`why.unit.${u.type}.lever`));
+    const sol = s.solved, pl = plumbing(s);
+    if (sol?.ok) {
+      const inId = pl.inPipe(u.id, hasUnitType(u.type) ? defOf(u.type).inlets[0] ?? 'in' : 'in'), outId = pl.outPipe(u.id, hasUnitType(u.type) ? defOf(u.type).outlets[0] ?? 'out' : 'out');
+      const a = inId ? sol.streams[inId] : undefined, b = outId ? sol.streams[outId] : undefined;
+      if (a && b) out.push(t('why.unit.reading', { unit: u.id, tin: dispT(a.T, s.region), tout: dispT(b.T, s.region) }));
+      const r = sol.units[u.id];
+      if (r?.duty !== undefined && Math.abs(r.duty) > 1) out.push(t('why.unit.duty', { duty: `${fmtNumber(r.duty / 1000, s.region)} kW` }));
+      if (r?.work !== undefined && Math.abs(r.work) > 1) out.push(t('why.unit.work', { work: `${fmtNumber(r.work / 1000, s.region)} kW` }));
+    } else out.push(t('why.unit.not_run'));
+    return { unit: u.id, type: u.type, sentences: out };
+  },
   /** { sentences, factors, key, kpi }: the Why text of the latest run against the previous one (or any two run indices). */
   explainRun: (s, prevId?: unknown, curId?: unknown) => {
     if (s.runs.length === 0) return { sentences: [], factors: [], key: '', kpi: '' };

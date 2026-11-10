@@ -180,7 +180,7 @@ describe('commission', () => {
     expect(r.message).toMatch(/nothing removes it/);
     const s = e.state;
     expect(s.phase).toBe('design'); expect(s.solved!.ok).toBe(false); expect(s.solved!.failure!.code).toBe('NO_EXIT'); expect(s.solved!.failedUnits.length).toBeGreaterThan(0);
-    expect((e.snapshot() as any).failure).toEqual({ code: 'NO_EXIT', unitId: null });
+    expect((e.snapshot() as any).failure).toEqual({ code: 'NO_EXIT', unitId: null, message: expect.any(String) });
     expect(e.act('setParam', [ids.split, 'frac', 0.05]).ok).toBe(true); expect(e.state.solved).toBeNull();
   });
   it('a unit failure names the unit (a valve asked to raise pressure)', () => {

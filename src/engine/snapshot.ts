@@ -3,7 +3,7 @@
 import type { EqState } from '../state';
 import { colourOf } from './queries/stream';
 import { defOf, hasUnitType } from './registry';
-import { plumbing } from './solved';
+import { messageOf, plumbing } from './solved';
 
 const r1 = (x: number): number => Math.round(x * 10) / 10;
 const sig4 = (x: number): number => (x === 0 || !Number.isFinite(x) ? 0 : Number(x.toPrecision(4)));
@@ -74,7 +74,7 @@ export function snapshotOf(s: Readonly<EqState>): unknown {
   }
   return {
     phase: s.phase, tick: s.tick, level: s.level, status: s.status, statusReason: (s as any).statusReason ?? "", thermoDetail: s.thermoDetail, mode: s.mode,
-    ok: sol?.ok ?? null, failure: sol?.failure ? { code: sol.failure.code, unitId: sol.failure.unitId ?? null } : null,
+    ok: sol?.ok ?? null, failure: sol?.failure ? { code: sol.failure.code, unitId: sol.failure.unitId ?? null, message: messageOf({ code: sol.failure.code, severity: 'fail', ...(sol.failure.unitId !== undefined ? { unitId: sol.failure.unitId } : {}), ...(sol.failure.species !== undefined ? { species: sol.failure.species } : {}), data: sol.failure.data }, s.region) } : null,
     kpis: sol?.ok ? Object.fromEntries(Object.entries(sol.kpis).map(([k, v]) => [k, sig4(v)])) : {},
     goals: [], alarms: alarmsOf(s), clock: clockOf(s), shift: shiftOf(s),
     colours: s.species.map(colourOf), species: [...s.species], units, streams, undo: [s.undo.past.length, s.undo.future.length],

@@ -167,7 +167,7 @@ function checkKnob(s: EqState, u: UnitInst, k: KnobSpec, value: unknown): number
   }
   need(typeof value === 'number' && Number.isFinite(value), t('err.param.number', { key: k.key }));
   if (k.key === 'frac' && (u.type === 'splitter' || u.type === 'purge')) need(value >= k.min && value <= k.max, t('err.split.range', { value }));
-  need(value >= k.min && value <= k.max, t('err.param.range', {
+  need((value >= k.min && value <= k.max) || value === k.off, t('err.param.range', {
     key: k.key, unit: u.id, min: fmtDisplay(k.min, k.unit, s.region), max: fmtDisplay(k.max, k.unit, s.region), value: fmtDisplay(value as number, k.unit, s.region),
   }));
   if (k.int) need(Number.isInteger(value), t('err.param.int', { key: k.key, unit: u.id, value: fmtDisplay(value as number, k.unit, s.region) }));

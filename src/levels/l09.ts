@@ -17,7 +17,7 @@ import { R_GAS } from '../sim/thermo/shomate';
 import type { EqState } from '../state';
 import { FIRSTRUN_S } from '../data/events';
 import type { Annunciator, CoachStep, GoalEval, LevelSpec, Measures } from './spec';
-import { baseSetup, fromKmolH, link, put, putFeed, relErr, sealSetup, shown, unitsOfType } from './util';
+import { baseSetup, predictionOf, fromKmolH, link, put, putFeed, relErr, sealSetup, shown, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const L09_SPECIES = ['CH4', 'O2', 'CO2', 'H2O'];
@@ -135,7 +135,7 @@ export const L09: LevelSpec = {
   measures: benchMeasures,
   goals: (_s, m) => [
     { key: 'run', met: m.ok, ...(m.ok ? { value: m.v.flow_q } : {}) },
-    { key: 'du', met: m.ok && m.v.ok_du === 1, ...(m.ok && m.v.a_du === 1 ? { value: m.v.p_du } : {}), ...(m.ok ? { target: m.v.t_du } : {}) },
+    { key: 'du', met: m.ok && m.v.ok_du === 1, keep: true, ...(m.ok && m.v.a_du === 1 ? { value: m.v.p_du } : predictionOf(_s, 'du_ch4') !== null ? { value: predictionOf(_s, 'du_ch4')!.value } : {}), ...(m.ok ? { target: m.v.t_du } : {}) },
   ],
   extraStars: (_s, m) => [m.ok && m.v.n_ncert! >= 2, m.ok && m.v.n_ncert! >= 3],
   callIt: { key: 'du_ch4', unit: 'kJ/mol', tol: DU_TOL, truth: () => ch4Facts().bombQ },

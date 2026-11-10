@@ -53,7 +53,7 @@ const COACH: CoachStep[] = [
   { id: 'place_heater', role: 'mentor', focus: 'heater', done: (s) => has(s, 'heater') },
   { id: 'pipe_up', role: 'mentor', done: (s) => s.flowsheet.streams.length >= 3 },
   { id: 'commission', role: 'mentor', focus: 'key', done: (s) => commissions(s) >= 1 },
-  { id: 'swap_catalyst', role: 'mentor', focus: 'packed_bed', done: (s) => unitsOfType(s, 'packed_bed')[0]?.catalystId === 'v2o5_cs' || LATE(['read', 'why'])(s) },
+  { id: 'swap_catalyst', role: 'mentor', focus: 'packed_bed:catalyst', done: (s) => unitsOfType(s, 'packed_bed')[0]?.catalystId === 'v2o5_cs' || LATE(['read', 'why'])(s) },
   { id: 'read', role: 'mentor', done: LATE(['read', 'why']) },
   { id: 'why', role: 'mentor', done: LATE(['why']) },
 ];
@@ -104,7 +104,7 @@ export const L17: LevelSpec = {
     const failed = s.solved !== null && !s.solved.ok;
     return [
       { key: 'light', legend: t('lv.L17.ann.light'), state: !m.ok ? 'off' : m.v.in_c! < (m.v.cs === 1 ? 360 : 400) ? 'high' : 'normal' },
-      { key: 'asleep', legend: t('lv.L17.ann.asleep'), state: !m.ok ? 'off' : m.v.conv! < 0.3 ? 'critical' : m.v.conv! < L17_CONV ? 'high' : 'normal' },
+      { key: 'asleep', legend: t('lv.L17.ann.asleep'), state: !m.ok ? 'off' : m.v.conv! < 0.3 ? 'critical' : 'normal' },
       { key: 'bedhi', legend: t('lv.L17.ann.bedhi'), state: !m.ok ? 'off' : m.v.tmax_c! > L16_DAMAGE_C ? 'critical' : m.v.tmax_c! > L16_TMAX_C ? 'high' : 'normal' },
       { key: 'cat', legend: t('lv.L17.ann.cat'), state: m.v.cs === 1 ? 'normal' : 'off' },
       { key: 'load', legend: t('lv.L17.ann.load'), state: m.v.load_ok === 1 ? 'off' : 'critical' },

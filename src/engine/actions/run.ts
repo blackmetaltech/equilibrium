@@ -57,6 +57,8 @@ const commission: Fn = (s) => {
   const bad = validateTopology(units, s.flowsheet.streams, registry, phaseHook);
   if (bad) {
     if (bad.code === 'TOPOLOGY_OPEN_PORT') {
+      const stray = s.flowsheet.streams.length > 0 && !s.flowsheet.streams.some((p) => p.from.unit === bad.unitId || p.to.unit === bad.unitId);
+      if (stray) fail(t('err.commission.stray', { unit: bad.unitId ?? '' }));
       if (bad.data.inlet === 0) fail(t('err.commission.open_port', { unit: bad.unitId ?? '' }));
       fail(t('err.commission.open_inlet', { unit: bad.unitId ?? '', port: String(bad.data.port) }));
     }

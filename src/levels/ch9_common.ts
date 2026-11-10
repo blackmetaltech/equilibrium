@@ -45,9 +45,9 @@ export function playOnce(build: (s: S) => Action[], opts: { callIt?: (s: S) => n
   };
 }
 /** Plain ordered-list actions of a card/step sequence (`key` in s.lv): add(id), remove(index), move(from, to), clear. */
-export function listActions(key: string, ids: string[], max: number): NonNullable<import('./spec').LevelSpec['actions']> {
+export function listActions(key: string, ids: string[], max: number, unique = false): NonNullable<import('./spec').LevelSpec['actions']> {
   return {
-    add: (s, id: unknown) => edit(s, () => { need(typeof id === 'string' && ids.includes(id), t('lv.err.ch9_item', { id: String(id) })); const l = listOf<string>(s, key).slice(); need(l.length < max, t('lv.err.ch9_full', { max })); l.push(id as string); s.lv[key] = l; }),
+    add: (s, id: unknown) => edit(s, () => { need(typeof id === 'string' && ids.includes(id), t('lv.err.ch9_item', { id: String(id) })); const l = listOf<string>(s, key).slice(); need(l.length < max, t('lv.err.ch9_full', { max })); need(!unique || !l.includes(id as string), t('lv.err.ch9_dup', { id: String(id) })); l.push(id as string); s.lv[key] = l; }),
     remove: (s, i: unknown) => edit(s, () => { const l = listOf<string>(s, key).slice(); need(typeof i === 'number' && i >= 0 && i < l.length, t('lv.err.ch9_index')); l.splice(i as number, 1); s.lv[key] = l; }),
     move: (s, from: unknown, to: unknown) => edit(s, () => { const l = listOf<string>(s, key).slice(); need(typeof from === 'number' && typeof to === 'number' && from >= 0 && from < l.length && to >= 0 && to < l.length, t('lv.err.ch9_index')); const [x] = l.splice(from as number, 1); l.splice(to as number, 0, x!); s.lv[key] = l; }),
     clear: (s) => edit(s, () => { s.lv[key] = []; }),

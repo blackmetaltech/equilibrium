@@ -57,6 +57,9 @@ export const DISPLAY_PAIRS: Record<string, DisplayPair> = {
   'kmol/h': { toSI: kmolhToMolS, fromSI: molSToKmolh, range: [0, 5e4] },
   degC: { toSI: cToK, fromSI: kToC, range: [-200, 1500] },
   bar: { toSI: barToPa, fromSI: paToBar, range: [0, 400] },
+  /** Absolute pressure: every pressure in the game is absolute unless it says (g). */
+  'bar(a)': { toSI: barToPa, fromSI: paToBar, range: [0, 400] },
+  L: { toSI: (x) => x / 1000, fromSI: (m3) => m3 * 1000, range: [0.001, 1000] },
   atm: { toSI: atmToPa, fromSI: paToAtm, range: [0, 400] },
   'bar(g)': { toSI: bargToPa, fromSI: paToBarg, range: [-1, 400] },
   kW: { toSI: kwToW, fromSI: wToKw, range: [0, 1e5] },

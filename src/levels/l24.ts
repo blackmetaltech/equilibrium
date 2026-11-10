@@ -79,7 +79,7 @@ function build(s: EqState): void {
 export function runawayMeasures(s: S): Measures {
   const sh = s.shift;
   const v: Record<string, number> = {
-    t: 0, len: L24_SHIFT_S, T_K: 0, peak_K: 0, branch: 0, pg_kmol: 0, prod_kg: 0, relief_n: 0, trips: 0, crit_s: 0, high_s: 0, ended: 0, lost: s.status === 'lost' ? 1 : 0,
+    t: 0, len: L24_SHIFT_S, T_K: 0, peak_K: 0, branch: 0, pg_kmol: 0, prod_kg: 0, relief_n: 0, trips: 0, crit_s: 0, high_s: 0, ended: 0, lost: s.status === 'lost' && s.shift?.ended !== 'time' ? 1 : 0,
     cw_trip: 0, setpoint_K: 0, orifice_mm2: 0, tc_K: 0, ignition_C: l24IgnitionC(), lit: 0, tier: 0, cost: 0, margin_K: 0, hot_K: l24HotK(), ilk_K: 0, dtad: 0,
   };
   const rx = unitsOfType(s, 'cstr')[0], ilk = unitsOfType(s, 'interlock')[0], rv = unitsOfType(s, 'relief')[0];
@@ -124,12 +124,14 @@ export const L24: LevelSpec = {
   measures: runawayMeasures,
   goals: (s, m) => {
     const g: ReturnType<LevelSpec['goals']> = [
-      { key: 'pg', met: m.ok && m.v.ended === 1 && m.v.lost === 0 && m.v.pg_kmol! >= L24_PG_TARGET_KMOL, ...(m.ok ? { value: m.v.pg_kmol } : {}), target: L24_PG_TARGET_KMOL },
+      { key: 'pg', met: m.ok && m.v.lost === 0 && m.v.pg_kmol! >= L24_PG_TARGET_KMOL, ...(m.ok ? { value: m.v.pg_kmol } : {}), target: L24_PG_TARGET_KMOL },
       { key: 'vessel', met: m.ok && m.v.lost === 0 && m.v.peak_K! <= CSTR_RELIEF_K + 20, ...(m.ok ? { value: C(m.v.peak_K!) } : {}), target: C(CSTR_RELIEF_K) + 20 },
     ];
     if (s.mode === 'engineer') { const sp = spentOf(s, L24_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L24_BUDGET, value: sp, target: L24_BUDGET }); }
     return g;
   },
+  /** The goal row shows what the tank holds as it fills; the level is won when the shift is over with every goal met. */
+  won: (_s, m, g) => m.ok && m.v.ended === 1 && g.every((x) => x.met),
   extraStars: (_s, m) => [
     m.ok && m.v.relief_n === 0 && m.v.lost === 0,
     m.ok && m.v.margin_K! >= L24_MARGIN_K && m.v.pg_kmol! >= L24_PG_STAR && m.v.lost === 0,

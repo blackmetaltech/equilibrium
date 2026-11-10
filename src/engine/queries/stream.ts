@@ -2,7 +2,8 @@
 import { fail } from '@core/kit';
 import type { QueryFn } from '@core/kit';
 import { SPECIES } from '../../data/species';
-import { makeMixture, massFlow, moleFractions, totalFlow } from '../../sim/thermo';
+import { moleFractions, totalFlow } from '../../sim/thermo';
+import { massOf } from '../solved';
 import type { StreamState } from '../../sim/types';
 import { t } from '../../i18n';
 import type { EqState } from '../../state';
@@ -17,9 +18,8 @@ export function top3(species: string[], st: StreamState): { id: string; name: st
 }
 
 function row(s: Readonly<EqState>, id: string, st: StreamState, full: boolean) {
-  const mx = makeMixture(s.species);
   const p = s.flowsheet.streams.find((q) => q.id === id)!;
-  const base = { id, from: p.from, to: p.to, flow: totalFlow(st.n), mass: massFlow(mx, st.n), T: st.T, P: st.P, top: top3(s.species, st) };
+  const base = { id, from: p.from, to: p.to, flow: totalFlow(st.n), mass: massOf(s.species, st), T: st.T, P: st.P, top: top3(s.species, st) };
   if (!full) return base;
   const x = moleFractions(st.n);
   return { ...base, species: s.species.map((sp, i) => ({ id: sp, name: SPECIES[sp]?.name ?? sp, n: st.n[i]!, x: x[i]!, colour: colourOf(sp) })) };

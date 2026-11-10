@@ -7,12 +7,20 @@ import type { EqState } from '../../state';
 import { connectProblem } from '../actions/design';
 import { defOf, footprint, hasUnitType, metaOf } from '../registry';
 import { messageOf } from '../solved';
+import { CATALYSTS, findCatalyst } from '../../data/catalysts';
 
 const find = (s: Readonly<EqState>, id: unknown) => {
   const u = s.flowsheet.units.find((x) => x.id === id);
   if (!u) fail(t('err.unit.unknown', { id: String(id) }));
   return u;
 };
+
+function catalystKnob(current: string | undefined) {
+  const laws = current !== undefined ? findCatalyst(current)?.lawIds ?? [] : [];
+  const options = CATALYSTS.filter((c) => c.rhoB > 0 && c.lawIds.length > 0 && (laws.length === 0 || c.lawIds.some((l) => laws.includes(l))))
+    .map((c) => ({ id: c.id, name: c.name, price: c.price, lightOffC: c.TlightOff, dTk: c.dTk, tmin: c.Tmin, tmax: c.Tmax }));
+  return { id: current ?? null, options };
+}
 
 export const unitQueries: Record<string, QueryFn<EqState>> = {
   unitCard: (s, id: unknown) => {
@@ -25,11 +33,15 @@ export const unitQueries: Record<string, QueryFn<EqState>> = {
     return {
       id: u.id, type: u.type, label: t(`label.unit.${('label.unit.' + u.type) in en ? u.type : 'other'}`), pos: u.pos, rot: u.rot, footprint: footprint(u.type, u.rot), cat: m.cat,
       params: u.params, catalystId: u.catalystId ?? null,
+      /** The catalyst choice knob of a reactor: the current id and the catalysts that run the same law (all packed-bed catalysts when none is set). Act with setCatalyst(unit, id). */
+      catalyst: m.catalyst === true ? catalystKnob(u.catalystId) : null,
       knobs: m.knobs.map((k) => ({ ...k, label: t(`label.knob.${k.key}`), value: u.params[k.key] ?? (k.kind === 'choice' && k.def === '' ? '' : k.def), isDefault: (u.params[k.key] ?? k.def) === k.def })),
       inlets: def.inlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, true) })),
       outlets: def.outlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, false) })),
       feed: s.feeds[u.id] ?? null,
       results: sol?.ok ? sol.units[u.id] ?? null : null,
+      /** The temperatures of the unit's results in degC (the panel shows these, not the K the solver keeps). */
+      resultsC: sol?.ok && sol.units[u.id] ? Object.fromEntries(Object.entries(sol.units[u.id]!.info).filter(([k, v]) => /^T(_?(max|min|in|out|hot|cold|c))?$/i.test(k) && Number.isFinite(v)).map(([k, v]) => [k, v - 273.15])) : null,
       diags, failed: sol?.failedUnits.includes(u.id) ?? false,
     };
   },

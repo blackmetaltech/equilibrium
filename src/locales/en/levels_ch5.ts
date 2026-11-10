@@ -114,7 +114,7 @@ export const levelsCh5: Record<string, string> = {
   'lv.L22.coach.place_tube.why': 'Why: the reaction gives off heat; the tubes carry it away into boiling water as fast as it is made.',
   'lv.L22.coach.pipe_tube.text': 'Pipe the heater into the tube and the tube into the cooler.',
   'lv.L22.coach.pipe_tube.why': 'Why: the loop is closed by the recycle, but only once gas can pass the reactor.',
-  'lv.L22.coach.set_coolant.text': 'Give the tube catalyst (about 10 000 kg) and a coolant colder than the 250 °C it starts at, then open the purge a few percent.',
+  'lv.L22.coach.set_coolant.text': 'Give the tube catalyst (about 10 000 kg) and a coolant colder than the 250 °C it starts at, then open the purge a few percent. The coolant moves the hot spot only slowly (about 0.4 K per K); the TUBE COOLING CAPACITY knob moves it a lot more.',
   'lv.L22.coach.set_coolant.why': 'Why: a colder coolant pulls the hot spot down; the purge stops the inert nitrogen from filling the loop.',
   'lv.L22.coach.commission.text': 'Commission and read the hot spot.',
   'lv.L22.coach.commission.why': 'Why: the hottest point is near the inlet, where the gas is richest, not at the outlet.',

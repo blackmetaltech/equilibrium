@@ -100,8 +100,9 @@ export const L37: LevelSpec = {
     reconcile: (s) => { s.lv.shown = 1; },
     exclude: (s, i: unknown) => edit(s, () => { need(typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < 5, t('lv.err.ch9_index')); const l = nums(s, 'excluded'); if (!l.includes(i as number)) s.lv.excluded = [...l, i as number].sort(); }),
     include: (s, i: unknown) => edit(s, () => { s.lv.excluded = nums(s, 'excluded').filter((x) => x !== i); }),
-    flag: (s, i: unknown) => edit(s, () => { need(typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < 5, t('lv.err.ch9_index')); const l = nums(s, 'flagged'); if (!l.includes(i as number)) s.lv.flagged = [...l, i as number].sort(); }),
-    unflag: (s, i: unknown) => edit(s, () => { s.lv.flagged = nums(s, 'flagged').filter((x) => x !== i); }),
+    /** Flagging a meter also takes it out of the balance (one step, not two); unflagging puts it back. */
+    flag: (s, i: unknown) => edit(s, () => { need(typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < 5, t('lv.err.ch9_index')); const l = nums(s, 'flagged'); if (!l.includes(i as number)) s.lv.flagged = [...l, i as number].sort(); const x = nums(s, 'excluded'); if (!x.includes(i as number)) s.lv.excluded = [...x, i as number].sort(); }),
+    unflag: (s, i: unknown) => edit(s, () => { s.lv.flagged = nums(s, 'flagged').filter((x) => x !== i); s.lv.excluded = nums(s, 'excluded').filter((x) => x !== i); }),
   },
   view: (s) => {
     const y = yOf(s), sg = sgOf(s), shownOn = s.lv.shown === 1 && y.length === 5, excl = nums(s, 'excluded'), fl = nums(s, 'flagged');
@@ -109,9 +110,9 @@ export const L37: LevelSpec = {
     const r = run(s, excl), raw = rawZ(s), ok = solvedOk(s);
     return {
       kind: 'reconcile', shown: shownOn,
-      nodes: LOOP_A.map((row, i) => ({ id: `N${i + 1}`, label: t(`lv.L37.node.${i + 1}`), coeffs: row.slice(), imbalance: raw.resid[i]!, imbalanceAfter: r.resid[i]! })),
+      nodes: LOOP_A.map((row, i) => ({ id: `N${i + 1}`, label: t(`lv.L37.node.${i + 1}`), coeffs: row.slice(), imbalance: raw.resid[i]!, imbalanceAfter: shownOn ? row.reduce((a, c, k) => a + c * (excl.includes(k) ? r.xhat[k]! : y[k]!), 0) : raw.resid[i]! })),
       meters: y.map((v, i) => ({ i, tag: LOOP_TAGS[i]!, label: t(`lv.L37.meter.${i + 1}`), reading: v, sigma: sg[i]!, excluded: excl.includes(i), flagged: fl.includes(i), recon: shownOn ? r.xhat[i]! : null, adjust: shownOn ? r.eps[i]! : null, z: shownOn ? raw.z[i]! : null })),
-      chi2: r.chi2, chi2Crit: r.chi2Crit, rmsErr: ok ? rms(r.xhat) : null, flagFeeUSD: L37_CALL_FEE, budgetUSD: L37_BUDGET, zLimit: 3.29,
+      chi2: r.chi2, chi2Crit: r.chi2Crit, dof: LOOP_A.length - excl.length, chi2CritRaw: raw.chi2Crit, dofRaw: LOOP_A.length, rmsErr: ok ? rms(r.xhat) : null, flagFeeUSD: L37_CALL_FEE, budgetUSD: L37_BUDGET, zLimit: 3.29,
     };
   },
   solver: playOnce((s) => { const w = rawZ(s).worst; return [act('reconcile'), act('flag', w), act('exclude', w)]; }, { callIt: (s) => rawZ(s).worst + 1 }),

@@ -66,7 +66,7 @@ const COACH: CoachStep[] = [
   { id: 'wire_hot', role: 'supervisor', focus: 'hx', done: (s) => hotLoop(s) },
   { id: 'commission', role: 'supervisor', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_bed', role: 'supervisor', focus: 'packed_bed', done: LATE(['read_bed', 'trim_heater', 'why']) },
-  { id: 'trim_heater', role: 'supervisor', done: (s) => commissions(s) >= 2 || LATE(['why'])(s) },
+  { id: 'trim_heater', role: 'supervisor', focus: 'hx:area', done: (s) => commissions(s) >= 2 || LATE(['why'])(s) },
   { id: 'why', role: 'supervisor', done: LATE(['why']) },
 ];
 
@@ -119,7 +119,7 @@ export const L16: LevelSpec = {
     const failed = s.solved !== null && !s.solved.ok;
     return [
       { key: 'light', legend: t('lv.L16.ann.light'), state: !m.ok ? 'off' : m.v.in_c! < L16_LIGHTOFF_C ? 'high' : 'normal' },
-      { key: 'asleep', legend: t('lv.L16.ann.asleep'), state: !m.ok ? 'off' : m.v.conv! < L16_CONV ? 'high' : 'normal' },
+      { key: 'asleep', legend: t('lv.L16.ann.asleep'), state: !m.ok ? 'off' : m.v.conv! < 0.3 ? 'high' : 'normal' },
       { key: 'bedhi', legend: t('lv.L16.ann.bedhi'), state: !m.ok ? 'off' : m.v.tmax_c! > L16_DAMAGE_C ? 'critical' : m.v.tmax_c! > L16_TMAX_C ? 'high' : 'normal' },
       { key: 'fire', legend: t('lv.L16.ann.fire'), state: !m.ok ? 'off' : m.v.heater_kw! > 1e-3 ? 'high' : 'normal' },
       { key: 'load', legend: t('lv.L16.ann.load'), state: m.v.load_ok === 1 ? 'off' : 'critical' },

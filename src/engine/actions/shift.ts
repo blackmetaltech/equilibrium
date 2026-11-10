@@ -125,7 +125,7 @@ const setpoint: Fn = (s, unitId: unknown, key: unknown, value: unknown) => {
   const min = k?.min ?? extra![0], max = k?.max ?? extra![1];
   need(typeof value === 'number' && Number.isFinite(value), t('err.param.number', { key: String(key) }));
   const disp = (x: number): string => (k ? fmtDisplay(x, k.unit, s.region) : String(x));
-  need(value >= min && value <= max, t('err.param.range', { key: String(key), unit: u.id, min: disp(min), max: disp(max), value: disp(value) }));
+  need((value >= min && value <= max) || (k !== undefined && value === k.off), t('err.param.range', { key: String(key), unit: u.id, min: disp(min), max: disp(max), value: disp(value) }));
   const isFeed = u.type === 'feed' && s.feeds[u.id] !== undefined && (key === 'flow' || key === 'T' || key === 'P');
   const cur = isFeed ? (s.feeds[u.id] as unknown as Record<string, number>)[key as string]! : typeof u.params[key as string] === 'number' ? (u.params[key as string] as number) : (typeof k?.def === 'number' ? k.def : extra![2]);
   const id = u.id + '.' + String(key);

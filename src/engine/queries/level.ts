@@ -8,7 +8,7 @@ import { t } from '../../i18n';
 import { FIRSTRUN_S } from '../../data/events';
 import { SPEC_BY_ID, firstRunT, madeKg, specOf } from '../../levels/registry';
 import type { GoalEval, LevelSpec, Measures } from '../../levels/spec';
-import { commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, type Prediction } from '../../levels/util';
+import { commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, unitsOfType, type Prediction } from '../../levels/util';
 import { REGIONS } from '../../regions';
 import type { EqState } from '../../state';
 import { designActions, unitOf } from '../actions/design';
@@ -71,6 +71,8 @@ function goalText(s: S, spec: LevelSpec, g: GoalEval): string {
     target: g.target !== undefined ? fmt(s, g.target) : '-', value: g.value !== undefined ? fmt(s, g.value) : t('lv.goal.pending'),
     budget: g.target !== undefined ? money(s, g.target) : '-', spent: g.value !== undefined ? money(s, g.value) : '-',
   };
+  const pendingKey = `lv.${spec.id}.goal.${g.key}.pending`;
+  if (g.value === undefined && pendingKey in en) return t(pendingKey, vars);
   return t(g.key === 'budget' ? 'lv.goal.budget' : `lv.${spec.id}.goal.${g.key}`, vars);
 }
 
@@ -88,19 +90,23 @@ function runLineKey(s: S, spec: LevelSpec): string {
 }
 
 /** The coach line: the first step whose predicate is false; null when done, when the level is over or the mode does not coach (DESIGN 7.6: Learner coaches L01-L04, every non-sandbox mode gets L00's two lines). */
-function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker: string; text: string; why: string; focus: { unit?: string; rack?: string; key?: boolean } | null } | null {
+function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker: string; text: string; why: string; focus: { unit?: string; rack?: string; key?: boolean; knob?: string } | null } | null {
   if (s.status !== 'playing' || s.mode === 'sandbox' || (spec.id !== 'L00' && s.mode !== 'learner')) return null;
   const i = spec.coach.findIndex((c) => !c.done(s));
   if (i < 0) return null;
   const c = spec.coach[i]!;
-  let focus: { unit?: string; rack?: string; key?: boolean } | null = null;
+  let focus: { unit?: string; rack?: string; key?: boolean; knob?: string } | null = null;
   if (c.focus === 'key') focus = { key: true };
-  else if (c.focus) { const u = s.flowsheet.units.find((x) => x.type === c.focus); focus = u ? { unit: u.id } : { rack: c.focus }; }
-  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`), why: t(`lv.${spec.id}.coach.${c.id}.why`), focus };
+  else if (c.focus) {
+    const [type, knob] = c.focus.split(':');
+    const u = s.flowsheet.units.find((x) => x.type === type);
+    focus = u ? { unit: u.id, ...(knob ? { knob } : {}) } : { rack: type! };
+  }
+  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`, { unit: focus?.unit ?? '' }), why: t(`lv.${spec.id}.coach.${c.id}.why`, { unit: focus?.unit ?? '' }), focus };
 }
 
 /** The offline "simulated engineers" sample of DESIGN 9.6, deterministic per (level, metric): 200 values around the reference, 12 bins. */
-export function simulatedHistogram(levelId: string, metric: string, best: number, spread: number, lowerIsBetter: boolean, you: number): { metric: string; bins: number[]; edges: number[]; you: number } {
+export function simulatedHistogram(levelId: string, metric: string, best: number, spread: number, lowerIsBetter: boolean, you: number): { metric: string; bins: number[]; edges: number[]; you: number; youBin: number } {
   const rng = new Rng(seedState(fnv(levelId + ':' + metric)));
   const xs: number[] = [];
   for (let i = 0; i < 200; i++) {
@@ -113,14 +119,41 @@ export function simulatedHistogram(levelId: string, metric: string, best: number
   const n = 12, w = (hi - lo) / n;
   const bins = new Array<number>(n).fill(0);
   for (const x of xs) bins[Math.min(n - 1, Math.floor((x - lo) / w))]!++;
-  return { metric, bins, edges: Array.from({ length: n + 1 }, (_, k) => lo + k * w), you };
+  /** `you` is the player's own value (not a bin edge); `youBin` is the bin it falls in. */
+  return { metric, bins, edges: Array.from({ length: n + 1 }, (_, k) => lo + k * w), you, youBin: Math.max(0, Math.min(n - 1, Math.floor((you - lo) / w))) };
+}
+
+/** Unit types the level cannot be read without: the spec's `requires`, else the unit-focus coach steps before the commission step. */
+export function requiredUnits(spec: LevelSpec): string[] {
+  if (spec.requires) return spec.requires;
+  const out: string[] = [];
+  for (const c of spec.coach) {
+    if (c.focus === 'key') break;
+    const ty = c.focus?.split(':')[0];
+    if (ty && ty !== 'feed' && ty in spec.units && !out.includes(ty)) out.push(ty);
+  }
+  return out;
+}
+
+/** The first required unit type that is not placed (null when none is missing). */
+export function missingUnit(s: S, spec: LevelSpec): string | null {
+  for (const type of requiredUnits(spec)) if (unitsOfType(s, type).length === 0) return type;
+  return null;
+}
+
+/** Before the plant is commissioned and read, no goal is met, none has a value, no annunciator is lit (honest board: "—", all off). */
+function honestGoals(goals: GoalEval[], m: Measures): GoalEval[] {
+  if (m.ok) return goals;
+  return goals.map((g) => { if (g.keep) return { ...g, met: false }; const { value: _v, ...rest } = g; return { ...rest, met: false }; });
 }
 
 // ------------------------------------------------------------------------------------------------ queries
 const levelInfo: QueryFn<EqState> = (s) => {
   const spec = specOf(s);
   if (!spec) return null;
-  const m = spec.measures(s), goals = spec.goals(s, m);
+  const m = spec.measures(s), goals = honestGoals(spec.goals(s, m), m);
+  const lack = !m.ok && s.solved !== null && s.solved.ok ? missingUnit(s, spec) : null;
+  const notice = lack === null ? null : { code: 'NEEDS_UNIT', unit: lack, text: t('lv.needs_unit', { unit: t(`label.unit.${lack}`) }) };
   const pack = regionOf(s), cast = pack.data.cast[spec.setter];
   const spent = spentOf(s, spec.units);
   const used = (type: string): number => s.flowsheet.units.filter((u) => u.type === type).length;
@@ -137,7 +170,8 @@ const levelInfo: QueryFn<EqState> = (s) => {
     setterName: pack.strings[`cast.${cast}.name`] ?? '', setterTitle: pack.strings[`cast.${cast}.title`] ?? '',
     place: t(`lv.${spec.id}.place`),
     note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`)),
-    goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
+    notice,
+    goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(lack !== null && g.value === undefined ? { readout: t('lv.goal.needs_unit', { unit: t(`label.unit.${lack}`) }) } : {}), ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
     budgetUSD: spec.budgetUSD, spentUSD: spent,
     stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`)) },
     callIt: call === null ? null : {
@@ -153,17 +187,17 @@ const levelInfo: QueryFn<EqState> = (s) => {
       return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`), unit: c.unit, answered: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
     }),
     allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
-    hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: fin(hero.value), lo: fin(hero.lo), hi: fin(hero.hi) },
-    secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), unit: sec.unit, value: fin(sec.value), limit: fin(sec.limit) },
-    annunciators: spec.annunciators(s, m, goals),
+    hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },
+    secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), unit: sec.unit, value: m.ok ? fin(sec.value) : 0, limit: fin(sec.limit), pending: !m.ok },
+    annunciators: m.ok || (s.solved !== null && !s.solved.ok) ? spec.annunciators(s, m, goals) : spec.annunciators(s, m, goals).map((a) => (a.key === 'solve' || spec.designLamps?.includes(a.key) ? a : { ...a, state: 'off' as const })),
     phase: phaseOf(s),
     /** The level first run (L01-L04): plant seconds rolled, its length, and the product made so far; null outside it. */
-    firstRun: spec.firstRun === true && s.phase === 'firstrun' ? { t: firstRunT(s), len: FIRSTRUN_S, madeKg: fin(madeKg(s, spec)) } : null,
+    firstRun: spec.firstRun === true && s.phase === 'firstrun' ? { t: firstRunT(s), len: FIRSTRUN_S, madeKg: spec.madeKgH !== undefined || spec.chapter < 8 ? fin(madeKg(s, spec)) : null } : null,
     coach: coachOf(s, spec),
     /** What the intercom says while a first run rolls: the product line only for the very first run of a product level; control / board levels and later runs get their own line (null outside a first run). */
     runLine: spec.firstRun === true && s.phase === 'firstrun' ? t(runLineKey(s, spec)) : null,
     /** Withheld while a prediction is still open (nothing commissioned, none locked): the lesson quotes the numbers the Call-it asks for. */
-    lesson: call !== null && !grade.answered && commissions(s) === 0 && s.status === 'playing' ? '' : t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
+    lesson: !m.ok && s.status === 'playing' && lack !== null ? t('lv.lesson.not_run') : (call !== null && !grade.answered && commissions(s) === 0 && s.status === 'playing') ? '' : t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
     mode: s.mode,
     /** Extras: the cylinder banks (kg/h and kmol/h side by side), feed units whose composition no card may show, the shift length. */
     banks, bankSpecies: spec.bankSpecies ?? [], masked: spec.masked ? spec.masked(s) : [], shiftLen: spec.shiftLen,
@@ -183,7 +217,7 @@ const resultCard: QueryFn<EqState> = (s) => {
     verdictKey = 'solve_fail';
     const fl = s.solved.failure;
     cause = messageOf({ code: fl.code, severity: 'fail', ...(fl.unitId !== undefined ? { unitId: fl.unitId } : {}), ...(fl.species !== undefined ? { species: fl.species } : {}), data: fl.data }, s.region);
-  } else if (s.status === 'lost' && spec.shiftLen > 0) { verdictKey = 'lost'; cause = t(s.statusReason, { unit: '' }); }
+  } else if (s.status === 'lost' && spec.shiftLen > 0 && s.shift?.ended !== 'time') { verdictKey = 'lost'; cause = s.statusReason; }
   else ({ key: verdictKey, cause } = spec.verdict(s, m, goals));
   const own = `lv.${spec.id}.verdict.${verdictKey}`;
   const verdictText = t(own in en ? own : `lv.verdict.${verdictKey}`);

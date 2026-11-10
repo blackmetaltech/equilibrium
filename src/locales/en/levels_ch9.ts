@@ -3,7 +3,7 @@
 const opts = (prefix: string, m: Record<string, string>): Record<string, string> => Object.fromEntries(Object.entries(m).map(([k, v]) => [`${prefix}.${k}`, v]));
 
 export const levelsCh9: Record<string, string> = {
-  'lv.err.ch9_item': 'There is nothing called {id} on this sheet.', 'lv.err.ch9_index': 'That position is not on the list.', 'lv.err.ch9_full': 'The list is full: {max} entries at most.',
+  'lv.err.ch9_item': 'There is nothing called {id} on this sheet.', 'lv.err.ch9_dup': 'The card {id} is already in the sequence: each step appears once.', 'lv.err.ch9_index': 'That position is not on the list.', 'lv.err.ch9_full': 'The list is full: {max} entries at most.',
   // ---- L34 HAZOP Node
   'lv.L34.title': 'HAZOP Node', 'lv.L34.place': 'Acid plant, waste-heat cooler E-102',
   'lv.L34.note.1': 'Cooler E-102 takes the hot converter gas and raises steam on its shell. Walk every guide word over every parameter and run the ones that could hurt.',
@@ -90,13 +90,13 @@ export const levelsCh9: Record<string, string> = {
   'lv.L37.title': 'The Analyser Lies', 'lv.L37.place': 'Control room, loop flow meters',
   'lv.L37.note.1': 'Five flow meters on the loop and the mass balance does not close. One of them is drifting. Reconcile the data and find it.',
   'lv.L37.note.2': 'Normalised adjustments tell the guilty meter from the honest ones. Call it before you look, then flag one meter and take it out of the balance.',
-  'lv.L37.goal.found': 'The drifting meter flagged, and only that one', 'lv.L37.goal.closed': 'The balance closes: chi-square at most {target}', 'lv.L37.goal.budget': 'Call-outs at most {budget}',
+  'lv.L37.goal.found': 'The drifting meter flagged, and only that one', 'lv.L37.goal.closed': 'The balance closes: chi-square at most {target} (the 95 % limit for the balances left: 3, minus one for every meter taken out)', 'lv.L37.goal.budget': 'Call-outs at most {budget}',
   'lv.L37.star.1': 'Goal met: right meter, balance closed', 'lv.L37.star.2': 'Call it: which meter is drifting', 'lv.L37.star.3': 'Reconciled flows as close to the truth as the reference',
   'lv.L37.callit': 'Called it: the number (1 to 5) of the drifting meter',
   'lv.L37.hero': 'Chi-square of the balance', 'lv.L37.sec': 'Flow error after reconciling',
   'lv.L37.ann.mixer': 'MIXER OFF', 'lv.L37.ann.reactor': 'REACTOR OFF', 'lv.L37.ann.split': 'SPLIT OFF', 'lv.L37.ann.chi2': 'CHI2 HIGH', 'lv.L37.ann.wrong': 'WRONG METER', 'lv.L37.ann.goal': 'GOAL MET',
   'lv.L37.coach.imbalance.text': 'Run the reconciliation and look at the three node imbalances.', 'lv.L37.coach.imbalance.why': 'Why: each node should balance to within the meter noise; a node that does not points at a meter on it.',
-  'lv.L37.coach.flag.text': 'Flag the meter with the largest normalised adjustment.', 'lv.L37.coach.flag.why': 'Why: a normalised adjustment above about three is a gross error, not noise.',
+  'lv.L37.coach.flag.text': 'Flag the meter with the largest normalised adjustment (flagging also takes it out of the balance).', 'lv.L37.coach.flag.why': 'Why: a normalised adjustment above about three is a gross error, not noise.',
   'lv.L37.coach.exclude.text': 'Take that meter out of the balance and look at the chi-square again.', 'lv.L37.coach.exclude.why': 'Why: a balance with a biased meter in it spreads the error over all five.',
   'lv.L37.coach.commission.text': 'Turn the key to hand in the work order.', 'lv.L37.coach.commission.why': 'Why: the call-out is only judged against the truth when you commit.',
   'lv.L37.coach.why.text': 'Ask Why? and read the mixer imbalance.', 'lv.L37.coach.why.why': 'Why: the imbalance is the sum of three meter errors; the least squares shares it out by their noise.',

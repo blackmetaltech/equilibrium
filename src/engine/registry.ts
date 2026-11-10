@@ -29,6 +29,10 @@ export interface KnobSpec {
   def: number | string;
   unit: string;
   int?: boolean;
+  /** A value outside [min, max] that means "off" (an interlock set point of 0 is disarmed); the keypad range stays physical. */
+  off?: number;
+  /** Decimals the display unit needs (litres show 2). */
+  decimals?: number;
   /** Left out of the params of a freshly placed unit (the unit then follows its inlet); `def` is where the knob starts when first touched. */
   unset?: boolean;
   options?: string[];
@@ -61,7 +65,7 @@ const num = (key: string, min: number, max: number, coarse: number, fine: number
 const choice = (key: string, options: string[], def: string): KnobSpec => ({ key, kind: 'choice', min: 0, max: options.length - 1, coarse: 1, fine: 1, def, unit: '', options });
 
 const T_K = (def: number): KnobSpec => num('T', 150, 1500, 25, 5, def, 'degC');
-const P_PA = (key: string, def: number): KnobSpec => num(key, 1e4, 4e7, 5e5, 1e5, def, 'bar');
+const P_PA = (key: string, def: number): KnobSpec => num(key, 1e4, 4e7, 5e5, 1e5, def, 'bar(a)');
 const dP = (): KnobSpec => num('dP', 0, 5e6, 1e5, 1e4, 0, 'bar');
 const utilities = ['', ...Object.keys(UTIL)];
 
@@ -83,7 +87,7 @@ const META_LIST: UnitMeta[] = [
   m('boiler', 4, 2, 'heat', [T_K(450), choice('steam', ['LP', 'MP', 'HP'], 'HP')]),
   m('absorber', 4, 4, 'separate', [num('acid', 0.98, 0.985, 0.002, 0.0005, 0.985, 'mol%'), num('recovery', 0, 0.9995, 0.05, 0.005, 0.9995, 'mol%'), choice('absorbent', ['acid', 'water'], 'acid')], { phaseOut: { acid: 'L' } }),
   m('stack', 2, 2, 'sink'), m('relief', 1, 1, 'safety', [P_PA('Pset', 2e6), choice('orifice', [...ORIFICE_LETTERS], 'D')]), m('flare', 2, 2, 'safety'),
-  m('interlock', 1, 1, 'safety', [num('setpoint', 0, 1500, 5, 1, 0, 'degC')]),
+  m('interlock', 1, 1, 'safety', [{ ...num('setpoint', 273.15, 1273.15, 5, 1, 398.15, 'degC'), unset: true, off: 0 }]),
   m('sink', 2, 2, 'sink'), m('product', 2, 2, 'sink'), m('vent', 2, 2, 'sink'),
   // Reactors (lane M1.7b). Level-fixed parameters (reactions, law, beds) arrive through EqState.presets; the knobs here are the player's.
   m('stoich_reactor', 4, 4, 'react', [num('X', 0, 1, 0.05, 0.01, 1, 'mol%')]), m('burner', 4, 4, 'react', [num('X', 0, 1, 0.05, 0.01, 1, 'mol%')]),
@@ -91,14 +95,14 @@ const META_LIST: UnitMeta[] = [
   m('eq_reactor', 4, 4, 'react', [T_K(700), dP()]), m('eq_bed', 4, 4, 'react', [dP()]),
   m('packed_bed', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), dP()], { catalyst: true }),
   m('multibed', 4, 4, 'react', [dP()], { catalyst: true }), m('cstr', 4, 4, 'react', [num('Tc', 273.15, 373.15, 5, 1, 298.15, 'degC')]),
-  m('tubular', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), num('Tc', 483.15, 543.15, 5, 1, 523.15, 'degC'), dP()], { catalyst: true }),
+  m('tubular', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), num('Tc', 483.15, 543.15, 5, 1, 523.15, 'degC'), num('UaW', 2, 100, 5, 1, 52, 'W/(K kg)'), dP()], { catalyst: true }),
   m('fermenter', 2, 2, 'react', [num('T', 278.15, 328.15, 2, 0.5, 305.15, 'degC'), num('time', 0, 4e5, 3600, 600, 81000, 's')], { phaseOut: { out: 'L', vap: 'V' } }),
   m('column', 2, 2, 'separate', [num('xD', 0.01, 0.999, 0.05, 0.005, 0.8, 'mol%'), num('rec', 0.5, 1, 0.01, 0.001, 0.99, 'mol%'), num('rr', 1, 10, 0.5, 0.1, 1.3, ''), { ...P_PA('P', 101325), unset: true }]),
   m('gauze_burner', 4, 4, 'react', [dP()]), m('n2o_abater', 2, 2, 'react', [num('X', 0, 0.98, 0.05, 0.01, 0.85, 'mol%')]),
   m('hno3_absorber', 4, 4, 'separate', [num('recovery', 0, 0.9995, 0.05, 0.005, 0.99, 'mol%'), num('acid', 0.55, 0.68, 0.01, 0.005, 0.6, 'mol%')], { phaseOut: { acid: 'L' } }),
-  m('reformer', 4, 4, 'react', [T_K(1073.15), dP()]), m('co2_removal', 2, 2, 'separate', [num('recovery', 0, 0.999, 0.05, 0.005, 0.99, 'mol%')], { phaseOut: { out: 'V', co2: 'V' } }), m('methanator', 2, 2, 'react'),
+  m('reformer', 4, 4, 'react', [num('T', 873.15, 1273.15, 25, 5, 1073.15, 'degC'), dP()]), m('co2_removal', 2, 2, 'separate', [num('recovery', 0, 0.999, 0.05, 0.005, 0.99, 'mol%')], { phaseOut: { out: 'V', co2: 'V' } }), m('methanator', 2, 2, 'react'),
   m('batch', 2, 2, 'react', [{ ...T_K(298.15), unset: true }, num('time', 0, 1e5, 600, 60, 600, 's')], { catalyst: true }),
-  m('lab_flask', 2, 2, 'react', [num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'm³'), num('T', 150, 1500, 25, 5, 400, 'degC'), num('Pfix', 0, 4e7, 5e5, 1e5, 0, 'bar')]),
+  m('lab_flask', 2, 2, 'react', [{ ...num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'L'), decimals: 2 }, num('T', 150, 1500, 25, 5, 400, 'degC'), num('Pfix', 0, 4e7, 5e5, 1e5, 0, 'bar(a)')]),
 ];
 export const META: Readonly<Record<string, UnitMeta>> = Object.fromEntries(META_LIST.map((x) => [x.type, x]));
 /** Fallback for a registered type nobody described yet (a new lane): a 2x2 box with no knobs, shown in the palette under 'react'. */

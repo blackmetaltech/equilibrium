@@ -79,7 +79,7 @@ export const L36: LevelSpec = {
     { key: 'steps', unit: '', value: m.v.steps ?? 0 },
   ],
   histogram: { metric: 'loss', best: () => L36_LOSS_REF, spread: 0.5, lowerIsBetter: true },
-  actions: listActions('order', PERMIT_IDS, 30),
+  actions: listActions('order', PERMIT_IDS, 30, true),
   view: (s) => {
     const order = orderOf(s), r = runPermit(order);
     return {

@@ -591,10 +591,15 @@ function sysRecord(s: EqState, sh: ShiftState): void {
   sh.t += 1;
   pushFrame(s.replay, makeFrame(sh.t, T, P, alarmBits(sh.mon)));
   if (sh.t % TREND_EVERY_S === 0) {
-    let kg = 0, tmax = 0, pmax = 0, nal = 0;
+    let kg = 0, tmax = 0, pmax = 0, nal = 0, tmaxS = 0, pmaxS = 0;
     for (const p of sh.prod) { const st = sh.disp[p.pipe]; if (st) for (let i = 0; i < st.n.length; i++) kg += st.n[i]! * sh.mw[i]!; }
     for (const m of sh.mon) { const v = monValue(sh, m); if (m.v === 'T' && v > tmax) tmax = v; if (m.v === 'P' && v > pmax) pmax = v; if (m.tier >= 2) nal++; }
-    pushTrend(s.trends, 'product_kg_s', kg); pushTrend(s.trends, 'tmax_K', tmax); pushTrend(s.trends, 'pmax_Pa', pmax); pushTrend(s.trends, 'alarms', nal);
+    // no monitor on the plant: the hottest / highest stream stands in (never a 0 K / 0 Pa placeholder)
+    if (tmax <= 0 || pmax <= 0) for (const k in sh.disp) { const st = sh.disp[k]!; if (tmax <= 0 && st.T > tmaxS) tmaxS = st.T; if (pmax <= 0 && st.P > pmaxS) pmaxS = st.P; }
+    if (tmax <= 0) tmax = tmaxS;
+    if (pmax <= 0) pmax = pmaxS;
+    pushTrend(s.trends, 'product_kg_s', kg); if (tmax > 0) pushTrend(s.trends, 'tmax_K', tmax);
+    if (pmax > 0) pushTrend(s.trends, 'pmax_Pa', pmax); pushTrend(s.trends, 'alarms', nal);
     let n = 0;
     for (const w of s.ui.pinned) {
       if (n >= 3) break;

@@ -11,7 +11,7 @@ export type AnnState = 'off' | 'normal' | 'high' | 'critical';
 export interface Measures { ok: boolean; v: Record<string, number> }
 
 /** `range`/`unit`: a goal that is a window (lo, hi) reads "16.67 % (target 9.5-11)" in the goal row instead of value / midpoint. */
-export interface GoalEval { key: string; met: boolean; value?: number; target?: number; range?: [number, number]; unit?: string }
+export interface GoalEval { key: string; met: boolean; /** The value is the player's own entry (a prediction): kept in the row before the first commission. */ keep?: boolean; value?: number; target?: number; range?: [number, number]; unit?: string }
 export interface Annunciator { key: string; legend: string; state: AnnState }
 
 /** One coach step: advances from engine state, never from clicks (DESIGN 7.2). `speaker` is a cast role. */
@@ -52,6 +52,10 @@ export interface LevelSpec {
   units: Record<string, { max: number; price: number }>;
   /** How many `lv.<ID>.note.N` lines the setter note has. */
   notes: number;
+  /** Annunciator keys that report a design-time fact (settings that disagree) and so may light before the first commission. */
+  designLamps?: string[];
+  /** Unit types without which the goals cannot be read (named in the board's notice when commissioned without one). Default: the unit-focus coach steps before the commission step. */
+  requires?: string[];
   /** Seconds of the scripted shift (L00) or 0. */
   shiftLen: number;
   maxTicks?: number;

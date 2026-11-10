@@ -251,7 +251,7 @@ describe('L24 Runaway: the reactor the player flies', () => {
   it('naive: starting the shift and doing nothing never lights the reactor ("the reactor is on its lazy branch")', () => {
     const e = play('L24', () => { let n = 0; return () => (n++ === 0 ? [{ name: 'commission' }, { name: 'startShift', args: ['shift'] }] : [{ name: 'tick', args: [199] }]); }, { ticks: 19 });
     expect(e.state.shift!.ended).toBe('time');
-    expect(e.state.status).toBe('playing');
+    expect(e.state.status).toBe('lost');   // the shift is over with its goals unmet: lost at once, with the reason (not silent until maxTicks)
     const c = card(e);
     expect(c.won).toBe(false); expect(c.verdictKey).toBe('lazy'); expect(c.histogram).toBeNull(); expect(c.stars.have).toBe(0);
     expect(c.cause).toMatch(/at 2[78]\./); expect(c.cause).toContain('47.4');

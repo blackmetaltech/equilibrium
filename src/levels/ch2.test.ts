@@ -196,7 +196,7 @@ describe('L05 failures and the shift', () => {
   it('in Engineer mode the wear is the full 8 % and idle play lets the burner gas run off spec; the trimmed plant keeps it inside', () => {
     const cfg = { seed: 1003, mode: 'engineer' };
     const idle = play('L05', script(fireBuild((100 * 100) / BEST5, 420)), { ...cfg, ticks: 185 });
-    expect(idle.state.status).toBe('playing');
+    expect(idle.state.status).toBe('lost'); expect(idle.state.statusReason).toMatch(/goals/);   // the shift is over with its goals unmet: said at once, not at maxTicks
     const m = fireMeasures(idle.state).v;
     expect(m.so2_pct).toBeGreaterThan(11); expect(card(idle).verdictKey).toBe('rich');
     expect(solve('L05', cfg).state.status).toBe('won');

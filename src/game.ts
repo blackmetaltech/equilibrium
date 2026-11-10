@@ -7,7 +7,7 @@ import { PERSONAS } from './personas';
 import { REGIONS } from './regions';
 import { MAX_SPECIES, MAX_UNITS, PHASES, THERMO_DETAILS, DEFAULT_PLOT, emptyFlowsheet, emptyProgress, type EqState } from './state';
 import { designActions } from './engine/actions/design';
-import { metaActions } from './engine/actions/meta';
+import { metaActions, recordStars } from './engine/actions/meta';
 import { runActions } from './engine/actions/run';
 import { shiftActions, shiftSystems } from './engine/actions/shift';
 import { legalActions } from './engine/legal';
@@ -90,6 +90,10 @@ export const GAME: GameDef<EqState> = {
       equation: 'ΔG° = −R T ln K', simplification: t('concept.equilibrium.simplification'), source: 'Atkins, Physical Chemistry, ch 6' },
   ],
   levels: LEVELS,
+  /** The Works Map may still claim the stars of a won level after the level has ended. */
+  afterEndActions: ['claimStars'],
+  /** A won level records its stars in the campaign progress right away (the Works Map reads them from the engine). */
+  onLevelEnd: (s, outcome) => { if (outcome === 'won' && s.level !== null) recordStars(s); },
   personas: PERSONAS,
   invariants: (s) => {
     const v: { rule: string; detail: string }[] = [];

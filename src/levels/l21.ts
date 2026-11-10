@@ -39,7 +39,7 @@ const COACH: CoachStep[] = [
 const lit = (m: Measures, ok: boolean, bad: 'high' | 'critical' = 'high'): Annunciator['state'] => (!m.ok ? 'off' : ok ? 'normal' : bad);
 
 export const L21: LevelSpec = {
-  id: 'L21', firstRun: true, chapter: 5, index: 21, setter: 'mentor', budgetUSD: L21_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
+  id: 'L21', firstRun: true, chapter: 5, index: 21, setter: 'mentor', budgetUSD: L21_BUDGET, units: UNITS, designLamps: ['tmatch'], notes: 2, shiftLen: 0,
   setup: (s) => { baseSetup(s, LOOP_SPECIES, UNITS, PRESETS); buildLoop(s, true, L21_REF.purge); s.limits = { cooler: 2, flash: 1, product: 1 }; s.palette = Object.keys(UNITS); },
   measures: loopMeasures,
   goals: (s, m) => {
