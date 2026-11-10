@@ -89,7 +89,7 @@ const META_LIST: UnitMeta[] = [
   m('eq_reactor', 4, 4, 'react', [T_K(700), dP()]), m('eq_bed', 4, 4, 'react', [dP()]),
   m('packed_bed', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), dP()], { catalyst: true }),
   m('multibed', 4, 4, 'react', [dP()], { catalyst: true }), m('cstr', 4, 4, 'react'),
-  m('lab_flask', 2, 2, 'react', [num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'm³'), num('T', 150, 1500, 25, 5, 400, 'degC'), choice('hold', ['V', 'P'], 'V'), num('Pfix', 1e4, 4e7, 5e5, 1e5, 1e6, 'bar')]),
+  m('lab_flask', 2, 2, 'react', [num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'm³'), num('T', 150, 1500, 25, 5, 400, 'degC'), num('Pfix', 0, 4e7, 5e5, 1e5, 0, 'bar')]),
 ];
 export const META: Readonly<Record<string, UnitMeta>> = Object.fromEntries(META_LIST.map((x) => [x.type, x]));
 /** Fallback for a registered type nobody described yet (a new lane): a 2x2 box with no knobs, shown in the palette under 'react'. */
