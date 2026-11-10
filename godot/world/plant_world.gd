@@ -1,15 +1,24 @@
 class_name PlantWorld
 extends Node3D
-## The world: a coastal plot at night. A fenced 48 x 32 m build plot with a 2 m grid, a quay and a sea beyond, sodium-lamp light, an
-## orthographic camera at 35 degrees pitch and 45 degrees yaw that turns in 90 degree steps. 1 world unit = 1 m. Units, pipes and
-## their live state arrive with the design actions (M1/M2); this node only reads the engine's `plant` query.
-## The app tells it how much of the right side a drawer covers (set_cover) and whether a full-screen workshop is open (set_blocked).
+## The world: a coastal plot at night. A fenced 48 x 32 m build plot with a 2 m grid (24 x 16 tiles), a quay and a sea beyond, sodium-lamp
+## light, and the plant's units. 1 world unit = 1 m. The camera is PlantCamera (orthographic, 35 deg pitch, 90 deg yaw steps, zoom, pan).
+## API for the design UI (M2.3-M2.6):
+##   set_units(Array)            units as {id, type, pos:{x,y} (min-corner tile), rot 0-3, display:{T_K, glow, spin, level, alarm, ...}}; diffed by id
+##   set_display(id, dict)       live state of one unit;  unit_node(id) -> UnitModel (ports, anchor_top, set_alarm, shake, pop, set_xray)
+##   begin_place(type, rot=0) / cancel_place() / rotate_ghost() / place_at(x, y);  signal place_requested(type, x, y, rot)
+##   select(id) / selected_id;  signal unit_clicked(id)  (empty string = clicked bare ground)
+##   tile_to_world(tile, size_tiles) / world_to_tile(p);  can_place(type, x, y, rot, ignore_id);  anchor_world(id);  port_world(id, port)
+##   set_camera(spec)            "overview", "unit:<id>", "yaw0".."yaw3", "rot+", "close|mid|wide", "gallery", "pan:x:z", metres; comma-separated
+##   set_cover / set_blocked / set_title (from the shell), pad_move (sticks).
+signal place_requested(type: String, x: int, y: int, rot: int)
+signal unit_clicked(id: String)
 const GRID := 2.0
 const PLOT := Vector2(48.0, 32.0)          # fenced plot, m (24 x 16 cells)
+const NX := 24
+const NZ := 16
 const LAND := Vector2(84.0, 60.0)          # land incl. the apron around the fence, m
-const PITCH := 35.0
-const YAW0 := 45.0
-const ZOOMS: Array[float] = [36.0, 56.0, 80.0]   # orthographic size: metres of view height
+const YAW0 := PlantCamera.YAW0
+const PITCH := PlantCamera.PITCH
 const LAMP := Color("#FFB35A")
 const TEAL := Color("#2EC4B6")
 var app
@@ -17,85 +26,299 @@ var cover := 0.0
 var title_mode := false
 var blocked := false
 var plant: Dictionary = {}
-var yaw_step := 0
-var zoom_i := 1
 var cam: Camera3D
-var rig: Node3D
-var _yaw := YAW0
-var _yaw_to := YAW0
-var _size := 56.0
-var _size_to := 56.0
-var _pan := Vector3.ZERO
-var _pan_to := Vector3.ZERO
-var _instant := true
+var cam_rig: PlantCamera
+var selected_id := ""
+var placing := ""
+var place_rot := 0
+var gallery := false
+var _units := {}                    # id -> UnitModel
+var _unit_state := {}               # id -> [type, x, y, rot]
 var _lamps: Array[OmniLight3D] = []
+var _ghost: UnitModel
+var _ghost_ok := false
+var _cursor := Vector2i(NX / 2, NZ / 2)
+var _cursor_valid := false
+var _pad_t := 0.0
+var _foot: MeshInstance3D
+var _foot_mat: StandardMaterial3D
+var _btns: CamButtons
+var _btn_layer: CanvasLayer
+var _fps_t := 0.0
+var _fps_n := 0
+var _fps_sum := 0.0
+var _fps_on := OS.get_environment("CB_FPS") != ""
 
 func _ready() -> void:
-	_build_environment(); _build_land(); _build_sea(); _build_grid(); _build_fence(); _build_lamps(); _build_camera()
+	_build_environment(); _build_land(); _build_sea(); _build_grid(); _build_fence(); _build_lamps(); _build_camera(); _build_buttons()
 	_apply()
 
 func set_cover(px: float) -> void: cover = px; _apply()
 func set_blocked(b: bool) -> void: blocked = b; visible = not b
 func set_title(on: bool) -> void: title_mode = on; _apply()
+func input_ok() -> bool: return not blocked and visible and app != null and app.modal() == null
 
-## The engine's plant query (units, pipes, phase, species). Empty at M0.2: only the count is kept for the smoke test.
-func set_state(p: Dictionary) -> void: plant = p
-func unit_count() -> int: return (plant.get("units", []) as Array).size()
-
-## CB_CAM for screenshots: "rot" / "rot+" / "rot-" / "yaw0".."yaw3" (quarter turns), "close" / "mid" / "wide" or a view height in metres.
-func set_camera(spec: String) -> void:
-	match spec:
-		"rot", "rot+": rotate_view(1)
-		"rot-": rotate_view(-1)
-		"close": _set_zoom(0)
-		"mid": _set_zoom(1)
-		"wide": _set_zoom(2)
-		_:
-			if spec.begins_with("yaw") and spec.substr(3).is_valid_int(): yaw_step = posmod(int(spec.substr(3)), 4); _yaw_to = YAW0 + 90.0 * yaw_step
-			elif spec.is_valid_float(): _size_to = clampf(float(spec), 20.0, 90.0)
-	_instant = true
-	_apply()
-
-func rotate_view(dir: int) -> void:
-	yaw_step = posmod(yaw_step + dir, 4); _yaw_to += 90.0 * dir
-
-func yaw_degrees() -> float: return YAW0 + 90.0 * yaw_step
-func ortho_size() -> float: return cam.size if cam != null else _size
+## The engine's plant query. Its units (if any) are shown unless the gallery owns the plot.
+func set_state(p: Dictionary) -> void:
+	plant = p
+	if not gallery: set_units(p.get("units", []))
+func unit_count() -> int: return _units.size()
 func lamp_count() -> int: return _lamps.size()
+func yaw_degrees() -> float: return cam_rig.yaw_degrees()
+func ortho_size() -> float: return cam.size
+func rotate_view(dir: int) -> void: cam_rig.rotate_view(dir)
+var yaw_step: int:
+	get: return cam_rig.yaw_step
 
-func _set_zoom(i: int) -> void: zoom_i = clampi(i, 0, ZOOMS.size() - 1); _size_to = ZOOMS[zoom_i]
+# ---- camera specs -----------------------------------------------------------------------------------------------------------
 
-func _process(dt: float) -> void:
-	var k := 1.0 - exp(-dt * 9.0)
-	_yaw = lerpf(_yaw, _yaw_to, k)
-	_pan = _pan.lerp(_pan_to, k)
-	if absf(_size - _size_to) > 0.005: _size = lerpf(_size, _size_to, k)
-	_apply()
+## CB_CAM / game_camera: comma-separated tokens, e.g. "gallery,close,yaw1" or "unit:cv2,close".
+func set_camera(spec: String) -> void:
+	for tok in spec.split(",", false):
+		_cam_token(tok.strip_edges())
+	cam_rig.snap(); _apply()
+
+func _cam_token(t: String) -> void:
+	match t:
+		"rot", "rot+": cam_rig.rotate_view(1)
+		"rot-": cam_rig.rotate_view(-1)
+		"close": cam_rig.set_zoom_index(0)
+		"mid": cam_rig.set_zoom_index(1)
+		"wide": cam_rig.set_zoom_index(2)
+		"overview": cam_rig.set_zoom_index(2); cam_rig.look_at_ground(Vector3.ZERO)
+		"gallery": show_gallery()
+		_:
+			if t.begins_with("yaw") and t.substr(3).is_valid_int(): cam_rig.set_yaw_step(int(t.substr(3)))
+			elif t.begins_with("unit:"): focus_unit(t.substr(5))
+			elif t.begins_with("pan:"):
+				var p := t.split(":"); if p.size() >= 3: cam_rig.look_at_ground(Vector3(float(p[1]), 0, float(p[2])))
+			elif t.is_valid_float(): cam_rig.set_size(float(t))
+
+func focus_unit(id: String) -> void:
+	if _units.has(id): cam_rig.look_at_ground((_units[id] as UnitModel).position + Vector3(0, 0, 0))
+
+# ---- tiles ------------------------------------------------------------------------------------------------------------------
+
+func tile_to_world(tile: Vector2i, size_tiles: Vector2i) -> Vector3:
+	return Vector3(-PLOT.x * 0.5 + GRID * (tile.x + size_tiles.x * 0.5), 0.0, -PLOT.y * 0.5 + GRID * (tile.y + size_tiles.y * 0.5))
+
+func world_to_tile(p: Vector3) -> Vector2i:
+	return Vector2i(floori((p.x + PLOT.x * 0.5) / GRID), floori((p.z + PLOT.y * 0.5) / GRID))
+
+func _occupied(ignore := "") -> Dictionary:
+	var occ := {}
+	for id in _unit_state:
+		if id == ignore: continue
+		var s: Array = _unit_state[id]; var fp := UnitModels.footprint(s[0], s[3])
+		for i in range(fp.x):
+			for j in range(fp.y): occ[Vector2i(s[1] + i, s[2] + j)] = id
+	return occ
+
+func can_place(type: String, x: int, y: int, rot := 0, ignore := "") -> bool:
+	var fp := UnitModels.footprint(type, rot)
+	if x < 0 or y < 0 or x + fp.x > NX or y + fp.y > NZ: return false
+	var occ := _occupied(ignore)
+	for i in range(fp.x):
+		for j in range(fp.y): if occ.has(Vector2i(x + i, y + j)): return false
+	return true
+
+# ---- units ------------------------------------------------------------------------------------------------------------------
+
+func set_units(arr: Array) -> void:
+	var seen := {}
+	for u in arr:
+		if not (u is Dictionary): continue
+		var id := str(u.get("id", "")); if id == "": continue
+		seen[id] = true
+		var type := str(u.get("type", "valve")); var pos: Dictionary = u.get("pos", {}); var x := int(pos.get("x", 0)); var y := int(pos.get("y", 0)); var rot := posmod(int(u.get("rot", 0)), 4)
+		var st: Array = _unit_state.get(id, [])
+		if st.is_empty() or st[0] != type:
+			if _units.has(id): (_units[id] as Node).queue_free()
+			var m := UnitModels.create(type, id); add_child(m); _units[id] = m
+			if id == selected_id: m.set_selected(true)
+			st = []
+		_unit_state[id] = [type, x, y, rot]
+		var mm: UnitModel = _units[id]
+		var fp := mm.footprint(rot)
+		mm.position = tile_to_world(Vector2i(x, y), fp); mm.rotation_degrees.y = -90.0 * rot
+		if u.has("display") and u["display"] is Dictionary: mm.set_display(u["display"])
+	for id in _units.keys():
+		if not seen.has(id):
+			(_units[id] as Node).queue_free(); _units.erase(id); _unit_state.erase(id)
+			if id == selected_id: selected_id = ""
+
+func set_display(id: String, d: Dictionary) -> void:
+	if _units.has(id): (_units[id] as UnitModel).set_display(d)
+
+func unit_node(id: String) -> UnitModel: return _units.get(id)
+func unit_ids() -> Array: return _units.keys()
+func anchor_world(id: String) -> Vector3: return (_units[id] as UnitModel).anchor_top.global_position if _units.has(id) else Vector3.ZERO
+func port_world(id: String, port: String) -> Vector3: return (_units[id] as UnitModel).port_pos(port) if _units.has(id) and (_units[id] as UnitModel).ports.has(port) else Vector3.ZERO
+
+func select(id: String) -> void:
+	if selected_id != "" and _units.has(selected_id): (_units[selected_id] as UnitModel).set_selected(false)
+	selected_id = id
+	if id != "" and _units.has(id): (_units[id] as UnitModel).set_selected(true)
+
+func show_gallery() -> void:
+	gallery = true
+	set_units(_gallery_units())
+
+func _gallery_units() -> Array:
+	var U := func(id: String, type: String, x: int, y: int, rot: int, d: Dictionary) -> Dictionary: return {"id": id, "type": type, "pos": {"x": x, "y": y}, "rot": rot, "display": d}
+	return [
+		U.call("cv1", "converter", 1, 1, 0, {"beds": 3, "bands": [690.0, 760.0, 720.0], "health": 1.0, "T_K": 740.0, "glow": 0.45}),
+		U.call("cv2", "converter", 6, 1, 0, {"bands": [800.0, 860.0], "health": 0.35, "glow": 0.8, "runaway": 0.8, "alarm": 2}),
+		U.call("pr1", "product", 11, 1, 0, {"level": 0.62, "color": "#9D4EDD"}),
+		U.call("ht1", "heater", 16, 1, 0, {"flame": 0.8, "glow": 0.5, "plume": 0.7}),
+		U.call("fl1", "flare", 20, 1, 0, {"flow": 0.7, "h2": 0.0}),
+		U.call("st1", "stack", 22, 1, 0, {"plume": 0.7, "plume_color": "#8B4513", "lamp": 2}),
+		U.call("fd1", "feed", 1, 6, 0, {"level": 0.75, "color": "#5B7DB1"}),
+		U.call("cp1", "compressor", 6, 6, 0, {"spin": 0.7, "glow": 0.35}),
+		U.call("ck1", "cooler", 10, 6, 0, {"spin": 0.8, "T_K": 330.0}),
+		U.call("hx1", "hx", 15, 6, 0, {"grad": [650.0, 330.0]}),
+		U.call("fs1", "flash", 20, 6, 0, {"level": 0.55, "T_K": 240.0, "alarm": 1}),
+		U.call("rv1", "relief", 22, 6, 0, {"lift": 0.0}),
+		U.call("vl1", "valve", 23, 6, 0, {"stem": 0.3}),
+		U.call("sp1", "splitter", 1, 10, 0, {"stem": 0.2}),
+		U.call("mx1", "mixer", 4, 10, 0, {}),
+		U.call("fs2", "flash", 7, 10, 0, {"level": 0.2, "T_K": 300.0}),
+		U.call("ht2", "heater", 10, 10, 0, {"flame": 0.25, "glow": 0.9}),
+		U.call("hx2", "hx", 14, 12, 0, {"grad": [450.0, 380.0]}),
+		U.call("pr2", "product", 19, 10, 0, {"level": 0.25, "color": "#C8B88A"}),
+		U.call("fl2", "flare", 14, 9, 0, {"flow": 0.8, "h2": 1.0}),
+		U.call("fd2", "feed", 1, 13, 0, {"level": 0.3, "color": "#E8F1FF"}),
+		U.call("cp2", "compressor", 6, 13, 1, {"spin": 0.2}),
+		U.call("st2", "stack", 17, 9, 0, {"plume": 0.5, "plume_color": "#F1F1F4", "lamp": 1}),
+	]
+
+# ---- placement --------------------------------------------------------------------------------------------------------------
+
+func begin_place(type: String, rot := 0) -> void:
+	cancel_place()
+	placing = type; place_rot = rot % 4
+	_ghost = UnitModels.create(type, "ghost"); _ghost.make_ghost(Color("#38D96B")); add_child(_ghost)
+	_foot = MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(1, 0.06, 1); _foot.mesh = bm
+	_foot_mat = StandardMaterial3D.new(); _foot_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; _foot_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_foot.material_override = _foot_mat; _foot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(_foot)
+	_update_ghost()
+
+func cancel_place() -> void:
+	placing = ""
+	if _ghost != null: _ghost.queue_free(); _ghost = null
+	if _foot != null: _foot.queue_free(); _foot = null
+
+func rotate_ghost() -> void:
+	if placing != "": place_rot = (place_rot + 1) % 4; _update_ghost()
+
+func place_at(x: int, y: int) -> bool:
+	if placing == "" or not can_place(placing, x, y, place_rot): return false
+	place_requested.emit(placing, x, y, place_rot); return true
+
+func _update_ghost() -> void:
+	if _ghost == null: return
+	var fp := UnitModels.footprint(placing, place_rot)
+	var t := Vector2i(clampi(_cursor.x, 0, NX - fp.x), clampi(_cursor.y, 0, NZ - fp.y))
+	_cursor_valid = can_place(placing, t.x, t.y, place_rot)
+	var col := Color("#38D96B") if _cursor_valid else Color("#E63946")
+	_ghost.position = tile_to_world(t, fp); _ghost.rotation_degrees.y = -90.0 * place_rot; _ghost.tint_ghost(col)
+	_foot.position = _ghost.position + Vector3(0, 0.12, 0); (_foot.mesh as BoxMesh).size = Vector3(fp.x * GRID - 0.1, 0.06, fp.y * GRID - 0.1)
+	_foot_mat.albedo_color = Color(col.r, col.g, col.b, 0.38)
+	_cursor = t
+
+func _ground_at(p: Vector2) -> Variant:
+	var o := cam.project_ray_origin(p); var n := cam.project_ray_normal(p)
+	if absf(n.y) < 0.0001: return null
+	var t := -o.y / n.y
+	return o + n * t
+
+func _pick_unit(p: Vector2) -> String:
+	var o := cam.project_ray_origin(p); var n := cam.project_ray_normal(p)
+	var best := ""; var bt := INF
+	for id in _units:
+		var m: UnitModel = _units[id]; var st: Array = _unit_state[id]
+		var fp := m.footprint(st[3]); var c := m.position
+		var lo := Vector3(c.x - fp.x * GRID * 0.5, 0.0, c.z - fp.y * GRID * 0.5); var hi := Vector3(c.x + fp.x * GRID * 0.5, m.height, c.z + fp.y * GRID * 0.5)
+		var t0 := -INF; var t1 := INF; var ok := true
+		for a in range(3):
+			var oa := o[a]; var na := n[a]
+			if absf(na) < 0.00001:
+				if oa < lo[a] or oa > hi[a]: ok = false; break
+			else:
+				var ta := (lo[a] - oa) / na; var tb := (hi[a] - oa) / na
+				t0 = maxf(t0, minf(ta, tb)); t1 = minf(t1, maxf(ta, tb))
+		if ok and t0 <= t1 and t1 > 0.0 and t0 < bt: bt = t0; best = id
+	return best
+
+func _click_at(p: Vector2) -> void:
+	if placing != "":
+		var g = _ground_at(p)
+		if g != null:
+			var fp := UnitModels.footprint(placing, place_rot); var t := world_to_tile(g)
+			_cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
+			place_at(_cursor.x, _cursor.y)
+		return
+	var id := _pick_unit(p); select(id); unit_clicked.emit(id)
 
 func _unhandled_input(e: InputEvent) -> void:
-	if blocked or app == null or app.modal() != null: return
-	if e is InputEventMouseButton and e.pressed:
-		if e.button_index == MOUSE_BUTTON_WHEEL_UP: _instant = false; _set_zoom(zoom_i - 1)
-		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: _instant = false; _set_zoom(zoom_i + 1)
-	elif e is InputEventMouseMotion and (e.button_mask & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) != 0:
-		var mpp := _size / maxf(1.0, get_viewport().get_visible_rect().size.y)   # metres per logical pixel
-		var right := Vector3.RIGHT.rotated(Vector3.UP, deg_to_rad(_yaw))
-		var fwd := Vector3.FORWARD.rotated(Vector3.UP, deg_to_rad(_yaw))
-		_pan_to += (-right * e.relative.x + fwd * e.relative.y / sin(deg_to_rad(PITCH))) * mpp
-		_pan_to.x = clampf(_pan_to.x, -PLOT.x * 0.5, PLOT.x * 0.5); _pan_to.z = clampf(_pan_to.z, -PLOT.y * 0.5, PLOT.y * 0.5)
-		_instant = false
+	if not input_ok(): return
+	if e is InputEventMouseMotion and placing != "" and e.device != InputEvent.DEVICE_ID_EMULATION and (e.button_mask & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) == 0:
+		var g = _ground_at(e.position)
+		if g != null:
+			var fp := UnitModels.footprint(placing, place_rot); var t := world_to_tile(g); _cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
+	elif e is InputEventMouseButton and e.pressed and e.device != InputEvent.DEVICE_ID_EMULATION:
+		if e.button_index == MOUSE_BUTTON_LEFT: _click_at(e.position)
+		elif e.button_index == MOUSE_BUTTON_RIGHT and placing != "": cancel_place()
+	elif e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_R and not (e.ctrl_pressed or e.alt_pressed) and not _focus_typing(): rotate_ghost()
+	elif e is InputEventJoypadButton and e.pressed and CbPad.enabled and placing != "":
+		match e.button_index:
+			JOY_BUTTON_A: place_at(_cursor.x, _cursor.y)
+			JOY_BUTTON_X: rotate_ghost()
+			JOY_BUTTON_B: cancel_place()
+
+func _focus_typing() -> bool:
+	var f := get_viewport().gui_get_focus_owner()
+	return f is LineEdit or f is TextEdit or f is SpinBox
+
+## Sticks (called by CbPad only when controllers are enabled): while placing, the left stick moves the cursor one tile per step.
+func pad_move(left: Vector2, right: Vector2, _trigger: float, dt: float) -> void:
+	if placing != "":
+		_pad_t -= dt
+		if left.length() > 0.55 and _pad_t <= 0.0:
+			_pad_t = 0.17
+			var r := Vector3.RIGHT.rotated(Vector3.UP, deg_to_rad(cam_rig._yaw_to)); var f := Vector3.FORWARD.rotated(Vector3.UP, deg_to_rad(cam_rig._yaw_to))
+			var d := r * left.x - f * left.y
+			var step := Vector2i(int(signf(d.x)) if absf(d.x) > absf(d.z) else 0, int(signf(d.z)) if absf(d.z) >= absf(d.x) else 0)
+			_cursor += step; _update_ghost()
+		cam_rig.pad_move(Vector2.ZERO, right, dt, false)
+	else:
+		cam_rig.pad_move(left, right, dt)
+
+func _on_btn(which: String) -> void:
+	match which:
+		"zoom_in": cam_rig.zoom_step(1)
+		"zoom_out": cam_rig.zoom_step(-1)
+		"rot_l": cam_rig.rotate_view(-1)
+		"rot_r": cam_rig.rotate_view(1)
+
+func _process(dt: float) -> void:
+	if _btn_layer != null:
+		var show_btn: bool = (CbLayout.touch or OS.get_environment("CB_CAM_BUTTONS") != "") and input_ok() and not title_mode and app.started
+		_btn_layer.visible = show_btn
+		if show_btn:
+			_btns.size_px = maxf(CbLayout.tap(), 48.0); _btns.relayout()
+			var vr := get_viewport().get_visible_rect().size
+			var ins: Vector4 = app.inset
+			_btns.position = Vector2(vr.x - ins.z - cover - _btns.size.x - 16.0, vr.y * 0.5 - _btns.size.y * 0.5 - 20.0)
+	if _fps_on:
+		_fps_t += dt; _fps_n += 1
+		if _fps_t >= 5.0: print("FPS avg=%.1f over %.1fs (%d frames)" % [_fps_n / _fps_t, _fps_t, _fps_n]); _fps_t = 0.0; _fps_n = 0
 
 func _apply() -> void:
-	if cam == null: return
-	if _instant: _yaw = _yaw_to; _pan = _pan_to; _size = _size_to
-	rig.position = _pan
-	rig.rotation_degrees = Vector3(-PITCH, _yaw, 0.0)
-	cam.size = _size
+	if cam_rig == null: return
 	var vr := get_viewport().get_visible_rect().size
-	var mpp := _size / maxf(1.0, vr.y)
-	var shift_px := -vr.x * 0.2 if title_mode else cover * 0.5   # the title menu sits on the left; a drawer covers the right
-	cam.h_offset = shift_px * mpp
-	_instant = false
+	cam_rig.h_shift_px = -vr.x * 0.2 if title_mode else cover * 0.5   # the title menu sits on the left; a drawer covers the right
+	cam_rig.apply()
 
 # ---- scene construction -------------------------------------------------------------------------------------------------
 
@@ -182,6 +405,9 @@ func _build_lamps() -> void:
 		l.position = Vector3(p.x, 6.8, p.y); add_child(l); _lamps.append(l)
 
 func _build_camera() -> void:
-	rig = Node3D.new(); add_child(rig)
-	cam = Camera3D.new(); cam.projection = Camera3D.PROJECTION_ORTHOGONAL; cam.size = _size; cam.near = 0.5; cam.far = 700.0
-	cam.position = Vector3(0, 0, 120.0); cam.current = true; rig.add_child(cam)
+	cam_rig = PlantCamera.new(); cam_rig.world = self; cam_rig.pan_limit = PLOT * 0.5; add_child(cam_rig); cam = cam_rig.cam
+
+func _build_buttons() -> void:
+	_btn_layer = CanvasLayer.new(); _btn_layer.layer = 5; add_child(_btn_layer)
+	_btns = CamButtons.new(); _btns.pressed.connect(_on_btn); _btn_layer.add_child(_btns); _btn_layer.visible = false
+	cam_rig.tapped.connect(_click_at)

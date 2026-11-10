@@ -45,3 +45,23 @@ COACH_PLOT_WHY,"Everything you build is placed on this grid and joined by pipes;
 COACH_PLANT_TITLE,Open the plant drawer
 COACH_PLANT_BODY,"{click} PLANT in the dock. The drawer tells you the phase of the plant and what stands on the plot."
 COACH_PLANT_WHY,"A plant moves from design to commissioned to a running shift, and then to a report."
+CAM_ZOOM_IN,Zoom in
+CAM_ZOOM_OUT,Zoom out
+CAM_ROT_L,Turn the view left
+CAM_ROT_R,Turn the view right
+PLACE_OK,Place here
+PLACE_BLOCKED,Blocked
+UNIT_FEED,Feed
+UNIT_COMPRESSOR,Compressor
+UNIT_HEATER,Heater
+UNIT_COOLER,Cooler
+UNIT_HX,Heat exchanger
+UNIT_CONVERTER,Converter
+UNIT_FLASH,Flash drum
+UNIT_SPLITTER,Splitter
+UNIT_MIXER,Mixer
+UNIT_FLARE,Flare
+UNIT_STACK,Stack
+UNIT_PRODUCT,Product tank
+UNIT_RELIEF,Relief valve
+UNIT_VALVE,Control valve

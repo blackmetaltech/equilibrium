@@ -67,5 +67,17 @@ func game_smoke() -> void:
 	for i in range(3): plant_world.set_camera("rot+")
 	CbSmoke._check(absf(plant_world.yaw_degrees() - y0) < 0.01, "four quarter turns come back")
 	plant_world.set_camera("wide"); plant_world.set_camera("close"); plant_world.set_camera("mid")
+	# the models: one of every kind builds, has ports and an anchor, takes a display state, an alarm, a shake and an outline
+	for t in UnitModels.TYPES:
+		var m := UnitModels.create(t, "t_" + t)
+		plant_world.add_child(m)
+		m.set_display({"T_K": 700.0, "spin": 0.5, "level": 0.5, "flame": 0.5, "alarm": 2}); m.set_alarm(1); m.shake(0.02); m.set_selected(true)
+		CbSmoke._check(m.ports.size() > 0 and m.anchor_top != null and m.footprint(0).x > 0, "model %s has ports and an anchor" % t)
+		m.queue_free()
+	plant_world.set_units([{"id": "u1", "type": "flash", "pos": {"x": 2, "y": 2}, "rot": 1, "display": {"level": 0.5}}])
+	CbSmoke._check(plant_world.unit_count() == 1 and plant_world.can_place("flash", 2, 2) == false and plant_world.can_place("flash", 6, 6), "units diff by id and the grid refuses overlap")
+	plant_world.begin_place("heater"); plant_world.rotate_ghost(); plant_world.cancel_place()
+	plant_world.set_units([])
+	CbSmoke._check(plant_world.unit_count() == 0, "units are removed by id")
 	show_screen("plant"); await get_tree().process_frame
 	show_screen(home); await get_tree().process_frame
