@@ -27,6 +27,7 @@ const TEAL := Color("#2EC4B6")
 var app
 var cover := 0.0
 var cover_left := 0.0
+var cover_bottom := 0.0
 var fp_table := {}                  # unit type -> Vector2i (engine footprint, rot 0): the grid follows the engine, models scale to fit
 var place_ignore := ""              # a unit being moved does not block its own ghost
 var pipes: PipeLayer
@@ -69,6 +70,11 @@ func _ready() -> void:
 
 func set_cover(px: float) -> void: cover = px; _apply()
 func set_cover_left(px: float) -> void: cover_left = px; _apply()
+func set_cover_bottom(px: float) -> void: cover_bottom = px; _apply()
+## Cute mode (EqSettings): critters get faces, the cat and flamingos appear.
+func set_cute(on: bool) -> void:
+	if critters: critters.set_cute(on)
+	if scenery: scenery.set_cute(on)
 func set_blocked(b: bool) -> void: blocked = b; visible = not b
 func set_title(on: bool) -> void: title_mode = on; _apply()
 func input_ok() -> bool: return not blocked and visible and app != null and app.modal() == null
@@ -424,6 +430,7 @@ func _apply() -> void:
 	if cam_rig == null: return
 	var vr := get_viewport().get_visible_rect().size
 	cam_rig.h_shift_px = -vr.x * 0.2 if title_mode else (cover - cover_left) * 0.5   # the title menu sits on the left; a drawer covers the right
+	cam_rig.v_shift_px = 0.0 if title_mode else cover_bottom
 	cam_rig.apply()
 
 # ---- scene construction -------------------------------------------------------------------------------------------------

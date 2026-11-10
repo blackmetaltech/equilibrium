@@ -61,7 +61,7 @@ export function snapshotOf(s: Readonly<EqState>): unknown {
     }
   }
   return {
-    phase: s.phase, tick: s.tick, level: s.level, status: s.status, thermoDetail: s.thermoDetail, mode: s.mode,
+    phase: s.phase, tick: s.tick, level: s.level, status: s.status, statusReason: (s as any).statusReason ?? "", thermoDetail: s.thermoDetail, mode: s.mode,
     ok: sol?.ok ?? null, failure: sol?.failure ? { code: sol.failure.code, unitId: sol.failure.unitId ?? null } : null,
     kpis: sol?.ok ? Object.fromEntries(Object.entries(sol.kpis).map(([k, v]) => [k, sig4(v)])) : {},
     goals: [], alarms: alarmsOf(s), clock: clockOf(s), shift: shiftOf(s),

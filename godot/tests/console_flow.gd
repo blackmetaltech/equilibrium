@@ -88,6 +88,7 @@ func _run() -> void:
 	rec.level_id = ""; rec.runs = []; rec.samples = []
 	# --- key switch: DESIGN -> COMMISSION runs the engine's solve
 	var b := app.b
+	app.new_game("sandbox"); await app.get_tree().process_frame   # a free design plot (New works now opens the L00 cold open, a running shift)
 	check(b.act("setSpecies", [["N2", "H2", "Ar", "NH3"]]).get("ok", false), "setSpecies")
 	var f: Dictionary = b.act("placeUnit", ["feed", 0, 0, 0]); var p: Dictionary = b.act("placeUnit", ["product", 6, 0, 0])
 	check(f.get("ok", false) and p.get("ok", false), "feed and product placed: %s %s" % [str(f.get("message", "")), str(p.get("message", ""))])

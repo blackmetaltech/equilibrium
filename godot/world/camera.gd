@@ -30,6 +30,7 @@ var _twist_a0 := 0.0
 var _twist_done := false
 var _flick := false
 var h_shift_px := 0.0
+var v_shift_px := 0.0   ## +px = the bottom of the screen is covered (console): the view centres in the space above
 
 func _init() -> void:
 	cam = Camera3D.new(); cam.projection = Camera3D.PROJECTION_ORTHOGONAL; cam.size = _size; cam.near = 0.5; cam.far = 700.0
@@ -102,6 +103,7 @@ func apply() -> void:
 	cam.size = _size
 	var vr := get_viewport().get_visible_rect().size
 	cam.h_offset = h_shift_px * _size / maxf(1.0, vr.y)
+	cam.v_offset = -v_shift_px * 0.5 * _size / maxf(1.0, vr.y)
 	_instant = false
 
 ## Stick input (CbPad.enabled gates the call): left pans, right Y zooms, right X flicks a quarter turn.

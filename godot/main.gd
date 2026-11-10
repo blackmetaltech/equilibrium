@@ -5,6 +5,7 @@ extends CbApp
 ## Text is tr() from locales/strings.csv or EqStrings (ui/eq_strings.gd), or region-pack data from the engine.
 var plant_world: PlantWorld
 var chrome: EqConsole
+var audio_eq: EqAudio
 
 func game_config() -> Dictionary:
 	EqStrings.load_strings()
@@ -25,6 +26,8 @@ func game_config() -> Dictionary:
 func game_build_world(parent: Node) -> Node:
 	EqSettings.load_all()
 	plant_world = PlantWorld.new(); plant_world.app = self; parent.add_child(plant_world)
+	plant_world.set_cute.call_deferred(EqSettings.cute)
+	audio_eq = EqAudio.new(); add_child(audio_eq); audio_eq.start_music.call_deferred()
 	return plant_world
 
 func game_on_changed() -> void:
@@ -84,8 +87,11 @@ func game_unhandled_key(e: InputEventKey) -> bool:
 # --- custom chrome hooks ---
 func game_build_chrome(r: Control) -> void:
 	chrome = EqConsole.new(); chrome.app = self; r.add_child(chrome); chrome.build()
+	chrome.rack_slot.add_child(PartsRack.build(self))
+	chrome.notebook_requested.connect(func(): Notebook.open(self))
 func game_chrome_visible(v: bool) -> void:
 	if chrome != null: chrome.set_chrome_visible(v)
+	if audio_eq != null: audio_eq.set_title(not v)
 func game_relayout() -> void:
 	if chrome != null: chrome.layout()
 func game_toast(text: String, level: String) -> bool:
@@ -96,6 +102,9 @@ func game_coach(step: Dictionary, index: int, total: int) -> bool:
 	chrome.coach(step, index, total); return true
 func game_title(r: Control) -> bool: return TitleScreen.build(self, r)
 func game_menu() -> bool: return PauseMenu.toggle(self)
+func game_end_screen() -> bool:
+	sfx("printer")
+	return Printout.open(self)
 
 ## Manual step (Space, pad Y): inside a level it turns the key one position; free play and the auto-run clock still advance the engine.
 func next_tick() -> void:
@@ -111,6 +120,7 @@ func _input(e: InputEvent) -> void:
 
 ## Console cues without a recipe in the shell borrow one: the key clunks like a confirm, the intercom blips like a hover.
 func sfx(k: String) -> void:
+	if audio_eq != null and k in EqAudio.ONE_SHOTS: audio_eq.play(k); return
 	match k:
 		"key": super("confirm")
 		"radio": super("hover")
