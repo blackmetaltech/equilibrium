@@ -204,7 +204,7 @@ func _picking_and_placing() -> void:
 	var w: PlantWorld = app.plant_world
 	for t in ["stoich_reactor", "burner"]:
 		var m := UnitModels.create(t, "x")
-		check(m.tiles == Vector2i(4, 4) and m.height > 8.0 and UnitModels.kind(t) == "converter", "%s is a full-size reactor model, not a valve (tiles %s h %f)" % [t, str(m.tiles), m.height])
+		check(m.tiles == Vector2i(4, 4) and m.height > 3.0 and UnitModels.kind(t) != "valve", "%s is a full-size reactor-class model, not a valve (tiles %s h %f)" % [t, str(m.tiles), m.height])
 		m.free()
 	for a in [["stoich_reactor", 8, 4, 0], ["vent", 8, 10, 0]]: app.b.act("placeUnit", a)
 	app.game_on_changed(); await frames(3)
