@@ -247,7 +247,10 @@ func set_units(arr: Array) -> void:
 		if not seen.has(id):
 			(_units[id] as Node).queue_free(); _units.erase(id); _unit_state.erase(id)
 			if id == selected_id: selected_id = ""
-	if _units.size() != _fit_n and not gallery: _fit_n = _units.size(); fit_view()
+	# Frame the plant when a level loads (a jump in unit count: preset plants, a loaded save, a cleared plot), never while the player builds:
+	# a camera that drifts on every placement moves the ports under the cursor (playtest finding).
+	if not gallery and (_fit_n < 0 or absi(_units.size() - _fit_n) > 1 or _units.is_empty()): fit_view()
+	_fit_n = _units.size()
 
 var _fit_n := -1
 ## Frame the plant: the camera centres on the placed units (plus room to grow) and zooms so they fill the space above the console.

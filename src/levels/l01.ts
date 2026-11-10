@@ -51,7 +51,7 @@ export const L01: LevelSpec = {
       { key: 'goal', legend: t('lv.L01.ann.goal'), state: m.ok ? (g.every((x) => x.met) ? 'normal' : 'off') : 'off' },
     ];
   },
-  coach: BENCH_COACH,
+  coach: BENCH_COACH, bankSpecies: ['N2', 'H2'],
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
     const need = shown(3 * shown(m.v.n2_fed!));

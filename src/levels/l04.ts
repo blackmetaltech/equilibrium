@@ -71,7 +71,7 @@ export const L04: LevelSpec = {
       { key: 'goal', legend: t('lv.L04.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },
     ];
   },
-  coach: COACH,
+  coach: COACH, bankSpecies: ['N2', 'H2'],
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };

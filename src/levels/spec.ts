@@ -68,6 +68,8 @@ export interface LevelSpec {
   secondary: (s: Readonly<EqState>, m: Measures) => SecondarySpec | null;
   annunciators: (s: Readonly<EqState>, m: Measures, g: GoalEval[]) => Annunciator[];
   coach: CoachStep[];
+  /** Species a player-placed cylinder bank can carry (setBank); absent = banks are not player-filled in this level. */
+  bankSpecies?: string[];
   /** Verdict of the printout: a key under `lv.<ID>.verdict.` and the sentence variables of `cause` (null = no cause line, the run passed). */
   verdict: (s: Readonly<EqState>, m: Measures, g: GoalEval[]) => { key: string; cause: string | null };
   /** The one equation of the level with the player's numbers: `left = right` (numbers, × ÷ + − and parentheses; units are decoration). */
