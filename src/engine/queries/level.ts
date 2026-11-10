@@ -172,7 +172,10 @@ const resultCard: QueryFn<EqState> = (s) => {
   };
 };
 
-export const levelQueries: Record<string, QueryFn<EqState>> = { levelInfo, resultCard };
+/** levelView(): the current level's level-local view (null when the level has none). */
+const levelView: QueryFn<EqState> = (s) => { const spec = specOf(s); return spec?.view ? spec.view(s) : null; };
+
+export const levelQueries: Record<string, QueryFn<EqState>> = { levelInfo, resultCard, levelView };
 
 // ------------------------------------------------------------------------------------------------ actions
 type Fn = ActionFn<EqState>;

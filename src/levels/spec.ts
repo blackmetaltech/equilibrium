@@ -94,4 +94,6 @@ export interface LevelSpec {
   actions?: Record<string, (s: EqState, ...args: unknown[]) => void>;
   /** Level-local dynamics run once per tick while a shift or first run is running (after the engine's shift systems). Deterministic. */
   tick?: (s: EqState) => void;
+  /** What the front-end draws for a level-local mechanic (Ch8 dials + recorder series, Ch9 worksheet / cards / Gantt). Plain JSON, finite numbers. */
+  view?: (s: Readonly<EqState>) => Record<string, unknown>;
 }
