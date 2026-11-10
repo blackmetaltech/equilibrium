@@ -21,7 +21,7 @@ func game_config() -> Dictionary:
 		"dock": [["home", tr("DOCK_PLANT"), Color("#2EC4B6"), tr("DOCK_PLANT")], ["codex", tr("DOCK_CODEX"), Color("#9fb4c8"), tr("DOCK_CODEX")]],   # the dock itself is hidden in custom chrome; "home" is blank (ui/home_blank.gd)
 		"screens": {"home": "res://ui/home_blank.gd"},
 		"overlay": [], "full": ["codex"],
-		"tick_label": tr("TICK_BUTTON"), "tick_seconds": [0.0, 1.0, 0.5, 0.25],
+		"tick_label": tr("TICK_BUTTON"), "tick_seconds": [0.0, 1.0, 0.25, 0.0625],   # x1 / x4 / x16 are 1 / 4 / 16 ticks a second (the engine runs the ticks the shell asks for)
 		"keys": [[tr("KEY_ROTATE"), tr("KEY_ROTATE_DESC")], [tr("KEY_WHEEL"), tr("KEY_WHEEL_DESC")], [tr("KEY_PAN"), tr("KEY_PAN_DESC")], ["Space", EqStrings.T("KEY_HINT")], ["K", EqStrings.T("ANN_ACK")]],
 	}
 
@@ -167,6 +167,28 @@ func _begin() -> void:
 func game_end_screen() -> bool:
 	sfx("printer")
 	return Printout.open(self)
+
+## A slow frame (a phone, a busy desktop) still delivers 4 or 16 ticks every second: the shell steps once per frame, so the ticks it owes are caught up here.
+var _owed := 0.0
+func _process(dt: float) -> void:
+	var t0 := int(b.g.get("tick", 0)) if started and b != null else 0
+	super(dt)
+	if started and b != null and speed >= 2 and modal() == null and str(b.g.get("status", "playing")) == "playing":
+		_owed += dt * float([0, 1, 4, 16][clampi(speed, 0, 3)]) - float(int(b.g.get("tick", 0)) - t0)
+		var n := 0
+		while _owed >= 1.0 and n < 8 and str(b.g.get("status", "playing")) == "playing": next_tick(); _owed -= 1.0; n += 1
+		_owed = clampf(_owed, -2.0, 8.0)
+	else: _owed = 0.0
+
+## A mode this game does not have (CB_AUTOSTART=typo) is an error you can see, not a blank board.
+const MODES := ["learner", "engineer", "sandbox"]
+func new_game(mode: String) -> void:
+	if not MODES.has(mode):
+		push_error("EQUILIBRIUM: unknown game mode '%s' (learner, engineer or sandbox)" % mode)
+		menus.title()
+		CbKit.confirm(self, "Unknown game mode '%s'. Start with one of: %s." % [mode, ", ".join(MODES)], func(): pass, "OK")
+		return
+	super(mode)
 
 ## Manual step (Space, pad Y): inside a level it turns the key one position; free play and the auto-run clock still advance the engine.
 func next_tick() -> void:

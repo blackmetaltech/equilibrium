@@ -32,16 +32,17 @@ const CHAPTERS := [
 	[7, "The Works", "Integrated Works", "works", 28, 28],
 	[8, "The Control Room", "Control room", "control", 29, 33],
 	[9, "Turnaround", "Turnaround yard", "turnaround", 34, 38],
+	[10, "Career", "Plant manager's office", "career", 39, 39],
 ]
 const BRIDGES := [4, 9, 14, 18]
 ## Which chapter must be done before this one opens (-1: open from the start).
-const PREREQ := {0: -1, 1: -1, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 5}
+const PREREQ := {0: -1, 1: -1, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 5, 10: 5}   # Career opens after chapter 5 like chapters 8 and 9
 ## Total stars for each Engineer rank.
 const RANKS := [["Trainee", 0], ["Shift Engineer", 6], ["Senior Engineer", 20], ["Process Engineer", 40], ["Plant Manager", 65], ["Chief Engineer", 90]]
 ## Grid order of the chapters (landscape): row 1 left to right, row 2 right to left, so the pipe snakes along the coast.
-const GRID := [0, 1, 2, 3, 4, 9, 8, 7, 6, 5]
+const GRID := [0, 1, 2, 3, 4, 9, 8, 7, 6, 5, 10]
 
-static func number(id: String) -> String: return id.trim_prefix("L").trim_prefix("l")
+static func number(id: String) -> String: return "C" if id == "CAREER" else id.trim_prefix("L").trim_prefix("l")
 
 # =====================================================================================================================
 # Progress, unlocks, rank
@@ -83,7 +84,10 @@ class Campaign:
 		ids = []
 		for l in levels: ids.append(str((l as Dictionary).get("id", "")))
 
-	static func num(id: String) -> int: return int(id.trim_prefix("L").trim_prefix("l")) if id.length() > 1 else -1
+	## CAREER has no L-number: it is node 39, after the last numbered job (it used to read as 0 and sit on the gate).
+	static func num(id: String) -> int:
+		if id == "CAREER": return 39
+		return int(id.trim_prefix("L").trim_prefix("l")) if id.length() > 1 and id.trim_prefix("L").trim_prefix("l").is_valid_int() else -1
 
 	static func chapter_of(id: String) -> int:
 		var n := num(id)
@@ -130,9 +134,12 @@ class Campaign:
 		if lock_reason(id) != "": return "locked"
 		return "done" if starred(id) else "open"
 
+	## Stars earned on nodes the player can actually reach (a star left over on a locked node never counts).
+	static func eff(id: String) -> int: return 0 if lock_reason(id) != "" else int(stars.get(id, 0))
+
 	static func total_stars() -> int:
 		var t := 0
-		for id in ids: t += int(stars.get(id, 0))
+		for id in ids: t += eff(id)
 		return t
 
 	static func max_stars() -> int: return ids.size() * 3
@@ -146,7 +153,7 @@ class Campaign:
 
 	static func chapters_done() -> Array:
 		var a: Array = []
-		for ch in WorksMap.CHAPTERS: if int(ch[0]) >= 1 and ch_done(int(ch[0])): a.append(int(ch[0]))
+		for ch in WorksMap.CHAPTERS: if int(ch[0]) >= 1 and int(ch[0]) <= 9 and ch_done(int(ch[0])): a.append(int(ch[0]))   # the backdrop has nine plants; Career is an office
 		return a
 
 	## The next critical-path level after `id` in play order that can be played now ("" when there is none).
@@ -171,11 +178,27 @@ class Campaign:
 		var pw = app.get("plant_world") if app != null else null
 		if pw != null and pw.get("scenery") != null: (pw.scenery as Scenery).set_revived(done_list.size(), done_list)
 
+	static var _claimed := ""
+
+	## The engine's own progress record (claimStars on a win; a `progress` query when the engine offers one) is the source of truth once it speaks: its stars
+	## replace the local copy, so a star the engine never gave cannot light a node.
+	static func sync_engine(app: CbApp) -> void:
+		if app == null or app.b == null: return
+		var qs: Array = app.b.init_data.get("queries", [])
+		if not qs.has("progress"): return
+		var pr = app.b.q("progress")
+		if not (pr is Dictionary): return
+		var es = pr.get("stars", pr)
+		if not (es is Dictionary): return
+		for id in ids:
+			if (es as Dictionary).has(id): stars[id] = clampi(int((es as Dictionary)[id]), 0, 3)
+			elif not (es as Dictionary).is_empty(): stars.erase(id)
+
 	## Hook the running game (once): a won level is recorded with its stars, the backdrop follows, and a level that has just begun is autosaved
 	## so Continue never resumes the level before it (the engine only autosaves on ticks and on a win; a level begun and then left was lost).
 	static func attach(app: CbApp) -> void:
 		if app == null or app.get("b") == null or app.b == null: return
-		load_all(); set_levels(app.b.levels())
+		load_all(); set_levels(app.b.levels()); sync_engine(app)
 		if app.has_meta("eq_campaign"): return
 		app.set_meta("eq_campaign", true)
 		app.b.changed.connect(func(): _on_changed(app))
@@ -190,6 +213,10 @@ class Campaign:
 			var li = app.b.q("levelInfo") if (app.b.init_data.get("queries", []) as Array).has("levelInfo") else null
 			var n := 1
 			if li is Dictionary and li.get("stars", null) is Dictionary: n = int((li.stars as Dictionary).get("have", 1))
+			var key2 := "%s|%s" % [lvl, str(g.get("seed", ""))]
+			if _claimed != key2 and (app.b.init_data.get("actions", []) as Array).has("claimStars"):
+				_claimed = key2; app.b.act("claimStars", [])   # the engine keeps the campaign record (stars of this win)
+			sync_engine(app)
 			if record(lvl, n, str(g.get("mode", "learner")) == "engineer"): push_world(app)
 		elif st == "playing" and int(g.get("tick", 0)) == 0:
 			var key := "%s|%s" % [lvl, str(g.get("seed", ""))]
@@ -381,8 +408,8 @@ class Bay extends VBoxContainer:
 			else: _pipe([_anchor(a, "r"), _anchor(b, "l")], laid, false, flow)
 		# signal lines (dashed) from the loop to the control room and the turnaround yard, along the trench under the second row
 		var yb := maxf(_anchor(5, "b").y, _anchor(8, "b").y) + 20.0
-		for target in [8, 9]:
-			var s0 := _anchor(5, "b"); var s1 := _anchor(target, "b")
+		for target in [8, 9, 10]:
+			var s0 := _anchor(5, "b"); var s1 := _anchor(target, "b" if target < 10 else "t")
 			_pipe([s0, Vector2(s0.x, yb), Vector2(s1.x, yb), s1], C.ch_done(5), true, flow)
 
 	## A pipe along `pts`: a dark outline, a rust or teal body (teal once laid) and chevrons that run along it when it carries product. Dashed = signal line.
@@ -459,7 +486,7 @@ class SiteCard extends PanelContainer:
 	func _node(id: String, bridge: bool) -> NodeBtn:
 		var C := WorksMap.Campaign
 		var nb := NodeBtn.new(); nb.lid = id; nb.bridge = bridge; nb.name = "Level_" + id
-		nb.state = C.state_of(id); nb.stars = int(C.stars.get(id, 0)); nb.hard = bool(C.hard.get(id, false))
+		nb.state = C.state_of(id); nb.stars = C.eff(id); nb.hard = bool(C.hard.get(id, false))
 		var lv: Dictionary = view.levels_by_id.get(id, {})
 		nb.text = "%s · %s" % [WorksMap.number(id), str(lv.get("title", id)).to_upper()]
 		nb.tooltip_text = nb.text + ("\n" + WorksMap.T("MAP_BRIDGE") if bridge else "") + ("\n" + C.lock_reason(id) if nb.state == "locked" else "")
@@ -604,6 +631,12 @@ class Glyph extends Control:
 				draw_rect(Rect2(w * 0.12, gy - 36, w * 0.6, 36), body); draw_rect(Rect2(w * 0.1, gy - 40, w * 0.64, 6), dark)
 				draw_rect(Rect2(w * 0.18, gy - 28, w * 0.48, 12), wcol)
 				draw_line(Vector2(w * 0.68, gy - 40), Vector2(w * 0.68, gy - 70), dark, 3.0); draw_circle(Vector2(w * 0.68, gy - 70), 3.0, Color("#E63946") if win_on and fmod(t, 1.2) < 0.6 else dark)
+			"career":   # the plant manager's office: a low block, a window row, and a wall calendar
+				draw_rect(Rect2(w * 0.14, gy - 40, w * 0.52, 40), body); draw_rect(Rect2(w * 0.11, gy - 45, w * 0.58, 6), dark)
+				for i in 4: draw_rect(Rect2(w * 0.2 + i * w * 0.11, gy - 30, w * 0.07, 12), wcol)
+				draw_rect(Rect2(w * 0.74, gy - 56, w * 0.16, 44), Color("#F4EEE2") if state != "locked" else dark)
+				draw_rect(Rect2(w * 0.74, gy - 56, w * 0.16, 9), Color("#B33A2E") if state != "locked" else dark.darkened(0.2))
+				for r in 3: for c in 3: draw_rect(Rect2(w * 0.755 + c * w * 0.045, gy - 42 + r * 9, w * 0.03, 5), dark)
 			"turnaround":
 				for i in 3:
 					var x0 := w * (0.1 + i * 0.22)

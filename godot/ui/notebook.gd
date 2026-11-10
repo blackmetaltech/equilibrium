@@ -83,7 +83,9 @@ static func open(app) -> Control:
 	var grid := Grid.new(); pn.add_child(grid); pn.move_child(grid, 0)
 	var mg := MarginContainer.new(); for s in ["left", "right"]: mg.add_theme_constant_override("margin_" + s, 28)
 	mg.add_theme_constant_override("margin_left", 70); mg.add_theme_constant_override("margin_top", 22); mg.add_theme_constant_override("margin_bottom", 24)
-	vb.reparent(mg); pn.add_child(mg)
+	vb.reparent(mg)
+	var sc := ScrollContainer.new(); sc.name = "PageScroll"; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; sc.follow_focus = true; mg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(mg); pn.add_child(sc)   # a page taller than the screen scrolls instead of running off it
 	_fill(app, host, vb, li)
 	app.focus_dialog()
 	var tw := host.create_tween(); pn.modulate.a = 0.0
@@ -97,6 +99,13 @@ static func _settle(app, pn: Control, w: float) -> void:
 	for i in 2:
 		await pn.get_tree().process_frame
 		if not is_instance_valid(pn): return
+	var vh: float = app.vs_h()
+	var sc := pn.get_node_or_null("PageScroll") as ScrollContainer
+	if sc != null:
+		sc.custom_minimum_size.y = 0.0; pn.reset_size(); await pn.get_tree().process_frame
+		if not is_instance_valid(pn): return
+		var need := (sc.get_child(0) as Control).get_combined_minimum_size().y
+		sc.custom_minimum_size.y = minf(need, vh - 24.0)
 	pn.reset_size(); app.center(pn, w, 0.0)
 	await pn.get_tree().process_frame
 	if not is_instance_valid(pn): return
@@ -147,11 +156,16 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	var st: Dictionary = li.get("stars", {"have": 0, "rules": []})
 	var fv := HBoxContainer.new(); fv.name = "Stars"; fv.add_theme_constant_override("separation", 18); vb.add_child(fv)
 	var fl := VBoxContainer.new(); fl.add_child(EqTheme.dymo(PaperStrings.t("NB_STARS"), 13)); fv.add_child(fl)
+	var armed_i := 2   # the flask the Call it answer is for: the star rule that says "on paper" / "call it" / "predict" (L20: the second), else the third
+	var rules0: Array = st.get("rules", []) if st.get("rules") is Array else []
+	for ri in rules0.size():
+		var rt := str(rules0[ri]).to_lower()
+		if rt.contains("on paper") or rt.contains("call it") or rt.contains("predict") or rt.contains("your prediction"): armed_i = ri; break
 	for i in range(3):
 		var cell := HBoxContainer.new(); cell.add_theme_constant_override("separation", 6); cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var earned: Array = st.get("earned", []) if st.get("earned") is Array else []
 		var f := Flask.new(); f.name = "Flask_%d" % i; f.filled = bool(earned[i]) if i < earned.size() else i < int(st.get("have", 0)); cell.add_child(f)   # each flask is its own star (the second can be lit without the first being "the count")
-		if i == 2 and ((li.get("callIt") is Dictionary and bool(li.callIt.get("answered", false))) or (li.get("callIts") is Array and not (li.callIts as Array).is_empty() and bool((li.callIts[0] as Dictionary).get("answered", false)))): f.armed = true
+		if i == armed_i and ((li.get("callIt") is Dictionary and bool(li.callIt.get("answered", false))) or (li.get("callIts") is Array and not (li.callIts as Array).is_empty() and bool((li.callIts[0] as Dictionary).get("answered", false)))): f.armed = true
 		var rl := EqTheme.label(str((st.get("rules", []) as Array)[i]) if i < (st.get("rules", []) as Array).size() else "", 14, EqTheme.INK, "sans")
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rl.custom_minimum_size = Vector2(120, 0); cell.add_child(rl); fv.add_child(cell)
 	# call it: one row per prediction (levelInfo.callIts when the level has several, else the single callIt)
@@ -203,10 +217,12 @@ class Tab extends PanelContainer:
 	func _init() -> void:
 		name = "NotebookTab"; add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 		btn = EqTheme.key_button("", false, 15); btn.custom_minimum_size = Vector2(0, 36); btn.pressed.connect(func(): Notebook.open(app)); add_child(btn)
+		custom_minimum_size = Vector2(380, 36); btn.clip_text = true; btn.alignment = HORIZONTAL_ALIGNMENT_LEFT   # a fixed place and width: the title never moves the button
 		btn.add_theme_stylebox_override("normal", Notebook._tab_sb("normal")); btn.add_theme_stylebox_override("hover", Notebook._tab_sb("hover"))
 	func _process(_dt: float) -> void:
 		var li := Notebook.info(app)
 		visible = app != null and app.started and not li.is_empty() and (app.modal() == null)
+		position = Vector2.ZERO
 		if visible: btn.text = "%s  %02d · %s  ▸" % [PaperStrings.t("NB_TAB"), int(li.get("index", 0)), str(li.get("title", ""))]
 
 static func _tab_sb(state: String) -> StyleBoxFlat:

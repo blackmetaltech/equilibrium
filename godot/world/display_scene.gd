@@ -8,6 +8,10 @@ var level := ""
 
 ## Scenes: [type, tile x, tile y, rot, id-tag] for units; the helpers below add sensors, blinds, meters, a crane and straight pipes.
 const UNITS := {
+	"L29": [["feed", 3, 6, 0, "F-100"], ["flash", 9, 6, 0, "D-101"], ["valve", 14, 6, 0, "LV-101"], ["product", 17, 5, 0, "T-102"]],
+	"L30": [["feed", 3, 6, 0, "F-100"], ["heater", 8, 5, 0, "E-101"], ["converter", 14, 5, 0, "R-101"], ["product", 20, 5, 0, "T-102"]],
+	"L31": [["feed", 2, 3, 0, "H2"], ["feed", 2, 10, 0, "N2"], ["mixer", 11, 6, 0, "M-103"], ["product", 17, 5, 0, "T-104"]],
+	"L32": [["feed", 2, 6, 0, "F-100"], ["converter", 8, 5, 0, "R-101"], ["valve", 10, 3, 0, "QV-101"], ["product", 17, 5, 0, "T-102"]],
 	"L33": [["cstr", 10, 5, 0, "R-101"], ["cooler", 15, 6, 0, "C-102"], ["feed", 4, 6, 0, "F-100"], ["product", 18, 10, 0, "T-103"]],
 	"L34": [["feed", 3, 5, 0, "F-100"], ["converter", 8, 4, 0, "R-101"], ["hx", 14, 5, 0, "E-102"], ["product", 19, 5, 0, "T-103"]],
 	"L35": [["feed", 2, 3, 0, "F-100"], ["converter", 8, 3, 0, "R-101"], ["hx", 14, 4, 0, "E-102"], ["flash", 19, 3, 0, "D-103"], ["compressor", 12, 9, 2, "K-104"], ["product", 19, 9, 0, "T-105"]],
@@ -80,6 +84,26 @@ func _sensor(p: Vector3, h: float, tag: String) -> void:
 func _extras(id: String) -> void:
 	var y := 1.0
 	match id:
+		"L29":   # a feed drum under level control: the drum, its level sensor and the outlet valve the controller drives
+			var c := _tile(10.0, 7.0)
+			_pipe(_tile(7.0, 7.0) + Vector3(0, y, 0), _tile(9.0, 7.0) + Vector3(0, y, 0), 0.0); _pipe(_tile(11.0, 7.0) + Vector3(0, y, 0), _tile(14.5, 6.5) + Vector3(0, y, 0), 0.0)
+			_pipe(_tile(15.5, 6.5) + Vector3(0, y, 0), _tile(17.0, 7.0) + Vector3(0, y, 0), 0.0)
+			_sensor(c + Vector3(-1.6, 1.0, 2.2), 2.4, "LT-101"); _label("LIC-101", c + Vector3(3.2, 1.8, 3.2), Color("#2EC4B6"))
+		"L30":   # the converter inlet: a heater, the inlet temperature sensor and its controller
+			_pipe(_tile(7.0, 7.0) + Vector3(0, y, 0), _tile(8.0, 6.5) + Vector3(0, y, 0), 0.0); _pipe(_tile(11.0, 6.5) + Vector3(0, y, 0), _tile(14.0, 7.0) + Vector3(0, y, 0), 0.0)
+			_pipe(_tile(18.0, 7.0) + Vector3(0, y, 0), _tile(20.0, 7.0) + Vector3(0, y, 0), 0.0)
+			_sensor(_tile(12.5, 6.5) + Vector3(0, y, 1.8), 1.6, "TT-101"); _label("TIC-101", _tile(12.5, 6.5) + Vector3(0, 4.6, 1.8), Color("#2EC4B6"))
+		"L31":   # two gas feeds and a ratio station: H2 follows N2
+			for pr in [[6.0, 4.0, 9.0, 4.0], [9.0, 4.0, 9.0, 7.0], [9.0, 7.0, 11.0, 7.0], [6.0, 11.0, 9.0, 11.0], [9.0, 11.0, 9.0, 7.0], [13.0, 7.0, 17.0, 7.0]]:
+				_pipe(_tile(pr[0], pr[1]) + Vector3(0, y, 0), _tile(pr[2], pr[3]) + Vector3(0, y, 0), 0.0)
+			_sensor(_tile(7.4, 4.0) + Vector3(0, y, 1.2), 1.0, "FT-H2"); _sensor(_tile(7.4, 11.0) + Vector3(0, y, 1.2), 1.0, "FT-N2")
+			_box(Vector3(1.8, 1.4, 1.2), _tile(9.0, 7.0) + Vector3(0, 3.0, 0), Color("#E7E3D8")); _label("RATIO H2 : N2", _tile(9.0, 7.0) + Vector3(0, 4.6, 0), Color("#FFB703"))
+		"L32":   # a converter bed with its quench valve on the cold-gas header: the temperature master drives the quench
+			_pipe(_tile(6.0, 7.0) + Vector3(0, y, 0), _tile(8.0, 7.0) + Vector3(0, y, 0), 0.0); _pipe(_tile(12.0, 7.0) + Vector3(0, y, 0), _tile(17.0, 7.0) + Vector3(0, y, 0), 0.0)
+			var h0 := _tile(3.0, 3.5) + Vector3(0, 2.0, 0); var h1 := _tile(22.0, 3.5) + Vector3(0, 2.0, 0)
+			_pipe(h0, h1, 0.0); _label("COLD-GAS HEADER", _tile(14.5, 3.5) + Vector3(0, 3.4, 0), Color("#8AD7FF"))
+			_pipe(_tile(10.5, 3.5) + Vector3(0, 2.0, 0), _tile(10.5, 5.0) + Vector3(0, 2.0, 0), 0.0)
+			_sensor(_tile(10.0, 7.0) + Vector3(0, y, 2.8), 2.0, "TT-101"); _label("TIC-101", _tile(10.0, 7.0) + Vector3(0, 10.5, 2.8), Color("#2EC4B6"))
 		"L33":
 			var c := _tile(12.0, 7.0)   # the CSTR centre (10..14, 5..9)
 			_pipe(_tile(8.0, 7.0) + Vector3(0, y, 0), c + Vector3(-2.0, y, 0), 0.0); _pipe(c + Vector3(2.0, y, 0.0), _tile(15.0, 7.0) + Vector3(0, y, 0), 0.0)
@@ -87,7 +111,7 @@ func _extras(id: String) -> void:
 		"L34":
 			_pipe(_tile(7.0, 6.0) + Vector3(0, y, 0), _tile(8.0, 6.0) + Vector3(0, y, 0), 0.0); _pipe(_tile(12.0, 6.0) + Vector3(0, y, 0), _tile(14.0, 6.0) + Vector3(0, y, 0), 0.0)
 			_pipe(_tile(18.0, 6.0) + Vector3(0, y, 0), _tile(19.0, 6.0) + Vector3(0, y, 0), 0.0)
-			_label("WASTE-HEAT COOLER", _tile(16.0, 6.0) + Vector3(0, 4.0, 0), Color("#FFB703"))
+			_label("WASTE-HEAT COOLER", _tile(16.0, 6.0) + Vector3(0, 1.0, 4.8), Color("#FFB703"))
 		"L35":
 			for pr in [[6.0, 5.0, 8.0, 5.0], [12.0, 5.0, 14.0, 5.0], [18.0, 5.0, 19.0, 5.0], [20.5, 7.0, 20.5, 9.0], [19.0, 10.0, 15.0, 10.0], [12.0, 10.0, 11.0, 10.0], [11.0, 10.0, 11.0, 6.0]]:
 				_pipe(_tile(pr[0], pr[1]) + Vector3(0, y, 0), _tile(pr[2], pr[3]) + Vector3(0, y, 0), 0.0)

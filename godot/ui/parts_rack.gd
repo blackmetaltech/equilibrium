@@ -9,6 +9,7 @@ var _scroll: ScrollContainer
 var _row: HBoxContainer
 var _focus := 0
 var _sig := ""
+var _tsig := ""
 const TILE := Vector2(100, 112)
 
 class Tile extends Control:
@@ -47,6 +48,7 @@ class Tile extends Control:
 		PidSymbols.draw(self, type, Rect2(8, 8, size.x - 16, size.y - 54), col, EqTheme.AMBER if available else col)
 		# Dymo name
 		var lf := EqTheme.font("dymo"); var ls := EqTheme.fs(13); var lt := label.to_upper()
+		while ls > 8 and lf.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x + 10.0 > size.x - 8.0: ls -= 1   # a long name steps its type down until the whole word fits the tape
 		var lw := minf(lf.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x + 10.0, size.x - 8.0)
 		var lr := Rect2((size.x - lw) * 0.5, size.y - 40.0, lw, 17.0)
 		draw_rect(lr, EqTheme.DYMO_TAPE); draw_string(lf, lr.position + Vector2(5, 13), lt, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, ls, EqTheme.DYMO_TEXT)
@@ -102,6 +104,15 @@ func refresh() -> void:
 	var sig := JSON.stringify(items.map(func(i): return [i.type, i.count, i.available])) + JSON.stringify(prices)
 	if sig == _sig: return
 	_sig = sig
+	# the same parts in the same order (only counts, prices or availability moved): update the tiles in place, so a placement never rebuilds the tile
+	# under the next click (a freed tile eats the first press) and keyboard focus stays where it was
+	var tsig := JSON.stringify(items.map(func(i): return i.type))
+	if tsig == _tsig and tiles.size() == items.size() and not tiles.is_empty():
+		for i in items.size():
+			var it2: Dictionary = items[i]; var t2: Tile = tiles[i]
+			t2.price = prices.get(str(it2.type)); t2.count = int(it2.count); t2.limit = it2.limit; t2.available = bool(it2.available); t2.queue_redraw()
+		return
+	_tsig = tsig
 	for c in _row.get_children(): c.queue_free()
 	tiles.clear()
 	for i in items.size():
@@ -129,7 +140,8 @@ func _unhandled_key_input(e: InputEvent) -> void:
 	if not (e is InputEventKey) or not e.pressed or e.echo or not is_visible_in_tree(): return
 	if app == null or app.modal() != null or not app.started: return
 	var f := get_viewport().gui_get_focus_owner()
-	if f is LineEdit or f is Knob: return
+	if f is LineEdit or f is TextEdit or f is SpinBox or f is Knob or f is OptionButton: return   # digits belong to a field or knob that has focus
+	if app.root.get_node_or_null("keypad") != null: return
 	if e.keycode >= KEY_1 and e.keycode <= KEY_9 and not (e.ctrl_pressed or e.alt_pressed):
 		pick_index(e.keycode - KEY_1); get_viewport().set_input_as_handled()
 

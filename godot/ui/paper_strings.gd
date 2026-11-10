@@ -14,7 +14,7 @@ const S := {
 	"PR_HEAD": "KESTREL BAY WORKS", "PR_RUN": "RUN %03d", "PR_PASS": "PASS", "PR_FAIL": "FAIL", "PR_ABORT": "*** RUN ABORTED ***", "PR_DONE": "*** RUN COMPLETE ***",
 	"PR_YOU": "◄ YOU", "PR_CALLIT": "CALL IT", "PR_MARA": "MARA", "PR_RETRY": "Retry", "PR_NEXT": "Next job", "PR_COPY": "Copy design code", "PR_COPIED": "Design code copied",
 	"PR_METRICS": "METRICS", "PR_HIST": "WORKS RUNS", "PR_CAUSE": "CAUSE", "PR_LESSON": "NOTE", "PR_STARS": "FLASKS", "PR_WENT": "SHEET %d",
-	"FP_TRIPPED": "Plant tripped: reset the interlock first",
+	"FP_LAST_RUN": "READINGS: LAST RUN", "FP_CLOSE_ALL": "close all", "FP_TRIPPED": "Plant tripped: reset the interlock first",
 	"DEL_ASK": "Delete %s and its %d pipes?", "DEL_ASK1": "Delete %s and its pipe?", "DEL_YES": "Delete", "DEL_NO": "Keep", "DEL_TIP": "Delete (Del)",
 	"IC_GOAL_MET": "Goal met: %s", "IC_FIRSTRUN": "First run: the plant is making product. Watch the recorder.", "IC_EDITED": "Design changed. Commission to test it.",
 	"IC_BANKS_SAME": "Both banks carry %s: switch one to %s with its chip.", "FAIL_AT": "%s failed to solve: %s",
@@ -22,11 +22,11 @@ const S := {
 	"RST_TITLE": "Restart this job?", "RST_BODY": "The shift clock and the recorder start again. Your Call it answers are kept.", "RST_KEEP": "Restart, keep my build",
 	"RST_CLEAR": "Restart and clear the plot", "RST_CANCEL": "Cancel",
 	"IC_RUNNING": "Commissioned and RUNNING: the shift clock is on. Turn the key again to STOP and edit (your build is kept).",
-	"IC_STOPPED": "Stopped. Back in DESIGN with your plant as you built it; the shift clock is reset.", "IC_STOP_FAIL": "Stopped, but %d things could not be put back; check the plant.",
+	"IC_STOPPED": "Stopped. Back in DESIGN with your plant as you built it; the shift clock is reset.", "IC_STOP_FAIL": "Stopped. Not put back: %s. Check the plant.",
 	"IC_DIAL_RESET": "You turned a dial: the run was cleared. Commission again to test the new setting.",
 	"IC_FIRST_EDIT": "The first run is on show: change anything in the design to stop it.", "KH_DESIGN": "COMMISSION", "KH_COMMISSIONED": "RUN", "KH_RUN": "STOP + EDIT", "KH_TURN": "TURN FOR",
 	"HX_HOT_IN": "HOT IN", "HX_HOT_OUT": "HOT OUT", "HX_COLD_IN": "COLD IN", "HX_COLD_OUT": "COLD OUT",
-	"UT_FIRED": "fired", "UT_STEAM": "steam", "UT_CW": "cooling water", "UT_REFRIG": "refrigerant", "UT_NONE": "none (adiabatic)", "UT_ZERO": "This heater does 0 kW: pick a utility and a duty.",
+	"UT_FIRED": "fired", "UT_STEAM": "steam", "UT_CW": "cooling water", "UT_REFRIG": "refrigerant", "UT_NONE": "none (adiabatic)", "UT_ZERO": "This heater does 0 kW: pick a utility and a duty.", "UT_COLD": "Cooling water cannot heat anything. A heater needs fired or steam.", "UT_HOT": "Fired heat or steam cannot cool anything. A cooler needs water or refrigerant.",
 	"KEYPAD_OK": "Enter", "KEYPAD_CLEAR": "Clear", "KEYPAD_IN": "in %s", "KEYPAD_RANGE": "%s to %s",
 }
 ## One solved stream (flow mol/s, mass kg/s, T K, P Pa, top-3) from `streamTable`, or {} when the plant is not solved.
@@ -44,6 +44,24 @@ const SHORT := {"feed": "FEED BANK", "mixer": "MIXER", "mixer3": "MIXER 3", "mix
 static func short(type: String, label: String) -> String:
 	if SHORT.has(type): return SHORT[type]
 	return type.replace("_", " ").to_upper() if label.begins_with("label.") else label.to_upper()
+
+## Plain-words fallbacks for solver codes when the engine sent only the code (a raw NO_EXIT never reaches the player). Unknown codes are spelled out.
+const FAILS := {
+	"NO_EXIT": "Something enters the loop and nothing takes it out. Add a purge or a separator.",
+	"NO_INLET": "A unit has no feed. Pipe something into it.", "TOPOLOGY_OPEN_PORT": "A pipe or port is left open. Connect every inlet and outlet that matters.",
+	"TOPOLOGY_DOUBLE_INLET": "Two pipes go into one inlet. Use a mixer.", "TOPOLOGY_DOUBLE_OUTLET": "Two pipes leave one outlet. Use a splitter.",
+	"ZERO_FLOW": "No flow reaches this unit. Check the feed.", "NO_CONVERGE": "The solver could not settle this plant. Ease a recycle or a spec.",
+	"ACCUMULATION": "Something builds up forever in the loop. Add a purge.", "EXPLOSIVE_MIXTURE": "That mixture is in its explosive range. Change the ratio.",
+	"INSUFFICIENT_O2": "Not enough air for the fuel. Raise the air feed.", "DUTY_UNREACHABLE": "This utility cannot reach that temperature. Pick another utility.",
+	"UTILITY_CANNOT_REACH": "This utility cannot reach that temperature. Pick another utility.", "VALVE_P_RISE": "A valve cannot raise pressure. Use a compressor.",
+	"TEMPERATURE_CROSS": "The cold side would end hotter than the hot side. Change the temperatures or the flow.", "HYDROGEN_SHORT": "Not enough hydrogen for this reaction.",
+	"SPEC_MISSING": "A setting is missing. Open the unit and set it.", "FEED_SPEC": "A feed is not set. Open it and give it a flow.",
+}
+static func fail_text(code: String) -> String:
+	if FAILS.has(code): return FAILS[code]
+	if code == "": return "The plant did not solve."
+	var w := code.replace("_", " ").to_lower()
+	return w.substr(0, 1).to_upper() + w.substr(1)
 
 static var _missing := {}
 static func t(k: String) -> String: return S.get(k, k)

@@ -89,8 +89,11 @@ func set_view(d: Dictionary) -> void:
 	chart.set_data(d)
 	var li = PaperStrings.q(app_ref, "levelInfo") if app_ref != null else {}
 	var gok := true; var gn := 0
+	nix.stale = li is Dictionary and str(li.get("phase", "")) == "design"   # the dials are being edited: the tube still shows the last run
 	if li is Dictionary: for g in li.get("goals", []): if g is Dictionary: gn += 1; if not bool(g.get("met", false)): gok = false
 	nix.goals_ok = gok and gn > 0
+	var sr = d.get("series", {})
+	nix.ran = sr is Dictionary and (sr.get("t", []) as Array).size() >= 2   # no trace yet: the star line stays dim
 	nix.set_data(d.get("metric", {}))
 	bump_key.visible = d.has("bump")
 	_apply_bump()
@@ -255,6 +258,8 @@ class Chart extends Control:
 class Nixie extends Control:
 	var m := {}
 	var goals_ok := false
+	var ran := true
+	var stale := false
 	func _init() -> void: custom_minimum_size = Vector2(170, 96); mouse_filter = Control.MOUSE_FILTER_IGNORE
 	func set_data(v: Dictionary) -> void: m = v; queue_redraw()
 	static func fmt(v: float) -> String: return CbKit.num(v, 0) if absf(v) >= 100.0 else ("%.1f" % v)   # thousands separated: 1,562,000 reads at a glance
@@ -275,10 +280,12 @@ class Nixie extends Control:
 		for o in [Vector2(-1.5, 0), Vector2(1.5, 0), Vector2(0, -1.5), Vector2(0, 1.5)]:
 			draw_string(nf, base + o, txt, HORIZONTAL_ALIGNMENT_LEFT, size.x, nsz, Color(glow, 0.28))
 		draw_string(nf, base, txt, HORIZONTAL_ALIGNMENT_LEFT, size.x, nsz, Color("#FFB070"))
+		if stale and ran: draw_string(EqTheme.font("dymo"), Vector2(size.x - 66.0, 16.0), "LAST RUN", HORIZONTAL_ALIGNMENT_LEFT, 62.0, EqTheme.fs(11), Color("#C0805A"))
 		draw_string(EqTheme.font("sans"), Vector2(base.x + tw + 4, base.y), un, HORIZONTAL_ALIGNMENT_LEFT, size.x - base.x - tw - 4, EqTheme.fs(12), Color("#C0805A"))
 		# the third-star line lights only when the goals are met as well; a metric under the line with goals open is "metric only"
-		var sc := EqTheme.AMBER if (met and goals_ok) else Color("#7A6A58")
-		var line := ("★★★ ≤ %s" % fmt(s3)) if not (met and not goals_ok) else ("metric only ≤ %s" % fmt(s3))
+		var sc := EqTheme.AMBER if (met and goals_ok and ran) else Color("#7A6A58")
+		if not ran: sc = Color("#5A4E40")
+		var line := ("★★★ ≤ %s" % fmt(s3)) if not (met and not goals_ok and ran) else ("metric only ≤ %s" % fmt(s3))
 		draw_string(EqTheme.font("semi"), Vector2(8, 84), line, HORIZONTAL_ALIGNMENT_LEFT, size.x - 10, EqTheme.fs(14), sc)
 
 # ---------------------------------------------------------------------------------------------------------------- rotary selector switch

@@ -70,9 +70,27 @@ static func replay(app, snap: Dictionary) -> int:
 	for s in snap.streams:
 		var fu: String = str(map.get(s.from[0], "")); var tu: String = str(map.get(s.to[0], ""))
 		if fu == "" or tu == "": fails += 1; continue
-		var rc: Dictionary = b.act("connect", [fu, s.from[1], tu, s.to[1]])
-		if not bool(rc.get("ok", false)): fails += 1
-	return fails
+		if _piped(b, fu, str(s.from[1]), tu, str(s.to[1])): continue   # the level already piped it: nothing to redo
+		b.act("connect", [fu, s.from[1], tu, s.to[1]])
+	# judge the result, not the steps: what is really missing now (a refused duplicate is not a loss)
+	var missing: Array = []
+	var pl2 = b.q("plant"); var have := {}
+	for u in (pl2.get("units", []) if pl2 is Dictionary else []): have[str(u.id)] = true
+	for u in olds: if not map.has(str(u.id)) or not have.has(str(map[str(u.id)])): missing.append(str(u.id))
+	for s2 in snap.streams:
+		var fu2: String = str(map.get(s2.from[0], "")); var tu2: String = str(map.get(s2.to[0], ""))
+		if fu2 == "" or tu2 == "" or not _piped(b, fu2, str(s2.from[1]), tu2, str(s2.to[1])): missing.append("%s>%s" % [s2.from[0], s2.to[0]])
+	last_missing = missing
+	return missing.size()
+
+static var last_missing: Array = []   ## what the last replay could not put back (unit tags and pipes as "A>B")
+
+static func _piped(b, fu: String, fp: String, tu: String, tp: String) -> bool:
+	var pl = b.q("plant")
+	if not (pl is Dictionary): return false
+	for st in pl.get("streams", []):
+		if str(st.from.unit) == fu and str(st.from.port) == fp and str(st.to.unit) == tu and str(st.to.port) == tp: return true
+	return false
 
 static func restore_calls(app, snap: Dictionary) -> void:
 	for c in snap.calls:
@@ -88,11 +106,12 @@ static func restart(app, keep_build: bool) -> Dictionary:
 	var snap := capture(app)
 	app.start_level(str(li.id), true)
 	var fails := 0
+	last_missing = []
 	if keep_build: fails = replay(app, snap)
 	restore_calls(app, snap)
 	if keep_build and (snap.units.size() > 0 or snap.calls.size() > 0): Notebook.started[str(li.id)] = true
 	app.game_on_changed()
-	return {"fails": fails, "kept": snap.units.size(), "calls": snap.calls.size()}
+	return {"fails": fails, "missing": last_missing.duplicate(), "kept": snap.units.size(), "calls": snap.calls.size()}
 
 ## The "Restart job" question: keep the build, clear the plot, or cancel.
 static func ask_restart(app) -> void:

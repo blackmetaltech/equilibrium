@@ -40,6 +40,12 @@ func layout() -> void:
 		panel.custom_minimum_size = Vector2(w, 0); panel.size = Vector2(w, 0)
 		panel.position = Vector2.ZERO
 
+## A level change: the last level's panel (trace, dials, cards) is thrown away and rebuilt from the new engine view.
+func reset() -> void:
+	_sig = ""
+	if panel != null: panel.queue_free(); panel = null
+	kind = ""; visible = false
+
 func pin(d) -> void:
 	_stub = d; _sig = ""; refresh(true)
 

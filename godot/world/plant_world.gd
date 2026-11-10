@@ -168,7 +168,10 @@ func port_frame(id: String, port: String, inlet: bool) -> Dictionary:
 ## Show port markers: [{unit, port, inlet, hot}]. Outlets are spheres, inlets cubes, legal targets are larger and brighter.
 func show_ports(list: Array) -> void:
 	for n in _mark_nodes: (n as Node).queue_free()
-	_mark_nodes.clear(); _marks = list
+	_mark_nodes.clear(); _marks = list; _caps.clear()
+	var per_unit := {}   # unit -> marks seen so far (stagger index) and total (crowded = captions only on hover)
+	var total := {}
+	for it in list: total[str(it.unit)] = int(total.get(str(it.unit), 0)) + 1
 	for it in list:
 		var f := port_frame(str(it.unit), str(it.port), bool(it.inlet))
 		if f.is_empty(): continue
@@ -183,10 +186,23 @@ func show_ports(list: Array) -> void:
 		var toward := cam.global_transform.basis.z.normalized()
 		mi.material_override = m; mi.position = f.pos + f.dir * 0.3 + toward * 1.2 + Vector3(0, 0.25, 0); add_child(mi); _mark_nodes.append(mi)
 		var cap := str(it.get("label", ""))
-		if cap != "":   # tiny caps beside the pip: V / L / OUT / IN
+		var ix := int(per_unit.get(str(it.unit), 0)); per_unit[str(it.unit)] = ix + 1
+		var um: Node = _units.get(str(it.unit))
+		if um != null and um.get_node_or_null("Cap_" + str(it.port)) != null: cap = ""   # a nozzle with a permanent tag (exchanger) needs no second one on top of it
+		if cap != "":   # tiny caps beside the pip: V / L / OUT / IN, staggered in height per port so neighbours never overprint
 			var lb := Label3D.new(); lb.text = cap; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true; lb.pixel_size = 0.0011; lb.font_size = 40
 			lb.outline_size = 12; lb.outline_modulate = Color(0, 0, 0, 0.85); lb.modulate = Color("#F4F1DE"); lb.render_priority = 6; lb.outline_render_priority = 5
-			lb.font = EqTheme.font("semi"); lb.position = Vector3(0, r * 2.2 + 0.2, 0); mi.add_child(lb)
+			lb.font = EqTheme.font("semi"); lb.position = Vector3(0, r * 2.2 + 0.2 + 0.75 * float(ix % 3), 0); mi.add_child(lb)
+			if int(total.get(str(it.unit), 0)) > 4: lb.visible = false; _caps.append([lb, mi])   # crowded unit: a caption shows when the cursor is near its pip
+
+var _caps: Array = []
+func _hover_caps() -> void:
+	if _caps.is_empty(): return
+	var mp := get_viewport().get_mouse_position()
+	for c in _caps:
+		if not is_instance_valid(c[0]) or not is_instance_valid(c[1]): continue
+		var n: Node3D = c[1]
+		(c[0] as Label3D).visible = not cam.is_position_behind(n.global_position) and cam.unproject_position(n.global_position).distance_to(mp) < 60.0
 
 func _pick_port(p: Vector2) -> Dictionary:
 	var best := {}; var bd := (30.0 if CbLayout.touch else 20.0)
@@ -253,13 +269,16 @@ func _occupied(ignore := "") -> Dictionary:
 			for j in range(fp.y): occ[Vector2i(s[1] + i, s[2] + j)] = id
 	return occ
 
-func can_place(type: String, x: int, y: int, rot := 0, ignore := "") -> bool:
+func can_place(type: String, x: int, y: int, rot := 0, ignore := "") -> bool: return place_problem(type, x, y, rot, ignore) == ""
+
+## Why a unit cannot stand here ("" when it can): outside the fence, or on top of another unit (named by its tag).
+func place_problem(type: String, x: int, y: int, rot := 0, ignore := "") -> String:
 	var fp := footprint_of(type, rot)
-	if x < 0 or y < 0 or x + fp.x > NX or y + fp.y > NZ: return false
+	if x < 0 or y < 0 or x + fp.x > NX or y + fp.y > NZ: return "Outside the fenced plot"
 	var occ := _occupied(ignore)
 	for i in range(fp.x):
-		for j in range(fp.y): if occ.has(Vector2i(x + i, y + j)): return false
-	return true
+		for j in range(fp.y): if occ.has(Vector2i(x + i, y + j)): return "Occupied by %s: pick a free spot" % str(occ[Vector2i(x + i, y + j)])
+	return ""
 
 # ---- units ------------------------------------------------------------------------------------------------------------------
 
@@ -275,6 +294,7 @@ func set_units(arr: Array) -> void:
 			if _units.has(id): (_units[id] as Node).queue_free()
 			var m := UnitModels.create(type, id); add_child(m); _units[id] = m; _fit(m, type)
 			if type == "hx": _label_hx_ports(m)
+			if _is_small(type): _tag_small(m, id, type)
 			if id == selected_id: m.set_selected(true)
 			st = []
 		_unit_state[id] = [type, x, y, rot]
@@ -402,6 +422,7 @@ func begin_place(type: String, rot := 0) -> void:
 
 func cancel_place() -> void:
 	placing = ""
+	if _why_tag != null: _why_tag.visible = false
 	if _ghost != null: _ghost.queue_free(); _ghost = null
 	if _foot != null: _foot.queue_free(); _foot = null
 
@@ -409,25 +430,54 @@ func rotate_ghost() -> void:
 	if placing != "": place_rot = (place_rot + 1) % 4; _update_ghost()
 
 func place_at(x: int, y: int) -> bool:
-	if placing == "" or not can_place(placing, x, y, place_rot, place_ignore): return false
+	if placing == "": return false
+	var why := place_problem(placing, x, y, place_rot, place_ignore)
+	if why != "":
+		if app != null and app.has_method("toast"): app.toast(why, "warn")
+		return false
 	place_requested.emit(placing, x, y, place_rot); return true
 
 func _update_ghost() -> void:
 	if _ghost == null: return
 	var fp := footprint_of(placing, place_rot)
 	var t := Vector2i(clampi(_cursor.x, 0, NX - fp.x), clampi(_cursor.y, 0, NZ - fp.y))
-	_cursor_valid = can_place(placing, t.x, t.y, place_rot, place_ignore)
+	var why := place_problem(placing, t.x, t.y, place_rot, place_ignore)
+	_cursor_valid = why == ""
 	var col := Color("#38D96B") if _cursor_valid else Color("#E63946")
+	_ghost_why(why, tile_to_world(t, fp) + Vector3(0, _ghost.height * _ghost.scale.y + 1.2, 0))
 	_ghost.position = tile_to_world(t, fp); _ghost.rotation_degrees.y = -90.0 * place_rot; _ghost.tint_ghost(col)
 	_foot.position = _ghost.position + Vector3(0, 0.12, 0); (_foot.mesh as BoxMesh).size = Vector3(fp.x * GRID - 0.1, 0.06, fp.y * GRID - 0.1)
 	_foot_mat.albedo_color = Color(col.r, col.g, col.b, 0.38)
 	_cursor = t
+
+## The red ghost says why: a billboard tag over it ("Occupied by F-101").
+var _why_tag: Label3D
+func ghost_reason() -> String: return _why_tag.text if _why_tag != null and _why_tag.visible else ""
+func _ghost_why(why: String, at: Vector3) -> void:
+	if why == "":
+		if _why_tag != null: _why_tag.visible = false
+		return
+	if _why_tag == null:
+		_why_tag = Label3D.new(); _why_tag.name = "GhostWhy"; _why_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED; _why_tag.no_depth_test = true; _why_tag.fixed_size = true
+		_why_tag.pixel_size = 0.0011; _why_tag.font_size = 38; _why_tag.outline_size = 12; _why_tag.outline_modulate = Color(0, 0, 0, 0.9); _why_tag.modulate = Color("#FF8A92")
+		_why_tag.font = EqTheme.font("semi"); _why_tag.render_priority = 8; _why_tag.outline_render_priority = 7; add_child(_why_tag)
+	_why_tag.text = why; _why_tag.position = at; _why_tag.visible = true
 
 func _ground_at(p: Vector2) -> Variant:
 	var o := cam.project_ray_origin(p); var n := cam.project_ray_normal(p)
 	if absf(n.y) < 0.0001: return null
 	var t := -o.y / n.y
 	return o + n * t
+
+## Small units (relief valve, valve, interlock, purge, splitter) are easy to lose in a plant: they carry a permanent tag and a bigger pick target.
+const SMALL_TYPES := ["relief", "valve", "interlock", "purge", "splitter", "sink", "vent", "flare"]
+func _is_small(type: String) -> bool:
+	var f := footprint_of(type, 0)
+	return SMALL_TYPES.has(type) or f.x * f.y <= 2
+func _tag_small(m: UnitModel, id: String, type: String) -> void:
+	var lb := Label3D.new(); lb.name = "SmallTag"; lb.text = "%s %s" % [type.replace("_", " ").to_upper(), id]; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true
+	lb.pixel_size = 0.0010; lb.font_size = 32; lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.9); lb.modulate = Color("#FFD27A"); lb.font = EqTheme.font("semi")
+	lb.render_priority = 6; lb.outline_render_priority = 5; lb.position = Vector3(0, m.height + 1.0, 0); m.add_child(lb)
 
 ## The unit under a screen point. A tall model (stack, converter) would otherwise hide its neighbours behind its whole height: a unit whose body (the lowest
 ## PICK_LOW metres) is hit wins over one that is only hit high up, then the nearest entry wins.
@@ -442,7 +492,8 @@ func _pick_unit(p: Vector2) -> String:
 		for tier in range(2):
 			var h := minf(top, PICK_LOW) if tier == 0 else top
 			if tier == 1 and top <= PICK_LOW: break
-			var lo := Vector3(c.x - fp.x * GRID * 0.5, 0.0, c.z - fp.y * GRID * 0.5); var hi := Vector3(c.x + fp.x * GRID * 0.5, h, c.z + fp.y * GRID * 0.5)
+			var mg := 1.1 if _is_small(str(st[0])) else 0.0   # a small unit is hit within a metre of its body
+			var lo := Vector3(c.x - fp.x * GRID * 0.5 - mg, 0.0, c.z - fp.y * GRID * 0.5 - mg); var hi := Vector3(c.x + fp.x * GRID * 0.5 + mg, h + mg, c.z + fp.y * GRID * 0.5 + mg)
 			var t0 := -INF; var t1 := INF; var ok := true
 			for a in range(3):
 				var oa := o[a]; var na := n[a]
@@ -563,7 +614,7 @@ func _tick_ghost() -> void:
 	_ghost_line.visible = true
 
 func _process(dt: float) -> void:
-	_coach_tick(); _tick_ghost()
+	_coach_tick(); _tick_ghost(); _hover_caps()
 	if _btn_layer != null:
 		var show_btn: bool = (CbLayout.touch or OS.get_environment("CB_CAM_BUTTONS") != "") and input_ok() and not title_mode and app.started
 		_btn_layer.visible = show_btn

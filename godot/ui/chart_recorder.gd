@@ -96,7 +96,7 @@ func _gui_input(e: InputEvent) -> void:
 
 # ---- drawing -------------------------------------------------------------------------------------------------------------------------------------
 func _plot() -> Rect2:
-	var gl := 46.0 if big else 40.0
+	var gl := 62.0 if big else 54.0   # wide enough for 130.2 / 1.56M without the left digits being clipped
 	return Rect2(gl, 4.0, size.x - gl - 60.0, size.y - 8.0 - 16.0)
 
 ## The hero pen's axis: the target band and every plotted value (and the live reading) with a margin, so no trace ever leaves the paper.
@@ -183,9 +183,14 @@ func _draw() -> void:
 	draw_line(Vector2(rx, 0), Vector2(rx, size.y), Color("#8C9A94"), 1.0)
 	draw_line(Vector2(pl.position.x - 1.0, 0), Vector2(pl.position.x - 1.0, size.y), Color("#8C9A94"), 1.0)
 	if _has(hero, "hi"):
-		draw_string(mono, Vector2(2, _y(_num(hero.hi), r, pl) - 1.0), _fmt(_num(hero.hi)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
+		draw_string(mono, Vector2(2, _y(_num(hero.hi), r, pl) - 1.0), _fmtax(_num(hero.hi)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
 	if _has(hero, "lo"):
-		draw_string(mono, Vector2(2, _y(_num(hero.lo), r, pl) + 13.0), _fmt(_num(hero.lo)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
+		draw_string(mono, Vector2(2, _y(_num(hero.lo), r, pl) + 13.0), _fmtax(_num(hero.lo)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
+	# the axis ends too: the paper's own top and bottom, so a trace far from the target band still reads against a scale
+	var top_v := r.y; var bot_v := r.x
+	var hi_y := _y(_num(hero.get("hi", top_v)), r, pl) if _has(hero, "hi") else -99.0; var lo_y := _y(_num(hero.get("lo", bot_v)), r, pl) if _has(hero, "lo") else 999.0
+	if absf(hi_y - (pl.position.y + 10.0)) > 14.0 and absf(lo_y - (pl.position.y + 10.0)) > 14.0: draw_string(mono, Vector2(2, pl.position.y + 11.0), _fmtax(top_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
+	if absf(lo_y - pl.end.y) > 14.0 and absf(hi_y - pl.end.y) > 14.0: draw_string(mono, Vector2(2, pl.end.y - 1.0), _fmtax(bot_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
 	# latest pen values at the right edge
 	if n > 0:
 		var hy := clampf(hp[n - 1].y + 5.0, 14.0, size.y - 6.0)
@@ -206,6 +211,13 @@ func _draw() -> void:
 		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 21.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
+func _fmtax(v: float) -> String:   # axis labels: compact, never wider than the gutter
+	if absf(v) >= 1.0e6: return "%.2fM" % (v / 1.0e6)
+	if absf(v) >= 1.0e4: return "%.0fk" % (v / 1.0e3)
+	if absf(v) >= 100.0: return "%.0f" % v
+	if absf(v) >= 10.0: return "%.1f" % v
+	return "%.2f" % v
+
 func _fmt(v: float) -> String:
 	# a 52 px label used to clip 1562000 to "156200" (a silent factor of ten): big numbers are written compactly instead
 	if absf(v) >= 1.0e6: return "%.2fM" % (v / 1.0e6)
@@ -221,7 +233,9 @@ func _dash(a: Vector2, b: Vector2, col: Color) -> void:
 
 func _legend(d: Dictionary) -> String:
 	var u := str(d.get("unit", ""))
-	return str(d.get("label", "")) + ("" if u == "" else " " + u)
+	var lab := str(d.get("label", ""))
+	if u == "" or lab.ends_with(" " + u) or lab.ends_with(", " + u) or lab.ends_with("(" + u + ")") or lab.ends_with("[" + u + "]"): return lab   # the label already says its unit
+	return lab + " " + u
 
 ## One strip of Dymo tape (clipped to `avail` px); returns the y for the next strip below it.
 func _tape(p: Vector2, text: String, accent: Color, avail := 1.0e6) -> float:

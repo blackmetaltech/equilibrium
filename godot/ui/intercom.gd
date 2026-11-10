@@ -92,7 +92,7 @@ func drop_last_if(text: String) -> bool:
 
 func last() -> Dictionary: return lines.back() if not lines.is_empty() else {}
 
-func shown_text() -> String: return _text.text
+func shown_text() -> String: return _text.text.substr(0, _text.visible_characters) if _text.visible_characters >= 0 else _text.text
 
 func ask_why(l := {}) -> void:
 	if l.is_empty(): l = last()
@@ -113,10 +113,17 @@ func _show_last() -> void:
 	for fs in [15, 14, 13, 12]:
 		_text.label_settings = EqStrings.ls(fs, col); _text.lines_skipped = 0; _text.text = full
 		if _text.get_line_count() <= _text.max_lines_visible or _text.size.x < 40.0: break
-	_text.text = full.substr(0, int(chars)) if not l.is_empty() else ""
+	_text.text = full   # the whole line is laid out from the first letter (no re-wrap while it types) and revealed by visible_characters
+	_overflow = _text.get_line_count() > _text.max_lines_visible
+	_reveal(full.length())
 	_follow()
 	_lamps.queue_redraw(); _grille.queue_redraw()
 	tooltip_text = ""
+
+var _overflow := false
+## Typewriter: reveal `chars` of the n-character line. A line taller than the box (it scrolls like a teleprinter) shows whole at once, so no word is ever hidden.
+func _reveal(n: int) -> void:
+	_text.visible_characters = -1 if (chars >= n or _overflow) else int(chars)
 
 func _process(dt: float) -> void:
 	var l := last()
@@ -124,7 +131,7 @@ func _process(dt: float) -> void:
 	var n := str(l.text).length()
 	if chars < n:
 		chars = minf(float(n), chars + CPS * dt)
-		_text.text = str(l.text).substr(0, int(chars)); _grille.talk = true
+		_reveal(n); _grille.talk = true
 		_follow()
 	elif _grille.talk: _grille.talk = false; _grille.queue_redraw()
 

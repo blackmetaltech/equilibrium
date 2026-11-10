@@ -43,6 +43,14 @@ func layout() -> void:
 	offset_right = -10.0; offset_left = -10.0 - w; offset_top = 10.0 + tap + 8.0; offset_bottom = offset_top + h
 	size = Vector2(w, h)
 
+## A level change: nothing of the last job's instrument stays on the paper (the curve, the point, the last unit).
+func reset() -> void:
+	_sig = ""; _unit = ""; _dirty = false
+	if view != null: view.set_data({})
+	kind = ""
+	if view != null: view.queue_free(); view = null
+	visible = false
+
 func _has_query(n: String) -> bool: return app != null and (app.b.init_data.get("queries", []) as Array).has(n)
 
 func pin(k: String, unit := "") -> void:   ## QA / tests: show this instrument whatever the plant is
@@ -57,7 +65,7 @@ static func choose(units: Array, level_id: String) -> Dictionary:
 	var nbed := 0
 	for t in BED_TYPES: nbed += (by.get(t, []) as Array).size()
 	if by.has("multibed") or nbed >= 2: return {"kind": "xt", "unit": ""}
-	if by.has("gasifier") or by.has("co_burner") or level_id == "L07" or level_id == "L08": return {"kind": "ledger", "unit": ""}
+	if by.has("gasifier") or by.has("co_burner") or level_id == "L05" or level_id == "L07" or level_id == "L08": return {"kind": "ledger", "unit": ""}
 	for t in BED_TYPES:
 		if by.has(t): return {"kind": "eqwin", "unit": by[t][0]}
 	return {"kind": "", "unit": ""}
@@ -114,11 +122,12 @@ func refresh(force := false) -> void:
 	if k == "": return
 	_unit = str(pick.unit)
 	var d = _query(k, _unit)
+	if not (d is Dictionary) and view != null and not (view.data as Dictionary).is_empty(): view.set_data({}); _sig = ""
 	var sig := JSON.stringify(d)
-	if sig == _sig: visible = true; return
-	_sig = sig
-	if d is Dictionary: view.set_data(d)
-	visible = true
+	if sig != _sig:
+		_sig = sig
+		if d is Dictionary: view.set_data(d)
+	visible = not ((k == "ledger" or k == "eqwin") and _forced_kind == "" and not view.has_reading())   # an instrument with nothing on it yet is no slab at all
 
 func _only_feeds(p: Dictionary) -> bool:
 	for u in p.get("units", []): if str(u.get("type", "")) != "feed": return false

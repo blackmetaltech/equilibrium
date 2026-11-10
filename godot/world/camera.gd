@@ -74,6 +74,11 @@ func pan_pixels(rel: Vector2) -> void:
 	pan_ground((-right * rel.x + fwd * rel.y / sin(deg_to_rad(PITCH))) * mpp)
 	_instant = false
 
+## A GUI control (any that takes the mouse: a panel, a knob, the key switch) is under the cursor: the world camera must not zoom.
+func _over_panel() -> bool:
+	var h := get_viewport().gui_get_hovered_control()
+	return h != null and h.is_visible_in_tree()
+
 func _allowed() -> bool: return world != null and world.call("input_ok")
 
 func _typing() -> bool:
@@ -119,6 +124,7 @@ func pad_move(left: Vector2, right: Vector2, dt: float, pan_enabled := true) -> 
 func _unhandled_input(e: InputEvent) -> void:
 	if not _allowed(): _touches.clear(); return
 	if e is InputEventMouseButton and e.pressed and e.device != InputEvent.DEVICE_ID_EMULATION:
+		if (e.button_index == MOUSE_BUTTON_WHEEL_UP or e.button_index == MOUSE_BUTTON_WHEEL_DOWN) and _over_panel(): return   # the wheel belongs to the panel under it (knobs, key, bays)
 		if e.button_index == MOUSE_BUTTON_WHEEL_UP: zoom_step(1)
 		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: zoom_step(-1)
 	elif e is InputEventMouseMotion and e.device != InputEvent.DEVICE_ID_EMULATION and (e.button_mask & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) != 0:

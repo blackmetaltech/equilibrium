@@ -24,6 +24,9 @@ var _body: VBoxContainer
 var _last_pos := Vector2(-1, -1)
 var _order := 0
 var _warn: Label
+var _last: Label
+var _all: Button
+var _uncovered := false
 var _cmd := {}                       # knob key -> SI value commanded during a shift (the ramp target; shown as SP until the plant gets there)
 var _bank := false                   # a cylinder bank (L01 / L04): species chips and one kg/h knob
 var _bank_sp: Array = []             # the species a bank can carry (levelInfo.bankSpecies)
@@ -177,6 +180,7 @@ func _rebuild() -> void:
 		_carry_lbl = EqTheme.label("", 14, EqTheme.INK, "mono_bold"); _carry_lbl.name = "Carries"; _carry_lbl.label_settings = EqStrings.ls(14, EqTheme.INK, "cap"); tags.add_child(_carry_lbl)
 	_pin = _tiny(PaperStrings.t("FP_PIN"), func(): pinned = not pinned; _pin.text = PaperStrings.t("FP_UNPIN") if pinned else PaperStrings.t("FP_PIN")); head.add_child(_pin)
 	_trash = TrashButton.new(); _trash.pressed.connect(func(): _delete_me()); head.add_child(_trash)
+	_all = _tiny(PaperStrings.t("FP_CLOSE_ALL"), func(): Faceplate.close_all()); _all.name = "CloseAll"; _all.visible = plates.size() > 1; head.add_child(_all)   # two cards open: one key clears the plot
 	var x := _tiny("×", func(): close()); x.name = "Close"; head.add_child(x)
 	# body: PV bar + knobs
 	var mid := HBoxContainer.new(); mid.add_theme_constant_override("separation", 6); _body.add_child(mid)
@@ -207,6 +211,7 @@ func _rebuild() -> void:
 	# readouts, two cells per row (kmol/h beside kg/h)
 	var grid := GridContainer.new(); grid.columns = 2; grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 2); _body.add_child(grid)
 	for key in ["flow", "mass", "T", "P", "duty"]: _cell(grid, key)
+	_last = EqTheme.label("", 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "dymo"); _last.name = "LastRun"; _body.add_child(_last)   # readings of the last run while the dials are being edited
 	# fixed slots: error text never moves the fields above it (a heater also has a loud 0 kW warning slot)
 	_warn = null
 	if str(card.type) in ["heater", "cooler"]:
@@ -399,6 +404,10 @@ func _update() -> void:
 		elif _cmd.has(str(k.key)): kn.set_value(EqFmt.to_disp(float(_cmd[str(k.key)]), str(k.unit)))
 		else: kn.set_value(EqFmt.to_disp(float(k.value), str(k.unit)))
 	_update_feed_info()
+	if _all != null: _all.visible = plates.size() > 1
+	if _last != null:   # in DESIGN the knobs are the plan; meters from an earlier run say so instead of passing for the plan
+		_last.text = PaperStrings.t("FP_LAST_RUN") if (_phase() == "design" and not readouts.is_empty() and sid != "" and not is_feed) else ""
+		_last.visible = _last.text != ""
 	var need = PaperStrings.q(app, "needs", [unit_id])
 	_need.text = str(need.text) if need is Dictionary and not (need as Dictionary).is_empty() else (PaperStrings.t("FP_FAILED") if bool(card.get("failed", false)) else "")
 	_need.modulate.a = 1.0 if _need.text != "" else 0.0   # the slot stays, so nothing below it jumps
@@ -407,8 +416,11 @@ func _update() -> void:
 		for k in card.knobs: if str(k.key) == "utility": utl = str(k.value)
 		var res2: Variant = card.get("results")
 		var zero: bool = utl == "" or (res2 is Dictionary and (res2 as Dictionary).has("duty") and absf(float(res2.duty)) < 1.0)
-		_warn.text = PaperStrings.t("UT_ZERO") if zero else ""
-		(_warn.get_meta("box") as Control).modulate.a = 1.0 if zero else 0.0
+		var wrong := ""
+		if str(card.type) == "heater" and (utl == "cw" or utl == "refrig"): wrong = PaperStrings.t("UT_COLD")   # a heater on cooling water cannot heat: say so loudly
+		elif str(card.type) == "cooler" and (utl == "fired" or utl == "steam"): wrong = PaperStrings.t("UT_HOT")
+		_warn.text = wrong if wrong != "" else (PaperStrings.t("UT_ZERO") if zero else "")
+		(_warn.get_meta("box") as Control).modulate.a = 1.0 if (zero or wrong != "") else 0.0
 	_lens.disabled = app == null or not app.has_method("open_lens"); _win.disabled = app == null or not app.has_method("open_window")
 	reset_size()
 
@@ -460,6 +472,12 @@ func _place(force := false) -> void:
 	if app.world != null and app.world.has_method("unit_screen_pos"): sp = app.world.unit_screen_pos(unit_id)
 	if not force and pos.is_equal_approx(position) and sp.is_equal_approx(_last_pos): return
 	_last_pos = sp; position = pos
+	# the card never hides the unit it is about: when the unit sits under the card, the plot slides left (once per card) until it is clear
+	if not _uncovered and sp.x > -3000.0 and app.world != null and app.world.get("cam_rig") != null and size.x > 40.0:
+		var pr := Rect2(pos, sz).grow(28.0)
+		if pr.has_point(sp):
+			_uncovered = true
+			app.world.cam_rig.pan_pixels(Vector2(-(sp.x - pr.position.x + 40.0), 0.0))
 	queue_redraw()
 
 func _process(_dt: float) -> void: _place()

@@ -160,8 +160,10 @@ func refresh() -> void:
 	var li := level_info()
 	var id := str(li.get("id", "")) if not li.is_empty() else ""
 	if id != _level:
-		_level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false; _outcome_said = false; _bank_dup = ""; _fail_sig = ""
+		_level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false; _outcome_said = false; _bank_dup = ""; _fail_sig = ""; _last_fail_msg = ""; _fail_text = ""
 		_close_paper()
+		if app.bay != null: app.bay.reset()
+		if app.lvbay != null: app.lvbay.reset()
 	_gl = str(app.b.g.get("level", ""))
 	phase = engine_phase()
 	# a shift that is running (a level that opens mid-shift, or the key just turned) starts at 1x: nothing moves at pause and the coach seems stuck
@@ -280,7 +282,7 @@ func _failure() -> void:
 			var nd = PaperStrings.q(app, "needs", [uid])
 			if nd is Dictionary and not nd.is_empty(): msg = str(nd.get("text", ""))
 	if msg == "": msg = _last_fail_msg
-	if msg == "": msg = str(f.get("code", ""))
+	if msg == "": msg = PaperStrings.fail_text(str(f.get("code", "")))
 	_fail_text = PaperStrings.t("FAIL_AT") % [uid if uid != "" else "-", msg]
 	intercom.say("TOMAS", _fail_text, "bad")
 	app.sfx("bad")
@@ -347,7 +349,7 @@ func stop_and_edit() -> Dictionary:
 	var r := BuildKeeper.restart(app, true)
 	app.set_speed(0); keys.set_speed_pos(0)
 	phase = engine_phase()
-	intercom.say("MARA", PaperStrings.t("IC_STOPPED") if int(r.get("fails", 0)) == 0 else PaperStrings.t("IC_STOP_FAIL") % int(r.fails), "info")
+	intercom.say("MARA", PaperStrings.t("IC_STOPPED") if int(r.get("fails", 0)) == 0 else PaperStrings.t("IC_STOP_FAIL") % ", ".join(PackedStringArray(r.get("missing", []))), "info")
 	app.sfx("key")
 	return r
 
