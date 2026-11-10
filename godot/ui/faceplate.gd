@@ -23,6 +23,13 @@ var _knob_box: GridContainer
 var _body: VBoxContainer
 var _last_pos := Vector2(-1, -1)
 var _order := 0
+var _cmd := {}                       # knob key -> SI value commanded during a shift (the ramp target; shown as SP until the plant gets there)
+var _bank := false                   # a cylinder bank (L01 / L04): species chips and one kg/h knob
+var _bank_sp: Array = []             # the species a bank can carry (levelInfo.bankSpecies)
+var _chips := {}                     # species -> Button
+var _bank_kg: Knob
+var _kmol_lbl: Label
+var _carry_lbl: Label
 static var _seq := 0
 const MAX_PLATES := 2
 
@@ -91,6 +98,25 @@ func _init() -> void:
 func _ready() -> void:
 	if app != null and app.b != null: app.b.changed.connect(refresh)
 
+static var li_extra := {}            ## QA / tests: keys merged over the engine's levelInfo (e.g. bankSpecies before the engine reports it)
+func _li() -> Dictionary:
+	var li = PaperStrings.q(app, "levelInfo")
+	if not (li is Dictionary): return {}
+	if li_extra.is_empty() or (li as Dictionary).is_empty(): return li
+	var m: Dictionary = (li as Dictionary).duplicate(); m.merge(li_extra, true)
+	return m
+
+## The engine phase: levelInfo.phase inside a level, the plant's phase in the sandbox ("shift" = knobs are live set points).
+func _phase() -> String:
+	var li := _li()
+	if li.has("phase"): return str(li.phase)
+	var p = PaperStrings.q(app, "plant")
+	return str(p.get("phase", "design")) if p is Dictionary else "design"
+
+func _bank_entry(li: Dictionary) -> Dictionary:
+	for b in li.get("banks", []): if str(b.unit) == unit_id: return b
+	return {}
+
 func _query_card() -> Dictionary:
 	var c = PaperStrings.q(app, "unitCard", [unit_id])
 	return c if c is Dictionary else {}
@@ -106,28 +132,52 @@ func refresh() -> void:
 	var c := _query_card()
 	if c.is_empty(): close(); return
 	card = c
-	var sig := str(c.type) + "|" + ",".join((c.knobs as Array).map(func(k): return str(k.key))) + "|" + str(c.get("feed", null) != null)
+	var li := _li()
+	var bsp: Array = li.get("bankSpecies", []) if str(c.type) == "feed" else []
+	var sig := str(c.type) + "|" + ",".join((c.knobs as Array).map(func(k): return str(k.key))) + "|" + str(c.get("feed", null) != null) + "|" + ",".join(bsp.map(func(x): return str(x))) + "|" + str((li.get("masked", []) as Array).has(unit_id))
 	if sig != _sig: _sig = sig; _rebuild()
 	_update()
 
 func _rebuild() -> void:
 	for ch in get_children(): ch.queue_free()
-	knobs.clear(); _cells.clear()
+	knobs.clear(); _cells.clear(); _chips.clear(); _bank_kg = null; _kmol_lbl = null; _carry_lbl = null
+	var li0 := _li()
+	_bank_sp = li0.get("bankSpecies", []) if str(card.type) == "feed" else []
+	_bank = not _bank_sp.is_empty() and card.get("feed") != null
 	_body = VBoxContainer.new(); _body.add_theme_constant_override("separation", 8); add_child(_body)
 	# header: ISA tag on Dymo tape, the unit's name below, pin and close
 	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 6); _body.add_child(head)
 	var tags := VBoxContainer.new(); tags.add_theme_constant_override("separation", 2); tags.size_flags_horizontal = Control.SIZE_EXPAND_FILL; head.add_child(tags)
 	var tag := EqTheme.dymo(str(card.id), 16); tag.name = "Tag"; tags.add_child(tag)
-	var nm := EqTheme.dymo(str(card.label), 12); nm.name = "Name"; tags.add_child(nm)
+	var nm := EqTheme.dymo(str(card.label) if not _bank else EqStrings.formula(str(_bank_sp[0])) + " BANK", 12); nm.name = "Name"; tags.add_child(nm)
+	if str(card.type) == "feed":   # every feed says what it carries
+		_carry_lbl = EqTheme.label("", 14, EqTheme.INK, "mono_bold"); _carry_lbl.name = "Carries"; _carry_lbl.label_settings = EqStrings.ls(14, EqTheme.INK, "cap"); tags.add_child(_carry_lbl)
 	_pin = _tiny(PaperStrings.t("FP_PIN"), func(): pinned = not pinned; _pin.text = PaperStrings.t("FP_UNPIN") if pinned else PaperStrings.t("FP_PIN")); head.add_child(_pin)
 	var x := _tiny("×", func(): close()); x.name = "Close"; head.add_child(x)
 	# body: PV bar + knobs
 	var mid := HBoxContainer.new(); mid.add_theme_constant_override("separation", 6); _body.add_child(mid)
 	_pv = PvBar.new(); mid.add_child(_pv)
+	_pv.visible = not _bank   # a cylinder bank has no process variable to chart
+	if _bank:
+		var bv := VBoxContainer.new(); bv.add_theme_constant_override("separation", 4); mid.add_child(bv)
+		var chips := HBoxContainer.new(); chips.name = "Chips"; chips.add_theme_constant_override("separation", 6); bv.add_child(chips)
+		for sp in _bank_sp:
+			var ch := Button.new(); ch.name = "Chip_" + str(sp); ch.text = EqStrings.formula(str(sp)); ch.toggle_mode = true; ch.focus_mode = Control.FOCUS_ALL; ch.custom_minimum_size = Vector2(64, 46)
+			ch.add_theme_font_override("font", EqStrings.font("cap")); ch.add_theme_font_size_override("font_size", EqTheme.fs(24))
+			ch.add_theme_stylebox_override("normal", _chip_sb(false)); ch.add_theme_stylebox_override("hover", _chip_sb(false, true)); ch.add_theme_stylebox_override("pressed", _chip_sb(true)); ch.add_theme_stylebox_override("hover_pressed", _chip_sb(true)); ch.add_theme_stylebox_override("focus", _chip_sb(false, true))
+			for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]: ch.add_theme_color_override(c, EqTheme.INK if c != "font_pressed_color" and c != "font_hover_pressed_color" else Color("#0B1F1C"))
+			var spc := str(sp); ch.pressed.connect(func(): _pick_species(spc)); chips.add_child(ch); _chips[spc] = ch
+		_bank_kg = Knob.new(); _bank_kg.app = app
+		_bank_kg.setup(PaperStrings.t("FP_BANK_KG"), "kg/h", 0.0, 3000.0, 10.0, 0.1, 0.0)
+		_bank_kg.name = "Knob_bank"; _bank_kg.committed.connect(func(v: float) -> void: _commit_bank(v))
+		bv.add_child(_bank_kg); knobs["bank"] = _bank_kg
+		_kmol_lbl = EqTheme.label("", 15, EqTheme.INK, "mono_bold"); _kmol_lbl.name = "Kmol"; bv.add_child(_kmol_lbl)
 	_knob_box = GridContainer.new(); _knob_box.columns = 1 if (card.knobs as Array).size() <= 1 else 2
-	_knob_box.add_theme_constant_override("h_separation", 2); _knob_box.add_theme_constant_override("v_separation", 2); mid.add_child(_knob_box)
-	for k in card.knobs: _add_knob(k)
-	if (card.knobs as Array).is_empty():
+	_knob_box.add_theme_constant_override("h_separation", 2); _knob_box.add_theme_constant_override("v_separation", 2)
+	if not _bank: mid.add_child(_knob_box)
+	if not _bank:
+		for k in card.knobs: _add_knob(k)
+	if (card.knobs as Array).is_empty() and not _bank:
 		var nl := EqTheme.label("—", 18, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.5), "mono"); nl.custom_minimum_size = Vector2(90, 40); _knob_box.add_child(nl)
 	_body.add_child(HSeparator.new())
 	# readouts, two cells per row (kmol/h beside kg/h)
@@ -138,13 +188,36 @@ func _rebuild() -> void:
 	_why = _btn(PaperStrings.t("FP_WHY"), _on_why); _lens = _btn(PaperStrings.t("FP_LENS"), func(): _open_extra("open_lens")); _win = _btn(PaperStrings.t("FP_WINDOW"), func(): _open_extra("open_window"))
 	for b in [_why, _lens, _win]: bt.add_child(b)
 
+func _chip_sb(on: bool, hover := false) -> StyleBoxFlat:
+	var s := EqTheme.key_sb(on)
+	if not on and hover: s.bg_color = EqTheme.PORCELAIN.lightened(0.08)
+	s.content_margin_left = 8; s.content_margin_right = 8
+	if on: s.border_color = EqTheme.INK; s.set_border_width_all(2); s.border_width_bottom = 3
+	return s
+
+## A chip: the bank now carries `sp` at the same mass flow.
+func _pick_species(sp: String) -> void:
+	var be := _bank_entry(_li())
+	var kg := _bank_kg.value if _bank_kg != null else float(be.get("kgPerH", 0.0))
+	var r: Dictionary = app.b.act("setBank", [unit_id, sp, kg])
+	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
+	refresh()
+
+func _commit_bank(v: float) -> void:
+	var be := _bank_entry(_li())
+	var sp := str(be.get("species", _bank_sp[0]))
+	if not _bank_sp.has(sp): sp = str(_bank_sp[0])
+	var r: Dictionary = app.b.act("setBank", [unit_id, sp, v])
+	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
+	refresh()
+
 func _tiny(text: String, cb: Callable) -> Button:
 	var b := EqTheme.key_button(text, false, 13); b.custom_minimum_size = Vector2(0, 28); b.add_theme_stylebox_override("normal", EqTheme.key_sb(false)); b.pressed.connect(cb)
 	for st in ["normal", "hover", "pressed", "disabled"]: var sb := EqTheme.key_sb(false, st); sb.content_margin_left = 7; sb.content_margin_right = 7; sb.content_margin_top = 1; sb.content_margin_bottom = 1; b.add_theme_stylebox_override(st, sb)
 	return b
 
 func _btn(text: String, cb: Callable) -> Button:
-	var b := EqTheme.key_button(text, false, 14); b.custom_minimum_size = Vector2(0, 34); b.pressed.connect(cb)
+	var b := EqTheme.key_button(text, false, 15); b.custom_minimum_size = Vector2(0, 34); b.pressed.connect(cb)
 	for st in ["normal", "hover", "pressed", "disabled"]: var sb := EqTheme.key_sb(false, st); sb.content_margin_left = 8; sb.content_margin_right = 8; b.add_theme_stylebox_override(st, sb)
 	return b
 
@@ -172,8 +245,10 @@ func _commit(k: Dictionary, v: float) -> void:
 	var val: Variant
 	if str(k.kind) == "choice": val = str((k.options as Array)[clampi(int(round(v)), 0, (k.options as Array).size() - 1)])
 	else: val = EqFmt.to_si(v, str(k.unit))
-	var r: Dictionary = app.b.act("setParam", [unit_id, str(k.key), val])
+	var shift := _phase() == "shift"   # during a shift the knob is a set point: the actuator ramps the plant to it (setParam is a design-phase action)
+	var r: Dictionary = app.b.act("setpoint" if shift else "setParam", [unit_id, str(k.key), val])
 	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
+	elif shift and typeof(val) == TYPE_FLOAT: _cmd[str(k.key)] = val
 	refresh()
 
 func _on_why() -> void:
@@ -226,42 +301,66 @@ func _update() -> void:
 	_pv.pv = NAN; _pv.sp = NAN
 	if not spk.is_empty():
 		var unit := str(spk.unit)
-		_pv.lo = EqFmt.to_disp(float(spk.min), unit); _pv.hi = EqFmt.to_disp(float(spk.max), unit); _pv.sp = EqFmt.to_disp(float(spk.value), unit); _pv.sp_label = "SP"
+		var sp_si := float(_cmd[str(spk.key)]) if _cmd.has(str(spk.key)) else float(spk.value)   # a commanded ramp shows its target, not where the actuator is now
+		_pv.lo = EqFmt.to_disp(float(spk.min), unit); _pv.hi = EqFmt.to_disp(float(spk.max), unit); _pv.sp = EqFmt.to_disp(sp_si, unit); _pv.sp_label = "SP"
 		var key := str(spk.key)
 		if st.has("T") and key == "T": _pv.pv = EqFmt.to_disp(float(st.T), unit)
 		elif st.has("P") and key == "P": _pv.pv = EqFmt.to_disp(float(st.P), unit)
 		elif key == "flow" and flow != null: _pv.pv = EqFmt.to_disp(float(flow), unit)
 	_pv.queue_redraw()
-	# knobs follow the engine (but never fight a hand on the knob)
+	# knobs follow the engine (but never fight a hand on the knob); a commanded shift ramp keeps the knob at its target until the plant arrives
+	var running := _phase() == "shift"
 	for k in card.knobs:
 		var kn: Knob = knobs.get(str(k.key))
+		if _cmd.has(str(k.key)) and (not running or str(k.kind) == "choice" or absf(float(k.value) - float(_cmd[str(k.key)])) <= 1e-6 * maxf(1.0, absf(float(_cmd[str(k.key)])))): _cmd.erase(str(k.key))
 		if kn == null or kn._drag: continue
 		if str(k.kind) == "choice": kn.set_value(float((k.options as Array).find(str(k.value))))
+		elif _cmd.has(str(k.key)): kn.set_value(EqFmt.to_disp(float(_cmd[str(k.key)]), str(k.unit)))
 		else: kn.set_value(EqFmt.to_disp(float(k.value), str(k.unit)))
+	_update_feed_info()
 	var need = PaperStrings.q(app, "needs", [unit_id])
 	_need.text = str(need.text) if need is Dictionary and not (need as Dictionary).is_empty() else (PaperStrings.t("FP_FAILED") if bool(card.get("failed", false)) else "")
 	_need.visible = _need.text != ""
 	_lens.disabled = app == null or not app.has_method("open_lens"); _win.disabled = app == null or not app.has_method("open_window")
 	reset_size()
 
+## Feed faceplates: what the feed carries (masked feeds stay unknown) and, for a cylinder bank, the lit species chip and the kmol/h beside the kg/h knob.
+func _update_feed_info() -> void:
+	if _carry_lbl == null: return
+	var li := _li()
+	if (li.get("masked", []) as Array).has(unit_id): _carry_lbl.text = PaperStrings.t("FP_MASKED")
+	else:
+		var pl = PaperStrings.q(app, "plant")
+		var f = card.get("feed")
+		_carry_lbl.text = EqStrings.carries(pl.get("species", []) if pl is Dictionary else [], f.get("x", []) if f is Dictionary else [])
+	_carry_lbl.visible = _carry_lbl.text != ""
+	if not _bank: return
+	var be := _bank_entry(li)
+	if be.is_empty(): return
+	for sp in _chips: (_chips[sp] as Button).set_pressed_no_signal(str(sp) == str(be.species))
+	if _bank_kg != null and not _bank_kg._drag: _bank_kg.set_value(float(be.kgPerH))
+	if _kmol_lbl != null: _kmol_lbl.text = "= " + PaperStrings.num(float(be.kmolPerH)) + " kmol/h"
+
 # ---- placement on screen -----------------------------------------------------------------------------------------------------
+## Plates dock to the right edge of the screen above the console (never over the unit being piped); the second plate sits to the left of the first.
+## The leader line from the plate to its unit is kept (`_draw`).
 func _place(force := false) -> void:
-	if app == null or app.world == null or not app.world.has_method("unit_screen_pos"): return
-	var sp: Vector2 = app.world.unit_screen_pos(unit_id)
-	if not force and sp.is_equal_approx(_last_pos): return
-	_last_pos = sp
+	if app == null: return
 	var vr := get_viewport().get_visible_rect().size
-	var sz := get_combined_minimum_size()
-	var x := sp.x + 70.0
-	if x + sz.x > vr.x - 12.0: x = sp.x - 70.0 - sz.x
-	var y := clampf(sp.y - sz.y * 0.5, 56.0, maxf(56.0, vr.y - 190.0 - sz.y))
-	var pos := Vector2(clampf(x, 8.0, vr.x - sz.x - 8.0), y)
-	for k in plates:   # plates never sit on one another: slide right (or left at the edge) past an older one
+	var sz := get_combined_minimum_size().max(size)   # wrapped text settles a frame late: trust whichever is larger
+	var x := vr.x - 12.0
+	for k in plates:
 		var o = plates[k]
 		if o == self or not is_instance_valid(o) or (o as Faceplate)._order > _order: continue
-		var orr := Rect2((o as Faceplate).position, (o as Faceplate).size)
-		if Rect2(pos, sz).intersects(orr): pos.x = orr.end.x + 14.0 if orr.end.x + 14.0 + sz.x < vr.x - 8.0 else orr.position.x - 14.0 - sz.x
-	position = pos
+		x -= maxf((o as Faceplate).get_combined_minimum_size().x, (o as Faceplate).size.x) + 14.0
+	x -= sz.x
+	var ch = app.get("chrome")
+	var bottom := vr.y - (float(ch.console_height()) if ch != null and ch.has_method("console_height") else 190.0) - 10.0
+	var pos := Vector2(maxf(8.0, x), maxf(56.0, bottom - sz.y))
+	var sp := Vector2.ZERO
+	if app.world != null and app.world.has_method("unit_screen_pos"): sp = app.world.unit_screen_pos(unit_id)
+	if not force and pos.is_equal_approx(position) and sp.is_equal_approx(_last_pos): return
+	_last_pos = sp; position = pos
 	queue_redraw()
 
 func _process(_dt: float) -> void: _place()
@@ -280,6 +379,7 @@ class Hub extends Node:
 	var from_port := ""
 	var from_inlet := false
 	var legal: Array = []
+	var hover_id := ""
 
 	func connect_world() -> void:
 		var w = app.world
@@ -287,14 +387,27 @@ class Hub extends Node:
 		if w.has_signal("unit_clicked") and not w.unit_clicked.is_connected(_on_unit): w.unit_clicked.connect(_on_unit)
 		if w.has_signal("port_clicked") and not w.port_clicked.is_connected(_on_port): w.port_clicked.connect(_on_port)
 		if w.has_signal("place_requested") and not w.place_requested.is_connected(_on_place): w.place_requested.connect(_on_place)
+		if w.has_signal("unit_hover") and not w.unit_hover.is_connected(_on_unit_hover): w.unit_hover.connect(_on_unit_hover)
 		if app.b != null and not app.b.changed.is_connected(_on_changed): app.b.changed.connect(_on_changed)
 		StreamTag.attach(app)
 
-	func _input(e: InputEvent) -> void:   # Esc cancels a half-made pipe or a placement before the shell turns it into the pause menu
-		if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_ESCAPE and app.modal() == null:
-			var w = app.world
-			if w != null and w.placing != "": w.cancel_place(); get_viewport().set_input_as_handled()
-			elif from_unit != "": clear_pipe(); get_viewport().set_input_as_handled()
+	## Esc, one layer at a time (main.gd game_menu): the open stream tag, then faceplates and the selection, then a placement ghost or a half-made pipe.
+	## Returns true when something was closed (the pause menu stays shut).
+	func close_one() -> bool:
+		var w = app.world
+		var tag = app.root.get_node_or_null("StreamTag")
+		if tag != null and tag.visible:
+			tag.dismiss()
+			if w != null and w.pipes != null: w.pipes.select("")
+		elif not Faceplate.plates.is_empty() or (w != null and w.selected_id != ""):
+			Faceplate.close_all()
+			if w != null: w.select("")
+			hover_id = ""
+			_refresh_ports()
+		elif w != null and w.placing != "": w.cancel_place()
+		elif from_unit != "": clear_pipe(); _refresh_ports()
+		else: return false
+		return true
 
 	func _on_place(type: String, x: int, y: int, rot: int) -> void:
 		var r: Dictionary = app.b.act("placeUnit", [type, x, y, rot])
@@ -308,20 +421,43 @@ class Hub extends Node:
 		clear_pipe()
 		if id == "":
 			for k in Faceplate.plates.keys(): if not (Faceplate.plates[k] as Faceplate).pinned: (Faceplate.plates[k] as Faceplate).close()
-			app.world.show_ports([]); return
-		Faceplate.open(app, id); show_free_ports(id)
+			_refresh_ports(); return
+		Faceplate.open(app, id); _refresh_ports()
+
+	func _on_unit_hover(id: String) -> void:
+		hover_id = id
+		if from_unit == "" and app.world.placing == "": _refresh_ports()
+
+	## Free ports of the selected unit and of the one under the cursor (pips with their V / L / OUT / IN caps); a half-made pipe shows its own targets instead.
+	func _refresh_ports() -> void:
+		if from_unit != "": _light_targets(); return
+		var marks: Array = []
+		var seen := {}
+		for id in [app.world.selected_id, hover_id]:
+			if str(id) == "" or seen.has(str(id)) or not app.world.unit_ids().has(str(id)): continue
+			seen[str(id)] = true; marks.append_array(_free_ports(str(id)))
+		app.world.show_ports(marks)
 
 	func _on_changed() -> void:
 		if from_unit != "": _light_targets()
-		elif app.world != null and app.world.selected_id != "": show_free_ports(app.world.selected_id)
+		else: _refresh_ports()
 
 	func _free_ports(id: String) -> Array:
 		var out: Array = []
 		var c = PaperStrings.q(app, "unitCard", [id])
 		if not (c is Dictionary) or (c as Dictionary).is_empty(): return out
-		for p in c.outlets: if p.stream == null: out.append({"unit": id, "port": str(p.port), "inlet": false, "hot": false})
-		for p in c.inlets: if p.stream == null: out.append({"unit": id, "port": str(p.port), "inlet": true, "hot": false})
+		for p in c.outlets: if p.stream == null: out.append({"unit": id, "port": str(p.port), "inlet": false, "hot": false, "label": cap(str(p.port), false)})
+		for p in c.inlets: if p.stream == null: out.append({"unit": id, "port": str(p.port), "inlet": true, "hot": false, "label": cap(str(p.port), true)})
 		return out
+
+	## The tiny cap beside a port pip: outlets V / L / OUT by their engine port name (vap / liq / out), inlets IN (IN1, IN2 when numbered).
+	static func cap(port: String, inlet: bool) -> String:
+		if inlet: return "IN" + (port.right(1) if port.right(1).is_valid_int() else "")
+		match port:
+			"vap": return "V"
+			"liq": return "L"
+			"out": return "OUT"
+		return port.to_upper().left(5)
 
 	func show_free_ports(id: String) -> void: app.world.show_ports(_free_ports(id))
 

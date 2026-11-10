@@ -23,7 +23,7 @@ static func toggle(app: CbApp) -> bool:
 	if app.started: entries.append(["restart", "PAUSE_RESTART", func(): app.menus.close_menu(); _restart(app)])
 	if in_level and app.get("chrome") != null: entries.append(["notebook", "PAUSE_NOTEBOOK", func(): app.menus.close_menu(); app.chrome.notebook_requested.emit()])
 	entries.append(["settings", "PAUSE_SETTINGS", func(): app.menus.close_menu(); app.open_settings()])
-	entries.append(["map", "PAUSE_MAP", func(): app.menus.close_menu(); app.menus.levels()])
+	entries.append(["map", "PAUSE_MAP", func(): app.menus.close_menu(); WorksMap.open(app)])
 	entries.append(["title", "PAUSE_TITLE_BTN", func(): app.menus.close_menu(); app.to_title()])
 	var first: Button = null
 	var strips: Array = []

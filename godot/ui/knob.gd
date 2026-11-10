@@ -148,8 +148,9 @@ func _num_text() -> String:
 # ---- keypad (also used by the notebook's Call-it answer line) ----------------------------------------------------------------
 class KeyCatcher extends Control:
 	var on_key: Callable
-	func _init() -> void: focus_mode = Control.FOCUS_ALL; mouse_filter = Control.MOUSE_FILTER_IGNORE; custom_minimum_size = Vector2(1, 1)
-	func _unhandled_key_input(e: InputEvent) -> void:
+	func _init() -> void: focus_mode = Control.FOCUS_NONE; mouse_filter = Control.MOUSE_FILTER_IGNORE; custom_minimum_size = Vector2(1, 1)
+	## `_input`, not unhandled input: a focused keypad button would otherwise swallow Enter, and synthetic key events carry a keycode but no unicode.
+	func _input(e: InputEvent) -> void:
 		if e is InputEventKey and e.pressed and not e.echo and on_key.is_valid():
 			if bool(on_key.call(e)): get_viewport().set_input_as_handled()
 
@@ -158,11 +159,11 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var host: Control = d.host; var pn: PanelContainer = d.panel; var vb: VBoxContainer = d.vb
 	pn.add_theme_stylebox_override("panel", EqTheme.porcelain_sb(6, 18.0))
 	vb.add_theme_constant_override("separation", 10)
-	var head := HBoxContainer.new(); vb.add_child(head); head.add_child(EqTheme.dymo(title if title != "" else "VALUE", 14))
+	var head := HBoxContainer.new(); vb.add_child(head); var ttl := EqTheme.dymo(title if title != "" else "VALUE", 14); ttl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; head.add_child(ttl)
 	var disp := Label.new(); disp.label_settings = EqTheme.settings(30, EqTheme.INK, "mono_bold"); disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var field := PanelContainer.new(); var fsb := StyleBoxFlat.new(); fsb.bg_color = Color("#FFFFFF"); fsb.border_color = EqTheme.INK; fsb.set_border_width_all(2); fsb.set_corner_radius_all(3); fsb.set_content_margin_all(8)
 	field.add_theme_stylebox_override("panel", fsb); field.add_child(disp); vb.add_child(field)
-	var hint := EqTheme.label((PaperStrings.t("KEYPAD_RANGE") % [PaperStrings.num(lo, integer), PaperStrings.num(hi, integer)]) + (" " + unit if unit != "" else ""), 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans")
+	var hint := EqTheme.label((PaperStrings.t("KEYPAD_RANGE") % [PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))]) + (" " + unit if unit != "" else ""), 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans")
 	if allow_range: vb.add_child(hint)
 	var buf := [initial if initial != "" else ""]
 	var upd := func() -> void: disp.text = (buf[0] if buf[0] != "" else "0") + (" " + unit if unit != "" else "")
@@ -193,12 +194,17 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var ko := EqTheme.key_button(PaperStrings.t("KEYPAD_OK"), true, 18); ko.size_flags_horizontal = Control.SIZE_EXPAND_FILL; ko.pressed.connect(func(): enter.call()); row.add_child(ko)
 	var catcher := KeyCatcher.new(); host.add_child(catcher)
 	catcher.on_key = func(e: InputEventKey) -> bool:
+		if e.ctrl_pressed or e.alt_pressed or e.meta_pressed: return false
 		var u := e.unicode
-		if (u >= 48 and u <= 57) or u == 46 or u == 44: press.call("." if u == 44 else char(u)); return true
-		if u == 45: press.call("±"); return true
-		match e.keycode:
-			KEY_BACKSPACE: press.call("B"); return true
-			KEY_ENTER, KEY_KP_ENTER: enter.call(); return true
+		var code: int = e.keycode if e.keycode != KEY_NONE else e.physical_keycode
+		if u >= 48 and u <= 57: press.call(char(u)); return true
+		if code >= KEY_0 and code <= KEY_9: press.call(char(48 + code - KEY_0)); return true
+		if code >= KEY_KP_0 and code <= KEY_KP_9: press.call(char(48 + code - KEY_KP_0)); return true
+		if u == 46 or u == 44 or code == KEY_PERIOD or code == KEY_COMMA or code == KEY_KP_PERIOD: press.call("."); return true
+		if u == 45 or code == KEY_MINUS or code == KEY_KP_SUBTRACT: press.call("±"); return true
+		match code:
+			KEY_BACKSPACE, KEY_DELETE: press.call("B"); return true
+			KEY_ENTER, KEY_KP_ENTER: enter.call(); return true   # commits and closes (a value out of range stays open and says so)
 		return false
 	app.focus_dialog()
 	return d

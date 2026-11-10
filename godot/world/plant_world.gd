@@ -15,6 +15,8 @@ signal unit_clicked(id: String)
 signal pipe_hover(id: String, pos: Vector2)
 signal pipe_clicked(id: String)
 signal port_clicked(unit: String, port: String, inlet: bool)
+signal unit_hover(id: String)   ## the unit under the cursor ("" = none); the paper layer lights its free ports
+var _hover_unit := ""
 const GRID := 2.0
 const PLOT := Vector2(48.0, 32.0)          # fenced plot, m (24 x 16 cells)
 const NX := 24
@@ -148,7 +150,14 @@ func show_ports(list: Array) -> void:
 		var col := Color("#FFB703") if bool(it.inlet) else TEAL
 		var m := StandardMaterial3D.new(); m.albedo_color = col; m.emission_enabled = true; m.emission = col; m.emission_energy_multiplier = 2.5 if hot else 1.1
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 5
-		mi.material_override = m; mi.position = f.pos + f.dir * 0.3 + Vector3(0, 0.0, 0); add_child(mi); _mark_nodes.append(mi)
+		# the pip rides toward the camera (and a little up) so a port on the far side of a tank is not buried in its body
+		var toward := cam.global_transform.basis.z.normalized()
+		mi.material_override = m; mi.position = f.pos + f.dir * 0.3 + toward * 1.2 + Vector3(0, 0.25, 0); add_child(mi); _mark_nodes.append(mi)
+		var cap := str(it.get("label", ""))
+		if cap != "":   # tiny caps beside the pip: V / L / OUT / IN
+			var lb := Label3D.new(); lb.text = cap; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true; lb.pixel_size = 0.0011; lb.font_size = 40
+			lb.outline_size = 12; lb.outline_modulate = Color(0, 0, 0, 0.85); lb.modulate = Color("#F4F1DE"); lb.render_priority = 6; lb.outline_render_priority = 5
+			lb.font = EqTheme.font("semi"); lb.position = Vector3(0, r * 2.2 + 0.2, 0); mi.add_child(lb)
 
 func _pick_port(p: Vector2) -> Dictionary:
 	var best := {}; var bd := (30.0 if CbLayout.touch else 20.0)
@@ -393,6 +402,8 @@ func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION:
 		var h := pipes.pick(e.position, cam)
 		if h != _hover_pipe or h != "": _hover_pipe = h; pipe_hover.emit(h, e.position)
+		var hu := _pick_unit(e.position)
+		if hu != _hover_unit: _hover_unit = hu; unit_hover.emit(hu)
 	if e is InputEventMouseMotion and placing != "" and e.device != InputEvent.DEVICE_ID_EMULATION and (e.button_mask & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) == 0:
 		var g = _ground_at(e.position)
 		if g != null:

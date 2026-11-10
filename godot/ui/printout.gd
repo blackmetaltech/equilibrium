@@ -58,6 +58,9 @@ static func _pad(s: String, n: int) -> String: return s + " ".repeat(maxi(1, n -
 
 ## Open the printout. Returns false when the engine has no result card (the shell then shows its own end card).
 static func open(app) -> bool:
+	var real = PaperStrings.q(app, "resultCard")
+	var in_level = PaperStrings.q(app, "levelInfo")
+	if (not (real is Dictionary) or (real as Dictionary).is_empty()) and in_level is Dictionary and not (in_level as Dictionary).is_empty(): return false   # no result until the win (the first run is still playing)
 	var rc := card(app)
 	if rc.is_empty(): return false
 	var ed: Dictionary = app.end_data()

@@ -10,6 +10,7 @@ var _pin_t := 0.0
 var _hide_t := 0.0
 var _anchor := Vector2.ZERO
 var _box: VBoxContainer
+var _x: Button                     # the close button: the only part of the tag that takes the mouse
 
 static func attach(app) -> StreamTag:
 	var t = app.root.get_node_or_null("StreamTag")
@@ -34,7 +35,18 @@ func _on_hover(id: String, pos: Vector2) -> void:
 func _on_click(id: String) -> void:
 	if id == "": return
 	var pos: Vector2 = get_viewport().get_mouse_position()
-	show_for(id, pos); _pin_t = 4.0
+	_pin_t = 6.0; show_for(id, pos)
+
+func is_open() -> bool: return visible
+
+## Hide the tag now (Esc, a click elsewhere, its close button).
+func dismiss() -> void: _pin_t = 0.0; _hide_t = 0.0; visible = false
+
+## A press or a drag anywhere else closes the tag; the event goes on to whatever is under it (a port, a unit), the tag never blocks it.
+func _input(e: InputEvent) -> void:
+	if not visible: return
+	if e is InputEventMouseButton and e.pressed: dismiss()
+	elif e is InputEventMouseMotion and e.button_mask != 0: dismiss()
 
 func _process(dt: float) -> void:
 	if _pin_t > 0.0:
@@ -52,6 +64,9 @@ func show_for(id: String, pos: Vector2) -> bool:
 	var d: Dictionary = PaperStrings.stream_row(app, id)
 	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 6); _box.add_child(head)
 	var tg := EqTheme.dymo(id, 14); tg.name = "Tag"; head.add_child(tg)
+	if _pin_t > 0.0:
+		var sp_ := Control.new(); sp_.size_flags_horizontal = Control.SIZE_EXPAND_FILL; sp_.mouse_filter = Control.MOUSE_FILTER_IGNORE; head.add_child(sp_)
+		_x = EqTheme.key_button("×", false, 14); _x.name = "Close"; _x.custom_minimum_size = Vector2(28, 24); _x.focus_mode = Control.FOCUS_NONE; _x.pressed.connect(dismiss); head.add_child(_x)
 	var has := d.has("flow")
 	if not has:
 		var l := EqTheme.label(PaperStrings.t("TAG_NODATA"), 14, EqTheme.INK, "semi"); l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.custom_minimum_size = Vector2(190, 0); _box.add_child(l)
@@ -64,7 +79,7 @@ func show_for(id: String, pos: Vector2) -> bool:
 		_cell(row2, "P", PaperStrings.usym("bar"), float(d.P), "bar")
 		for sp in d.get("top", []):
 			var r := HBoxContainer.new(); r.add_theme_constant_override("separation", 6); _box.add_child(r)
-			var sw := ColorRect.new(); sw.custom_minimum_size = Vector2(14, 14); sw.color = EqTheme.species(str(sp.id)); r.add_child(sw)
+			var sw := ColorRect.new(); sw.mouse_filter = Control.MOUSE_FILTER_IGNORE; sw.custom_minimum_size = Vector2(14, 14); sw.color = EqTheme.species(str(sp.id)); r.add_child(sw)
 			var pct := PaperStrings.num(float(sp.x) * 100.0) + " %"
 			var nm := EqTheme.label(str(sp.id), 14, EqTheme.INK, "semi"); nm.custom_minimum_size = Vector2(54, 0); r.add_child(nm)
 			r.add_child(EqTheme.label(pct, 14, EqTheme.INK, "mono")); top.append({"id": str(sp.id), "name": str(sp.get("name", sp.id)), "x": float(sp.x), "text": pct})

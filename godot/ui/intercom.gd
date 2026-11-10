@@ -52,9 +52,9 @@ func _sb() -> StyleBoxFlat:
 
 func _link(nm: String, key: String, col: Color) -> Button:
 	var b := Button.new(); b.name = nm; b.text = EqStrings.T(key); b.flat = true; b.focus_mode = CbKit.focus_mode()
-	b.add_theme_font_override("font", EqTheme.font("semi")); b.add_theme_font_size_override("font_size", EqTheme.fs(14))
+	b.add_theme_font_override("font", EqTheme.font("semi")); b.add_theme_font_size_override("font_size", EqTheme.fs(15))
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: b.add_theme_color_override(c, col if c == "font_color" else col.lightened(0.3))
-	b.custom_minimum_size = Vector2(0, 22)
+	b.custom_minimum_size = Vector2(0, 24)
 	return b
 
 func _color(kind: String) -> Color:

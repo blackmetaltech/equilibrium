@@ -136,7 +136,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     lesson: t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
     mode: s.mode,
     /** Extras: the cylinder banks (kg/h and kmol/h side by side), feed units whose composition no card may show, the shift length. */
-    banks, masked: spec.masked ? spec.masked(s) : [], shiftLen: spec.shiftLen,
+    banks, bankSpecies: spec.bankSpecies ?? [], masked: spec.masked ? spec.masked(s) : [], shiftLen: spec.shiftLen,
   };
 };
 

@@ -9,10 +9,12 @@ const CROSS_COST := 4.0
 const PARALLEL_COST := 9.0
 const LANE_COST := 0.75
 const LANE_EVERY := 4
+const SKIRT_COST := 5.0     ## stepping onto the ring of tiles around a unit: allowed (ports sit there) but a pipe prefers to keep a tile clear of every model
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
 var nx := 24
 var nz := 16
 var blocked := {}        # Vector2i -> true
+var skirt := {}           # Vector2i -> true: the 1-tile ring around every blocked footprint (a soft wall, see SKIRT_COST)
 var usage := {}          # Vector2i -> bit 1 (runs along x) | bit 2 (runs along z)
 var last_expanded := 0
 var _heap_k := PackedFloat32Array()
@@ -20,11 +22,28 @@ var _heap_v := PackedInt32Array()
 
 func _init(w := 24, h := 16) -> void: nx = w; nz = h
 
-func clear() -> void: blocked.clear(); usage.clear()
+func clear() -> void: blocked.clear(); skirt.clear(); usage.clear()
 
 func block_rect(x: int, y: int, w: int, h: int) -> void:
 	for i in range(w):
 		for j in range(h): blocked[Vector2i(x + i, y + j)] = true
+	for i in range(-1, w + 1):
+		for j in range(-1, h + 1):
+			if i >= 0 and i < w and j >= 0 and j < h: continue
+			skirt[Vector2i(x + i, y + j)] = true
+
+## The nearest free tile to `t` (breadth-first over the 4-neighbourhood); `t` itself when it is free, (-1,-1) when the grid is full.
+func nearest_free(t: Vector2i) -> Vector2i:
+	if not blocked.has(t): return t
+	var seen := {t: true}; var q: Array[Vector2i] = [t]; var head := 0
+	while head < q.size():
+		var c := q[head]; head += 1
+		for d in DIRS:
+			var n := c + d
+			if n.x < 0 or n.y < 0 or n.x >= nx or n.y >= nz or seen.has(n): continue
+			if not blocked.has(n): return n
+			seen[n] = true; q.append(n)
+	return Vector2i(-1, -1)
 
 static func dir_of(v: Vector3) -> int:   ## heading index (0 +x, 1 +z, 2 -x, 3 -z) closest to a world vector
 	if absf(v.x) >= absf(v.z): return 0 if v.x >= 0.0 else 2
@@ -57,6 +76,7 @@ func _pop() -> int:
 
 func _step_cost(t: Vector2i, d: int) -> float:
 	var c := LANE_COST if (d % 2 == 0 and t.y % LANE_EVERY == LANE_EVERY - 1) or (d % 2 == 1 and t.x % LANE_EVERY == LANE_EVERY - 1) else 1.0
+	if skirt.has(t): c += SKIRT_COST
 	var u: int = usage.get(t, 0)
 	if u != 0:
 		var bit := 1 if d % 2 == 0 else 2
@@ -67,7 +87,10 @@ func _step_cost(t: Vector2i, d: int) -> float:
 ## Returns the corner tiles (first = a, last = b), or [] when no route exists. The path is added to the usage map.
 func route(a: Vector2i, ad: int, b: Vector2i, bd: int) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	if blocked.has(a) or blocked.has(b): return out
+	# a port stub that lands inside a footprint (a model bigger than its tiles) starts from the nearest free tile instead of giving up
+	if blocked.has(a): a = nearest_free(a)
+	if blocked.has(b): b = nearest_free(b)
+	if a.x < 0 or b.x < 0: return out
 	if a == b: out.append(a); return out
 	var W := nx; var H := nz
 	var n := W * H * 4

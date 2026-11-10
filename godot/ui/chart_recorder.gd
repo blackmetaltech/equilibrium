@@ -19,6 +19,7 @@ var _target := 0.0
 var _sig := ""
 var _last_tick := -1
 var _demo := true
+var first_run := {}         ## levelInfo.firstRun {t, len, madeKg} while a first run plays
 const RUN_W := 60.0
 const SAMPLE_W := 3.0
 
@@ -33,9 +34,11 @@ func mirror(from: ChartRecorder) -> void: src = from; _pull()
 
 func _pull() -> void:
 	if src == null: return
-	hero = src.hero; sec = src.sec; third = src.third; runs = src.runs; samples = src.samples; phase = src.phase; _demo = src._demo
+	hero = src.hero; sec = src.sec; third = src.third; runs = src.runs; samples = src.samples; phase = src.phase; _demo = src._demo; first_run = src.first_run
 	_target = src._target
 	if absf(paper - src.paper) > 0.01: paper = src.paper
+
+func _running() -> bool: return phase == "shift" or phase == "firstrun"
 
 func _num(v) -> float:
 	return float(v) if (v is float or v is int) and is_finite(float(v)) else 0.0
@@ -52,8 +55,9 @@ func feed(li: Dictionary, run_list: Array, tick: int) -> void:
 	sec = li.secondary if li.get("secondary") is Dictionary else {}
 	third = li.third if li.get("third") is Dictionary else {}
 	phase = str(li.get("phase", "design"))
+	first_run = li.firstRun if li.get("firstRun") is Dictionary and phase == "firstrun" else {}
 	var hv := _num(hero.get("value", 0.0)); var sv := _num(sec.get("value", 0.0)); var tv := _num(third.get("value", 0.0))
-	if phase == "shift":
+	if _running():
 		if tick != _last_tick:
 			_last_tick = tick
 			samples.append({"h": hv, "s": sv, "t": tv})
@@ -77,7 +81,7 @@ func _process(dt: float) -> void:
 	if src != null: _pull()
 	elif absf(paper - _target) > 0.05:
 		paper = move_toward(paper, _target, maxf(40.0, absf(_target - paper) * 4.0) * dt) if not CbSettings.reduced_motion else _target
-	if phase == "shift" or absf(paper - _target) > 0.05 or src != null: queue_redraw()
+	if _running() or absf(paper - _target) > 0.05 or src != null: queue_redraw()
 
 func _gui_input(e: InputEvent) -> void:
 	if big: return
@@ -102,7 +106,7 @@ func _srange() -> Vector2:
 	for p in _pts(): hi = maxf(hi, _num(p.s) * 1.12)
 	return Vector2(0.0, hi if hi > 0.0 else 1.0)
 
-func _pts() -> Array: return samples if (phase == "shift" and not samples.is_empty()) else runs
+func _pts() -> Array: return samples if (_running() and not samples.is_empty()) else runs
 
 func _y(v: float, r: Vector2, pl: Rect2) -> float: return pl.end.y - (v - r.x) / (r.y - r.x) * pl.size.y
 
@@ -132,7 +136,7 @@ func _draw() -> void:
 		_dash(Vector2(pl.position.x, ly), Vector2(pl.end.x + 60.0, ly), EqTheme.PEN_RED)
 	# traces
 	var pts := _pts()
-	var shiftm := phase == "shift" and not samples.is_empty()
+	var shiftm := _running() and not samples.is_empty()
 	var step := SAMPLE_W if shiftm else RUN_W
 	var px := pl.end.x - 20.0
 	if shiftm: px = pl.end.x - 2.0
@@ -180,6 +184,8 @@ func _draw() -> void:
 	# pen legends on dymo tape
 	var lab := str(hero.get("label", ""))
 	_tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), lab + ("" if str(hero.get("unit", "")) == "" else " " + str(hero.unit)), EqTheme.PEN_BLUE)
+	if not first_run.is_empty():   # a rolling "made so far" counter while the first run plays
+		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 21.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
 func _fmt(v: float) -> String:

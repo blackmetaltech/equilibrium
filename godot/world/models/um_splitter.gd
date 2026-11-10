@@ -13,7 +13,7 @@ func _build() -> void:
 	Parts.sphere(body, 0.36, Vector3(0, 0.9, 0), pm)
 	Parts.pipe(body, Vector3(0, 0.9, 0), Vector3(0, 0.9, 0.7), 0.2, pm)
 	_valve = Parts.control_valve(body, Vector3(0, 0.9, 1.3), 0.2); _valve.rotation_degrees.y = 90.0
-	Parts.pipe(body, Vector3(0, 0.9, 1.9), Vector3(0, 0.9, 1.9), 0.2, pm)
+	Parts.flange(body, 0.2, Vector3(0, 0.9, 1.9), Vector3(90, 0, 0), pm)   # the purge nozzle's flange (a zero-length pipe here gave a NaN normal)
 	add_port("in", Vector3(-1.95, 0.9, 0), Vector3.LEFT); add_port("out", Vector3(1.95, 0.9, 0), Vector3.RIGHT); add_port("purge", Vector3(0, 0.9, 1.95), Vector3(0, 0, 1))
 
 func _apply() -> void: Parts.set_stem(_valve, dv("stem", 0.5))

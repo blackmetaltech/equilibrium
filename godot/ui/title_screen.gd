@@ -3,7 +3,7 @@ extends RefCounted
 ## The title (UI.md 9, cfg game_title -> true): the Works at dusk behind (the plant world in title mode plus a dusk grade), top-left the EQUILIBRIUM logo in
 ## Archivo 800 wide with a drawn balance beam that rocks and settles level, and the menu as Dymo-tape strips on an enamel plate; a teal lamp marks the focus.
 ## Continue shift (when a save exists) / New works, Works map, Sandbox, Settings, Quit (desktop). Keyboard / pad focus walks the strips, the mouse moves focus on
-## hover, touch taps. NOTE: "Works map" opens the shell's level list (`app.menus.levels()`) until the map screen exists.
+## hover, touch taps. "Works map" opens ui/works_map.gd (levels numbered 00-04 as the engine ids).
 
 static func T(key: String) -> String: return EqStrings.T(key)
 
@@ -31,7 +31,7 @@ static func build(app: CbApp, root: Control) -> bool:
 	var entries: Array = []
 	if saves.size() > 0: entries.append(["continue", T("TITLE_CONTINUE"), func(): app.load_slot(str((saves[0] as Dictionary).slot))])
 	entries.append(["new", T("TITLE_NEW"), func(): new_works(app)])
-	entries.append(["map", T("TITLE_MAP"), func(): app.menus.levels()])
+	entries.append(["map", T("TITLE_MAP"), func(): WorksMap.open(app)])
 	entries.append(["sandbox", T("TITLE_SANDBOX"), func(): app.new_game("sandbox")])
 	entries.append(["settings", T("TITLE_SETTINGS"), func(): app.open_settings()])
 	if not CbLayout.is_mobile(): entries.append(["quit", T("TITLE_QUIT"), func(): app.quit_game()])
@@ -49,7 +49,7 @@ static func build(app: CbApp, root: Control) -> bool:
 		EqSettings.set_cute(app, not EqSettings.cute)
 		cute.set_label(T("CUTE_ON") if EqSettings.cute else T("CUTE_OFF")))
 	vb.add_child(cute)
-	var foot := EqTheme.label(T("TITLE_FOOT"), 14, EqTheme.DIM.darkened(0.1), "sans"); foot.name = "Foot"
+	var foot := EqTheme.label(T("TITLE_FOOT"), 15, EqTheme.DIM, "sans"); foot.name = "Foot"
 	foot.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT); foot.grow_horizontal = Control.GROW_DIRECTION_BEGIN; foot.grow_vertical = Control.GROW_DIRECTION_BEGIN; foot.offset_right = -20.0; foot.offset_bottom = -12.0
 	root.add_child(foot)
 	if first != null: first.call_deferred("grab_focus")

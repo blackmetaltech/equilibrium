@@ -33,6 +33,7 @@ static func flange(parent: Node, r: float, pos: Vector3, rot := Vector3.ZERO, ma
 ## A pipe between two points.
 static func pipe(parent: Node, a: Vector3, b: Vector3, r: float, mat: Material, flanges := false) -> MeshInstance3D:
 	var d := b - a; var L := d.length()
+	if L < 0.001: return flange(parent, r, a, Vector3.ZERO, mat)   # a degenerate run is a flange, never a zero-height mesh (NaN normals)
 	var mi := cyl(parent, r, L, (a + b) * 0.5, mat, Vector3.ZERO, -1.0, 12)
 	if L > 0.001:
 		var up := d / L; var ax := Vector3.UP.cross(up)

@@ -6,7 +6,7 @@ const S := {
 	"RACK_TITLE": "PARTS", "RACK_LOCKED": "Not on this job", "RACK_LIMIT": "All %d placed", "RACK_PRICE": "$%s",
 	"FP_WHY": "Why?", "FP_LENS": "Lens", "FP_WINDOW": "Window", "FP_PIN": "Pin", "FP_UNPIN": "Unpin", "FP_CLOSE": "Close",
 	"FP_PV": "PV", "FP_SP": "SP", "FP_NOSOLVE": "Commission to read the meters", "FP_FLOW": "FLOW", "FP_MASS": "MASS", "FP_DUTY": "DUTY", "FP_WORK": "SHAFT",
-	"FP_OUT": "OUT", "FP_KMOLH": "kmol/h", "FP_KGH": "kg/h", "FP_FAILED": "FAILED",
+	"FP_OUT": "OUT", "FP_BANK_KG": "Bank flow", "FP_MASKED": "FUEL · unknown", "FP_KMOLH": "kmol/h", "FP_KGH": "kg/h", "FP_FAILED": "FAILED",
 	"PIPE_FROM": "Pipe from %s: pick a lit inlet", "PIPE_NONE": "No free inlet fits %s %s", "PIPE_DONE": "Piped %s to %s",
 	"TAG_FLOW": "FLOW", "TAG_T": "T", "TAG_P": "P", "TAG_NODATA": "No flow yet: commission the plant", "TAG_KMOL": "kmol/h", "TAG_KG": "kg/h",
 	"NB_TAB": "NOTEBOOK", "NB_GOALS": "GOALS", "NB_BUDGET": "Budget", "NB_SPENT": "spent", "NB_STARS": "FLASKS", "NB_CALLIT": "CALL IT", "NB_START": "Start work", "NB_RESUME": "Back to work",

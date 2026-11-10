@@ -69,7 +69,11 @@ static func font(kind: String) -> Font:
 	match kind:
 		"title": f = _var(_file("Archivo-Variable.ttf"), {"wdth": 125, "wght": 800})
 		"head": f = _var(_file("Archivo-Variable.ttf"), {"wdth": 100, "wght": 700})
-		"semi", "dymo": f = _file("Barlow-SemiBold.ttf")
+		"semi": f = _file("Barlow-SemiBold.ttf")
+		"dymo":   # Barlow has no subscript digits (NH₃, H₂): tape text falls back to Space Mono Bold, then Archivo
+			var fv := FontVariation.new(); fv.base_font = _file("Barlow-SemiBold.ttf")
+			fv.fallbacks = [_file("Archivo-Variable.ttf"), _file("SpaceMono-Bold.ttf"), ThemeDB.fallback_font]
+			f = fv
 		"mono": f = _file("SpaceMono-Regular.ttf")
 		"mono_bold": f = _file("SpaceMono-Bold.ttf")
 		"print": f = _file("VT323-Regular.ttf")

@@ -97,6 +97,17 @@ func game_camera(spec: String) -> void:
 				if chrome != null: chrome.turn_key()
 		elif part.begins_with("li="):
 			if chrome != null: chrome.qa(part.substr(3))
+		elif part.begins_with("fp="): Faceplate.attach(self); Faceplate.open(self, part.substr(3))   # QA: open a faceplate
+		elif part.begins_with("sel="):   # QA: select a unit as a click would (faceplate and free-port pips)
+			Faceplate.attach(self); plant_world.select(part.substr(4)); plant_world.unit_clicked.emit(part.substr(4))
+		elif part.begins_with("knobset="):   # QA: unit/key/display value, committed through the faceplate knob
+			var f2 := part.substr(8).split("/"); Faceplate.attach(self)
+			var fpl := Faceplate.open(self, f2[0]); var kn: Knob = fpl.knobs.get(f2[1])
+			if kn != null: kn.set_value(float(f2[2])); kn.committed.emit(float(f2[2]))
+		elif part.begins_with("bsp="): Faceplate.li_extra = {"bankSpecies": Array(part.substr(4).split(","))}   # QA: banks before the engine reports bankSpecies
+		elif part == "keypad": Knob.keypad(self, "BANK FLOW", "kg/h", "140", 0.0, 3000.0, func(_v: float): pass)
+		elif part.begins_with("tag="):
+			var st := StreamTag.attach(self); st._pin_t = 6.0; st.show_for(part.substr(4), Vector2(vw() * 0.5, vs_h() * 0.5))
 		elif part == "menu": game_menu()
 		elif part == "recorder":
 			if chrome != null: chrome.open_recorder()
@@ -132,7 +143,18 @@ func game_coach(step: Dictionary, index: int, total: int) -> bool:
 	if chrome == null: return false
 	chrome.coach(step, index, total); return true
 func game_title(r: Control) -> bool: return TitleScreen.build(self, r)
-func game_menu() -> bool: return PauseMenu.toggle(self)
+## Esc with no dialog open: close one layer (stream tag, faceplates and selection, placement ghost or half-made pipe) before the pause plate opens.
+## The gear button and the pad's Start still open the plate directly.
+var _from_esc := false
+func game_menu() -> bool:
+	if _from_esc and started:
+		var hub = root.get_node_or_null("PaperHub")
+		if hub != null and hub.close_one(): return true
+	return PauseMenu.toggle(self)
+## A level (re)start: the shift-speed latch resets so a level that opens mid-shift (L00) starts at 1x.
+func _begin() -> void:
+	if chrome != null: chrome.reset_shift_seen()
+	super()
 func game_end_screen() -> bool:
 	sfx("printer")
 	return Printout.open(self)
@@ -144,6 +166,8 @@ func next_tick() -> void:
 
 ## Pad A acknowledges the annunciator when something is flashing and nothing else wants the button.
 func _input(e: InputEvent) -> void:
+	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_ESCAPE:
+		_from_esc = true; super(e); _from_esc = false; return
 	if e is InputEventJoypadButton and e.pressed and e.button_index == JOY_BUTTON_A and CbPad.enabled and started and chrome != null and modal() == null \
 			and chrome.annunciator.unacked() > 0 and get_viewport().gui_get_focus_owner() == null:
 		chrome.annunciator.ack(""); get_viewport().set_input_as_handled(); return

@@ -159,14 +159,28 @@ func refresh() -> void:
 	if app == null or not app.started or intercom == null: return
 	var li := level_info()
 	var id := str(li.get("id", "")) if not li.is_empty() else ""
-	if id != _level: _level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1
+	if id != _level: _level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false
+	_gl = str(app.b.g.get("level", ""))
 	phase = engine_phase()
+	# a shift that is running (a level that opens mid-shift, or the key just turned) starts at 1x: nothing moves at pause and the coach seems stuck
+	var running := phase == "shift" or phase == "firstrun"
+	if running and not _shift_seen:
+		_shift_seen = true
+		if app.speed == 0: choose_speed(1)
+	elif not running: _shift_seen = false
 	annunciator.set_windows(li.get("annunciators", []) if li.get("annunciators") is Array else [])
 	var runs: Array = qa_runs if not qa_li.is_empty() else (app.b.q("runs") if app.b.q("runs") is Array else [])
 	recorder.feed(li, runs, int(app.b.g.get("tick", 0)))
 	_sync_key()
 	_poll_coach(li)
 	_explain_run(li, runs)
+
+var _shift_seen := false
+func reset_shift_seen() -> void: _shift_seen = false
+var _gl := ""
+## A level change that did not come with an engine `changed` signal still wipes the intercom (no stale coach line from the last job).
+func _process(_dt: float) -> void:
+	if _on and app != null and app.started and app.b != null and str(app.b.g.get("level", "")) != _gl: refresh()
 
 ## After a commission that misses the goal, Mara explains it on the intercom with the player's own numbers (levelInfo.lesson), once per run.
 var _explained_runs := -1
