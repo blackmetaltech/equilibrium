@@ -3,6 +3,7 @@
 // The shared rule-code contracts (StreamState, UnitInst, Pipe, Flowsheet, Diag) come from src/sim/types.ts.
 import type { BaseState } from '@core/kit';
 import type { WarmStart } from './sim/flowsheet';
+import type { ShiftState } from './sim/dynamics/shift';
 import type { Flowsheet, Pipe, StreamState, ThermoDetail, UnitInst } from './sim/types';
 
 export type Phase = 'design' | 'commissioned' | 'firstrun' | 'shift' | 'report';
@@ -49,12 +50,8 @@ export interface SolveResult {
   kpis: Record<string, number>;
 }
 
-/** Shift clock and dynamic state. PLACEHOLDER: task 1.13 (dynamic layer) fills events, alarms, interlocks and accumulators. */
-export interface ShiftState {
-  /** Plant seconds since the shift started (= core ticks since shift start). */
-  t: number;
-  speed: number;
-}
+/** Shift clock, events, actuators, alarms, trips, dynamic unit states and accumulators (DESIGN 8.2): defined with the shift pipeline. */
+export type { ShiftState };
 
 /** One finished run for the Why / Runs / diff views: the setpoints, key results, KPIs and the locked prediction. */
 export interface RunRecord {
@@ -67,7 +64,7 @@ export interface RunRecord {
   prediction: { quantity: string; value: number } | null;
 }
 
-/** One frame of the near-miss ring (60 frames at 1 Hz). PLACEHOLDER: task 1.13 fills the compact unit T/P and alarm bits. */
+/** One frame of the near-miss ring (60 frames at 1 Hz): per unit T (0.1 K) and P (kPa), and the alarm bits (monitors in High or Critical). */
 export interface ReplayFrame {
   t: number;
   T: number[];

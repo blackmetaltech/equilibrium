@@ -1,5 +1,5 @@
 // The EQUILIBRIUM game definition the core engine runs (DESIGN §8). M1.12 glue: design / run / meta actions, the plant queries, the compact
-// snapshot, generic metrics, legal actions and the game invariants. The shift pipeline (systems) arrives with M1.11, levels with M2.
+// snapshot, generic metrics, legal actions and the game invariants. M1.11 adds the shift actions and systems; levels arrive with M2.
 import { baseState, log, type GameDef } from '@core/kit';
 import { t } from './i18n';
 import { LEVELS } from './levels';
@@ -9,11 +9,13 @@ import { MAX_SPECIES, MAX_UNITS, PHASES, THERMO_DETAILS, DEFAULT_PLOT, emptyFlow
 import { designActions } from './engine/actions/design';
 import { metaActions } from './engine/actions/meta';
 import { runActions } from './engine/actions/run';
+import { shiftActions, shiftSystems } from './engine/actions/shift';
 import { legalActions } from './engine/legal';
 import { plantQueries } from './engine/queries/plant';
 import { plotQueries } from './engine/queries/plots';
 import { streamQueries } from './engine/queries/stream';
 import { unitQueries } from './engine/queries/unit';
+import { explainQueries } from './engine/queries/explain';
 import { snapshotOf } from './engine/snapshot';
 import { ledgerOf } from './engine/solved';
 import { en } from './locales/en';
@@ -73,8 +75,10 @@ export const GAME: GameDef<EqState> = {
   },
   /** Campaign meta state only; nothing a level's rules read (codes are verified without it). */
   carryOver: (prev) => ({ progress: structuredClone(prev.progress) }),
-  actions: { ...designActions, ...runActions, ...metaActions },
-  queries: { ...plantQueries, ...unitQueries, ...streamQueries, ...plotQueries },
+  actions: { ...designActions, ...runActions, ...shiftActions, ...metaActions },
+  /** The shift pipeline (DESIGN 8.5): a no-op outside a shift. */
+  systems: shiftSystems,
+  queries: { ...plantQueries, ...unitQueries, ...streamQueries, ...plotQueries, ...explainQueries },
   legalActions,
   snapshot: snapshotOf,
   concepts: [
