@@ -10,7 +10,8 @@ export type AnnState = 'off' | 'normal' | 'high' | 'critical';
 /** All numbers a level reads off the plant. `ok` is false until a commission succeeded (then every `v` entry is 0). */
 export interface Measures { ok: boolean; v: Record<string, number> }
 
-export interface GoalEval { key: string; met: boolean; value?: number; target?: number }
+/** `range`/`unit`: a goal that is a window (lo, hi) reads "16.67 % (target 9.5-11)" in the goal row instead of value / midpoint. */
+export interface GoalEval { key: string; met: boolean; value?: number; target?: number; range?: [number, number]; unit?: string }
 export interface Annunciator { key: string; legend: string; state: AnnState }
 
 /** One coach step: advances from engine state, never from clicks (DESIGN 7.2). `speaker` is a cast role. */
@@ -68,6 +69,8 @@ export interface LevelSpec {
   /** ★★ and ★★★ conditions (★ is `won`). */
   extraStars: (s: Readonly<EqState>, m: Measures, g: GoalEval[]) => [boolean, boolean];
   callIt: CallItSpec | null;
+  /** Several predictions in one level (L09's four exam items, L18's two): the full list, the first being `callIt`. Answers are made with `callIt(value, key)` or `predict(key, value)` before the first commission. */
+  callIts?: (CallItSpec & { /** i18n key suffix under lv.<ID>.callit. */ })[];
   hero: (s: Readonly<EqState>, m: Measures) => HeroSpec;
   secondary: (s: Readonly<EqState>, m: Measures) => SecondarySpec | null;
   annunciators: (s: Readonly<EqState>, m: Measures, g: GoalEval[]) => Annunciator[];

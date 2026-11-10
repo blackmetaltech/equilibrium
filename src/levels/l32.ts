@@ -53,7 +53,7 @@ export const L32: LevelSpec = {
       { key: 'hdr', met: m.ok && m.v.hdr! <= L32_HDR_MAX, ...(m.ok ? { value: m.v.hdr } : {}), target: L32_HDR_MAX },
       { key: 'iae', met: m.ok && m.v.iae! <= L32_IAE_MAX, ...(m.ok ? { value: m.v.iae } : {}), target: L32_IAE_MAX },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.hw! <= L32_BUDGET, value: m.ok ? m.v.hw! : 0, target: L32_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.hw! <= L32_BUDGET, value: m.ok ? m.v.hw! : 0, target: L32_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

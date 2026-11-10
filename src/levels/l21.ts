@@ -10,7 +10,7 @@ import { scripted } from './bench';
 import { AR_MAX_PCT, NH3_MIN_T_H, P_RX_OUT, buildLoop } from './l20';
 import { DP_RX, LOOP_SPECIES, P_LOOP, T_RX, T_SEP, loopMeasures } from './l19';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, predictionOf, shown, unitsOfType } from './util';
+import { baseSetup, commissions, predictionOf, shown, spentOf, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
@@ -21,6 +21,8 @@ export const L21_REF = { T: T_SEP, purge: 0.02, cost: 356.21 };
 export const L21_COST_MAX = L21_REF.cost * 1.03;
 const PRESETS = { eq_reactor: { reactions: 'R1', mode: 'isothermal', T: T_RX, dP: DP_RX }, cooler: { T: T_SEP, utility: 'refrig' }, flash: { T: T_SEP, P: P_RX_OUT }, compressor: { P: P_LOOP, stages: 1 } };
 const UNITS: LevelSpec['units'] = { cooler: { max: 2, price: 9000 }, flash: { max: 1, price: 14000 }, product: { max: 1, price: 5000 } };
+/** Reference design buys two coolers, the drum and the tank = 37 000 USD (GAME, UNVERIFIED). */
+export const L21_BUDGET = 50000;
 /** Raoult's answer the Call-it asks for: NH3 mol % in the vapour leaving a drum at T (K) and the converter-outlet pressure. */
 export const raoultPct = (T: number, P: number = P_RX_OUT): number => (psatSpecies('NH3', T)!.P / P) * 100;
 
@@ -37,13 +39,17 @@ const COACH: CoachStep[] = [
 const lit = (m: Measures, ok: boolean, bad: 'high' | 'critical' = 'high'): Annunciator['state'] => (!m.ok ? 'off' : ok ? 'normal' : bad);
 
 export const L21: LevelSpec = {
-  id: 'L21', firstRun: true, chapter: 5, index: 21, setter: 'mentor', budgetUSD: 0, units: UNITS, notes: 2, shiftLen: 0,
+  id: 'L21', firstRun: true, chapter: 5, index: 21, setter: 'mentor', budgetUSD: L21_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => { baseSetup(s, LOOP_SPECIES, UNITS, PRESETS); buildLoop(s, true, L21_REF.purge); s.limits = { cooler: 2, flash: 1, product: 1 }; s.palette = Object.keys(UNITS); },
   measures: loopMeasures,
-  goals: (_s, m) => [
-    { key: 'nh3', met: m.ok && m.v.nh3_t_h! >= NH3_MIN_T_H, ...(m.ok ? { value: m.v.nh3_t_h } : {}), target: NH3_MIN_T_H },
-    { key: 'ar', met: m.ok && m.v.ar_in_pct! <= AR_MAX_PCT, ...(m.ok ? { value: m.v.ar_in_pct } : {}), target: AR_MAX_PCT },
-  ],
+  goals: (s, m) => {
+    const g: ReturnType<LevelSpec['goals']> = [
+      { key: 'nh3', met: m.ok && m.v.nh3_t_h! >= NH3_MIN_T_H, ...(m.ok ? { value: m.v.nh3_t_h } : {}), target: NH3_MIN_T_H },
+      { key: 'ar', met: m.ok && m.v.ar_in_pct! <= AR_MAX_PCT, ...(m.ok ? { value: m.v.ar_in_pct } : {}), target: AR_MAX_PCT },
+    ];
+    if (s.mode === 'engineer') { const sp = spentOf(s, UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L21_BUDGET, value: sp, target: L21_BUDGET }); }
+    return g;
+  },
   extraStars: (_s, m) => [m.ok && m.v.nh3_purge_pct! <= NH3_PURGE_MAX, m.ok && m.v.cost_per_t! <= L21_COST_MAX],
   callIt: { key: 'flash_nh3_pct', unit: '%', tol: 0.03, truth: (_s, m) => (m.ok ? m.v.flash_nh3_pct! : null) },
   hero: (_s, m) => ({ key: 'nh3_t_h', unit: 't/h', value: m.v.nh3_t_h!, lo: NH3_MIN_T_H, hi: 9 }),

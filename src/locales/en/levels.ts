@@ -3,6 +3,11 @@
 // No currency symbols here (the region pack formats money). Caps legends use plain ASCII digits (the console font has no subscripts).
 export const levels: Record<string, string> = {
   // ---- shared
+  'lv.run.product': 'First run: the plant is making product. Watch the recorder.',
+  'lv.run.control': 'The loop is running: watch the trace, then judge it against the goal rows.',
+  'lv.run.rerun': 'The plant is running your changed design. Watch the recorder and compare with the last run.',
+  'lv.goal.pending': 'pending',
+  'lv.goal.readout_range': '{value} {unit} (target {lo}-{hi})',
   'lv.goal.budget': 'Stay within the budget of {budget} (spent {spent})',
   'lv.verdict.pass': 'The run passed.', 'lv.verdict.not_run': 'Not run yet.', 'lv.verdict.solve_fail': 'The plant would not settle.', 'lv.verdict.lost': 'The plant was lost.',
   'lv.err.callit_level': 'This level has no prediction to make.',

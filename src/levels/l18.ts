@@ -114,7 +114,7 @@ export const L18: LevelSpec = {
       { key: 'o2', met: m.ok && m.v.o2_l! >= L18_O2_L, ...(m.ok ? { value: m.v.o2_l } : {}), target: L18_O2_L },
       { key: 'cold', met: m.v.t_k! <= L18_COLD_K, value: toC(m.v.t_k!), target: 25 },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L18_UNITS); g.push({ key: 'budget', met: sp <= L18_BUDGET, value: sp, target: L18_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L18_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L18_BUDGET, value: sp, target: L18_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => {
@@ -123,6 +123,10 @@ export const L18: LevelSpec = {
     return [m.ok && m.v.ranboth === 1, m.ok && m.v.ranboth === 1 && called];
   },
   callIt: { key: 'time_s', unit: 's', tol: L18_CALL_TOL, truth: () => timeTruth() },
+  callIts: [
+    { key: 'time_s', unit: 's', tol: L18_CALL_TOL, truth: () => timeTruth() },
+    { key: 'ea_kj', unit: 'kJ/mol', tol: 0.01, truth: () => exam().ea },
+  ],
   hero: (_s, m) => ({ key: 'o2_l', unit: 'L', value: m.v.o2_l!, lo: L18_O2_L, hi: 6.5 }),
   secondary: (_s, m) => ({ key: 'x_pct', unit: '%', value: m.v.x! * 100, limit: 100 }),
   annunciators: (s, m, g): Annunciator[] => {

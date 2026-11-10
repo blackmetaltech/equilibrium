@@ -400,7 +400,7 @@ describe('levelInfo and resultCard contract', () => {
         expect(q.annunciators.some((a: any) => a.key === 'goal')).toBe(true);
         expect(q.hero.label.length).toBeGreaterThan(2); expect(q.hero.hi).toBeGreaterThanOrEqual(q.hero.lo);
         if (q.secondary) expect(q.secondary.label.length).toBeGreaterThan(2);
-        expect(q.lesson.length).toBeGreaterThan(20); expect(q.lesson).not.toMatch(/\{/);
+        expect(q.lesson.length > 20 || (q.callIt !== null && !q.callIt.answered && q.phase === 'design' && q.lesson === ''), 'the lesson is withheld only while a prediction is open').toBe(true); expect(q.lesson).not.toMatch(/\{/);
         expect(q.allowedUnits.every((u: any) => u.used <= u.max && u.priceUSD > 0)).toBe(true);
         expect(q.spentUSD).toBeLessThanOrEqual(q.budgetUSD);
       }
@@ -476,4 +476,26 @@ describe('solution codes, determinism, strings', () => {
       for (const k of keys.filter((x) => x.includes('.coach.') && x.endsWith('.why'))) expect(levelsCh4[k], k).toMatch(/^Why:/);
     }
   });
+
+describe('F3a playtest fixes', () => {
+  it('L16 coach names the hot bed outlet through the exchanger; the step is done only by that pipe', () => {
+    const e = start('L16');
+    act(e, 'placeUnit', 'hx', 6, 6, 0); act(e, 'placeUnit', 'heater', 12, 6, 0);
+    const U = (t: string) => e.state.flowsheet.units.find((u: any) => u.type === t)!.id;
+    act(e, 'connect', U('feed'), 'out', U('hx'), 'cold_in'); act(e, 'connect', U('hx'), 'cold_out', U('heater'), 'in'); act(e, 'connect', U('heater'), 'out', U('packed_bed'), 'in');
+    expect(info(e).coach.text).toMatch(/HOT IN/);
+    act(e, 'connect', U('packed_bed'), 'out', U('hx'), 'hot_in');
+    expect(info(e).coach.text).not.toMatch(/HOT IN/);
+  });
+  it('L20-L22 have a budget and an Engineer budget goal that needs the plant to have run; stars.earned says which flasks fill', () => {
+    for (const id of ['L20', 'L21', 'L22']) {
+      expect(info(start(id)).budgetUSD, id).toBeGreaterThan(0);
+      const eng = start(id, 1003, 'engineer'), b = info(eng).goals.find((g: any) => g.key === 'budget');
+      expect(b, id).toBeDefined(); expect(b.met, id).toBe(false);
+    }
+    expect(info(start('L20')).note[0]).toMatch(/already built/);
+    expect(info(start('L15')).stars.earned).toEqual([false, false, false]);
+    expect(info(start('L15')).stars.rules[1]).toMatch(/BED T HI/);
+  });
+});
 });

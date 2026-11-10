@@ -115,6 +115,18 @@ describe('solvability and failure', () => {
     act(bad, 'commission');
     expect(card(bad).verdictKey).toBe('guard');
   });
+  it('F3a L34: a row with the wrong consequence class is not coverage; rows carry readable labels, not ids', () => {
+    const e = solve('L34', { mode: 'learner' });
+    const rows = view(e).rows as any[];
+    const bad = start('L34');
+    for (const r of rows) lact(bad, 'addRow', r.param, r.guide, r.cause, r.cons === 'operability' ? 'release' : 'operability', r.safe);
+    const v = view(bad);
+    expect(v.coverage.covered).toBeLessThan(v.coverage.needed);
+    const a = view(e).rows[0];
+    for (const k of ['paramLabel', 'guideLabel', 'causeLabel', 'consLabel', 'safeLabel']) expect(a[k], k).not.toMatch(/_|\//);
+    expect(a.paramLabel).not.toBe(a.param);
+  });
+  it('F3a L38: the opening note says the plan starts late and over budget', () => { expect(info(start('L38')).note[0]).toMatch(/over budget/); });
   it('L35: a refused or hazardous card shows in the simulated trace of the view', () => {
     const e = start('L35'); for (const c of ['circ_on', 'heat_fast']) lact(e, 'add', c);
     const tr = view(e).trace; expect(tr.some((x: any) => x.kind === 'blocked')).toBe(true); expect(tr.some((x: any) => x.code === 'shock')).toBe(true);

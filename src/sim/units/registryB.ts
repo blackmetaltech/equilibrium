@@ -4,6 +4,8 @@ import { absorber } from './absorber';
 import { boiler } from './boiler';
 import { column } from './column';
 import { fermenter } from './fermenter';
+import { co2Removal, methanator, reformer } from './ammonia_plant';
+import { gauzeBurner, hno3Absorber, n2oAbater } from './nitric';
 import { flash } from './flash';
 import { interlock } from './interlock';
 import { relief } from './relief';
@@ -23,5 +25,12 @@ export const UNIT_DEFS_B: Record<string, UnitDefM16> = {
   interlock: { inlets: [], outlets: [], fn: interlock },
   // M1.20 (full-game night): shortcut column with NRTL (L23) and the yeast fermenter (L23); `vap` is the distillate / the CO2 off-gas
   column: { inlets: ['in'], outlets: ['vap', 'liq'], fn: column, phaseIn: { in: 'L' } },
+  // L26 nitric acid chain and L28 ammonia-plant units
+  gauze_burner: { inlets: ['in'], outlets: ['out'], fn: gauzeBurner, phaseIn: { in: 'V' }, consumes: (_u, i, sp) => sp[i] === 'NH3' },
+  n2o_abater: { inlets: ['in'], outlets: ['out'], fn: n2oAbater, phaseIn: { in: 'V' }, consumes: (_u, i, sp) => sp[i] === 'N2O' },
+  hno3_absorber: { inlets: ['in'], outlets: ['out', 'acid'], fn: hno3Absorber, phaseIn: { in: 'V' }, consumes: (_u, i, sp) => sp[i] === 'NO' || sp[i] === 'NO2' },
+  reformer: { inlets: ['in'], outlets: ['out'], fn: reformer, phaseIn: { in: 'V' }, consumes: (_u, i, sp) => sp[i] === 'CH4' || sp[i] === 'H2O' || sp[i] === 'CO' },
+  co2_removal: { inlets: ['in'], outlets: ['out', 'co2'], fn: co2Removal, phaseIn: { in: 'V' }, exits: (_u, i, sp) => sp[i] === 'CO2' },
+  methanator: { inlets: ['in'], outlets: ['out'], fn: methanator, phaseIn: { in: 'V' }, consumes: (_u, i, sp) => sp[i] === 'CO' || sp[i] === 'CO2' },
   fermenter: { inlets: ['in'], outlets: ['out', 'vap'], fn: fermenter, phaseIn: { in: 'L' }, consumes: (_u, i, sp) => sp[i] === 'C6H12O6' },
 };

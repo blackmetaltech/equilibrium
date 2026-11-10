@@ -73,6 +73,12 @@ export const measures = (s: S): Measures => fireMeasures(s, L06_LEN_S);
 
 const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
 const COACH: CoachStep[] = [
+  { id: 'place_blower', role: 'safety', focus: 'compressor', done: (s) => has(s, 'compressor') },
+  { id: 'place_mixer', role: 'safety', focus: 'mixer', done: (s) => has(s, 'mixer') },
+  { id: 'place_burner', role: 'safety', focus: 'burner', done: (s) => has(s, 'burner') },
+  { id: 'place_boiler', role: 'safety', focus: 'boiler', done: (s) => has(s, 'boiler') },
+  { id: 'place_stack', role: 'safety', focus: 'stack', done: (s) => has(s, 'stack') },
+  { id: 'pipe_up', role: 'safety', done: (s) => s.flowsheet.streams.length >= 6 || commissions(s) >= 1 },
   { id: 'find_limit', role: 'safety', focus: 'burner', done: (s) => commissions(s) >= 1 },
   { id: 'dilution', role: 'safety', focus: 'splitter', done: (s) => has(s, 'splitter') || s.status !== 'playing' },
   { id: 'start_shift', role: 'safety', done: (s) => s.shift !== null || s.status !== 'playing' },
@@ -110,7 +116,7 @@ export const L06: LevelSpec = {
       { key: 'oxygen', met: m.ok && m.v.o2_so2! >= O2_SO2_MIN, ...(m.ok ? { value: m.v.o2_so2 } : {}), target: O2_SO2_MIN },
       { key: 'shift', met: m.ok && m.v.ended === 1, value: m.v.shift_t!, target: m.v.shift_len! },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L06_UNITS); g.push({ key: 'budget', met: sp <= L06_BUDGET, value: sp, target: L06_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L06_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L06_BUDGET, value: sp, target: L06_BUDGET }); }
     return g;
   },
   extraStars: (_s, m) => [m.ok && m.v.ended === 1 && m.v.crit_s! === 0, m.ok && m.v.ended === 1 && m.v.burner_so2_pct! >= STAR_SO2],

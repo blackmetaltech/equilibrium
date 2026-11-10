@@ -415,7 +415,7 @@ describe('L09 Exam Bridge: Bomb vs Burner (EQ-NC-016, 019, 021)', () => {
       act(e, 'callIt', du);
       for (const [k, v] of items) act(e, 'predict', k, v);
       act(e, 'commission');
-      if (late) { act(e, 'setParam', 'R-102', 'T', 300); act(e, 'predict', 'tmin_k', 2000); act(e, 'commission'); }
+      if (late) { act(e, 'setParam', 'R-102', 'T', 300); act(e, 'predict', 'tmin_k', 1500); act(e, 'commission'); }
       roll(e);
       return card(e).stars.earned;
     };
@@ -473,6 +473,35 @@ describe('Call it grading at the stated tolerances (L05 1 %, L06 1.5 %, L07 1 %)
       expect(card(e).stars.earned[2], String(x)).toBe(ok);
     }
   });
+  it('F3a: L05 coach walks the burner house standalone (blower, mixer, burner, boiler, stack, pipes); the lesson hides the answer until the prediction is made', () => {
+    const e = start('L05');
+    const ids: string[] = [];
+    for (const u of [['compressor', 4, 4], ['mixer', 10, 2], ['burner', 14, 0], ['boiler', 18, 0], ['stack', 22, 2]] as const) { ids.push(info(e).coach.text); act(e, 'placeUnit', u[0], u[1], u[2], 0); }
+    expect(info(e).coach.text).toMatch(/Pipe it in order/);
+    expect(new Set(ids).size).toBe(5);
+    expect(info(start('L05')).lesson).toBe(''); expect(info(start('L05')).note.join(' ')).not.toMatch(/eight/i);
+    const e2 = start('L05'); act(e2, 'callIt', 8.2); expect(info(e2).lesson).toMatch(/MW/);
+  });
+  it('F3a: a budget goal is not met before anything is built; callIts rows keep every exam answer; goal rows say pending / a window readout', () => {
+    const e = start('L09'); const q0 = info(e);
+    expect(q0.callIts.map((c: any) => c.key)).toEqual(['du_ch4', 'heat_co2', 'du_vap', 'tmin_k']);
+    expect(q0.goals.every((g: any) => g.pending)).toBe(true); expect(q0.goals[0].text).toMatch(/pending/);
+    act(e, 'callIt', 885.35); act(e, 'callIt', 314.8, 'heat_co2'); act(e, 'predict', 'tmin_k', 1500);
+    const q1 = info(e);
+    expect(q1.callIts.map((c: any) => [c.key, c.answered])).toEqual([['du_ch4', true], ['heat_co2', true], ['du_vap', false], ['tmin_k', true]]);
+    expect(q1.callIts.every((c: any) => c.ok === undefined)).toBe(true);
+    expect(q1.callIt.value).toBe(885.35); expect(q1.callIt.answered).toBe(true);
+    for (const x of q1.callIts) expect(x.prompt).not.toMatch(/314|37\.69|885/);
+    act(e, 'commission');
+    const q2 = info(e);
+    expect(q2.callIts[3].ok).toBe(false); expect(q2.callIts[3].truth).toBeGreaterThan(0);
+    const b = start('L05', 1003, 'engineer');
+    expect(info(b).goals.find((g: any) => g.key === 'budget')!.met).toBe(false);
+    expect(info(b).goals.find((g: any) => g.key === 'so2')!.pending).toBe(true);
+    const sv = solve('L05', { mode: 'engineer' });
+    expect(info(sv).goals.find((g: any) => g.key === 'so2')!.readout).toMatch(/\(target 9\.5-11\)/);
+    expect(info(sv).goals.find((g: any) => g.key === 'budget')!.met).toBe(true);
+  });
   it('a prediction is a prediction: late is refused; L08 has none', () => {
     const e = mk('L05', fireBuild(REF_AIR, 420, [{ name: 'commission' }]));
     expect(act(e, 'callIt', 8.25).info.ok).toBe(false);
@@ -496,7 +525,7 @@ describe('levelInfo contract', () => {
         for (const a of q.annunciators) { expect(a.legend).toBe(a.legend.toUpperCase()); expect(a.legend.length).toBeLessThanOrEqual(14); expect(['off', 'normal', 'high', 'critical']).toContain(a.state); }
         expect(q.annunciators.some((a: any) => a.key === 'goal')).toBe(true);
         expect(q.hero.label.length).toBeGreaterThan(2); expect(q.hero.hi).toBeGreaterThanOrEqual(q.hero.lo);
-        expect(q.lesson.length).toBeGreaterThan(20); expect(q.lesson).not.toMatch(/\{/);
+        expect(q.lesson.length > 20 || (q.callIt !== null && !q.callIt.answered && q.phase === 'design' && q.lesson === ''), 'the lesson is withheld only while a prediction is open').toBe(true); expect(q.lesson).not.toMatch(/\{/);
         expect(q.setterName.length).toBeGreaterThan(3);
         expect(q.allowedUnits.every((u: any) => u.used <= u.max && u.priceUSD > 0)).toBe(true);
       }
@@ -504,10 +533,10 @@ describe('levelInfo contract', () => {
   }
   it('the setters are the cast of DESIGN: Victor, Noor, Mara, Victor, Mara; chapter 2 coaches on its new units (Learner only)', () => {
     expect(['L05', 'L06', 'L07', 'L08', 'L09'].map((id) => /Victor|Noor|Mara|Tomas/.exec(info(start(id)).setterName)![0])).toEqual(['Victor', 'Noor', 'Mara', 'Victor', 'Mara']);
-    expect(info(start('L05')).coach).toMatchObject({ step: 1, total: 5 });
+    expect(info(start('L05')).coach).toMatchObject({ step: 1, total: 10 });
     expect(info(start('L05', 1003, 'engineer')).coach).toBeNull(); expect(info(start('L05', 1003, 'sandbox')).coach).toBeNull();
-    const e = start('L05'); act(e, 'placeUnit', 'boiler', 18, 0, 0); expect(info(e).coach.step).toBe(2);
-    expect(info(start('L06')).coach).toMatchObject({ total: 3 }); expect(info(start('L07')).coach).toMatchObject({ total: 7 }); expect(info(start('L08')).coach).toMatchObject({ total: 4 }); expect(info(start('L09')).coach).toMatchObject({ total: 4 });
+    const e = start('L05'); act(e, 'placeUnit', 'compressor', 4, 4, 0); expect(info(e).coach.step).toBe(2); expect(info(e).coach.focus).toEqual({ rack: 'mixer' });
+    expect(info(start('L06')).coach).toMatchObject({ total: 9 }); expect(info(start('L07')).coach).toMatchObject({ total: 7 }); expect(info(start('L08')).coach).toMatchObject({ total: 4 }); expect(info(start('L09')).coach).toMatchObject({ total: 4 });
     for (const id of CH2) expect(info(solve(id)).coach).toBeNull();
   });
   it('the lesson holds the player numbers', () => {

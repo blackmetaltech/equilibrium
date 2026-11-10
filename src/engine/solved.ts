@@ -108,6 +108,8 @@ export function economics(s: Readonly<EqState>, streams: Record<string, StreamSt
         const st = inlet('in'); sized(u.id, { type: 'vessel_vertical', size: info.vol_m3 ?? 0, pBarg: barg(st) });
         break;
       }
+      case 'reformer': { fuelDutyW += info.fired_W ?? 0; sized(u.id, { type: 'furnace', size: (info.fired_W ?? 0) / 1000, pBarg: barg(inlet('in')) }); break; }
+      case 'co2_removal': { steamBoughtKgS += info.steam_kg_s ?? 0; coolingW += info.cw_duty_W ?? 0; break; }
       case 'fermenter': { coolingW += info.cw_duty_W ?? 0; const st = inlet('in'); sized(u.id, { type: 'reactor', size: info.vol_m3 ?? 0, pBarg: barg(st) }); break; }
       case 'tubular': steamRaisedKgS += (info.q_cool ?? 0) / 2361e3; break; // the boiling-water coolant raises steam (credited at the plant's steam latent heat constant)
       case 'product': { const st = inlet('in'); if (st) productKgS += massOf(sp, st); break; }

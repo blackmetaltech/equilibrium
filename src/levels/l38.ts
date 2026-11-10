@@ -43,7 +43,7 @@ export const L38: LevelSpec = {
   measures,
   goals: (s, m) => {
     const g: GoalEval[] = [{ key: 'window', met: m.ok && m.v.days! <= L38_WINDOW, ...(m.ok ? { value: m.v.days } : {}), target: L38_WINDOW }];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.cost! <= L38_BUDGET, value: m.ok ? m.v.cost! : 0, target: L38_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.cost! <= L38_BUDGET, value: m.ok ? m.v.cost! : 0, target: L38_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

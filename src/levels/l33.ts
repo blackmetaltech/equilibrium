@@ -70,7 +70,7 @@ export const L33: LevelSpec = {
       { key: 'miss', met: m.ok && m.v.miss! === 0, ...(m.ok ? { value: m.v.miss } : {}), target: 0 },
       { key: 'spurious', met: m.ok && m.v.spurious! === 0, ...(m.ok ? { value: m.v.spurious } : {}), target: 0 },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.hw! <= L33_BUDGET, value: m.ok ? m.v.hw! : 0, target: L33_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.hw! <= L33_BUDGET, value: m.ok ? m.v.hw! : 0, target: L33_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

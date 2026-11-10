@@ -14,7 +14,7 @@ import { SPECIES } from '../data/species';
 import { ORIFICE_MM2 } from '../data/vle';
 import type { EqState } from '../state';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, link, none, put, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, link, none, predictionOf, put, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const L24_SPECIES = ['C3H6O', 'H2O(l)', 'C3H8O2'];
@@ -37,7 +37,10 @@ export const L24_TOL = 0.02;
 export const L24_UNITS: LevelSpec['units'] = {
   feed: { max: 1, price: 4000 }, cstr: { max: 1, price: 60000 }, splitter: { max: 1, price: 2000 }, relief: { max: 1, price: 9000 }, interlock: { max: 1, price: 12000 }, product: { max: 1, price: 4000 },
 };
-export const L24_BUDGET = 100000;
+/** Budget with head-room: the pre-built plant costs 91 000 and the palette prices every unit again (the interlock is 12 000), so the card must not read as unaffordable. */
+export const L24_BUDGET = 120000;
+/** The interlock starts armed at a sensible trip, 130 C (the reference trips lower, at 125 C); 0 would be disarmed. */
+export const L24_TRIP_DEFAULT_K = 130 + K;
 
 /** The three steady states of the reactor at the design coolant (the card of the unit). */
 export function l24States(): { T: number; X: number; stable: boolean }[] {
@@ -68,7 +71,7 @@ function build(s: EqState): void {
   const r = put(s, 'cstr', 8, 2);
   const rv = put(s, 'relief', 8, 7, { orifice: 'D' });
   const p = put(s, 'product', 14, 4, { spec: 'C3H8O2', specMin: 0.03 });
-  const il = put(s, 'interlock', 13, 8, { watch: r, variable: 'T', action: 'cut_feed', setpoint: 0 });
+  const il = put(s, 'interlock', 13, 8, { watch: r, variable: 'T', action: 'cut_feed', setpoint: L24_TRIP_DEFAULT_K });
   if (f !== ids.feed || x !== ids.split || r !== ids.cstr || rv !== ids.relief || p !== ids.prod || il !== ids.ilk) throw new Error('level setup: L24 ids moved ' + [f, x, r, rv, p, il].join(','));
   link(s, f, 'out', x, 'in'); link(s, x, 'out', r, 'in'); link(s, r, 'out', p, 'in'); link(s, x, 'purge', rv, 'in');
 }
@@ -124,7 +127,7 @@ export const L24: LevelSpec = {
       { key: 'pg', met: m.ok && m.v.ended === 1 && m.v.lost === 0 && m.v.pg_kmol! >= L24_PG_TARGET_KMOL, ...(m.ok ? { value: m.v.pg_kmol } : {}), target: L24_PG_TARGET_KMOL },
       { key: 'vessel', met: m.ok && m.v.lost === 0 && m.v.peak_K! <= CSTR_RELIEF_K + 20, ...(m.ok ? { value: C(m.v.peak_K!) } : {}), target: C(CSTR_RELIEF_K) + 20 },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L24_UNITS); g.push({ key: 'budget', met: sp <= L24_BUDGET, value: sp, target: L24_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L24_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L24_BUDGET, value: sp, target: L24_BUDGET }); }
     return g;
   },
   extraStars: (_s, m) => [
@@ -147,10 +150,11 @@ export const L24: LevelSpec = {
     ];
   },
   coach: [
-    { id: 'set_ilk', role: 'safety', focus: 'interlock', done: (s) => unitsOfType(s, 'interlock').some((u) => (u.params.setpoint as number) > 0) },
+    { id: 'set_ilk', role: 'safety', focus: 'interlock', done: (s) => unitsOfType(s, 'interlock').some((u) => (u.params.setpoint as number) > 0 && (u.params.setpoint as number) !== L24_TRIP_DEFAULT_K) },
     { id: 'size_relief', role: 'safety', focus: 'relief', done: (s) => unitsOfType(s, 'relief').some((u) => u.params.orifice !== 'D') },
     { id: 'commission', role: 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
     { id: 'start_shift', role: 'safety', done: (s) => s.shift !== null },
+    { id: 'set_coolant', role: 'safety', focus: 'cstr', done: (s) => (s.shift?.t ?? 0) > 0 && (typeof unitsOfType(s, 'cstr')[0]?.params.Tc === 'number' ? (unitsOfType(s, 'cstr')[0]!.params.Tc as number) > 300 : false) || (s.shift?.dc[ids.cstr]?.T ?? 0) > 80 + K || s.shift === null },
     { id: 'ignite', role: 'safety', focus: 'cstr', done: (s) => (s.shift?.dc[ids.cstr]?.T ?? 0) > 80 + K || s.shift === null },
     { id: 'cool_back', role: 'safety', focus: 'cstr', done: (s) => (s.shift?.t ?? 0) > 900 || s.shift === null },
   ] as CoachStep[],
@@ -170,9 +174,14 @@ export const L24: LevelSpec = {
     const dH = shown(-K7_GAME.dH / 1000), c0 = shown(K7_GAME.CA0 / 1000), rc = shown(K7_GAME.rhoCp / 1000);
     return `${f(s, dH)} × ${f(s, c0)} ÷ ${f(s, rc)} = ${f(s, shown((dH * c0) / rc))} K of adiabatic rise`;
   },
-  lessonVars: (s, m) => ({
-    ign: f(s, m.v.ignition_C!), hot: f(s, C(m.v.hot_K!)), peak: m.ok && m.v.peak_K! > 0 ? f(s, C(m.v.peak_K!)) : '-', pg: f(s, m.v.pg_kmol!), dtad: f(s, m.v.dtad! > 0 ? m.v.dtad! : 148.7),
-  }),
+  // the ignition temperature is the Call-it: it is shown only once the prediction is in or the shift is over; the run numbers only once the shift is over
+  lessonVars: (s, m) => {
+    const over = m.ok && m.v.ended === 1, known = over || predictionOf(s, 'ignition_c') !== null;
+    return {
+      ign: known ? f(s, m.v.ignition_C!) : t('lv.L24.hidden'), hot: f(s, C(m.v.hot_K!)), dtad: f(s, m.v.dtad! > 0 ? m.v.dtad! : 148.7),
+      result: over ? t('lv.L24.result', { peak: f(s, C(m.v.peak_K!)), pg: f(s, m.v.pg_kmol!) }) : t('lv.L24.result_wait'),
+    };
+  },
   metrics: (_s, m) => [
     { key: 'pg_kmol', unit: 'kmol', value: m.v.pg_kmol! },
     { key: 'peak_c', unit: '°C', value: C(m.v.peak_K! || K) },

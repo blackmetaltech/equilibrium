@@ -138,7 +138,7 @@ export const L13: LevelSpec = {
       { key: 'conv', met: m.ok && m.v.conv_pct! >= L13_CONV_MIN - 1e-9, ...(m.ok ? { value: m.v.conv_pct } : {}), target: L13_CONV_MIN },
       { key: 'sinter', met: m.ok && m.v.sinter === 0 && m.v.beds_in_line! >= 1, ...(m.ok ? { value: m.v.tmax_c } : {}), target: C(T_SINTER) },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L13_UNITS); g.push({ key: 'budget', met: sp <= L13_BUDGET, value: sp, target: L13_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L13_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L13_BUDGET, value: sp, target: L13_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.beds! <= 3, m.ok && m.v.cost_usd_t! <= refAcidCost(s) + 0.03 * Math.abs(refAcidCost(s))],

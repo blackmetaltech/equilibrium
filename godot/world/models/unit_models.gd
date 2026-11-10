@@ -4,8 +4,8 @@ extends RefCounted
 ## valve, sink, product, vent) plus the ones coming with the engine lanes (eq_reactor, packed_bed, multibed, cstr, flash, nh3_sep, boiler,
 ## absorber, stack, relief, flare); unknown types fall back to a small box labelled by nothing (never a crash).
 const ALIAS := {"mixer3": "mixer", "mixer4": "mixer", "purge": "splitter", "eq_reactor": "converter", "stoich_reactor": "converter", "converter": "converter",
-	"packed_bed": "multibed", "eq_bed": "multibed", "co_burner": "gasifier", "nh3_sep": "flash", "sink": "product", "vent": "stack",
-	"lab_flask": "flask", "bomb_calorimeter": "bomb", "gas_burette": "burette", "gauze_burner": "gauze"}
+	"packed_bed": "multibed", "eq_bed": "multibed", "tubular": "multibed", "gauze_burner": "gauze", "n2o_abater": "multibed", "hno3_absorber": "absorber", "co2_removal": "absorber", "methanator": "multibed", "co_burner": "gasifier", "nh3_sep": "flash", "sink": "product", "vent": "stack",
+	"lab_flask": "flask", "bomb_calorimeter": "bomb", "gas_burette": "burette"}
 ## Own models: boiler, burner (sulfur), gasifier (+ co_burner), multibed (+ packed_bed, eq_bed), cstr, absorber, column, fermenter, chiller,
 ## reformer, gauze, flask (lab_flask), bomb (calorimeter), burette (gas burette). column, fermenter, chiller, reformer, gauze_burner, bomb_calorimeter, gas_burette are not engine types yet (footprints are my guess).
 const TYPES: Array[String] = ["feed", "compressor", "heater", "cooler", "hx", "converter", "flash", "splitter", "mixer", "flare", "stack", "product", "relief", "valve",

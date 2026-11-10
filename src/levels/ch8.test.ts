@@ -203,6 +203,20 @@ describe('levelInfo, resultCard, equation, determinism', () => {
   });
 });
 
+describe('F3a playtest fixes', () => {
+  it('L29 Learner default integral time is zero (Mara: leave tauI at zero first)', () => {
+    const v = start('L29').engine.q('levelView') as any;
+    expect(v.dials.find((d: any) => d.key === 'tauI').value).toBe(0);
+  });
+  it('L33 cost: the Nixie metric, the printout and the star line are one number in one unit', () => {
+    const e = start('L33'); act(e, 'commission');
+    const view = e.engine.q('levelView') as any, rc = e.engine.q('resultCard') as any;
+    expect(view.metric.unit).toBe('USD/yr');
+    expect(rc.metrics.find((m: any) => m.key === 'cost').value).toBe(view.metric.value);
+    expect(view.metric.star3).toBeGreaterThan(0);
+  });
+});
+
 describe('levelView', () => {
   const clean = (v: unknown, path = ''): string | null => {
     if (typeof v === 'number') return Number.isFinite(v) ? null : path;

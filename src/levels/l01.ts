@@ -31,7 +31,7 @@ export const L01: LevelSpec = {
       { key: 'nh3', met: m.ok && relErr(m.v.nh3_kg_h!, L01_NH3_KG_H) <= NH3_TOL, ...(m.ok ? { value: m.v.nh3_kg_h } : {}), target: L01_NH3_KG_H },
       { key: 'vent', met: m.ok && m.v.vent_frac! <= VENT_TOL, ...(m.ok ? { value: m.v.vent_frac! * 100 } : {}), target: VENT_TOL * 100 },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, BENCH_UNITS); g.push({ key: 'budget', met: sp <= BENCH_BUDGET, value: sp, target: BENCH_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, BENCH_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= BENCH_BUDGET, value: sp, target: BENCH_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.vent_frac! <= VENT_TOL_STAR, predictionOf(s, 'h2_kg_h') !== null && relErr(predictionOf(s, 'h2_kg_h')!.value, L01_H2_KG_H) <= NH3_TOL],

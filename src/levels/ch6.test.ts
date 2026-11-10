@@ -17,10 +17,14 @@ import { SPEC_BY_ID } from './registry';
 import { CH6_SPECS } from './ch6';
 import { L24_FEED_MOL_S, L24_MARGIN_K, L24_PG_STAR, L24_PG_TARGET_KMOL, L24_SOLVE, l24HotK, l24IgnitionC, l24States } from './l24';
 import { L25_CONV_CALL, L25_COST_STAR, so2PerTonne } from './l25';
+import { L26_N2O_MAX, L26_REF, L26_COST_MAX, L26_YIELD_MIN, nitricScript } from './l26';
+import { BENCH_GJ, L28_NH3_MIN_T_D, L28_REF, L28_STAR3_GJ, worksScript } from './l28';
+import { reformer } from '../sim/units/ammonia_plant';
 import { L27_DESIGN_PA, L27_LOAD_T_H, L27_PSET_REF, L27_T_K, l27Required, l27SmallestLetter } from './l27';
 import type { EqState } from '../state';
+import { ledgerOf } from '../engine/solved';
 
-const IDS = ['L24', 'L25', 'L27'];
+const IDS = ['L24', 'L25', 'L26', 'L27', 'L28'];
 const K = 273.15;
 
 function start(id: string, seed = 1003, mode = 'engineer'): Env<EqState> {
@@ -76,9 +80,91 @@ function inject(e: Env<EqState>, type: string, v: number, dt = 1): void {
 }
 
 describe('registry', () => {
-  it('L24, L25 and L27 are registered in chapter order with titles, notes and a solver', () => {
+  it('L24-L28 (L28 in chapter 7) are registered in chapter order with titles, notes and a solver', () => {
     expect(CH6_SPECS.map((s) => s.id)).toEqual(IDS);
-    for (const id of IDS) { const l = LEVELS.find((x) => x.id === id)!; expect(l.title.length).toBeGreaterThan(3); expect(l.brief.length).toBeGreaterThan(10); expect(l.solver).toBeTypeOf('function'); expect(SPEC_BY_ID[id]!.chapter).toBe(6); }
+    for (const id of IDS) { const l = LEVELS.find((x) => x.id === id)!; expect(l.title.length).toBeGreaterThan(3); expect(l.brief.length).toBeGreaterThan(10); expect(l.solver).toBeTypeOf('function'); expect(SPEC_BY_ID[id]!.chapter).toBe(id === 'L28' ? 7 : 6); }
+  });
+});
+
+describe('L26 Inside the Envelope: the nitric acid line', () => {
+  const L = (e: Env<EqState>) => SPEC_BY_ID.L26!.measures(e.state).v;
+  it('the solver wins with all three stars in Engineer and Learner mode; calibrated gauze exit and cost; the incident-free printout is clean', () => {
+    for (const mode of ['engineer', 'learner']) {
+      const e = solve('L26', { mode });
+      expect(e.state.status, mode).toBe('won'); expect(card(e).stars, mode).toEqual({ have: 3, earned: [true, true, true] });
+      expect(info(e).goals.every((g: any) => g.met)).toBe(true); expect(GAME.invariants!(e.state, null)).toEqual([]);
+    }
+    const v = L(solve('L26'));
+    expect(v.t_gauze_c).toBeCloseTo(L26_REF.t_c, 1); expect(v.cost_per_t).toBeCloseTo(L26_REF.cost, 0); expect(L26_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(v.no_yield!).toBeGreaterThanOrEqual(L26_YIELD_MIN); expect(v.n2o_kg_t!).toBeLessThanOrEqual(L26_N2O_MAX); expect(v.n2o_raw_kg_t!).toBeGreaterThan(5.6); expect(v.n2o_raw_kg_t!).toBeLessThan(9);
+  });
+  it('the DESIGN incident: 19 % NH3 in air preheated to 200 C is inside the ICI envelope (14.4-31 %): EXPLOSIVE_MIXTURE, the verdict names the numbers, the lamp is critical', () => {
+    const e = start('L26'); actAll(e, nitricScript(300, 473.15, 0, 0, false));
+    expect(e.state.solved!.ok).toBe(false); expect(e.state.solved!.failure!.code).toBe('EXPLOSIVE_MIXTURE');
+    const sp = SPEC_BY_ID.L26!; expect(sp.verdict(e.state, sp.measures(e.state), []).key).toBe('explosion'); expect(sp.verdict(e.state, sp.measures(e.state), []).cause).toMatch(/1[0-9]\.?[0-9]* %/);
+    expect(info(e).annunciators.find((a: any) => a.key === 'explosive').state).toBe('critical');
+  });
+  it('hotter preheat widens the envelope: 12 % NH3 is safe at 200 C and an explosion at 400 C (ICI 13.1 -> 11.2 %)', () => {
+    expect(start('L26').state.solved).toBeNull();
+    const safe = start('L26'); actAll(safe, nitricScript(480, 473.15, 0.95, 0, false)); expect(safe.state.solved!.ok).toBe(true);
+    const hot = start('L26'); actAll(hot, nitricScript(480, 673.15, 0.95, 0, false)); expect(hot.state.solved!.failure!.code).toBe('EXPLOSIVE_MIXTURE');
+  });
+  it('a lean mixture runs cold: K9 sends the ammonia to N2 and N2O (verdict cold, no stars), more N2O than the reference', () => {
+    const e = start('L26'); actAll(e, nitricScript(800, 473.15, 0.95, 0, false));
+    const v = L(e), sp = SPEC_BY_ID.L26!;
+    expect(v.t_gauze_c!).toBeLessThan(850); expect(v.no_yield!).toBeLessThan(L26_YIELD_MIN); expect(v.n2o_raw_kg_t!).toBeGreaterThan(L(solve('L26')).n2o_raw_kg_t!);
+    expect(sp.verdict(e.state, sp.measures(e.state), sp.goals(e.state, sp.measures(e.state))).key).toBe('cold');
+  });
+  it('no abater: the gauze N2O (6.6 kg/t, BREF medium pressure) passes the stack and misses the 2.5 kg/t goal (verdict n2o); the abater at 95 % lands inside the BAT band', () => {
+    const e = start('L26'); actAll(e, nitricScript(630, 523.15, 0, 0, false)); const v = L(e), sp = SPEC_BY_ID.L26!;
+    expect(Math.abs(v.n2o_kg_t! / v.n2o_raw_kg_t! - 1)).toBeLessThan(0.02); expect(v.n2o_kg_t!).toBeGreaterThan(L26_N2O_MAX);
+    expect(sp.verdict(e.state, sp.measures(e.state), sp.goals(e.state, sp.measures(e.state))).key).toBe('n2o');
+    const bat = REGIONS.get('global').data.limits.n2o_bat; expect(L(solve('L26')).n2o_kg_t!).toBeLessThanOrEqual(bat[1]); expect(L(solve('L26')).n2o_kg_t!).toBeGreaterThanOrEqual(bat[0]);
+  });
+  it('the Call-it is the gauze exit at the player design (3 %); the equation evaluates; the atom ledger closes through gauze, abater and absorber', () => {
+    const e = start('L26'); act(e, 'callIt', L26_REF.t_c); expect(e.state.prediction).not.toBeNull();
+    const w = solve('L26'); expect(equationHolds(card(w).equation)).toBe(true);
+    const led = ledgerOf(w.state)!; expect(led.atomRel).toBeLessThan(1e-6);
+  });
+});
+
+describe('L28 Feed the World: the Works', () => {
+  const W = (e: Env<EqState>) => SPEC_BY_ID.L28!.measures(e.state).v;
+  it('the solver wins with all three stars in Engineer and Learner mode; the calibrated best and the benchmark lines', () => {
+    for (const mode of ['engineer', 'learner']) {
+      const e = solve('L28', { mode });
+      expect(e.state.status, mode + ' ' + e.state.statusReason).toBe('won'); expect(card(e).stars, mode).toEqual({ have: 3, earned: [true, true, true] });
+      expect(info(e).goals.every((g: any) => g.met)).toBe(true); expect(GAME.invariants!(e.state, null)).toEqual([]);
+    }
+    const v = W(solve('L28'));
+    expect(v.gj_per_t).toBeCloseTo(L28_REF.gj, 1); expect(L28_STAR3_GJ / v.gj_per_t!).toBeCloseTo(1.01, 2);
+    expect(v.gj_per_t!).toBeLessThan(BENCH_GJ.top); expect(v.gj_per_t!).toBeGreaterThan(BENCH_GJ.best); expect(v.nh3_t_d!).toBeGreaterThanOrEqual(L28_NH3_MIN_T_D);
+    expect([BENCH_GJ.avg, BENCH_GJ.top, BENCH_GJ.best]).toEqual([36.6, 33, 28]);
+  });
+  it('the plant as built (reformer 800 C, S/C 3, 2 % purge, nitrogen 125) is below the ammonia target (the verdict says short) and above 36.5 GJ/t', () => {
+    const e = start('L28'); act(e, 'commission');
+    const v = W(e); expect(e.state.solved!.ok).toBe(true); expect(v.nh3_t_d!).toBeLessThan(L28_NH3_MIN_T_D); expect(v.gj_per_t!).toBeGreaterThan(36.5);
+    const sp = SPEC_BY_ID.L28!; expect(sp.verdict(e.state, sp.measures(e.state), sp.goals(e.state, sp.measures(e.state))).key).toBe('short');
+  });
+  it('nitrogen starved: hydrogen piles up in the loop (fresh 4.3 H2 : N2), the purge burns it and the energy jumps past 44 GJ/t', () => {
+    const e = start('L28'); actAll(e, worksScript(L28_REF.T, L28_REF.sc, L28_REF.area, L28_REF.shift, L28_REF.co2, L28_REF.purge, 90, false));
+    const v = W(e); expect(v.h2_n2!).toBeGreaterThan(4); expect(v.gj_per_t!).toBeGreaterThan(40); expect(info(e).annunciators.find((a: any) => a.key === 'stoich').state).not.toBe('normal');
+  });
+  it('no purge: NO_EXIT (methane and the excess have no way out of the loop), with the species named', () => {
+    const e = start('L28'); actAll(e, worksScript(L28_REF.T, L28_REF.sc, L28_REF.area, L28_REF.shift, L28_REF.co2, 0, L28_REF.n2, false));
+    expect(e.state.solved!.ok).toBe(false); expect(e.state.solved!.failure!.code).toBe('NO_EXIT'); expect(info(e).annunciators.find((a: any) => a.key === 'noexit').state).toBe('critical');
+  });
+  it('the SMR oracle: 800 C, 25 bar, S/C 3 gives 67.3 % CH4 conversion in DESIGN and within 2 % relative in the engine (68.5 %); hotter and wetter converts more', () => {
+    const r = (T: number, sc: number) => { const o = reformer({ in: { n: [1, sc, 0, 0, 0, 0, 0], T: 773.15, P: 25e5 } }, { id: 'X', type: 'reformer', pos: { x: 0, y: 0 }, rot: 0, params: { T } }, { species: ['CH4', 'H2O', 'CO', 'CO2', 'H2', 'N2', 'NH3'], thermoDetail: 'rigorous' }); if (!o.ok) throw new Error(o.code); return (o.value.info as Record<string, number>).x_ch4!; };
+    expect(Math.abs(r(1073.15, 3) - 0.673) / 0.673).toBeLessThan(0.02); expect(r(1153.15, 3)).toBeGreaterThan(r(1073.15, 3)); expect(r(1073.15, 4)).toBeGreaterThan(r(1073.15, 3));
+  });
+  it('the energy is the sum of its parts (feed + fuel + steam raising + shaft and refrigeration + CO2 solvent + nitrogen - boiler credit) and the Call-it grades the SMR conversion', () => {
+    const e = solve('L28'), v = W(e);
+    expect(v.feed_gj_h! + v.fuel_gj_h! + v.steam_gen_gj_h! + v.el_gj_h! + v.regen_gj_h! + v.asu_gj_h! - v.steam_credit_gj_h!).toBeCloseTo(v.e_gj_h!, 6);
+    expect(v.e_gj_h! / v.nh3_t_h!).toBeCloseTo(v.gj_per_t!, 6);
+    const c = start('L28'); act(c, 'callIt', 68.5); expect(c.state.prediction).not.toBeNull();
+    const r = solve('L28'); expect(card(r).equation).toBeTypeOf('string'); expect(equationHolds(card(r).equation)).toBe(true); expect(card(r).card.ifa_avg).toBe(36.6);
+    expect(ledgerOf(r.state)!.atomRel).toBeLessThan(1e-6);
   });
 });
 
@@ -138,7 +224,7 @@ describe('L24 Runaway: the reactor the player flies', () => {
     // the solver's start-up, no reaction to the trip, and the interlock left disarmed
     const dumb: PersonaFactory<EqState> = (seed) => {
       const base = SPEC_BY_ID.L24!.solver(seed);
-      return (s, c) => base(s, c).filter((a) => !(a.name === 'setParam' && a.args![0] === 'I-106') && !(a.name === 'setpoint' && a.args![1] === 'Tc' && (a.args![2] as number) === L24_SOLVE.coldK) && !(a.name === 'setpoint' && a.args![1] === 'flow' && s.shift!.mods.cwUa < 1));
+      return (s, c) => base(s, c).map((a) => (a.name === 'setParam' && a.args![0] === 'I-106' ? { name: 'setParam', args: ['I-106', 'setpoint', 0] } : a)).filter((a) => !(a.name === 'setpoint' && a.args![1] === 'Tc' && (a.args![2] as number) === L24_SOLVE.coldK) && !(a.name === 'setpoint' && a.args![1] === 'flow' && s.shift!.mods.cwUa < 1));
     };
     let injected = false, peak = 0;
     const e = play('L24', dumb, { ticks: 1700, each: (en) => {
@@ -176,7 +262,7 @@ describe('L24 Runaway: the reactor the player flies', () => {
     const hasty: PersonaFactory<EqState> = () => {
       let phase = 0;
       return (s) => {
-        if (phase === 0) { phase = 1; return [{ name: 'commission' }, { name: 'startShift', args: ['shift'] }]; }
+        if (phase === 0) { phase = 1; return [{ name: 'setParam', args: ['I-106', 'setpoint', 0] }, { name: 'commission' }, { name: 'startShift', args: ['shift'] }]; }
         const sh = s.shift!;
         if (phase === 1) { phase = 2; return [{ name: 'setpoint', args: ['R-103', 'Tc', 55 + K] }]; }
         if (phase === 2 && sh.dc['R-103']!.T - K > 75) { phase = 3; return [{ name: 'setpoint', args: ['R-103', 'Tc', 25 + K] }]; }

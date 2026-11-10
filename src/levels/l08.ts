@@ -99,7 +99,7 @@ export const L08: LevelSpec = {
       { key: 'recover', met: m.ok && m.v.recover! >= RECOVER_MIN, ...(m.ok ? { value: m.v.recover! * 100 } : {}), target: RECOVER_MIN * 100 },
       { key: 'shift', met: m.ok && m.v.ended === 1, value: m.v.shift_t! / 3600, target: m.v.shift_len! / 3600 },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L08_UNITS); g.push({ key: 'budget', met: sp <= L08_BUDGET, value: sp, target: L08_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L08_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L08_BUDGET, value: sp, target: L08_BUDGET }); }
     return g;
   },
   extraStars: (_s, m) => {

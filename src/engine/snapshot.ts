@@ -10,8 +10,19 @@ const sig4 = (x: number): number => (x === 0 || !Number.isFinite(x) ? 0 : Number
 /** Glow 0..1 from temperature: dark below 500 K, full at 1200 K. */
 export const glowOf = (T: number): number => Math.min(1, Math.max(0, (T - 500) / 700));
 
-export interface UnitDisplay { id: string; type: string; x: number; y: number; rot: number; T: number; P: number; flow: number; glow: number; failed: boolean }
+export interface UnitDisplay { id: string; type: string; x: number; y: number; rot: number; T: number; P: number; flow: number; glow: number; failed: boolean; /** Whitelisted finite numbers of the unit's solve result (what the Godot unit models read). */ info?: Record<string, number> }
 export interface StreamDisplay { id: string; flow: number; T: number; P: number; w: [number, number][] }
+
+/** Info keys of a unit's solve result the models draw from (DESIGN 8.2); anything else stays in the unit queries. Tray temperatures are `tray_T<i>` (K, top to bottom, at most 20). */
+const INFO_KEYS = new Set(['tray_n', 'level', 'reflux', 'gas', 'spin', 'T_K', 'T_top', 'T_bot', 'Tmax', 'T_out', 'T_in', 'T_sep', 'X', 'eta', 'conv', 'beta', 'Q_reb', 'Q_cond', 'N', 'light_off', 'T_bed', 'mix_pct', 'hot_W']);
+const INFO_RE = /^(tray_T\d{1,2}|b\d_(Tin|Tout|Xout))$/;
+/** The small display record of a unit from its stored solve (finite numbers only, 4 significant digits); undefined when it has none. */
+export function infoDisplay(info: Readonly<Record<string, number>> | undefined): Record<string, number> | undefined {
+  if (!info) return undefined;
+  const o: Record<string, number> = {};
+  for (const [k, v] of Object.entries(info)) if ((INFO_KEYS.has(k) || INFO_RE.test(k)) && typeof v === 'number' && Number.isFinite(v)) o[k] = sig4(v);
+  return Object.keys(o).length > 0 ? o : undefined;
+}
 
 /** Open alarms for the console: id, unit, variable, tier (1 low, 2 high, 3 critical), acknowledged, returned-to-normal. */
 function alarmsOf(s: Readonly<EqState>): { id: string; unit: string; v: string; tier: number; ack: number; rtn: number; t0: number }[] {
@@ -48,7 +59,8 @@ export function snapshotOf(s: Readonly<EqState>): unknown {
       const st = id ? src?.[id] : undefined;
       if (st) { T = st.T; P = st.P; flow = st.n.reduce((a, b) => a + b, 0); }
     }
-    return { id: u.id, type: u.type, x: u.pos.x, y: u.pos.y, rot: u.rot, T: r1(T), P: Math.round(P), flow: sig4(flow), glow: Math.round(glowOf(T) * 100) / 100, failed: sol?.failedUnits.includes(u.id) ?? false };
+    const info = sol?.ok ? infoDisplay(sol.units[u.id]?.info) : undefined;
+    return { id: u.id, type: u.type, x: u.pos.x, y: u.pos.y, rot: u.rot, T: r1(T), P: Math.round(P), flow: sig4(flow), glow: Math.round(glowOf(T) * 100) / 100, failed: sol?.failedUnits.includes(u.id) ?? false, ...(info ? { info } : {}) };
   });
   const streams: StreamDisplay[] = [];
   if (sol?.ok) {

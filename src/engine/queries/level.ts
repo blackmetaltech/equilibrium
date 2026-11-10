@@ -21,11 +21,26 @@ const fin = (x: number): number => (Number.isFinite(x) ? x : 0);
 // ------------------------------------------------------------------------------------------------ grading
 export interface CallItGrade { answered: boolean; value?: number; truth?: number; ok?: boolean; named?: string; namedOk?: boolean; truthNamed?: string }
 
+/** The answer made for `key` (before the first commission): the last `callIt(value[, key])` / `predict(key, value)` in the solution log, else the stored prediction. Several answers per level do not overwrite each other. */
+export function answerOf(s: S, spec: LevelSpec, key: string): Prediction | null {
+  const main = spec.callIt?.key;
+  let found: Prediction | null = null;
+  for (const [name, args] of s.levelActions ?? []) {
+    if (name === 'commission') break;
+    if (name === 'callIt' && typeof args[0] === 'number') {
+      const a1 = args[1];
+      const k = typeof a1 === 'string' && spec.callIts?.some((c) => c.key === a1) ? a1 : main;
+      if (k === key) { found = { quantity: key, value: args[0] }; if (typeof a1 === 'string' && k === main && s.species.includes(a1)) found.named = a1; }
+    } else if (name === 'predict' && args[0] === key && typeof args[1] === 'number') found = { quantity: key, value: args[1] };
+  }
+  return found ?? predictionOf(s, key);
+}
+
 /** Grade the stored prediction against the level's oracle (or the engine's number at the player's design). Ungraded until there is a truth. */
 export function gradeCallIt(s: S, spec: LevelSpec, m: Measures): CallItGrade {
   const c = spec.callIt;
   if (!c) return { answered: false };
-  const p = predictionOf(s, c.key);
+  const p = answerOf(s, spec, c.key);
   if (p === null) return { answered: false };
   const g: CallItGrade = { answered: true, value: p.value };
   const truth = c.truth(s, m);
@@ -53,7 +68,7 @@ const fnv = (str: string): number => { let h = 0x811c9dc5; for (let i = 0; i < s
 
 function goalText(s: S, spec: LevelSpec, g: GoalEval): string {
   const vars: Record<string, string | number> = {
-    target: g.target !== undefined ? fmt(s, g.target) : '-', value: g.value !== undefined ? fmt(s, g.value) : '-',
+    target: g.target !== undefined ? fmt(s, g.target) : '-', value: g.value !== undefined ? fmt(s, g.value) : t('lv.goal.pending'),
     budget: g.target !== undefined ? money(s, g.target) : '-', spent: g.value !== undefined ? money(s, g.value) : '-',
   };
   return t(g.key === 'budget' ? 'lv.goal.budget' : `lv.${spec.id}.goal.${g.key}`, vars);
@@ -64,6 +79,12 @@ function phaseOf(s: S): 'design' | 'commissioned' | 'firstrun' | 'shift' | 'won'
   if (s.status === 'lost') return 'lost';
   if (s.phase === 'firstrun') return 'firstrun';
   return s.phase === 'design' ? 'design' : s.phase === 'commissioned' ? 'commissioned' : s.phase === 'report' ? 'won' : 'shift';
+}
+
+/** Which intercom line a running plant gets: product (first run of a product level), control (chapter 8 loops), rerun (a later run of the same design). */
+function runLineKey(s: S, spec: LevelSpec): string {
+  if (spec.chapter >= 8) return 'lv.run.control';
+  return commissions(s) > 1 ? 'lv.run.rerun' : 'lv.run.product';
 }
 
 /** The coach line: the first step whose predicate is false; null when done, when the level is over or the mode does not coach (DESIGN 7.6: Learner coaches L01-L04, every non-sandbox mode gets L00's two lines). */
@@ -116,16 +137,22 @@ const levelInfo: QueryFn<EqState> = (s) => {
     setterName: pack.strings[`cast.${cast}.name`] ?? '', setterTitle: pack.strings[`cast.${cast}.title`] ?? '',
     place: t(`lv.${spec.id}.place`),
     note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`)),
-    goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
+    goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
     budgetUSD: spec.budgetUSD, spentUSD: spent,
-    stars: { have: st.have, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`)) },
+    stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`)) },
     callIt: call === null ? null : {
       key: call.key, prompt: t(`lv.${spec.id}.callit`), unit: call.unit, answered: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
-      ...(grade.ok !== undefined && (s.solved !== null || s.status !== 'playing') ? { ok: grade.ok } : {}),
+      ...(grade.ok !== undefined && (s.solved !== null || s.status !== 'playing') ? { ok: grade.ok, truth: fin(grade.truth ?? 0) } : {}),
       ...(call.named ? { named: grade.named ?? '', options: s.species.filter((x) => x === 'N2' || x === 'H2') } : {}),
       ...(call.lateOk ? { late: true } : {}),
     },
-    allowedUnits: Object.entries(spec.units).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
+    /** Several predictions (L09, L18): one row each; `ok` and `truth` only once the run is over. Empty when the level has just the one `callIt`. */
+    callIts: (spec.callIts ?? []).map((c) => {
+      const a = answerOf(s, spec, c.key), tr = c.truth(s, m), over = s.solved !== null || s.status !== 'playing';
+      const ok = a !== null && tr !== null ? (c.tol === 0 ? a.value === tr : relErr(a.value, tr) <= c.tol) : undefined;
+      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`), unit: c.unit, answered: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
+    }),
+    allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
     hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: fin(hero.value), lo: fin(hero.lo), hi: fin(hero.hi) },
     secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), unit: sec.unit, value: fin(sec.value), limit: fin(sec.limit) },
     annunciators: spec.annunciators(s, m, goals),
@@ -133,7 +160,10 @@ const levelInfo: QueryFn<EqState> = (s) => {
     /** The level first run (L01-L04): plant seconds rolled, its length, and the product made so far; null outside it. */
     firstRun: spec.firstRun === true && s.phase === 'firstrun' ? { t: firstRunT(s), len: FIRSTRUN_S, madeKg: fin(madeKg(s, spec)) } : null,
     coach: coachOf(s, spec),
-    lesson: t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
+    /** What the intercom says while a first run rolls: the product line only for the very first run of a product level; control / board levels and later runs get their own line (null outside a first run). */
+    runLine: spec.firstRun === true && s.phase === 'firstrun' ? t(runLineKey(s, spec)) : null,
+    /** Withheld while a prediction is still open (nothing commissioned, none locked): the lesson quotes the numbers the Call-it asks for. */
+    lesson: call !== null && !grade.answered && commissions(s) === 0 && s.status === 'playing' ? '' : t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
     mode: s.mode,
     /** Extras: the cylinder banks (kg/h and kmol/h side by side), feed units whose composition no card may show, the shift length. */
     banks, bankSpecies: spec.bankSpecies ?? [], masked: spec.masked ? spec.masked(s) : [], shiftLen: spec.shiftLen,
@@ -180,7 +210,7 @@ export const levelQueries: Record<string, QueryFn<EqState>> = { levelInfo, resul
 // ------------------------------------------------------------------------------------------------ actions
 type Fn = ActionFn<EqState>;
 
-/** callIt(value, named?): the optional prediction of the level, before the run (DESIGN 7.4). One per attempt; L03 allows it after a test burn. */
+/** callIt(value, namedOrKey?): the optional prediction (a second argument naming one of the level's `callIts` answers that item) of the level, before the run (DESIGN 7.4). One per attempt; L03 allows it after a test burn. */
 const callIt: Fn = (s, value: unknown, named?: unknown) => {
   const spec = specOf(s);
   need(spec !== undefined && spec.callIt !== null, t('lv.err.callit_level'));
@@ -188,6 +218,8 @@ const callIt: Fn = (s, value: unknown, named?: unknown) => {
   need(c.lateOk === true || commissions(s) === 0, t('lv.err.callit_late'));
   need(s.phase === 'design' || (c.lateOk === true && s.phase === 'commissioned'), t('lv.err.callit_phase'));
   need(typeof value === 'number' && Number.isFinite(value) && value >= 0, t('lv.err.callit_value', { value: String(value) }));
+  const extra = typeof named === 'string' ? spec!.callIts?.find((x) => x.key === named && x.key !== c.key) : undefined;
+  if (extra) return;   // another item of the same level: recorded in the solution log (`answerOf` reads it), the main prediction stays
   const p: Prediction = { quantity: c.key, value };
   if (c.named && typeof named === 'string' && s.species.includes(named)) p.named = named;
   s.prediction = p;

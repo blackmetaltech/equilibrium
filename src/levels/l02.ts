@@ -89,7 +89,7 @@ export const L02: LevelSpec = {
       { key: 'burn', met: m.ok && m.v.s_burned! >= BURN_MIN * L02_S_KMOL_H, ...(m.ok ? { value: m.v.s_burned } : {}), target: BURN_MIN * L02_S_KMOL_H },
       { key: 'so2', met: m.ok && Math.abs(m.v.so2_pct! - SO2_PCT) <= SO2_TOL, ...(m.ok ? { value: m.v.so2_pct } : {}), target: SO2_PCT },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L02_UNITS); g.push({ key: 'budget', met: sp <= L02_BUDGET, value: sp, target: L02_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L02_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L02_BUDGET, value: sp, target: L02_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => {

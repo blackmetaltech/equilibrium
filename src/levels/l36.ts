@@ -36,7 +36,7 @@ export const L36: LevelSpec = {
       { key: 'safe', met: m.ok && m.v.sev === 0, ...(m.ok ? { value: m.v.sev! } : {}), target: 0 },
       { key: 'done', met: m.ok && m.v.done === 1, ...(m.ok ? { value: m.v.done } : {}), target: 1 },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.loss! <= L36_BUDGET, value: m.ok ? m.v.loss! : 0, target: L36_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.loss! <= L36_BUDGET, value: m.ok ? m.v.loss! : 0, target: L36_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

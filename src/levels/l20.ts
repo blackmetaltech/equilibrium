@@ -10,7 +10,7 @@ import type { EqState } from '../state';
 import { scripted } from './bench';
 import { DP_RX, LOOP_SPECIES, N2_FRESH, AR_FRESH, H2_FRESH, P_LOOP, T_CW, T_RX, T_SEP, loopMeasures, outStream } from './l19';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, link, predictionOf, put, putFeed, sealSetup, shown, unitsOfType } from './util';
+import { baseSetup, commissions, link, predictionOf, put, putFeed, sealSetup, shown, spentOf, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
@@ -25,6 +25,12 @@ export const P_RX_OUT = P_LOOP - DP_RX;
 
 const PRESETS = { eq_reactor: { reactions: 'R1', mode: 'isothermal', T: T_RX, dP: DP_RX }, cooler: { T: T_SEP, utility: 'refrig' }, flash: { T: T_SEP, P: P_RX_OUT }, compressor: { P: P_LOOP, stages: 1 } };
 const UNITS: LevelSpec['units'] = {};
+/** Bench prices (GAME, UNVERIFIED) of the pre-built loop: the notebook's budget is the plant the player runs (nothing is bought in this level). */
+export const L20_PRICES: LevelSpec['units'] = {
+  feed: { max: 2, price: 6000 }, mixer3: { max: 1, price: 4000 }, eq_reactor: { max: 1, price: 40000 }, cooler: { max: 2, price: 8000 }, flash: { max: 1, price: 14000 },
+  splitter: { max: 1, price: 2500 }, compressor: { max: 1, price: 30000 }, product: { max: 1, price: 5000 }, vent: { max: 1, price: 1500 },
+};
+export const L20_BUDGET = 150000;
 
 export interface LoopIds { feedN: string; feedH: string; mix: string; rx: string; cw: string; chill?: string; flash?: string; split: string; comp: string; prod?: string; vent: string }
 
@@ -60,13 +66,17 @@ const code = (s: S): string => (s.solved !== null && !s.solved.ok ? s.solved.fai
 const lit = (m: Measures, ok: boolean, bad: 'high' | 'critical' = 'high'): Annunciator['state'] => (!m.ok ? 'off' : ok ? 'normal' : bad);
 
 export const L20: LevelSpec = {
-  id: 'L20', firstRun: true, chapter: 5, index: 20, setter: 'supervisor', budgetUSD: 0, units: UNITS, notes: 2, shiftLen: 0,
+  id: 'L20', firstRun: true, chapter: 5, index: 20, setter: 'supervisor', budgetUSD: L20_BUDGET, units: L20_PRICES, notes: 2, shiftLen: 0,
   setup: (s) => { baseSetup(s, LOOP_SPECIES, UNITS, PRESETS); buildLoop(s, false, 0); },
   measures: loopMeasures,
-  goals: (_s, m) => [
-    { key: 'nh3', met: m.ok && m.v.nh3_t_h! >= NH3_MIN_T_H, ...(m.ok ? { value: m.v.nh3_t_h } : {}), target: NH3_MIN_T_H },
-    { key: 'ar', met: m.ok && m.v.ar_in_pct! <= AR_MAX_PCT, ...(m.ok ? { value: m.v.ar_in_pct } : {}), target: AR_MAX_PCT },
-  ],
+  goals: (s, m) => {
+    const g: ReturnType<LevelSpec['goals']> = [
+      { key: 'nh3', met: m.ok && m.v.nh3_t_h! >= NH3_MIN_T_H, ...(m.ok ? { value: m.v.nh3_t_h } : {}), target: NH3_MIN_T_H },
+      { key: 'ar', met: m.ok && m.v.ar_in_pct! <= AR_MAX_PCT, ...(m.ok ? { value: m.v.ar_in_pct } : {}), target: AR_MAX_PCT },
+    ];
+    if (s.mode === 'engineer') { const sp = spentOf(s, L20_PRICES); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L20_BUDGET, value: sp, target: L20_BUDGET }); }
+    return g;
+  },
   extraStars: (s, m) => {
     const p = predictionOf(s, 'ar_pct');
     return [p !== null && Math.abs(p.value - L20_PART_A_PCT) / L20_PART_A_PCT <= 0.005, m.ok && m.v.cost_per_t! <= L20_COST_MAX];

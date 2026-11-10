@@ -142,7 +142,7 @@ export const L10: LevelSpec = {
       { key: 'y', met: m.ok && m.v.y_pct! >= L10_Y_MIN - 1e-9, ...(m.ok ? { value: m.v.y_pct } : {}), target: L10_Y_MIN },
       { key: 'vessel', met: m.ok && m.v.relief === 0, ...(m.ok ? { value: m.v.p_bar } : {}), target: P_VESSEL_MAX },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L10_UNITS); g.push({ key: 'budget', met: sp <= L10_BUDGET, value: sp, target: L10_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L10_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L10_BUDGET, value: sp, target: L10_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.class > 0 && m.v.class <= P_VESSEL_LO, m.ok && m.v.cost_usd_t! <= refCost(s, L10_REF_PARTS) * 1.03],

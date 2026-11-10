@@ -77,7 +77,7 @@ export const L11: LevelSpec = {
       { key: 'temp', met: Math.abs(m.v.t_c! - (L11_T_K - 273.15)) <= L11_T_TOL, value: m.v.t_c, target: L11_T_K - 273.15 },
       { key: 'press', met: m.v.p_bar! <= L11_P_MAX + 1e-6, value: m.v.p_bar, target: L11_P_MAX },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L11_UNITS); g.push({ key: 'budget', met: sp <= L11_BUDGET, value: sp, target: L11_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L11_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L11_BUDGET, value: sp, target: L11_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.p_bar! <= L11_P_STAR + 1e-6, m.ok && m.v.cost_usd_t! <= refCost(s, L11_REF_PARTS, L11_CONTRACTS[1].price * L11_GAS_KMOL_H) * 1.03],

@@ -9,7 +9,7 @@ import { t } from '../i18n';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, flowOf, fedOf, inStream, intoType, link, predictionOf, put, putFeed, relErr, sealSetup, shown, toKgH, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, flowOf, fedOf, inStream, intoType, link, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, toKgH, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const L22_SPECIES = ['H2', 'CO', 'CO2', 'N2', 'CH3OH', 'H2O'];
@@ -23,6 +23,7 @@ export const L22_REF = { Tc: 493.15, W: 10000, purge: 0.2, meoh: 2.4, cost: 49.2
 export const L22_MEOH_MIN_T_H = L22_REF.meoh;
 export const L22_COST_MAX = L22_REF.cost * 1.03;
 export const L22_UNITS: LevelSpec['units'] = { tubular: { max: 1, price: 90000 } };
+export const L22_BUDGET = 100000;
 const PRESETS = { heater: { T: T_IN, utility: 'fired' }, cooler: { T: T_FLASH, utility: 'cw' }, flash: { T: T_FLASH, P: P_FLASH }, compressor: { P: P_LOOP, stages: 1 }, tubular: { W: 1000, Tc: T_IN, UaW: 12 } };
 
 /** Stoichiometric number of a gas (mole fractions or flows): (H2 - CO2) / (CO + CO2). */
@@ -85,13 +86,17 @@ const COACH: CoachStep[] = [
 ];
 
 export const L22: LevelSpec = {
-  id: 'L22', firstRun: true, chapter: 5, index: 22, setter: 'manager', budgetUSD: 0, units: L22_UNITS, notes: 2, shiftLen: 0,
+  id: 'L22', firstRun: true, chapter: 5, index: 22, setter: 'manager', budgetUSD: L22_BUDGET, units: L22_UNITS, notes: 2, shiftLen: 0,
   setup: (s) => { baseSetup(s, L22_SPECIES, L22_UNITS, PRESETS); buildMethanol(s, L22_REF.purge); },
   measures: methanolMeasures,
-  goals: (_s, m) => [
-    { key: 'meoh', met: m.ok && m.v.meoh_t_h! >= L22_MEOH_MIN_T_H, ...(m.ok ? { value: m.v.meoh_t_h } : {}), target: L22_MEOH_MIN_T_H },
-    { key: 'carbon', met: m.ok && m.v.carbon_eff! >= L22_CARBON_MIN, ...(m.ok ? { value: m.v.carbon_eff } : {}), target: L22_CARBON_MIN },
-  ],
+  goals: (s, m) => {
+    const g: ReturnType<LevelSpec['goals']> = [
+      { key: 'meoh', met: m.ok && m.v.meoh_t_h! >= L22_MEOH_MIN_T_H, ...(m.ok ? { value: m.v.meoh_t_h } : {}), target: L22_MEOH_MIN_T_H },
+      { key: 'carbon', met: m.ok && m.v.carbon_eff! >= L22_CARBON_MIN, ...(m.ok ? { value: m.v.carbon_eff } : {}), target: L22_CARBON_MIN },
+    ];
+    if (s.mode === 'engineer') { const sp = spentOf(s, L22_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L22_BUDGET, value: sp, target: L22_BUDGET }); }
+    return g;
+  },
   extraStars: (_s, m) => [m.ok && m.v.sinter === 0, m.ok && m.v.cost_per_t! <= L22_COST_MAX],
   callIt: { key: 'sn', unit: '', tol: 0.01, truth: () => L22_SN },
   hero: (_s, m) => ({ key: 'meoh_t_h', unit: 't/h', value: m.v.meoh_t_h!, lo: L22_MEOH_MIN_T_H, hi: 3 }),

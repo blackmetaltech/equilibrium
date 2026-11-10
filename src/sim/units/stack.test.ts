@@ -26,7 +26,7 @@ describe('stack + analyser', () => {
 });
 describe('registryB + interlock', () => {
   it('registers the director names', () => {
-    expect(Object.keys(UNIT_DEFS_B).sort()).toEqual(['absorber', 'boiler', 'column', 'fermenter', 'flare', 'flash', 'interlock', 'nh3_sep', 'relief', 'stack']);
+    expect(Object.keys(UNIT_DEFS_B).sort()).toEqual(['absorber', 'boiler', 'co2_removal', 'column', 'fermenter', 'flare', 'flash', 'gauze_burner', 'hno3_absorber', 'interlock', 'methanator', 'n2o_abater', 'nh3_sep', 'reformer', 'relief', 'stack']);
     expect(UNIT_DEFS_B.flash!.outlets).toEqual(['vap', 'liq']); expect(UNIT_DEFS_B.stack!.isSink).toBe(true);
     expect(UNIT_DEFS_B.nh3_sep!.exits!(mk('nh3_sep'), 0, ['NH3'])).toBe(true);
   });

@@ -124,7 +124,7 @@ export const L07: LevelSpec = {
       { key: 'heat', met: m.ok && Math.abs(m.v.heat_mw! - HEAT_MW) <= HEAT_TOL, ...(m.ok ? { value: m.v.heat_mw } : {}), target: HEAT_MW },
       { key: 'route', met: m.ok && m.v.two_step === 1 && m.v.co_slip! <= SLIP_MAX_KMOL_H && m.v.c_slip! <= 1e-6, ...(m.ok ? { value: m.v.co_slip } : {}), target: SLIP_MAX_KMOL_H },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L07_UNITS); g.push({ key: 'budget', met: sp <= L07_BUDGET, value: sp, target: L07_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L07_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L07_BUDGET, value: sp, target: L07_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => {

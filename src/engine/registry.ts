@@ -83,17 +83,20 @@ const META_LIST: UnitMeta[] = [
   m('boiler', 4, 2, 'heat', [T_K(450), choice('steam', ['LP', 'MP', 'HP'], 'HP')]),
   m('absorber', 4, 4, 'separate', [num('acid', 0.98, 0.985, 0.002, 0.0005, 0.985, 'mol%'), num('recovery', 0, 0.9995, 0.05, 0.005, 0.9995, 'mol%'), choice('absorbent', ['acid', 'water'], 'acid')], { phaseOut: { acid: 'L' } }),
   m('stack', 2, 2, 'sink'), m('relief', 1, 1, 'safety', [P_PA('Pset', 2e6), choice('orifice', [...ORIFICE_LETTERS], 'D')]), m('flare', 2, 2, 'safety'),
-  m('interlock', 1, 1, 'safety', [num('setpoint', 0, 1e8, 1e5, 1e3, 0, '')]),
+  m('interlock', 1, 1, 'safety', [num('setpoint', 0, 1500, 5, 1, 0, 'degC')]),
   m('sink', 2, 2, 'sink'), m('product', 2, 2, 'sink'), m('vent', 2, 2, 'sink'),
   // Reactors (lane M1.7b). Level-fixed parameters (reactions, law, beds) arrive through EqState.presets; the knobs here are the player's.
   m('stoich_reactor', 4, 4, 'react', [num('X', 0, 1, 0.05, 0.01, 1, 'mol%')]), m('burner', 4, 4, 'react', [num('X', 0, 1, 0.05, 0.01, 1, 'mol%')]),
   m('gasifier', 4, 4, 'react'), m('co_burner', 4, 4, 'react', [num('X', 0, 1, 0.05, 0.01, 1, 'mol%')]),
   m('eq_reactor', 4, 4, 'react', [T_K(700), dP()]), m('eq_bed', 4, 4, 'react', [dP()]),
   m('packed_bed', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), dP()], { catalyst: true }),
-  m('multibed', 4, 4, 'react', [dP()], { catalyst: true }), m('cstr', 4, 4, 'react'),
+  m('multibed', 4, 4, 'react', [dP()], { catalyst: true }), m('cstr', 4, 4, 'react', [num('Tc', 273.15, 373.15, 5, 1, 298.15, 'degC')]),
   m('tubular', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), num('Tc', 483.15, 543.15, 5, 1, 523.15, 'degC'), dP()], { catalyst: true }),
   m('fermenter', 2, 2, 'react', [num('T', 278.15, 328.15, 2, 0.5, 305.15, 'degC'), num('time', 0, 4e5, 3600, 600, 81000, 's')], { phaseOut: { out: 'L', vap: 'V' } }),
   m('column', 2, 2, 'separate', [num('xD', 0.01, 0.999, 0.05, 0.005, 0.8, 'mol%'), num('rec', 0.5, 1, 0.01, 0.001, 0.99, 'mol%'), num('rr', 1, 10, 0.5, 0.1, 1.3, ''), { ...P_PA('P', 101325), unset: true }]),
+  m('gauze_burner', 4, 4, 'react', [dP()]), m('n2o_abater', 2, 2, 'react', [num('X', 0, 0.98, 0.05, 0.01, 0.85, 'mol%')]),
+  m('hno3_absorber', 4, 4, 'separate', [num('recovery', 0, 0.9995, 0.05, 0.005, 0.99, 'mol%'), num('acid', 0.55, 0.68, 0.01, 0.005, 0.6, 'mol%')], { phaseOut: { acid: 'L' } }),
+  m('reformer', 4, 4, 'react', [T_K(1073.15), dP()]), m('co2_removal', 2, 2, 'separate', [num('recovery', 0, 0.999, 0.05, 0.005, 0.99, 'mol%')], { phaseOut: { out: 'V', co2: 'V' } }), m('methanator', 2, 2, 'react'),
   m('batch', 2, 2, 'react', [{ ...T_K(298.15), unset: true }, num('time', 0, 1e5, 600, 60, 600, 's')], { catalyst: true }),
   m('lab_flask', 2, 2, 'react', [num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'm³'), num('T', 150, 1500, 25, 5, 400, 'degC'), num('Pfix', 0, 4e7, 5e5, 1e5, 0, 'bar')]),
 ];
@@ -104,7 +107,7 @@ export const metaOf = (type: string): UnitMeta => META[type] ?? m(type, 2, 2, 'r
 /** Types that may always be placed whatever the level palette says (DESIGN §2.6: feeds, product tanks and the stack are always available). */
 export const ALWAYS_AVAILABLE: readonly string[] = ['feed', 'product', 'stack'];
 /** Units whose duty is measured with liquid-phase enthalpies the plain mixture enthalpy does not know: energy closure is not checked there. */
-export const PHASE_CHANGE_TYPES: readonly string[] = ['flash', 'nh3_sep', 'absorber'];
+export const PHASE_CHANGE_TYPES: readonly string[] = ['flash', 'nh3_sep', 'absorber', 'hno3_absorber'];
 
 export const hasUnitType = (t: string): boolean => Object.prototype.hasOwnProperty.call(RAW_DEFS, t);
 export const defOf = (t: string): UnitDefM16 => RAW_DEFS[t]!;

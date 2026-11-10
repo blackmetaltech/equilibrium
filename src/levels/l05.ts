@@ -130,7 +130,12 @@ export function airTrim(target: (s: S, m: Measures) => number, band: number) {
 }
 
 export const FIRE_COACH = (id: string): CoachStep[] => [
+  { id: 'place_blower', role: id === 'L05' ? 'manager' : 'safety', focus: 'compressor', done: (s) => has(s, 'compressor') },
+  { id: 'place_mixer', role: id === 'L05' ? 'manager' : 'safety', focus: 'mixer', done: (s) => has(s, 'mixer') },
+  { id: 'place_burner', role: id === 'L05' ? 'manager' : 'safety', focus: 'burner', done: (s) => has(s, 'burner') },
   { id: 'place_boiler', role: id === 'L05' ? 'manager' : 'safety', focus: 'boiler', done: (s) => has(s, 'boiler') },
+  { id: 'place_stack', role: id === 'L05' ? 'manager' : 'safety', focus: 'stack', done: (s) => has(s, 'stack') },
+  { id: 'pipe_up', role: id === 'L05' ? 'manager' : 'safety', done: (s) => s.flowsheet.streams.length >= 6 || commissions(s) >= 1 },
   { id: 'set_outlet', role: id === 'L05' ? 'manager' : 'safety', focus: 'boiler', done: (s) => (unitsOfType(s, 'boiler')[0]?.params.T as number) > 573.15 + 1 || commissions(s) >= 1 },
   { id: 'commission', role: id === 'L05' ? 'manager' : 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'start_shift', role: id === 'L05' ? 'manager' : 'safety', done: (s) => s.shift !== null || s.status !== 'playing' },
@@ -165,11 +170,11 @@ export const L05: LevelSpec = {
   goals: (s, m) => {
     const g: GoalEval[] = [
       { key: 'steam', met: m.ok && m.v.steam_th! >= STEAM_MIN_TH && m.v.steam_P! >= STEAM_HP_PA, ...(m.ok ? { value: m.v.steam_th } : {}), target: STEAM_MIN_TH },
-      { key: 'so2', met: m.ok && m.v.so2_pct! >= SO2_LO && m.v.so2_pct! <= SO2_HI, ...(m.ok ? { value: m.v.so2_pct } : {}), target: (SO2_LO + SO2_HI) / 2 },
+      { key: 'so2', met: m.ok && m.v.so2_pct! >= SO2_LO && m.v.so2_pct! <= SO2_HI, ...(m.ok ? { value: m.v.so2_pct } : {}), target: (SO2_LO + SO2_HI) / 2, range: [SO2_LO, SO2_HI], unit: '%' },
       { key: 'inlet', met: m.ok && Math.abs(C(m.v.conv_K!) - CONV_C) <= CONV_TOL, ...(m.ok ? { value: C(m.v.conv_K!) } : {}), target: CONV_C },
       { key: 'shift', met: m.ok && m.v.ended === 1, value: m.v.shift_t!, target: m.v.shift_len! },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L05_UNITS); g.push({ key: 'budget', met: sp <= L05_BUDGET, value: sp, target: L05_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L05_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L05_BUDGET, value: sp, target: L05_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.ended === 1 && m.v.high_s! <= HIGH_S_MAX, m.ok && m.v.ended === 1 && m.v.net_usd_h! >= netStar(s)],

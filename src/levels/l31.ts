@@ -52,7 +52,7 @@ export const L31: LevelSpec = {
       { key: 'h2vent', met: m.ok && m.v.h2vent! <= L31_H2_MAX, ...(m.ok ? { value: m.v.h2vent } : {}), target: L31_H2_MAX },
       { key: 'vent', met: m.ok && m.v.vent! <= L31_VENT_MAX, ...(m.ok ? { value: m.v.vent } : {}), target: L31_VENT_MAX },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.hw! <= L31_BUDGET, value: m.ok ? m.v.hw! : 0, target: L31_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.hw! <= L31_BUDGET, value: m.ok ? m.v.hw! : 0, target: L31_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

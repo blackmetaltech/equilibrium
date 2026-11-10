@@ -54,11 +54,16 @@ export function lightMeasures(s: S): Measures {
 
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
+/** Is an inlet of a unit of this type fed by a pipe? */
+const wired = (s: S, type: string, port: string): boolean => unitsOfType(s, type).some((u) => s.flowsheet.streams.some((p) => p.to.unit === u.id && p.to.port === port));
+/** The hot bed outlet runs through the exchanger's hot side (the loop that wakes the catalyst without the heater). */
+const hotLoop = (s: S): boolean => { const hx = unitsOfType(s, 'hx')[0], bed = unitsOfType(s, 'packed_bed')[0]; return hx !== undefined && bed !== undefined && s.flowsheet.streams.some((p) => p.from.unit === bed.id && p.from.port === 'out' && p.to.unit === hx.id && p.to.port === 'hot_in'); };
 const LATE = (ids: string[]) => (s: S): boolean => ids.includes(s.ui.coachStep ?? '');
 const COACH: CoachStep[] = [
   { id: 'place_hx', role: 'supervisor', focus: 'hx', done: (s) => has(s, 'hx') },
   { id: 'place_heater', role: 'supervisor', focus: 'heater', done: (s) => has(s, 'heater') },
-  { id: 'pipe_up', role: 'supervisor', done: (s) => s.flowsheet.streams.length >= 5 },
+  { id: 'pipe_up', role: 'supervisor', done: (s) => wired(s, 'hx', 'cold_in') && wired(s, 'heater', 'in') && wired(s, 'packed_bed', 'in') },
+  { id: 'wire_hot', role: 'supervisor', focus: 'hx', done: (s) => hotLoop(s) },
   { id: 'commission', role: 'supervisor', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_bed', role: 'supervisor', focus: 'packed_bed', done: LATE(['read_bed', 'trim_heater', 'why']) },
   { id: 'trim_heater', role: 'supervisor', done: (s) => commissions(s) >= 2 || LATE(['why'])(s) },
@@ -103,7 +108,7 @@ export const L16: LevelSpec = {
       { key: 'tmax', met: m.ok && m.v.tmax_c! <= L16_TMAX_C, ...(m.ok ? { value: m.v.tmax_c } : {}), target: L16_TMAX_C },
       { key: 'load', met: m.v.load_ok === 1, value: m.v.w!, target: L16_W_KG },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L16_UNITS); g.push({ key: 'budget', met: sp <= L16_BUDGET, value: sp, target: L16_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L16_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L16_BUDGET, value: sp, target: L16_BUDGET }); }
     return g;
   },
   extraStars: (_s, m) => [m.ok && m.v.heater_kw! <= L16_TRIM_KW, m.ok && m.v.cost_per_t! > 0 && m.v.cost_per_t! <= L16_STAR3_COST],

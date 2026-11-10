@@ -48,7 +48,7 @@ export const L37: LevelSpec = {
       { key: 'found', met: m.ok && m.v.found === 1, ...(m.ok ? { value: m.v.found } : {}), target: 1 },
       { key: 'closed', met: m.ok && m.v.consistent === 1, ...(m.ok ? { value: m.v.chi2 } : {}), target: m.v.crit ?? 0 },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.flags! * L37_CALL_FEE <= L37_BUDGET, value: m.ok ? m.v.flags! * L37_CALL_FEE : 0, target: L37_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.flags! * L37_CALL_FEE <= L37_BUDGET, value: m.ok ? m.v.flags! * L37_CALL_FEE : 0, target: L37_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

@@ -38,7 +38,7 @@ const VIEW = (s: S) => controlView({ s, id: 'L29', dials: [{ key: 'kc', unit: ''
 
 export const L29: LevelSpec = {
   id: 'L29', firstRun: true, chapter: 8, index: 29, setter: 'mentor', budgetUSD: L29_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
-  setup: (s) => rigSetup(s, UNITS, [{ key: 'kc', def: { learner: 1, engineer: 1 } }, { key: 'tauI', def: { learner: 60, engineer: 0 } }]),
+  setup: (s) => rigSetup(s, UNITS, [{ key: 'kc', def: { learner: 1, engineer: 1 } }, { key: 'tauI', def: { learner: 0, engineer: 0 } }]),
   actions: dialActions,
   view: (s) => VIEW(s),
   measures,
@@ -48,7 +48,7 @@ export const L29: LevelSpec = {
       { key: 'peak', met: m.ok && m.v.peak! <= L29_PEAK_MAX, ...(m.ok ? { value: m.v.peak } : {}), target: L29_PEAK_MAX },
       { key: 'over', met: m.ok && m.v.over! <= L29_OVER_MAX, ...(m.ok ? { value: m.v.over } : {}), target: L29_OVER_MAX },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.hw! <= L29_BUDGET, value: m.ok ? m.v.hw! : 0, target: L29_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.hw! <= L29_BUDGET, value: m.ok ? m.v.hw! : 0, target: L29_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

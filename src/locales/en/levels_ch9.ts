@@ -110,7 +110,7 @@ export const levelsCh9: Record<string, string> = {
   ...opts('lv.L37.meter', { 1: 'Feed', 2: 'Reactor inlet', 3: 'Reactor outlet', 4: 'Purge', 5: 'Recycle' }),
   // ---- L38 Turnaround Plan
   'lv.L38.title': 'Turnaround Plan', 'lv.L38.place': 'Planning office, 20-day window',
-  'lv.L38.note.1': 'Eight jobs, one crane, eight crew and a twenty day window. The jobs below are in the order the trades asked for.',
+  'lv.L38.note.1': 'Eight jobs, one crane, eight crew and a twenty day window. The jobs below are in the order the trades asked for, and as listed the plan runs past the window and over budget on lost margin. That is where you start, and putting it right is your job.',
   'lv.L38.note.2': 'Move the jobs into the order that keeps crews and crane busy on the longest chain. A second crane can be hired, at a price.',
   'lv.L38.goal.window': 'Plant back in {target} days or fewer', 'lv.L38.goal.budget': 'Lost margin plus crane hire at most {budget}',
   'lv.L38.star.1': 'Goal met: back inside the window', 'lv.L38.star.2': 'Call it: the shortest the turnaround could be with unlimited crews and cranes, within 5 %', 'lv.L38.star.3': 'Cost at or below the reference plan',

@@ -93,7 +93,7 @@ export const L17: LevelSpec = {
       { key: 'tmax', met: m.ok && m.v.tmax_c! <= L16_TMAX_C, ...(m.ok ? { value: m.v.tmax_c } : {}), target: L16_TMAX_C },
       { key: 'load', met: m.v.load_ok === 1, value: m.v.w!, target: L16_W_KG },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L17_UNITS); g.push({ key: 'budget', met: sp <= L17_BUDGET, value: sp, target: L17_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L17_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L17_BUDGET, value: sp, target: L17_BUDGET }); }
     return g;
   },
   extraStars: (_s, m) => [m.ok && m.v.conv! >= L17_CONV2, m.ok && m.v.cost_per_t! > 0 && m.v.cost_per_t! <= L17_STAR3_COST],

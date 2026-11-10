@@ -3,6 +3,7 @@
 import { need } from '@core/kit';
 import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
+import { en } from '../locales/en';
 import { CAUSES, CLASSES, DEVS, GUIDES, NODE, PARAMS, SAFEGUARDS, SIGNIFICANT, callItTout, devOf, gradeRows, minProposalUsd, simOf, tSat, type Row } from '../sim/ops/hazop';
 import { dmath } from '@core/numerics';
 import type { EqState } from '../state';
@@ -18,9 +19,13 @@ export const L34_MIN_USD = MIN.usd;
 export const L34_USD_STAR = MIN.usd * 1.03;
 const KEYS = ['needed', 'covered', 'wrongClass', 'wrongSafe', 'wrongCause', 'rows', 'usd', 'minUsd', 'cov', 'tout', 'ts', 'tin', 'k', 'sim', 'unsafe', 'firstGap'];
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
+/** A readable label for a worksheet id; the id itself only if no label exists. */
+const lab = (group: string, id: string): string => (`lv.L34.${group}.${id}` in en ? t(`lv.L34.${group}.${id}`) : id === 'none' ? t('lv.L34.sg.none') : id);
 const rowsOf = (s: S): Row[] => listOf<Row>(s, 'rows');
+/** A deviation counts as covered only by a row with the right consequence class: a wrong-consequence row is a gap, not coverage. */
+const coveredOf = (rows: Row[]): number => SIGNIFICANT.filter((x) => rows.some((r) => r.param === x.param && r.guide === x.guide && r.cons === simOf(r.param, r.guide)?.cls)).length;
 /** The first significant deviation (in worksheet order) that has no row yet, as an index into SIGNIFICANT; -1 if none. */
-const firstGap = (rows: Row[]): number => SIGNIFICANT.findIndex((x) => !rows.some((r) => r.param === x.param && r.guide === x.guide));
+const firstGap = (rows: Row[]): number => SIGNIFICANT.findIndex((x) => !rows.some((r) => r.param === x.param && r.guide === x.guide && r.cons === simOf(r.param, r.guide)?.cls));
 
 function measures(s: S): Measures {
   const rows = rowsOf(s), g = gradeRows(rows);
@@ -28,7 +33,7 @@ function measures(s: S): Measures {
   const base = { tout: callItTout(), ts, tin: NODE.tIn, k, minUsd: MIN.usd, needed: g.needed };
   if (!solvedOk(s)) return mNone(KEYS, base);
   const gap = firstGap(rows);
-  return { ok: true, v: { ...base, covered: g.covered, wrongClass: g.wrongClass, wrongSafe: g.wrongSafe, wrongCause: g.wrongCause, rows: rows.length, usd: g.proposalUsd, cov: (100 * g.covered) / g.needed, sim: listOf<string>(s, 'simmed').length, unsafe: g.wrongSafe, firstGap: gap } };
+  return { ok: true, v: { ...base, covered: coveredOf(rows), wrongClass: g.wrongClass, wrongSafe: g.wrongSafe, wrongCause: g.wrongCause, rows: rows.length, usd: g.proposalUsd, cov: (100 * coveredOf(rows)) / g.needed, sim: listOf<string>(s, 'simmed').length, unsafe: g.wrongSafe, firstGap: gap } };
 }
 
 export const L34: LevelSpec = {
@@ -40,7 +45,7 @@ export const L34: LevelSpec = {
       { key: 'cover', met: m.ok && m.v.covered === m.v.needed, ...(m.ok ? { value: m.v.covered } : {}), target: m.v.needed! },
       { key: 'accurate', met: m.ok && m.v.wrongClass! + m.v.wrongSafe! + m.v.wrongCause! === 0, ...(m.ok ? { value: m.v.wrongClass! + m.v.wrongSafe! + m.v.wrongCause! } : {}), target: 0 },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.usd! <= L34_BUDGET, value: m.ok ? m.v.usd! : 0, target: L34_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.usd! <= L34_BUDGET, value: m.ok ? m.v.usd! : 0, target: L34_BUDGET });
     return g;
   },
   extraStars: (s, m) => [
@@ -61,7 +66,7 @@ export const L34: LevelSpec = {
   coach: [
     { id: 'simulate', role: 'safety', done: (s) => listOf(s, 'simmed').length > 0 },
     { id: 'row', role: 'safety', done: (s) => rowsOf(s).length > 0 },
-    { id: 'cover', role: 'safety', done: (s) => gradeRows(rowsOf(s)).covered === SIGNIFICANT.length },
+    { id: 'cover', role: 'safety', done: (s) => coveredOf(rowsOf(s)) === SIGNIFICANT.length },
     { id: 'commission', role: 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
     { id: 'why', role: 'safety', done: LATE(['why']) },
   ],
@@ -125,9 +130,9 @@ export const L34: LevelSpec = {
       })),
       rows: rows.map((r) => {
         const dv = devOf(r.param, r.guide), sm = simOf(r.param, r.guide);
-        return { ...r, node: NODE.id, graded: solvedOk(s), consOk: !!sm && sm.cls === r.cons, causeOk: !!dv && dv.causes.includes(r.cause), safeOk: !!dv && (dv.safeguards.includes(r.safe) || (r.safe === 'none' && !!sm && sm.sev <= 1)) };
+        return { ...r, paramLabel: lab('param', r.param), guideLabel: lab('guide', r.guide), causeLabel: lab('cause_opt', r.cause), consLabel: lab('cls', r.cons), safeLabel: lab('sg', r.safe), node: NODE.id, graded: solvedOk(s), consOk: !!sm && sm.cls === r.cons, causeOk: !!dv && dv.causes.includes(r.cause), safeOk: !!dv && (dv.safeguards.includes(r.safe) || (r.safe === 'none' && !!sm && sm.sev <= 1)) };
       }),
-      coverage: { covered: g.covered, needed: g.needed }, proposalUSD: g.proposalUsd, budgetUSD: L34_BUDGET, minProposalUSD: MIN.usd,
+      coverage: { covered: coveredOf(rows), needed: g.needed }, proposalUSD: g.proposalUsd, budgetUSD: L34_BUDGET, minProposalUSD: MIN.usd,
     };
   },
   solver: playOnce((s) => {

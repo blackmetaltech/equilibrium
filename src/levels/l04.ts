@@ -49,7 +49,7 @@ export const L04: LevelSpec = {
       { key: 'nh3', met: m.ok && relErr(m.v.nh3_kg_h!, a.nh3) <= NH3_TOL, ...(m.ok ? { value: m.v.nh3_kg_h, target: a.nh3 } : {}) },
       { key: 'left', met: m.ok && relErr(m.v.vent_h2!, a.h2left) <= NH3_TOL, ...(m.ok ? { value: m.v.vent_h2, target: a.h2left } : {}) },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, BENCH_UNITS); g.push({ key: 'budget', met: sp <= BENCH_BUDGET, value: sp, target: BENCH_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, BENCH_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= BENCH_BUDGET, value: sp, target: BENCH_BUDGET }); }
     return g;
   },
   extraStars: (s) => {

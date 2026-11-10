@@ -136,7 +136,7 @@ export const L03: LevelSpec = {
       { key: 'excess', met: m.ok && m.v.slip! <= 1e-6 && m.v.flue_error! <= EXCESS_TOL, ...(m.ok ? { value: m.v.excess_air } : {}), target: EXCESS_PCT },
       { key: 'clean', met: m.ok && m.v.slip! <= 1e-6 && m.v.co! <= 1e-6, ...(m.ok ? { value: m.v.slip! + m.v.co! } : {}), target: 0 },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L03_UNITS); g.push({ key: 'budget', met: sp <= L03_BUDGET, value: sp, target: L03_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L03_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L03_BUDGET, value: sp, target: L03_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => {

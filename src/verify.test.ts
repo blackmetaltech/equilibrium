@@ -14,6 +14,7 @@ const CORE_TS = resolve(SRC, '../core/ts');
 function resolveImport(from: string, spec: string): string | null {
   const base = spec.startsWith('@core/') ? resolve(CORE_TS, spec.slice(6)) : spec.startsWith('.') ? resolve(dirname(from), spec) : null;
   if (!base) return null;
+  if (/\.json$/.test(base) && existsSync(base)) return '';   // pure data, bundled by the build: nothing to walk
   for (const c of [base + '.ts', resolve(base, 'index.ts'), base]) if (existsSync(c) && /\.ts$/.test(c)) return c;
   throw new Error(`Cannot resolve '${spec}' from ${from}`);
 }
@@ -25,7 +26,7 @@ function graph(entry: string) {
     const f = todo.pop()!; if (seen.has(f)) continue; seen.add(f);
     const src = readFileSync(f, 'utf8');
     for (const m of src.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)) {
-      const r = resolveImport(f, m[1]!); if (r) todo.push(r); else external.push({ file: f, spec: m[1]! });
+      const r = resolveImport(f, m[1]!); if (r === '') continue; if (r) todo.push(r); else external.push({ file: f, spec: m[1]! });
     }
     if (/\brequire\s*\(/.test(src)) external.push({ file: f, spec: 'require()' });
   }

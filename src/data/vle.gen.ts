@@ -59,6 +59,44 @@ export const STEAM_GEN = {
   }
 };
 export const BFW_H_GEN = 440.2;
+// NH3-air flammable envelope vs temperature (ICI, sec 6) and NO yield bands vs pressure (BREF Table 3.2, sec 7)
+export const FLAMM_NH3_GEN = [
+  {
+    "T_C": 20.0,
+    "lfl": 16.6,
+    "ufl": 27.2
+  },
+  {
+    "T_C": 300.0,
+    "lfl": 13.1,
+    "ufl": 34.3
+  },
+  {
+    "T_C": 400.0,
+    "lfl": 11.2,
+    "ufl": 37.1
+  }
+];
+export const OSTWALD_BANDS_GEN = [
+  {
+    "Pmax_bar": 1.7,
+    "Tlo_C": 810.0,
+    "Thi_C": 850.0,
+    "S_NO": 0.97
+  },
+  {
+    "Pmax_bar": 6.5,
+    "Tlo_C": 850.0,
+    "Thi_C": 900.0,
+    "S_NO": 0.96
+  },
+  {
+    "Pmax_bar": 1000000000.0,
+    "Tlo_C": 900.0,
+    "Thi_C": 940.0,
+    "S_NO": 0.95
+  }
+];
 // NRTL, ChemSep/DECHEMA at 1 atm via docs/research/vle_binary.py: tau_ij = A_ij / (R T), A in cal/mol, R in cal/(mol K)
 export const NRTL_R_GEN = 1.9872;
 export const NRTL_GEN = {

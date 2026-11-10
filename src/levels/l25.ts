@@ -77,9 +77,9 @@ export const L25: LevelSpec = {
   goals: (s, m) => {
     const g: ReturnType<LevelSpec['goals']> = [
       { key: 'so2', met: m.ok && m.v.kg_t! <= m.v.limit!, ...(m.ok ? { value: m.v.kg_t } : {}), target: m.v.limit! },
-      { key: 'mist', met: m.v.mist === 0 && m.v.absorbers! > 0, value: m.v.mist! },
+      { key: 'mist', met: m.v.mist === 0 && m.v.absorbers! > 0 },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L25_UNITS); g.push({ key: 'budget', met: sp <= L25_BUDGET, value: sp, target: L25_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L25_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L25_BUDGET, value: sp, target: L25_BUDGET }); }
     return g;
   },
   extraStars: (_s, m) => [m.ok && m.v.kg_t! <= m.v.strict!, m.ok && m.v.kg_t! <= m.v.strict! && m.v.cost! <= L25_COST_STAR],

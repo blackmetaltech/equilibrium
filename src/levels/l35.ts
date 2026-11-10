@@ -39,7 +39,7 @@ export const L35: LevelSpec = {
       { key: 'safe', met: m.ok && m.v.sev === 0 && m.v.blocked === 0, ...(m.ok ? { value: m.v.sev! } : {}), target: 0 },
       { key: 'ready', met: m.ok && m.v.ready === 1, ...(m.ok ? { value: m.v.ready } : {}), target: 1 },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.loss! <= L35_BUDGET, value: m.ok ? m.v.loss! : 0, target: L35_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.loss! <= L35_BUDGET, value: m.ok ? m.v.loss! : 0, target: L35_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

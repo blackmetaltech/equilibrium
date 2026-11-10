@@ -59,7 +59,7 @@ export const L30: LevelSpec = {
       { key: 'sat', met: m.ok && m.v.sat! === 0, ...(m.ok ? { value: m.v.sat! * 100 } : {}), target: 0 },
       { key: 'over', met: m.ok && m.v.over! <= L30_OVER_MAX, ...(m.ok ? { value: m.v.over } : {}), target: L30_OVER_MAX },
     ];
-    if (s.mode === 'engineer') g.push({ key: 'budget', met: !m.ok || m.v.hw! <= L30_BUDGET, value: m.ok ? m.v.hw! : 0, target: L30_BUDGET });
+    if (s.mode === 'engineer') g.push({ key: 'budget', met: m.ok && m.v.hw! <= L30_BUDGET, value: m.ok ? m.v.hw! : 0, target: L30_BUDGET });
     return g;
   },
   extraStars: (s, m) => [

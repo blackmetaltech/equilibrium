@@ -27,6 +27,7 @@ export const wtToMole = (w: number): number => (w / SPECIES['C2H5OH']!.M) / (w /
 /** Calibrated reference (GAME, UNVERIFIED, re-derived in ch5.test.ts): batch T and time, spirit purity, reflux multiple, rate target in kL/day of spirit, cost per tonne. */
 export const L23_REF = { T: 305.15, time: 81000, xD: wtToMole(0.93), rr: 1.3, kl_day: 18, cost: 177.12 };
 export const L23_KL_MIN = L23_REF.kl_day;
+const L23_NOT_SPIRIT_WT = 50;
 export const L23_COST_MAX = L23_REF.cost * 1.03;
 export const L23_UNITS: LevelSpec['units'] = { fermenter: { max: 1, price: 60000 }, column: { max: 1, price: 80000 } };
 const PRESETS = { fermenter: { T: 305.15, time: 81000 }, column: { xD: 0.8, rec: 0.99, rr: 1.3 } };
@@ -58,6 +59,8 @@ export function spiritsMeasures(s: S): Measures {
   v.eth_t_h = (kgEth * 3.6); v.spirit_wt = kgEth + kgW > 0 ? (kgEth / (kgEth + kgW)) * 100 : 0;
   const rho = spiritDensity(v.spirit_wt / 100);
   v.kl_day = kgEth + kgW > 0 ? (((kgEth + kgW) * 3600 * 24) / rho / 1000) : 0;
+  /** Spirit is what the blenders buy: a tank that is mostly water (bottoms piped to it) delivers no spirit. */
+  if (v.spirit_wt < L23_NOT_SPIRIT_WT) v.kl_day = 0;
   const made = (ru?.info.eth_mol_s ?? 0);
   v.recovery = made > 0 ? (eth / made) * 100 : 0;
   v.trays = rc?.info.N ?? 0; v.reflux = rc?.info.R ?? 0;
@@ -106,7 +109,7 @@ export const L23: LevelSpec = {
   coach: COACH,
   verdict: (s, m, g) => {
     const c = code(s);
-    if (c === 'AZEOTROPE_LIMIT') return { key: 'wall', cause: t('lv.L23.cause.wall', { wall: f(s, azeotrope('C2H5OH', 'H2O', L23_P)!.wt * 100) }) };
+    if (c === 'AZEOTROPE_LIMIT') return { key: 'wall', cause: t('lv.L23.cause.wall', { wall: f(s, azeotrope('C2H5OH', 'H2O', L23_P)!.wt * 100), wallmol: f(s, wtToMole(azeotrope('C2H5OH', 'H2O', L23_P)!.wt) * 100) }) };
     if (c === 'YEAST_KILLED') return { key: 'dead', cause: t('lv.L23.cause.dead', { T: f(s, (unitsOfType(s, 'fermenter')[0]?.params.T as number ?? 0) - 273.15) }) };
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };

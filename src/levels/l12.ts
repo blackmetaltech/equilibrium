@@ -109,7 +109,7 @@ export const L12: LevelSpec = {
       { key: 'co', met: m.ok && m.v.co_dry_pct! <= L12_CO_MAX + 1e-9, ...(m.ok ? { value: m.v.co_dry_pct } : {}), target: L12_CO_MAX },
       { key: 'cat', met: m.v.cat_ok === 1 && (!m.ok || m.v.active === 1), value: m.v.t_c, target: LTS.lo },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L12_UNITS); g.push({ key: 'budget', met: sp <= L12_BUDGET, value: sp, target: L12_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L12_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L12_BUDGET, value: sp, target: L12_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => [!has(s, 'compressor'), m.ok && m.v.cost_usd_h! <= l12RefCost(s) * 1.03],

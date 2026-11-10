@@ -96,7 +96,7 @@ export const L27: LevelSpec = {
       { key: 'capacity', met: m.ok && m.v.letter_ok === 1, ...(m.ok ? { value: m.v.cap_kg_h! / 1000 } : {}), target: L27_LOAD_T_H },
       { key: 'pset', met: m.v.placed === 1 && m.v.pset_ok === 1, ...(m.v.placed === 1 ? { value: m.v.pset_barg } : {}), target: L27_DESIGN_BARG },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, L27_UNITS); g.push({ key: 'budget', met: sp <= L27_BUDGET, value: sp, target: L27_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, L27_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L27_BUDGET, value: sp, target: L27_BUDGET }); }
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.letter_ok === 1 && m.v.letter_idx === m.v.smallest_idx, m.ok && m.v.letter_ok === 1 && predictionOf27(s)],
@@ -117,7 +117,7 @@ export const L27: LevelSpec = {
   },
   coach: [
     { id: 'place_relief', role: 'supervisor', focus: 'relief', done: (s) => unitsOfType(s, 'relief').length >= 1 },
-    { id: 'pipe_relief', role: 'supervisor', done: (s) => s.flowsheet.streams.some((p) => p.to.unit.startsWith('R-')) },
+    { id: 'pipe_relief', role: 'supervisor', focus: 'splitter', done: (s) => s.flowsheet.streams.some((p) => p.to.unit.startsWith('R-')) },
     { id: 'set_pressure', role: 'supervisor', focus: 'relief', done: (s) => unitsOfType(s, 'relief').some((u) => typeof u.params.Pset === 'number' && u.params.Pset !== 2e6) },
     { id: 'commission', role: 'supervisor', focus: 'key', done: (s) => commissions(s) >= 1 },
     { id: 'read_capacity', role: 'supervisor', focus: 'relief', done: (s) => ['read_capacity', 'why'].includes(s.ui.coachStep ?? '') },

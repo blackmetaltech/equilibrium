@@ -111,7 +111,7 @@ export const L19: LevelSpec = {
       { key: 'conv', met: m.ok && m.v.conv_overall! >= CONV_MIN, ...(m.ok ? { value: m.v.conv_overall } : {}), target: CONV_MIN },
       { key: 'nh3', met: m.ok && m.v.nh3_t_h! >= NH3_MIN_T_H, ...(m.ok ? { value: m.v.nh3_t_h } : {}), target: NH3_MIN_T_H },
     ];
-    if (s.mode === 'engineer') { const sp = spentOf(s, LOOP_UNITS); g.push({ key: 'budget', met: sp <= L19_BUDGET, value: sp, target: L19_BUDGET }); }
+    if (s.mode === 'engineer') { const sp = spentOf(s, LOOP_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L19_BUDGET, value: sp, target: L19_BUDGET }); }
     return g;
   },
   extraStars: (_s, m) => [m.ok && m.v.shaft_kw! <= L19_KW_MAX, m.ok && m.v.cost_per_t! <= L19_COST_MAX],

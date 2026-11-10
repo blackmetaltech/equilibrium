@@ -81,8 +81,10 @@ const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const has = (s: S, type: string): boolean => s.flowsheet.units.some((u) => u.type === type);
 const COACH: CoachStep[] = [
   { id: 'call_kp', role: 'mentor', done: (s) => s.prediction !== null },
-  { id: 'turn_volume', role: 'mentor', focus: 'lab_flask', done: (s) => { const fl = flaskOf(s); return commissions(s) >= 1 || (fl !== undefined && fl.params.V !== V_BOOK); } },
-  { id: 'read_colour', role: 'mentor', focus: 'lab_flask', done: (s) => ['read_colour', 'why'].includes(s.ui.coachStep ?? '') },
+  { id: 'turn_volume', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[0] || (s.ui.coachStep ?? '') === 'read_colour' || commissions(s) >= 4 },
+  { id: 'read_colour', role: 'mentor', focus: 'lab_flask', done: (s) => ['read_colour', 'argon_v', 'argon_p', 'why'].includes(s.ui.coachStep ?? '') || testsDone(s)[1] },
+  { id: 'argon_v', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[1] || ['argon_p', 'why'].includes(s.ui.coachStep ?? '') },
+  { id: 'argon_p', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[2] || (s.ui.coachStep ?? '') === 'why' },
   { id: 'why', role: 'mentor', done: (s) => s.ui.coachStep === 'why' },
 ];
 
@@ -103,7 +105,7 @@ export const L14: LevelSpec = {
   extraStars: (s, m) => [m.v.tests === 3, predictionOf(s, 'kp_bar') !== null && relErr(predictionOf(s, 'kp_bar')!.value, bookWorking(s).kp) <= L14_KP_TOL],
   callIt: { key: 'kp_bar', unit: 'bar', tol: L14_KP_TOL, truth: (s) => bookWorking(s).kp },
   hero: (s, m) => ({ key: 'gauge', unit: 'bar', value: m.v.p_bar!, lo: m.ok ? problem(s).P * (1 - L14_GAUGE_TOL) : 0, hi: m.ok ? problem(s).P * (1 + L14_GAUGE_TOL) : 0 }),
-  secondary: (_s, m) => ({ key: 'alpha', unit: '', value: m.v.alpha!, limit: 1 }),
+  secondary: (_s, m) => ({ key: 'alpha', unit: '%', value: m.v.alpha! * 100, limit: 100 }),
   annunciators: (s, m, g): Annunciator[] => {
     const failed = s.solved !== null && !s.solved.ok;
     const lamp = (done: number): Annunciator['state'] => (done ? 'normal' : 'off');
@@ -134,7 +136,7 @@ export const L14: LevelSpec = {
   },
   metrics: (_s, m) => [
     { key: 'kp_bar', unit: 'bar', value: m.v.kp_bar! },
-    { key: 'alpha', unit: '', value: m.v.alpha! },
+    { key: 'alpha', unit: '%', value: m.v.alpha! * 100 },
     { key: 'runs', unit: '', value: m.v.runs! },
   ],
   histogram: { metric: 'runs', best: () => 4, spread: 0.6, lowerIsBetter: true },

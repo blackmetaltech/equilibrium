@@ -139,6 +139,12 @@ export const L09: LevelSpec = {
   ],
   extraStars: (_s, m) => [m.ok && m.v.n_ncert! >= 2, m.ok && m.v.n_ncert! >= 3],
   callIt: { key: 'du_ch4', unit: 'kJ/mol', tol: DU_TOL, truth: () => ch4Facts().bombQ },
+  callIts: [
+    { key: 'du_ch4', unit: 'kJ/mol', tol: DU_TOL, truth: () => truthOf('du_ch4') },
+    { key: 'heat_co2', unit: 'kJ', tol: HEAT_TOL, truth: () => truthOf('heat_co2') },
+    { key: 'du_vap', unit: 'kJ/mol', tol: VAP_TOL, truth: () => truthOf('du_vap') },
+    { key: 'tmin_k', unit: 'K', tol: TMIN_TOL, truth: () => truthOf('tmin_k') },
+  ],
   hero: (_s, m) => ({ key: 'gap', unit: 'kJ/mol', value: m.v.gap!, lo: m.v.gap_theory! * 0.99, hi: m.v.gap_theory! * 1.01 }),
   secondary: (_s, m) => ({ key: 'furnace_k', unit: 'K', value: m.v.furnace_K!, limit: m.v.tmin_K! }),
   annunciators: (s, m, g): Annunciator[] => {
@@ -163,8 +169,9 @@ export const L09: LevelSpec = {
   },
   equation: (s, m) => {
     if (!m.ok) return null;
+    // the result is the difference of the two numbers as displayed (890.3 − 4.96), not of the unrounded readings (which would print 885.4)
     const a = shown(m.v.flow_q!), b = shown(m.v.gap!);
-    return `${f(s, a)} − ${f(s, b)} = ${f(s, shown(a - b))} kJ/mol released at constant volume`;
+    return `${f(s, a)} − ${f(s, b)} = ${f(s, Math.round((a - b) * 1000) / 1000)} kJ/mol released at constant volume`;
   },
   lessonVars: (s, m) => ({ flow: f(s, m.v.flow_q!), bomb: f(s, m.v.bomb_q!), gap: f(s, m.v.gap!), dn: f(s, m.v.dn_g!), tmin: f(s, m.v.tmin_K!), n: m.v.n_ncert! }),
   metrics: (_s, m) => [

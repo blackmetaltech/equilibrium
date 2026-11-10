@@ -424,7 +424,7 @@ describe('levelInfo contract', () => {
         expect(['design', 'commissioned', 'firstrun', 'shift', 'won', 'lost']).toContain(q.phase);
         expect(q.hero.label.length).toBeGreaterThan(2); expect(q.hero.hi).toBeGreaterThanOrEqual(q.hero.lo);
         if (q.secondary) expect(q.secondary.label.length).toBeGreaterThan(2);
-        expect(q.lesson.length).toBeGreaterThan(20); expect(q.lesson).not.toMatch(/\{/);
+        expect(q.lesson.length > 20 || (q.callIt !== null && !q.callIt.answered && q.phase === 'design' && q.lesson === ''), 'the lesson is withheld only while a prediction is open').toBe(true); expect(q.lesson).not.toMatch(/\{/);
         expect(q.setter).toMatch(/^[a-z]+$/); expect(q.setterName.length).toBeGreaterThan(3);
         expect(q.allowedUnits.every((u: any) => u.used <= u.max && u.priceUSD > 0)).toBe(true);
       }
