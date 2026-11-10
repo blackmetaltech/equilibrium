@@ -39,12 +39,15 @@ describe('EquilibriumState skeleton', () => {
     expect(s.trends).toEqual({}); expect(s.replay).toEqual([]); expect(s.runs).toEqual([]);
     expect(s.progress).toEqual({ stars: {}, best: {}, codex: [], rank: 0, flags: [], pendingScores: 0 });
     expect(s.ui).toEqual({ pinned: [], coachStep: null });
+    // M1.12 fields: warm start, level palette / limits / presets, plot, undo stacks
+    expect(s.warm).toBeNull(); expect(s.palette).toBeNull(); expect(s.limits).toEqual({}); expect(s.presets).toEqual({}); expect(s.plot).toEqual({ w: 24, h: 16 }); expect(s.undo).toEqual({ past: [], future: [] });
     expect(s.region).toBe('global'); expect(s.ruleset).toBe('equilibrium:global@1.1'); expect(s.status).toBe('playing');
     expect(s.log[0]!.text).toMatch(/^Kestrel Bay Works: the plot is fenced and empty/);
   });
   it('the plant query answers units, streams, phase, detail and species', () => {
     const e = new Engine(GAME);
-    expect(e.q('plant')).toEqual({ phase: 'design', thermoDetail: 'rigorous', species: [], units: [], streams: [] });
+    // M1.12 extended the plant query (DESIGN §8.4: units, streams, phase, KPIs) with the plot, the failed units and the undo depth
+    expect(e.q('plant')).toEqual({ phase: 'design', thermoDetail: 'rigorous', species: [], units: [], streams: [], plot: { w: 24, h: 16 }, kpis: {}, failed: [], undo: { past: 0, future: 0 } });
     const init = e.init() as any; expect(init.game.id).toBe('equilibrium');
   });
   it('state is plain JSON: a JSON round trip changes nothing', () => {
@@ -67,6 +70,8 @@ describe('EquilibriumState skeleton', () => {
     bad.phase = 'dreaming'; bad.thermoDetail = 'vague'; bad.species = Array(13).fill('N2'); bad.flowsheet.nextId = 0;
     const rules = GAME.invariants!(bad, null).map((v) => v.rule).sort();
     expect(rules).toEqual(['at most 12 active species', 'next id is a positive integer', 'numbers are finite', 'phase is valid', 'thermo detail is valid', 'unit ids are unique']);
+    const crowd = structuredClone(ok) as any; for (let i = 0; i < 33; i++) crowd.flowsheet.units.push({ id: 'U' + i, type: 'sink', pos: { x: 0, y: 0 }, rot: 0, params: {} });
+    expect(GAME.invariants!(crowd, null).map((v) => v.rule)).toEqual(['at most 32 units']);
   });
   it('same seed, same game; a tick outside a shift changes nothing but the clock', () => {
     const a = new Env(GAME), b = new Env(GAME); a.reset({ seed: 9 }); b.reset({ seed: 9 });
