@@ -43,3 +43,28 @@ Amends DESIGN §2. Every rung is played, not read: a mechanic the player must us
   and critters (moles) arrive. FIC-101/102 flow controllers on each feed (first faceplates).
 - Chapter 1 ends with a **plant-check job (L04+)**: the lab notebook's numbers vs the printout (exam bridge).
 - Every Ch1 level: P&ID view toggle (mimic view, key 6) shows the player's plant as a drawing with ISA tags.
+
+## New chapters (after DESIGN Ch7; numbers are design intent, pinned by calibration + oracles before build)
+### Ch 8 · The Control Room (process control; rung 4)
+- **L29 Hold the Line** — a feed drum level (LIC) on a P-only controller; step changes in inflow; see offset on the chart recorder;
+  add integral → offset gone, overshoot appears. Oracle: first-order tank, P-only offset = Δq/(Kc·A-scaled), ZN-style period.
+- **L30 Tune It** — converter inlet TIC (FOPDT: K, τ, θ identified by a bump test the player runs); tune Kc, τI with IMC/λ;
+  ★★★ IAE below threshold with no valve saturation. Teaches bump test → model → tuning (the real workflow).
+- **L31 Ratio** — H₂:N₂ ratio control on L01's feeds (callback): flow surges on N₂ must not vent H₂; FFC with a ratio station.
+- **L32 Cascade** — bed temperature (slow) cascaded onto the quench valve flow (fast); disturbance rejection vs single loop.
+- **L33 The Interlock** — design the SIS trip for the L24 CSTR: choose sensors, voting (1oo2/2oo3), trip point, and valve; spurious
+  trips cost production; misses cost the plant. Teaches SIL ideas without a certification exam.
+### Ch 9 · Turnaround (operations + safety management; rung 4)
+- **L34 HAZOP Node** — the acid plant's cooler node: guide words × parameters; record cause/consequence/safeguard; graded against
+  the engine's simulated deviations.
+- **L35 Start-up** — write the ammonia loop start-up SOP from cards (N₂ purge to < 1 % O₂, pressurise, heat ≤ 50 K/h, catalyst
+  reduction, introduce H₂…); the shift executes it; wrong order shows the consequence.
+- **L36 Permit to Work** — maintenance on a fouled exchanger while the plant runs: isolate (double block and bleed), drain, purge, LOTO,
+  gas test; then the bypass costs efficiency. Production vs safety trade-off.
+- **L37 The Analyser Lies** — data reconciliation: five meters, one drifting; least-squares mass balance finds it (Call it: which one).
+- **L38 Turnaround Plan** — 20-day window: catalyst change, exchanger cleaning, relief-valve tests; crews and cranes limited; minimise lost
+  tonnes; a Gantt board of jobs with dependencies.
+### Career (post-campaign sandbox with goals; long-term)
+Run the integrated Works for 5 seeded years: contracts, gas price swings, catalyst ageing, fouling, inspections due, turnarounds,
+incidents, emissions permits; annual review (Victor: margin, Noor: safety/emissions, Mara: efficiency). Endings: Chief Engineer,
+steady, plant sold, shut down by the regulator. Leaderboard: 5-year margin with zero Critical alarms (deterministic, verifiable).
