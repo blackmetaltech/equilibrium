@@ -24,6 +24,7 @@ class Tile extends Control:
 	var selected := false
 	var focused := false
 	var coach := false      ## the coach points here: a pulsing teal ring
+	var need := false       ## the level cannot be read without this part (levelInfo.notice NEEDS_UNIT): an amber chevron bobs on the tile
 	var _hover := false
 	func _init() -> void: custom_minimum_size = PartsRack.TILE; mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND; focus_mode = Control.FOCUS_ALL
 	func _gui_input(e: InputEvent) -> void:
@@ -43,6 +44,11 @@ class Tile extends Control:
 		if coach:
 			var a := 0.45 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
 			draw_rect(r.grow(2), Color(EqTheme.TEAL, a), false, 4.0)
+			queue_redraw()
+		if need:
+			var bob := 3.0 * sin(Time.get_ticks_msec() * 0.008); var cx := size.x * 0.5
+			draw_colored_polygon(PackedVector2Array([Vector2(cx - 11.0, 4.0 + bob), Vector2(cx + 11.0, 4.0 + bob), Vector2(cx, 20.0 + bob)]), EqTheme.AMBER)
+			draw_polyline(PackedVector2Array([Vector2(cx - 11.0, 4.0 + bob), Vector2(cx + 11.0, 4.0 + bob), Vector2(cx, 20.0 + bob), Vector2(cx - 11.0, 4.0 + bob)]), EqTheme.INK, 1.5)
 			queue_redraw()
 		var col := EqTheme.TEXT if available else EqTheme.DIM.darkened(0.2)
 		PidSymbols.draw(self, type, Rect2(8, 8, size.x - 16, size.y - 54), col, EqTheme.AMBER if available else col)
@@ -194,6 +200,13 @@ static func gallery(app, what: String) -> void:
 		"notebook": Notebook.stub = Notebook.stub_info() if Notebook.stub.is_empty() else Notebook.stub; Notebook.open(app)
 		"pass": Notebook.stub = Notebook.stub_info() if Notebook.stub.is_empty() else Notebook.stub; Printout.stub = Notebook.result_stub(true) if Printout.stub.is_empty() else Printout.stub; Printout.open(app)
 		"fail": Notebook.stub = Notebook.stub_info() if Notebook.stub.is_empty() else Notebook.stub; Printout.stub = Notebook.result_stub(false); Printout.open(app)
+
+## The level cannot be read without this part: its tile wears a chevron until it is placed ("" clears).
+func set_need(type: String) -> void:
+	for t in tiles:
+		if t is Tile:
+			var on: bool = type != "" and (t as Tile).type == type
+			if (t as Tile).need != on: (t as Tile).need = on; (t as Tile).queue_redraw()
 
 ## The coach points at a part: its tile pulses until the coach moves on ("" clears).
 func set_coach(type: String) -> void:

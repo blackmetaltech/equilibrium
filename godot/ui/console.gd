@@ -160,7 +160,7 @@ func refresh() -> void:
 	var li := level_info()
 	var id := str(li.get("id", "")) if not li.is_empty() else ""
 	if id != _level:
-		_level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false; _outcome_said = false; _bank_dup = ""; _fail_sig = ""; _last_fail_msg = ""; _fail_text = ""
+		_level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false; _outcome_said = false; _bank_dup = ""; _fail_sig = ""; _last_fail_msg = ""; _fail_text = ""; _notice_sig = ""
 		_close_paper()
 		if app.bay != null: app.bay.reset()
 		if app.lvbay != null: app.lvbay.reset()
@@ -184,6 +184,22 @@ func refresh() -> void:
 	_stale_lines(li)
 	_bank_hint(li)
 	_failure()
+	_notice(li)
+
+## levelInfo.notice (NEEDS_UNIT: the plant cannot be read without a unit type): one intercom line per notice and a chevron on that unit's parts-rack tile.
+var _notice_sig := ""
+func _notice(li: Dictionary) -> void:
+	var nt = li.get("notice")
+	var unit := ""; var sig := ""
+	if nt is Dictionary:
+		unit = str(nt.get("unit", "")) if str(nt.get("code", "")) == "NEEDS_UNIT" else ""
+		sig = "%s|%s|%s" % [str(li.get("id", "")), str(nt.get("code", "")), str(nt.get("unit", ""))]
+	if rack == null and rack_slot != null:
+		for ch in rack_slot.get_children(): if ch.has_method("set_need"): rack = ch
+	if rack != null and rack.has_method("set_need"): rack.call("set_need", unit)
+	if sig == _notice_sig: return
+	_notice_sig = sig
+	if sig != "": intercom.say("MARA", str(nt.get("text", "")), "info")
 
 ## A level change closes every faceplate, the stream tag, the selection and any half-made pipe (a stale plate would ask the engine about a unit that is gone).
 func _close_paper() -> void:
@@ -282,6 +298,7 @@ func _failure() -> void:
 			var nd = PaperStrings.q(app, "needs", [uid])
 			if nd is Dictionary and not nd.is_empty(): msg = str(nd.get("text", ""))
 	if msg == "": msg = _last_fail_msg
+	if msg == "" and f is Dictionary and f.get("message") != null: msg = str(f.message)   # the engine's own sentence for this failure
 	if msg == "": msg = PaperStrings.fail_text(str(f.get("code", "")))
 	_fail_text = PaperStrings.t("FAIL_AT") % [uid if uid != "" else "-", msg]
 	intercom.say("TOMAS", _fail_text, "bad")
@@ -321,7 +338,7 @@ func turn_key() -> Dictionary:
 	phase = engine_phase()
 	if phase == "design":
 		var r: Dictionary = app.b.act("commission")
-		if not r.get("ok", false): app.toast(str(r.get("message", "")), "warn"); keys.set_pos(0); return r
+		if not r.get("ok", false): app.toast(str(r.get("message", "")), "warn"); keys.set_pos(0); _pulse_open_ports(str(r.get("message", ""))); return r
 		if not r.get("commissioned", true):
 			_last_fail_msg = str(r.get("message", "")) if str(r.get("message", "")) != "" else EqStrings.T("KEY_SOLVE_FAIL")
 			_failure()   # names the failed tag (a no-op when the changed signal already did)
@@ -344,6 +361,14 @@ func turn_key() -> Dictionary:
 		app.toast(PaperStrings.t("IC_FIRST_EDIT"), "info"); return {}
 
 ## RUN -> DESIGN: the engine has no stop action, so the level restarts with the player's build and Call it answers put back (ui/build_keeper.gd).
+## A commission refused for pipework: the unit the message names (else every unit with an open port) pulses its open ports (the engine's openPorts).
+func _pulse_open_ports(message: String) -> void:
+	if app == null or app.world == null or not app.world.has_method("pulse_ports") or not _has_query("openPorts"): return
+	var all = app.b.q("openPorts")
+	if not (all is Array) or (all as Array).is_empty(): return
+	var named: Array = (all as Array).filter(func(o): return message.contains(str(o.unit)))
+	app.world.call("pulse_ports", named if not named.is_empty() else all)
+
 func stop_and_edit() -> Dictionary:
 	if level_info().is_empty(): return {}
 	var r := BuildKeeper.restart(app, true)
@@ -441,6 +466,7 @@ func _point(f) -> void:
 		unit = str(f.get("unit", "")); tile = str(f.get("rack", ""))
 		if keys != null and keys.has_method("set_coach"): keys.call("set_coach", bool(f.get("key", false)))
 	if app != null and app.world != null and app.world.has_method("set_coach_focus"): app.world.call("set_coach_focus", unit)
+	Faceplate.set_coach_knob(app, unit, str(f.get("knob", "")) if f is Dictionary else "")   # a knob in the focus pulses on that unit's faceplate
 	if rack == null and rack_slot != null:
 		for ch in rack_slot.get_children(): if ch.has_method("set_coach"): rack = ch
 	if rack != null: rack.call("set_coach", tile)

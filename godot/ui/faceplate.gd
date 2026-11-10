@@ -37,6 +37,11 @@ var _carry_lbl: Label
 var _name_lbl: Label                 # the Dymo name under the tag (a bank's follows its species chip)
 var _level_id := ""                  # the level this plate was opened in: a level change closes it
 var _trash: Button
+var _rc_grid: GridContainer          # the result temperatures of the unit (unitCard.resultsC), one cell each
+var _why_card: PanelContainer
+var _cat_box: VBoxContainer
+var _boxes: Array = []
+var _cat_note: Label
 static var _seq := 0
 const MAX_PLATES := 2
 
@@ -99,6 +104,7 @@ static func close_all() -> void:
 	plates.clear()
 
 func close() -> void:
+	if _why_card != null and is_instance_valid(_why_card): _why_card.queue_free()
 	plates.erase(unit_id)
 	if app != null and app.b != null and app.b.changed.is_connected(refresh): app.b.changed.disconnect(refresh)
 	queue_free()
@@ -159,13 +165,14 @@ func refresh() -> void:
 	card = c
 	var li := _li()
 	var bsp: Array = li.get("bankSpecies", []) if str(c.type) == "feed" else []
-	var sig := str(c.type) + "|" + ",".join((c.knobs as Array).map(func(k): return str(k.key))) + "|" + str(c.get("feed", null) != null) + "|" + ",".join(bsp.map(func(x): return str(x))) + "|" + str((li.get("masked", []) as Array).has(unit_id))
+	var cat = c.get("catalyst")
+	var sig := (",".join((cat.options as Array).map(func(o): return str(o.id))) if cat is Dictionary else "") + "|" + str(c.type) + "|" + ",".join((c.knobs as Array).map(func(k): return str(k.key))) + "|" + str(c.get("feed", null) != null) + "|" + ",".join(bsp.map(func(x): return str(x))) + "|" + str((li.get("masked", []) as Array).has(unit_id))
 	if sig != _sig: _sig = sig; _rebuild()
 	_update()
 
 func _rebuild() -> void:
 	for ch in get_children(): ch.queue_free()
-	knobs.clear(); pickers.clear(); _cells.clear(); _chips.clear(); _bank_kg = null; _kmol_lbl = null; _carry_lbl = null
+	knobs.clear(); pickers.clear(); _boxes.clear(); _cells.clear(); _chips.clear(); _bank_kg = null; _kmol_lbl = null; _carry_lbl = null
 	var li0 := _li()
 	_bank_sp = li0.get("bankSpecies", []) if str(card.type) == "feed" else []
 	_bank = not _bank_sp.is_empty() and card.get("feed") != null
@@ -205,12 +212,14 @@ func _rebuild() -> void:
 	if not _bank: mid.add_child(_knob_box)
 	if not _bank:
 		for k in card.knobs: _add_knob(k)
-	if (card.knobs as Array).is_empty() and not _bank:
+	if card.get("catalyst") is Dictionary and not _bank: _add_catalyst(card.catalyst)
+	if (card.knobs as Array).is_empty() and not _bank and not (card.get("catalyst") is Dictionary):
 		var nl := EqTheme.label("—", 18, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.5), "mono"); nl.custom_minimum_size = Vector2(90, 40); _knob_box.add_child(nl)
 	_body.add_child(HSeparator.new())
 	# readouts, two cells per row (kmol/h beside kg/h)
 	var grid := GridContainer.new(); grid.columns = 2; grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 2); _body.add_child(grid)
 	for key in ["flow", "mass", "T", "P", "duty"]: _cell(grid, key)
+	_rc_grid = GridContainer.new(); _rc_grid.name = "ResultsC"; _rc_grid.columns = 2; _rc_grid.add_theme_constant_override("h_separation", 12); _rc_grid.add_theme_constant_override("v_separation", 0); _body.add_child(_rc_grid)   # the unit's own temperatures, in °C
 	_last = EqTheme.label("", 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "dymo"); _last.name = "LastRun"; _body.add_child(_last)   # readings of the last run while the dials are being edited
 	# fixed slots: error text never moves the fields above it (a heater also has a loud 0 kW warning slot)
 	_warn = null
@@ -301,7 +310,36 @@ func _add_picker(k: Dictionary) -> void:
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]: bt.add_theme_color_override(c, EqTheme.INK if c != "font_pressed_color" and c != "font_hover_pressed_color" else Color("#0B1F1C"))
 		var ov := str(o); bt.pressed.connect(func(): _commit(k, float((k.options as Array).find(ov)))); fl.add_child(bt); m[ov] = bt
 	pickers[key] = m
+	_hook_pulse(box, key)
 	_knob_box.add_child(box)
+
+## The catalyst choice of a packed bed: one tag per catalyst the engine offers for this reaction (unitCard.catalyst), with its price and light-off on the line below.
+func _add_catalyst(cat: Dictionary) -> void:
+	var box := VBoxContainer.new(); box.name = "Picker_catalyst"; box.add_theme_constant_override("separation", 2); box.custom_minimum_size = Vector2(190, 0); _cat_box = box
+	box.add_child(EqTheme.dymo(PaperStrings.t("FP_CATALYST"), 12))
+	var fl := HFlowContainer.new(); fl.add_theme_constant_override("h_separation", 3); fl.add_theme_constant_override("v_separation", 3); box.add_child(fl)
+	var m := {}
+	for o in cat.options:
+		var oid := str(o.id)
+		var bt := Button.new(); bt.name = "Opt_" + oid; bt.toggle_mode = true; bt.focus_mode = Control.FOCUS_ALL; bt.text = str(o.name).to_upper(); bt.custom_minimum_size = Vector2(0, 30)
+		bt.tooltip_text = _cat_line(o)
+		bt.add_theme_font_override("font", EqStrings.font("cap")); bt.add_theme_font_size_override("font_size", EqTheme.fs(14))
+		for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]: bt.add_theme_stylebox_override(st, _chip_sb(st.contains("pressed"), st == "hover"))
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]: bt.add_theme_color_override(c, EqTheme.INK if c != "font_pressed_color" and c != "font_hover_pressed_color" else Color("#0B1F1C"))
+		bt.pressed.connect(func(): _commit_catalyst(oid)); fl.add_child(bt); m[oid] = bt
+	pickers["catalyst"] = m
+	_cat_note = EqTheme.label("", 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "mono"); _cat_note.name = "CatalystNote"; _cat_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _cat_note.custom_minimum_size = Vector2(190, 0); box.add_child(_cat_note)
+	_hook_pulse(box, "catalyst")
+	_knob_box.add_child(box)
+
+func _cat_line(o: Dictionary) -> String:
+	return "%s · %s ×%s · %s %s °C" % [str(o.name), PaperStrings.t("FP_PRICE"), PaperStrings.num(float(o.price)), PaperStrings.t("FP_LIGHTOFF"), PaperStrings.num(float(o.lightOffC))]
+
+func _commit_catalyst(id: String) -> void:
+	if _tripped(): app.toast(PaperStrings.t("FP_TRIPPED"), "warn"); refresh(); return
+	var r: Dictionary = app.b.act("setCatalyst", [unit_id, id])
+	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
+	refresh()
 
 func _opt_label(key: String, o: String) -> String:
 	if key == "utility": return PaperStrings.t("UT_" + (o.to_upper() if o != "" else "NONE")).to_upper()
@@ -331,12 +369,37 @@ func _commit(k: Dictionary, v: float) -> void:
 	elif shift and typeof(val) == TYPE_FLOAT: _cmd[str(k.key)] = val
 	refresh()
 
+## Why?: a card beside the plate with what the unit does, its lever and the player's own numbers (unitWhy); what is wrong with it right now comes first, in red.
 func _on_why() -> void:
+	if _why_card != null and is_instance_valid(_why_card): _why_card.queue_free(); _why_card = null; return
+	var lines: Array = []; var bad := ""
 	var n = PaperStrings.q(app, "needs", [unit_id])
-	if n is Dictionary and not (n as Dictionary).is_empty(): app.toast(str(n.text), "warn"); return
-	var diags: Array = card.get("diags", [])
-	if not diags.is_empty(): app.toast(str(diags[0].message), "warn"); return
-	app.toast(PaperStrings.t("FP_NOSOLVE") if card.get("results") == null else str(card.label), "info")
+	if n is Dictionary and not (n as Dictionary).is_empty(): bad = str(n.text)
+	elif not (card.get("diags", []) as Array).is_empty(): bad = str(card.diags[0].message)
+	var w = PaperStrings.q(app, "unitWhy", [unit_id])
+	if w is Dictionary and w.get("sentences") is Array: lines = w.sentences
+	if lines.is_empty() and bad == "":
+		app.toast(PaperStrings.t("FP_NOSOLVE") if card.get("results") == null else str(card.label), "info"); return
+	var pc := PanelContainer.new(); pc.name = "WhyCard"; pc.add_theme_stylebox_override("panel", EqTheme.porcelain_sb(5, 12.0)); pc.custom_minimum_size = Vector2(320, 0)
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 6); pc.add_child(vb)
+	var hd := HBoxContainer.new(); vb.add_child(hd)
+	var tg := EqTheme.dymo("%s · %s" % [PaperStrings.t("FP_WHY").trim_suffix("?").to_upper() + "?", str(card.id)], 14); tg.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hd.add_child(tg)
+	var cx := _tiny("×", func(): if is_instance_valid(pc): pc.queue_free()); cx.name = "WhyClose"; hd.add_child(cx)
+	if bad != "":
+		var bl := EqTheme.label(bad, 15, EqTheme.RED, "semi"); bl.name = "WhyBad"; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size.x = 300; vb.add_child(bl)
+	var i := 0
+	for s in lines:
+		var l := EqTheme.label(str(s), 16, EqTheme.INK, "sans"); l.name = "WhyLine_%d" % i; i += 1; l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.custom_minimum_size.x = 300; vb.add_child(l)
+	app.root.add_child(pc); _why_card = pc
+	_place_why.call_deferred()
+
+func _place_why() -> void:
+	if _why_card == null or not is_instance_valid(_why_card): return
+	var vr := get_viewport().get_visible_rect().size
+	_why_card.reset_size()
+	var x := global_position.x - _why_card.size.x - 10.0
+	if x < 8.0: x = minf(global_position.x + size.x + 10.0, vr.x - _why_card.size.x - 8.0)
+	_why_card.position = Vector2(x, clampf(global_position.y + size.y - _why_card.size.y, 56.0, vr.y - _why_card.size.y - 8.0))
 
 func _open_extra(method: String) -> void:
 	if app != null and app.has_method(method): app.call(method, unit_id)
@@ -400,9 +463,17 @@ func _update() -> void:
 			for o in pickers[str(k.key)]: (pickers[str(k.key)][o] as Button).set_pressed_no_signal(str(o) == str(k.value))
 			continue
 		if kn == null or kn._drag: continue
+		if k.get("off") != null:   # a set point of "off" (0 = disarmed) is shown as OFF, never as the bottom of the scale
+			kn.off_disp = EqFmt.to_disp(float(k.off), str(k.unit))
+			var offn: bool = absf(float(k.value) - float(k.off)) <= 1e-9 * maxf(1.0, absf(float(k.off)))
+			kn.set_off(offn)
+			if offn: continue
 		if str(k.kind) == "choice": kn.set_value(float((k.options as Array).find(str(k.value))))
 		elif _cmd.has(str(k.key)): kn.set_value(EqFmt.to_disp(float(_cmd[str(k.key)]), str(k.unit)))
 		else: kn.set_value(EqFmt.to_disp(float(k.value), str(k.unit)))
+	_update_catalyst()
+	_update_results_c()
+	_apply_coach()
 	_update_feed_info()
 	if _all != null: _all.visible = plates.size() > 1
 	if _last != null:   # in DESIGN the knobs are the plan; meters from an earlier run say so instead of passing for the plan
@@ -423,6 +494,68 @@ func _update() -> void:
 		(_warn.get_meta("box") as Control).modulate.a = 1.0 if (zero or wrong != "") else 0.0
 	_lens.disabled = app == null or not app.has_method("open_lens"); _win.disabled = app == null or not app.has_method("open_window")
 	reset_size()
+
+func _update_catalyst() -> void:
+	var cat = card.get("catalyst")
+	if not (cat is Dictionary) or not pickers.has("catalyst"): return
+	var cur := str(cat.get("id")) if cat.get("id") != null else ""
+	var line := ""
+	for o in cat.options:
+		(pickers.catalyst[str(o.id)] as Button).set_pressed_no_signal(str(o.id) == cur)
+		if str(o.id) == cur: line = "%s %s · %s %s °C" % [PaperStrings.t("FP_PRICE"), "×" + PaperStrings.num(float(o.price)), PaperStrings.t("FP_LIGHTOFF"), PaperStrings.num(float(o.lightOffC))]
+	if _cat_note != null: _cat_note.text = line
+	readouts["catalyst"] = {"text": cur, "si": 0.0, "unit": "", "cap": "catalyst"}
+
+const RC_CAP := {"T": "T", "Tmax": "T max", "Tmin": "T min", "Tin": "T in", "Tout": "T out", "Thot": "T hot", "Tcold": "T cold", "Tc": "T cool"}
+## unitCard.resultsC: the unit's result temperatures, already in °C.
+func _update_results_c() -> void:
+	if _rc_grid == null: return
+	var rc = card.get("resultsC")
+	var keys: Array = (rc as Dictionary).keys() if rc is Dictionary else []
+	keys.sort()
+	var sig := ",".join(keys.map(func(x): return str(x)))
+	if str(_rc_grid.get_meta("sig", "#")) != sig:
+		_rc_grid.set_meta("sig", sig)
+		for ch in _rc_grid.get_children(): ch.queue_free()
+		for k in keys:
+			var v := HBoxContainer.new(); v.name = "RC_" + str(k); v.custom_minimum_size = Vector2(120, 0); v.add_theme_constant_override("separation", 5)   # one line per temperature: the plate stays short
+			var cap := EqTheme.label("", 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.45), "dymo"); var val := EqTheme.label("—", 15, EqTheme.INK, "mono_bold")
+			cap.text = (str(RC_CAP.get(str(k).replace("_", ""), str(k))) + " °C").to_upper(); v.add_child(cap); v.add_child(val); _rc_grid.add_child(v)
+	for k in keys:
+		var node := _rc_grid.get_node_or_null("RC_" + str(k))
+		if node == null: continue
+		var txt := PaperStrings.num(float((rc as Dictionary)[k]))
+		(node.get_child(1) as Label).text = txt
+		readouts["rc_" + str(k)] = {"text": txt, "si": float((rc as Dictionary)[k]) + 273.15, "unit": "degC", "cap": str(k)}
+	_rc_grid.visible = not keys.is_empty()
+
+# ---- the coach points at a knob ----------------------------------------------------------------------------------------------
+static var coach_knob := {}          ## {unit, knob} the coach is talking about (console._point sets it); that knob pulses on its faceplate
+class PulseRing extends Control:
+	func _init() -> void: name = "Coach"; mouse_filter = Control.MOUSE_FILTER_IGNORE; set_anchors_preset(Control.PRESET_FULL_RECT)
+	func _process(_d: float) -> void: queue_redraw()
+	func _draw() -> void:
+		var a := 0.5 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
+		draw_rect(Rect2(Vector2.ZERO, size).grow(1.0), Color(EqTheme.TEAL, a), false, 3.0)
+static func set_coach_knob(app, unit: String, knob: String) -> void:
+	coach_knob = {"unit": unit, "knob": knob} if unit != "" and knob != "" else {}
+	for k in plates: if is_instance_valid(plates[k]): (plates[k] as Faceplate)._apply_coach()
+func _apply_coach() -> void:
+	var want := str(coach_knob.get("knob", "")) if str(coach_knob.get("unit", "")) == unit_id else ""
+	var targets := {}
+	for k in knobs: targets[str(k)] = knobs[k]
+	for k in targets:
+		var n: Control = targets[k]
+		if not is_instance_valid(n): continue
+		var ring := n.get_node_or_null("Coach")
+		if str(k) == want and ring == null: n.add_child(PulseRing.new())
+		elif str(k) != want and ring != null: ring.queue_free()
+	for b in _boxes:   # a picker sits in a container: it draws its own ring
+		if is_instance_valid(b): b.set_meta("coach", str(b.get_meta("key")) == want); b.queue_redraw()
+func _hook_pulse(box: Control, key: String) -> void:
+	box.set_meta("key", key); box.set_meta("coach", false); _boxes.append(box)
+	box.draw.connect(func():
+		if bool(box.get_meta("coach", false)): box.draw_rect(Rect2(Vector2.ZERO, box.size).grow(3.0), Color(EqTheme.TEAL, 0.5 + 0.45 * sin(Time.get_ticks_msec() * 0.006)), false, 3.0))
 
 ## Feed faceplates: what the feed carries (masked feeds stay unknown) and, for a cylinder bank, the lit species chip and the kmol/h beside the kg/h knob.
 func _update_feed_info() -> void:
@@ -468,6 +601,12 @@ func _place(force := false) -> void:
 		if bayn == "lvbay" and not bw.active(): continue
 		var br: Rect2 = (bw as Control).get_global_rect()
 		if Rect2(pos, sz).intersects(br.grow(6.0)): pos.x = maxf(8.0, br.position.x - 10.0 - sz.x)
+	# stepping left of the bay may land on an older plate that stepped left of it too: clear that plate as well
+	for k in plates:
+		var o2 = plates[k]
+		if o2 == self or not is_instance_valid(o2) or (o2 as Faceplate)._order > _order: continue
+		var orc := Rect2((o2 as Faceplate).position, maxf((o2 as Faceplate).size.x, (o2 as Faceplate).get_combined_minimum_size().x) * Vector2.RIGHT + Vector2(0, (o2 as Faceplate).size.y))
+		if Rect2(pos, sz).intersects(orc.grow(4.0)): pos.x = maxf(8.0, orc.position.x - 14.0 - sz.x)
 	var sp := Vector2.ZERO
 	if app.world != null and app.world.has_method("unit_screen_pos"): sp = app.world.unit_screen_pos(unit_id)
 	if not force and pos.is_equal_approx(position) and sp.is_equal_approx(_last_pos): return
@@ -480,7 +619,9 @@ func _place(force := false) -> void:
 			app.world.cam_rig.pan_pixels(Vector2(-(sp.x - pr.position.x + 40.0), 0.0))
 	queue_redraw()
 
-func _process(_dt: float) -> void: _place()
+func _process(_dt: float) -> void:
+	_place()
+	for b in _boxes: if is_instance_valid(b) and bool(b.get_meta("coach", false)): (b as Control).queue_redraw()
 
 func _draw() -> void:   # the leader line from the plate's edge to the unit
 	if app == null or app.world == null or not app.world.has_method("unit_screen_pos"): return

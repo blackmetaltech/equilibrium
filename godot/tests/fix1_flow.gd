@@ -95,7 +95,7 @@ func _docking() -> void:
 		var r := Rect2(fp.position, fp.size)
 		check(r.end.x <= vr.x - 8.0 + 0.5 and r.end.y <= vr.y - ch + 0.5, "plate %s is on screen above the console (%s)" % [fp.unit_id, str(r)])
 		check(r.position.x > vr.x * 0.4, "plate %s is docked on the right half" % fp.unit_id)
-	check(not Rect2(a.position, a.size).intersects(Rect2(b.position, b.size)), "two docked plates do not overlap")
+	check(not Rect2(a.position, a.size).intersects(Rect2(b.position, b.size)), "two docked plates do not overlap %s %s" % [str(Rect2(a.position, a.size)), str(Rect2(b.position, b.size))])
 	Faceplate.close_all(); await frames(2)
 
 # 4, 5, 6: keypad keys, Esc order, stream tag

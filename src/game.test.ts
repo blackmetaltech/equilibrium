@@ -103,7 +103,10 @@ describe('core machinery on our state shape (test-local level T1)', () => {
   });
   it('chapter 1 levels are registered, and checkAllLevels is clean for the puzzle levels (L00 is a cold open that idle play finishes by design)', () => {
     expect(GAME.levels!.map((l) => l.id).slice(0, 5)).toEqual(['L00', 'L01', 'L02', 'L03', 'L04']);
-    for (const r of checkAllLevels({ ...GAME, levels: GAME.levels!.filter((l) => l.id !== 'L00') }, { seed: 1 })) expect(r.problems, r.level).toEqual([]);
+    // Chapters 2-9 and Career run the same checkLevel in their own test files (src/levels/ch*.test.ts, career.test.ts); repeating every
+    // shift level's random rollouts here took over an hour.
+    const ch1 = new Set(['L01', 'L02', 'L03', 'L04']);
+    for (const r of checkAllLevels({ ...GAME, levels: GAME.levels!.filter((l) => ch1.has(l.id)) }, { seed: 1 })) expect(r.problems, r.level).toEqual([]);
   });
   it('personas play without violations, in the real game and the test level', () => {
     for (const p of ['idle', 'random']) for (const seed of [1, 2]) expect(play(GAME, { persona: p, seed, ticks: 80 }).violations, `${p}/${seed}`).toEqual([]);

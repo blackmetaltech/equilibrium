@@ -121,9 +121,9 @@ static func open(app) -> bool:
 		var you := float(hg.you)
 		for i in range(bins.size()):
 			var lo := float(edges[i]); var hi := float(edges[i + 1])
-			var mine := (you >= lo and you < hi) or (i == bins.size() - 1 and you >= lo)
-			var bar := "█".repeat(int(round(float(bins[i]) / mx * 22.0)))
-			_line(vb, "%s|%s %d%s" % [_pad(CbKit.num(lo, 0), 9), bar, int(bins[i]), "  " + PaperStrings.t("PR_YOU") if mine else ""], EqTheme.PEN_BLUE if mine else INKC, 20, "Hist_%d" % i)
+			var mine: bool = (i == int(hg.youBin)) if hg.has("youBin") else ((you >= lo and you < hi) or (i == bins.size() - 1 and you >= lo))   # the engine names the bin; older cards fall back to the edges
+			var bar := "█".repeat(maxi(int(round(float(bins[i]) / mx * 22.0)), 1 if int(bins[i]) > 0 else 0))
+			_line(vb, "%s|%s %d%s" % [_pad(CbKit.num(lo, 0), 9), bar, int(bins[i]), "  " + PaperStrings.t("PR_YOU") + " " + PaperStrings.num(you) if mine else ""], EqTheme.PEN_BLUE if mine else INKC, 20, "Hist_%d" % i)
 	# call it
 	var ci = rc.get("callIt")
 	if ci is Dictionary:

@@ -765,7 +765,35 @@ func set_fail_focus(id: String) -> void:
 	_fail_mark.visible = _fail_unit != ""
 func fail_focus() -> String: return _fail_unit
 
+## A refused commission: the open ports it complains about pulse in red for a few seconds. `list` is the engine's openPorts: [{unit, port, dir}].
+var _pulse_nodes: Array = []
+var _pulse_until := 0
+func pulse_ports(list: Array) -> void:
+	clear_pulse()
+	for it in list:
+		var inlet := str(it.get("dir", "in")) == "in"
+		var f := port_frame(str(it.unit), str(it.port), inlet)
+		if f.is_empty(): continue
+		var mi := MeshInstance3D.new()
+		if inlet: var bm := BoxMesh.new(); bm.size = Vector3(1, 1, 1) * 0.8; mi.mesh = bm
+		else: var sm := SphereMesh.new(); sm.radius = 0.45; sm.height = 0.9; mi.mesh = sm
+		var m := StandardMaterial3D.new(); m.albedo_color = Color("#FF3B47"); m.emission_enabled = true; m.emission = Color("#FF3B47"); m.emission_energy_multiplier = 3.0
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 6
+		var toward := cam.global_transform.basis.z.normalized()
+		mi.material_override = m; mi.position = f.pos + f.dir * 0.3 + toward * 1.2 + Vector3(0, 0.25, 0); mi.name = "Pulse_%s_%s" % [str(it.unit), str(it.port)]
+		add_child(mi); _pulse_nodes.append(mi)
+	_pulse_until = Time.get_ticks_msec() + 6000
+func clear_pulse() -> void:
+	for n in _pulse_nodes: if is_instance_valid(n): (n as Node).queue_free()
+	_pulse_nodes.clear()
+func pulsing() -> Array: return _pulse_nodes.filter(func(n): return is_instance_valid(n)).map(func(n): return str(n.name))
+
 func _coach_tick() -> void:
+	if not _pulse_nodes.is_empty():
+		if Time.get_ticks_msec() > _pulse_until: clear_pulse()
+		else:
+			var tp := Time.get_ticks_msec() * 0.001
+			for n in _pulse_nodes: if is_instance_valid(n): (n as Node3D).scale = Vector3.ONE * (1.0 + 0.45 * absf(sin(tp * 6.0)))
 	if _fail_mark != null and _fail_mark.visible:
 		if _units.has(_fail_unit):
 			var tf := Time.get_ticks_msec() * 0.001

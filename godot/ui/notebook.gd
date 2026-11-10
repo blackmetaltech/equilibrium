@@ -68,7 +68,7 @@ static func result_stub(won: bool) -> Dictionary:
 		"equation": "" if won else "n(H2) = 3 x n(N2) = 3 x 5.0 = 15.0 kmol/h, you fed 3.0",
 		"metrics": [{"key": "nh3", "label": "NH3 made", "value": 31.2, "unit": "kmol/h"}, {"key": "cost", "label": "Spend", "value": 84200, "unit": "$"}, {"key": "vent", "label": "Vent", "value": 0.4, "unit": "%"}],
 		"stars": {"have": 2 if won else 0, "earned": [true, true, false] if won else [false, false, false]},
-		"histogram": {"metric": "cost", "bins": [2, 5, 9, 14, 8, 3, 1], "edges": [60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000], "you": 84200.0} if won else null,
+		"histogram": {"metric": "cost", "bins": [2, 5, 9, 14, 8, 3, 1], "edges": [60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000], "you": 84200.0, "youBin": 2} if won else null,
 		"callIt": {"prompt": "H2 for 140 kg/h N2", "unit": "kg/h", "value": 30.0, "answer": 30.24, "ok": true}, "lesson": "Moles react in 1 : 3. By mass that is 1 : 6 H2 to N2, not 1 : 3.", "designCode": "EQ1-L01-7K2F9Q"}
 
 # ---- the page ------------------------------------------------------------------------------------------------------------

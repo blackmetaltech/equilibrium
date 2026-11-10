@@ -72,7 +72,7 @@ func feed(li: Dictionary, run_list: Array, tick: int) -> void:
 		var lt := int((run_list.back() as Dictionary).get("tick", 0)) if not run_list.is_empty() else 0
 		var sig := "%s|%d|%d" % [str(hero.get("value", "")), lt, run_list.size()]
 		var fresh := _phase_prev == "design" or (runs.is_empty() and samples.is_empty()) or (phase == "commissioned" and sig != _sig)
-		if fresh and _has(hero, "value"):
+		if fresh and _has(hero, "value") and not bool(hero.get("pending", false)):   # a pending hero (the plant has not been read yet) is no point on the paper
 			_sig = sig; record_run(hv, sv, tv)
 	_phase_prev = phase
 	queue_redraw()
@@ -204,10 +204,10 @@ func _draw() -> void:
 	# pen legends on dymo tape: each pen's label and unit in its own ink (blue hero, red secondary, green third)
 	var avail := pl.size.x + 52.0
 	var ly := pl.position.y + 2.0
-	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero), EqTheme.PEN_BLUE, avail)
-	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec), EqTheme.PEN_RED, avail)
+	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero) + (" —" if bool(hero.get("pending", false)) else ""), EqTheme.PEN_BLUE, avail)   # pending: the reading is "—", never a made-up number
+	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec) + (" —" if bool(sec.get("pending", false)) else ""), EqTheme.PEN_RED, avail)
 	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail)
-	if not first_run.is_empty():   # a rolling "made so far" counter while the first run plays
+	if not first_run.is_empty() and first_run.get("madeKg") != null:   # (madeKg null: this level makes no product, so no counter) a rolling "made so far" counter while the first run plays
 		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 21.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 

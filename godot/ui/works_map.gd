@@ -191,8 +191,8 @@ class Campaign:
 		var es = pr.get("stars", pr)
 		if not (es is Dictionary): return
 		for id in ids:
-			if (es as Dictionary).has(id): stars[id] = clampi(int((es as Dictionary)[id]), 0, 3)
-			elif not (es as Dictionary).is_empty(): stars.erase(id)
+			if (es as Dictionary).has(id): stars[id] = clampi(int((es as Dictionary)[id]), 0, 3)   # the engine's record wins where it has one
+			# an id the engine has no record of keeps the user:// copy: that file is only the migration fallback for a launch that did not Continue (the engine's progress is carried over inside a session and saved with the game)
 
 	## Hook the running game (once): a won level is recorded with its stars, the backdrop follows, and a level that has just begun is autosaved
 	## so Continue never resumes the level before it (the engine only autosaves on ticks and on a win; a level begun and then left was lost).
