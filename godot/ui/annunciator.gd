@@ -1,6 +1,6 @@
 class_name Annunciator
 extends Control
-## The annunciator (UI.md 4): 4-8 backlit windows with engraved caps legends, two rows. off = dark glass, normal = white (in design: "this goal is met"),
+## The annunciator (UI.md 4): 4-8 backlit windows with engraved caps legends, two rows. off = dark glass, normal = dark glass with a green-tinted legend (healthy), GOAL lit teal when met,
 ## high = amber flashing until acknowledged then steady, critical = red (klaxon cue on arrival). ISA-18.2 sequence: flash -> ack steady -> clear.
 ## K, pad A or a tap acknowledges. Windows come from `set_windows([{key, legend, state}])` (the engine's levelInfo.annunciators).
 signal acked(key: String)
@@ -105,7 +105,9 @@ func _draw() -> void:
 		var txt := Color("#52625E")
 		var glow := 0.0
 		match st:
-			"normal": lit = EqTheme.LAMP_WHITE; back = Color("#E6E2C8"); txt = Color("#2B2A22"); glow = 0.14
+			"normal":   # a healthy condition is DARK glass on a real panel; only the GOAL window lights (teal) when the job is done
+				if str(w.get("key", "")) == "goal": lit = EqTheme.TEAL; back = EqTheme.TEAL; txt = Color("#08201D"); glow = 0.3
+				else: back = Color("#1E2B28"); txt = Color("#6FA394")
 			"high":
 				var on: bool = w.acked or flash
 				lit = EqTheme.AMBER; back = EqTheme.AMBER if on else Color("#4A3A0C"); txt = Color("#2A1D00") if on else Color("#8A6F1E"); glow = 0.28 if on else 0.0

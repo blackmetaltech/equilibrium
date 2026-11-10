@@ -36,6 +36,34 @@ func game_on_changed() -> void:
 	var p = b.q("plant")
 	if p is Dictionary: plant_world.set_state(p)
 	plant_world.set_snapshot(b.g)   # live looks: stream colours/flow, unit heat and alarms, Cute critters
+	_level_mood()
+
+## Per-level mood: L00 is the 02:40 night shift (dark, lamps on), the bench levels are daytime; alarms drive the tones, the music stress
+## and the lab cat (it hides). The engine's annunciator states are the single source.
+var _mood_level := "?"
+var _alarm_level := ""
+func _level_mood() -> void:
+	var lid := str(b.g.get("level", ""))
+	if lid != _mood_level:
+		_mood_level = lid
+		if plant_world.scenery: plant_world.scenery.set_hour(21.0 if lid == "L00" else 15.5)
+		if audio_eq: audio_eq.set_piece("shift" if lid == "L00" else "design")
+	var li = b.q("levelInfo") if (b.init_data.get("queries", []) as Array).has("levelInfo") else null
+	var worst := ""
+	if li is Dictionary:
+		for a in li.get("annunciators", []):
+			var st := str(a.get("state", "off"))
+			if st == "critical": worst = "critical"
+			elif st == "high" and worst != "critical": worst = "high"
+	if worst != _alarm_level:
+		_alarm_level = worst
+		if plant_world.scenery: plant_world.scenery.set_alarm(worst != "")
+		if audio_eq:
+			if worst == "": audio_eq.clear_alarm()
+			else: audio_eq.alarm(worst)
+			audio_eq.set_stress(1.0 if worst == "critical" else (0.6 if worst == "high" else 0.2))
+			audio_eq.set_critical(worst == "critical")
+
 
 func game_time_text() -> String:
 	var t := int(b.g.get("tick", 0))
@@ -123,6 +151,7 @@ func _input(e: InputEvent) -> void:
 
 ## Console cues without a recipe in the shell borrow one: the key clunks like a confirm, the intercom blips like a hover.
 func sfx(k: String) -> void:
+	if audio_eq != null and k == "ack": audio_eq.ack_alarm()   # acknowledging silences the tone; the window stays lit until it clears
 	if audio_eq != null and k in EqAudio.ONE_SHOTS: audio_eq.play(k); return
 	match k:
 		"key": super("confirm")
