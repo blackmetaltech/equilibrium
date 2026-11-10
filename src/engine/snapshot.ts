@@ -65,6 +65,6 @@ export function snapshotOf(s: Readonly<EqState>): unknown {
     ok: sol?.ok ?? null, failure: sol?.failure ? { code: sol.failure.code, unitId: sol.failure.unitId ?? null } : null,
     kpis: sol?.ok ? Object.fromEntries(Object.entries(sol.kpis).map(([k, v]) => [k, sig4(v)])) : {},
     goals: [], alarms: alarmsOf(s), clock: clockOf(s), shift: shiftOf(s),
-    colours: s.species.map(colourOf), units, streams, undo: [s.undo.past.length, s.undo.future.length],
+    colours: s.species.map(colourOf), species: [...s.species], units, streams, undo: [s.undo.past.length, s.undo.future.length],
   };
 }
