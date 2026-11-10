@@ -106,6 +106,7 @@ func set_snapshot(g: Dictionary) -> void:
 		(_units[id] as UnitModel).set_display(d)
 	pipes.set_streams(g.get("streams", []), g.get("colours", []))
 	if critters: critters.update(pipes, g.get("streams", []), g.get("species", []), _lost_pipes())
+	if critters: critters.update_reactors(self, g.get("streams", []), g.get("species", []))
 
 # ---- ports (pipe mode) ----------------------------------------------------------------------------------------------------
 

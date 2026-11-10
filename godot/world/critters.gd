@@ -115,6 +115,7 @@ func set_cute(on: bool) -> void:
 
 func _process(dt: float) -> void:
 	for id in _pipes: _place(_pipes[id], dt)
+	for id in _rx: _rx_step(_rx[id], dt)
 
 func _place(p: Dictionary, dt: float) -> void:
 	var L: float = p.len; var pts: Array = p.pts; var cum: Array = p.cum
@@ -205,3 +206,91 @@ static func _disc(img: Image, ctr: Vector2, r: float, c: Color) -> void:
 	for y in range(int(ctr.y - r - 1), int(ctr.y + r + 2)):
 		for x in range(int(ctr.x - r - 1), int(ctr.x + r + 2)):
 			if Vector2(x + 0.5, y + 0.5).distance_to(ctr) <= r: _px(img, x, y, c)
+
+# ---------------------------------------------------------------- reactions (Cute mode): reactants hug, products pop out
+## Balanced equations for the reaction animation (display; the engine computes every number). product -> [[reactant, coeff]...], product coeff.
+const EQUATIONS := {
+	"NH3": [[["N2", 1], ["H2", 3]], 2],
+	"SO2": [[["S", 1], ["O2", 1]], 1],
+	"SO3": [[["SO2", 2], ["O2", 1]], 2],
+	"CO2": [[["CH4", 1], ["O2", 2]], 1],
+	"H2O": [[["H2", 2], ["O2", 1]], 2],
+	"CH3OH": [[["CO", 1], ["H2", 2]], 1],
+}
+const REACTORS := ["stoich_reactor", "eq_reactor", "eq_bed", "packed_bed", "multibed", "cstr", "burner", "gasifier", "co_burner"]
+var _rx := {}          # unit id -> {pos, product, t, actors:[{node, from, to}], phase}
+
+## Called by the world after critters.update: finds reactors whose outlet carries a known product and animates its equation there.
+func update_reactors(world, streams: Array, species: Array) -> void:
+	if not cute:
+		for id in _rx.keys(): _rx_clear(id)
+		return
+	var by := {}
+	for s in streams: by[str(s.get("id", ""))] = s
+	var seen := {}
+	for uid in world.unit_ids():
+		var st: Array = world._unit_state.get(uid, [])
+		if st.is_empty() or not (str(st[0]) in REACTORS): continue
+		var product := ""
+		for pid in world.pipes.pipe_ids():
+			var ends: Array = world.pipes.endpoints(pid)
+			if ends.size() < 2 or not (ends[0] is Dictionary) or str(ends[0].get("unit", "")) != uid: continue
+			var s = by.get(pid)
+			if s == null: continue
+			for e in s.get("w", []):
+				var sp := str(species[int(e[0])]) if int(e[0]) < species.size() else ""
+				if EQUATIONS.has(sp): product = sp; break
+			if product != "": break
+		if product == "": continue
+		seen[uid] = true
+		var pos: Vector3 = world.anchor_world(uid) + Vector3(0, 1.4, 0)
+		if not _rx.has(uid) or _rx[uid].product != product:
+			if _rx.has(uid): _rx_clear(uid)
+			_rx[uid] = {"pos": pos, "product": product, "t": 0.0, "actors": []}
+		else:
+			_rx[uid].pos = pos
+	for id in _rx.keys():
+		if not seen.has(id): _rx_clear(id)
+
+func _rx_clear(id: String) -> void:
+	for a in _rx[id].actors: (a.node as Node).queue_free()
+	_rx.erase(id)
+
+func _rx_sprite(sp: String) -> Sprite3D:
+	var spr := Sprite3D.new(); spr.texture = _texture(sp, "happy")
+	spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED; spr.shaded = false; spr.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	spr.pixel_size = 0.0105 * pow(float(MOLAR.get(sp, 28.0)) / 28.0, 1.0 / 3.0)
+	add_child(spr)
+	return spr
+
+## A 2.4 s cycle: reactants fly in from a ring (0-0.9 s), squeeze (0.9-1.2 s), products pop out and drift up (1.2-2.4 s).
+func _rx_step(r: Dictionary, dt: float) -> void:
+	var T := 2.4
+	r.t = float(r.t) + dt
+	if float(r.t) >= T or r.actors.is_empty():
+		for a in r.actors: (a.node as Node).queue_free()
+		r.actors = []; r.t = 0.0
+		var eq: Array = EQUATIONS[r.product]
+		var reac: Array = eq[0]; var n := 0
+		for pair in reac: n += int(pair[1])
+		var k := 0
+		for pair in reac:
+			for j in range(int(pair[1])):
+				var ang := TAU * k / n; k += 1
+				r.actors.append({"node": _rx_sprite(str(pair[0])), "from": Vector3(cos(ang), 0.2 * sin(ang * 2.0), sin(ang)) * 2.2, "kind": "in"})
+		for j in range(int(eq[1])):
+			var ang2 := TAU * j / float(eq[1]) + 0.6
+			r.actors.append({"node": _rx_sprite(str(r.product)), "from": Vector3.ZERO, "to": Vector3(cos(ang2) * 1.6, 1.4, sin(ang2) * 1.6), "kind": "out"})
+	var t := float(r.t)
+	for a in r.actors:
+		var spr: Sprite3D = a.node
+		if a.kind == "in":
+			var u := clampf(t / 0.9, 0.0, 1.0); u = u * u * (3.0 - 2.0 * u)
+			spr.position = r.pos + (a.from as Vector3) * (1.0 - u)
+			spr.visible = t < 1.2
+			spr.scale = Vector3.ONE * (1.0 - 0.35 * clampf((t - 0.9) / 0.3, 0.0, 1.0))
+		else:
+			var v := clampf((t - 1.2) / 1.2, 0.0, 1.0)
+			spr.visible = t >= 1.2
+			spr.position = r.pos + (a.to as Vector3) * (1.0 - (1.0 - v) * (1.0 - v))
+			spr.scale = Vector3.ONE * (0.4 + 0.6 * clampf(v * 3.0, 0.0, 1.0))
