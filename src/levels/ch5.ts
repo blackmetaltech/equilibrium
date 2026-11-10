@@ -5,5 +5,7 @@ import type { LevelSpec } from './spec';
 import { L19 } from './l19';
 import { L20 } from './l20';
 import { L21 } from './l21';
+import { L22 } from './l22';
+import { L23 } from './l23';
 
-export const CH5_SPECS: LevelSpec[] = [L19, L20, L21];
+export const CH5_SPECS: LevelSpec[] = [L19, L20, L21, L22, L23];

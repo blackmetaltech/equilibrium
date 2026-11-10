@@ -5,6 +5,7 @@ import type { UnitInst } from '../types';
 import type { UnitDefM16 } from './registry';
 import { eqReactor } from './rx_equil';
 import { multibed } from './rx_multibed';
+import { tubular } from './rx_cooled';
 import { packedBed } from './rx_pfr';
 import { reactantsOf, stoichReactor } from './rx_stoich';
 
@@ -21,5 +22,6 @@ export const UNIT_DEFS_RX: Record<string, UnitDefM16> = {
   eq_reactor: rx(eqReactor),
   eq_bed: rx(eqReactor),
   packed_bed: rx(packedBed),
-  multibed: rx(multibed, { inlets: ['in', 'quench'] }),
+  tubular: rx(tubular),
+  multibed: rx(multibed, { inlets: ['in', 'quench'], optionalInlets: ['quench'] }),
 };

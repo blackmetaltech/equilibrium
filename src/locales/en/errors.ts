@@ -140,6 +140,18 @@ export const errors: Record<string, string> = {
   'info.SIZE_SPLIT': 'The size {size} is more than one unit can be ({max}): priced as {units} identical units.',
   'info.RATING_CLASS': 'Priced as pressure class {class} for {p} barg.',
   'info.NO_PRODUCT': 'No product tank receives anything, so per-tonne figures cannot be worked out. Send a stream to a product tank.',
+  // --- packed-bed diagnostics (moved from levels_ch4)
+  'info.BED_BUDGET': 'This bed needed more than {cap} rate evaluations ({evals} so far); the rest of it was finished with coarser steps.',
+  'info.BED_STIFF_SWITCHED': 'The bed went stiff near equilibrium at {W} kg of catalyst; the solver switched to implicit steps.',
+  'info.BELOW_LIGHTOFF': 'The gas enters at {T} K, below the catalyst light-off ({Tmin} K): the catalyst is nearly asleep.',
+  'info.CATALYST_OVERTEMP': 'The bed reaches {Tmax} K, above the catalyst window top of {limit} K: the catalyst starts to sinter.',
+  // --- CSTR
+  'info.MULTIPLE_STEADY_STATES': '{unit} has {n} steady states at these settings; the plant settled on the one at {T} K. Which one it sits on depends on how it got there.',
+  // --- cooled tubular reactor, fermenter, column
+  'fail.AZEOTROPE_LIMIT': '{unit}: the {xD} distillate asked for sits at or beyond the azeotrope ({x_az} ethanol by moles, {wt_az} by mass at {P}). No number of trays or amount of reflux gets past it.',
+  'fail.YEAST_KILLED': 'The yeast in {unit} died: it was held at {T}. A fermentation lives between about 28 and 38 \u00b0C and stalls well before it dies.',
+  'fail.SPEC_INFEASIBLE': '{unit} cannot meet its specification with this feed: there is nothing to recover, or too little water for that purity.',
+  'info.REBOILER_NEGATIVE': '{unit} needs no reboiler heat at these settings (the feed brings more than the split needs): check the feed temperature.',
   'info.PRICE_SKIPPED': 'A feed price could not be used ({key}); that feed is costed at zero.',
   // --- labels for the Inspect panel and palette ---
   'label.cat.source': 'Sources', 'label.cat.mix': 'Mix and split', 'label.cat.heat': 'Heat and cool', 'label.cat.move': 'Move',
@@ -150,12 +162,12 @@ export const errors: Record<string, string> = {
   'label.unit.nh3_sep': 'Ammonia separator', 'label.unit.boiler': 'Waste-heat boiler', 'label.unit.absorber': 'Absorber', 'label.unit.stack': 'Stack',
   'label.unit.relief': 'Relief valve', 'label.unit.flare': 'Flare', 'label.unit.interlock': 'Interlock', 'label.unit.sink': 'Sink',
   'label.unit.product': 'Product tank', 'label.unit.vent': 'Vent', 'label.unit.eq_reactor': 'Equilibrium reactor', 'label.unit.packed_bed': 'Packed bed',
-  'label.unit.multibed': 'Multibed converter', 'label.unit.stoich_reactor': 'Stoichiometric reactor', 'label.unit.burner': 'Burner', 'label.unit.gasifier': 'Gasifier', 'label.unit.co_burner': 'CO burner', 'label.unit.eq_bed': 'Equilibrium bed', 'label.unit.cstr': 'Stirred reactor', 'label.unit.other': 'Unit',
+  'label.unit.multibed': 'Multibed converter', 'label.unit.stoich_reactor': 'Stoichiometric reactor', 'label.unit.burner': 'Burner', 'label.unit.gasifier': 'Gasifier', 'label.unit.co_burner': 'CO burner', 'label.unit.eq_bed': 'Equilibrium bed', 'label.unit.cstr': 'Stirred reactor', 'label.unit.batch': 'Batch rig', 'label.unit.lab_flask': 'Lab flask', 'label.knob.V': 'Volume', 'label.knob.Pfix': 'Fixed pressure', 'label.unit.tubular': 'Cooled tubular reactor', 'label.unit.fermenter': 'Fermenter', 'label.unit.column': 'Distillation column', 'label.unit.other': 'Unit',
   'label.knob.flow': 'Flow', 'label.knob.T': 'Temperature', 'label.knob.P': 'Pressure', 'label.knob.frac': 'Split fraction',
   'label.knob.dP': 'Pressure drop', 'label.knob.utility': 'Utility', 'label.knob.area': 'Area', 'label.knob.dP_hot': 'Hot-side pressure drop',
   'label.knob.dP_cold': 'Cold-side pressure drop', 'label.knob.stages': 'Stages', 'label.knob.steam': 'Steam level', 'label.knob.acid': 'Acid strength',
   'label.knob.recovery': 'Recovery', 'label.knob.absorbent': 'Absorbent', 'label.knob.Pset': 'Set pressure', 'label.knob.orifice': 'Orifice',
-  'label.knob.setpoint': 'Setpoint', 'label.knob.X': 'Conversion', 'label.knob.W': 'Catalyst mass',
+  'label.knob.setpoint': 'Setpoint', 'label.knob.Tc': 'Coolant temperature', 'label.knob.time': 'Batch time', 'label.knob.xD': 'Distillate purity', 'label.knob.rec': 'Ethanol recovery', 'label.knob.rr': 'Reflux multiple', 'label.knob.X': 'Conversion', 'label.knob.W': 'Catalyst mass',
   'label.port.in': 'In', 'label.port.out': 'Out', 'label.port.in1': 'In 1', 'label.port.in2': 'In 2', 'label.port.in3': 'In 3', 'label.port.in4': 'In 4',
   'label.port.purge': 'Purge', 'label.port.hot_in': 'Hot in', 'label.port.cold_in': 'Cold in', 'label.port.hot_out': 'Hot out', 'label.port.cold_out': 'Cold out',
   'label.port.vap': 'Vapour', 'label.port.liq': 'Liquid', 'label.port.acid': 'Acid',

@@ -3,10 +3,14 @@
 import { dmath } from '@core/numerics';
 import { API, ORIFICE_LETTERS, ORIFICE_MM2 } from '../../data/vle';
 import { cpFlow, makeMixture, massFlow, molarMass, totalFlow } from '../thermo';
+import { hasThermo } from '../thermo/species';
 import { R_GAS } from '../thermo/shomate';
 import type { Diag, UnitOp } from '../types';
 import { failResult, okResult } from '../types';
-import { guardInlets, num, str } from './utilities';
+import { guardInlets, massFlowAny, num, str } from './utilities';
+
+/** Heat-capacity ratio assumed for a relief load made of pseudo-species (GAME). */
+const K_PSEUDO = 1.3;
 
 /** C(k) = 0.03948 sqrt(k (2/(k+1))^((k+1)/(k-1))); k -> 1 limit 0.023946. */
 export function coefC(k: number): number {
@@ -45,8 +49,13 @@ export const relief: UnitOp = (inlets, u, ctx) => {
   const info: Record<string, number> = { area_mm2: A, P1_kPa: P1, Pset };
   const diag: Diag[] = [];
   if (tot > 0) {
-    const mx = makeMixture(ctx.species), M = molarMass(mx, s.n) * 1000, cp = cpFlow(mx, s.n, s.T) / tot, k = cp / (cp - R_GAS);
-    const W = massFlow(mx, s.n) * 3600, cap = reliefCapacity(A, P1, s.T, Z, M, k), need = reliefArea(W, P1, s.T, Z, M, k);
+    // pseudo-species with no thermo rows (biomass, lumps): molar mass from the catalogue and the default heat-capacity ratio of a polyatomic gas
+    const rich = ctx.species.every(hasThermo);
+    const mx = rich ? makeMixture(ctx.species) : null;
+    const W0 = mx ? massFlow(mx, s.n) : massFlowAny(ctx.species, s.n);
+    const M = mx ? molarMass(mx, s.n) * 1000 : (W0 * 1000) / tot;
+    const cp = mx ? cpFlow(mx, s.n, s.T) / tot : (K_PSEUDO * R_GAS) / (K_PSEUDO - 1), k = cp / (cp - R_GAS);
+    const W = W0 * 3600, cap = reliefCapacity(A, P1, s.T, Z, M, k), need = reliefArea(W, P1, s.T, Z, M, k);
     Object.assign(info, { k, M, load_kg_h: W, capacity_kg_h: cap, required_area_mm2: need });
     if (W > cap) diag.push({ code: 'RELIEF_UNDERSIZED', severity: 'warn', unitId: u.id, data: { load: W, capacity: cap, area: A, need } });
   }

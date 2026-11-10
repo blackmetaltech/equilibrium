@@ -182,6 +182,58 @@ function firstOrder(law: RateLawRec, st: RateState, c: Ctx): number[] {
   return [k * C * c.act * c.kMult]; // mol / (m3 s)
 }
 
+
+const BAR_PA = 1e5;
+/**
+ * K3, Vanden Bussche & Froment (1996): CO2 hydrogenation to methanol (R4) and the reverse water-gas shift, p in bar, mol/(kg_cat s).
+ * Both reversible factors use the engine's own K(T) of R4 and R5 (rule above). Returns the extents of [R4, R5] as the catalogue
+ * writes them: R5 is CO + H2O -> CO2 + H2, so its extent rate is minus the RWGS rate of the paper.
+ */
+function vbf(law: RateLawRec, st: RateState, c: Ctx): number[] {
+  const p = law.params;
+  const y = fractions(st), T = st.T - c.dTk, R = p['R']!;
+  const fl = p['pfloor']!;
+  const q = (id: string): number => Math.max((pick(st, y, law.species[id]) * st.P) / BAR_PA, fl);
+  const pCO = q('CO'), pCO2 = q('CO2'), pH2 = q('H2'), pW = q('H2O'), pM = q('MeOH');
+  if (!(pick(st, y, law.species['H2']) > 0) || !(pick(st, y, law.species['CO2']) + pick(st, y, law.species['CO']) > 0)) return [0, 0];
+  const sK = p['sKH2_a']! * dmath.exp(p['sKH2_b']! / (R * T)), KW = p['KH2O_a']! * dmath.exp(p['KH2O_b']! / (R * T));
+  const beta = 1 + (p['KWr']! * pW) / pH2 + sK * Math.sqrt(pH2) + KW * pW;
+  const k5 = p['k5_a']! * dmath.exp(p['k5_b']! / (R * T)), k1 = p['k1_a']! * dmath.exp(-p['k1_b']! / (R * T));
+  const K4 = dmath.exp(lnKOfReaction(reactionOf(law.reactions[0]!), st.T, st.detail ?? 'rigorous', st.book));
+  const Kwgs = dmath.exp(lnKOfReaction(reactionOf(law.reactions[1]!), st.T, st.detail ?? 'rigorous', st.book));
+  const rM = (k5 * pCO2 * pH2 * (1 - (pW * pM) / (K4 * pH2 * pH2 * pH2 * pCO2))) / (beta * beta * beta);
+  const rW = (k1 * pCO2 * (1 - (Kwgs * pW * pCO) / (pCO2 * pH2))) / beta;
+  return [rM * c.act * c.kMult, -rW * c.act * c.kMult];
+}
+
+/**
+ * Luong batch fermentation (K8) at one state: biomass X, glucose S, ethanol P in g/L, temperature in K. Returns dX/dt, dS/dt, dP/dt in g/(L h).
+ * mu = mu_max f(T) S/(Ks + S + S^2/Ki) (1 - P/Pm)^n; maintenance qm = mS f(T) S/(Ks+S) (1 - P/Pm2)^n2; growth and maintenance draw glucose
+ * (mu/Yxs + qm) X, ethanol Yps of it; heat death kd(T) above 32 C. f is the Rosso cardinal temperature factor.
+ */
+export function luongRates(lawId: string, X: number, S: number, P: number, T: number): [number, number, number] {
+  const p = lawOf(lawId).params;
+  const f = cardinalT(T, p['Tmin']!, p['Topt']!, p['Tmax']!);
+  const s = Math.max(S, 0);
+  const inhib = (v: number, Pm: number, n: number): number => dmath.pow(Math.max(1 - v / Pm, 0), n);
+  const mu = p['mu_max']! * f * s / (p['Ks']! + s + (s * s) / p['Ki']!) * inhib(P, p['Pm']!, p['n']!);
+  const qm = p['mS']! * f * s / (p['Ks']! + s) * inhib(P, p['Pm2']!, p['n2']!);
+  const rs = (mu / p['Yxs']! + qm) * X;
+  return [(mu - deathRate(lawId, T)) * X, -rs, p['Yps']! * rs];
+}
+/** Rosso cardinal temperature factor (0 outside (Tmin, Tmax), 1 at Topt). */
+export function cardinalT(T: number, Tmin: number, Topt: number, Tmax: number): number {
+  if (T <= Tmin || T >= Tmax) return 0;
+  const num = (T - Tmax) * (T - Tmin) * (T - Tmin);
+  const den = (Topt - Tmin) * ((Topt - Tmin) * (T - Topt) - (Topt - Tmax) * (Topt + Tmin - 2 * T));
+  return num / den;
+}
+/** Heat-death rate of the yeast, 1/h: Arrhenius from kd(40 C) above 32 C. */
+export function deathRate(lawId: string, T: number): number {
+  const p = lawOf(lawId).params;
+  return T > 305.15 ? p['kd40']! * dmath.exp((p['Ed']! / p['R']!) * (1 / 313.15 - 1 / T)) : 0;
+}
+
 /**
  * Rate of each reaction of the law (extent rate, state units). Stretch-tier stub laws return NaN for every reaction.
  * Gas laws need n or y (and P, T); first-order laws need conc.
@@ -192,6 +244,7 @@ export function rate(lawId: string, st: RateState): number[] {
   switch (law.form) {
     case 'temkin': return temkin(law, st, c);
     case 'eklund': return eklund(law, st, c);
+    case 'vbf': return vbf(law, st, c);
     case 'first_order':
     case 'cstr_arrhenius': return firstOrder(law, st, c);
     default: return law.reactions.map(() => Number.NaN);
@@ -214,7 +267,7 @@ export interface IsothermalOut { n: number[]; xi: number[]; evals: number; switc
  */
 export function isothermalConversion(lawId: string, inp: IsothermalIn): SimResult<IsothermalOut> {
   const law = lawOf(lawId);
-  if (law.form !== 'temkin' && law.form !== 'eklund') return { ok: false, code: 'NOT_PFR_LAW', data: { law: lawId }, diag: [] };
+  if (law.form !== 'temkin' && law.form !== 'eklund' && law.form !== 'vbf') return { ok: false, code: 'NOT_PFR_LAW', data: { law: lawId }, diag: [] };
   const rxs = law.reactions.map((id) => reactionOf(id));
   const ids = inp.speciesIds;
   const nOf = (xi: number[]) => ids.map((id, i) => inp.n0[i]! + rxs.reduce((a, r, j) => a + (r.nu[id] ?? 0) * xi[j]!, 0));

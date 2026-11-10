@@ -14,6 +14,7 @@ import { t } from '../i18n';
 import { en } from '../locales/en';
 import type { DiagRec, EqState, FeedSpec, SolveResult } from '../state';
 import { PHASE_CHANGE_TYPES } from './registry';
+import { T_REJECT } from '../sim/units/utilities';
 
 export const ctxOf = (s: Pick<EqState, 'species' | 'thermoDetail'>): SimCtx => ({ species: s.species.slice(), thermoDetail: s.thermoDetail });
 
@@ -36,7 +37,7 @@ export function plumbing(s: Readonly<Pick<EqState, 'flowsheet'>>): Plumbing {
 }
 
 /** Mass flow of a stream, kg/s. */
-export const massOf = (species: string[], st: StreamState): number => massFlow(makeMixture(species), st.n);
+export const massOf = (species: string[], st: StreamState): number => species.every(hasThermo) ? massFlow(makeMixture(species), st.n) : st.n.reduce((a, n, i) => a + (n * (SPECIES[species[i]!]?.M ?? 0)) / 1000, 0);
 
 // ---- KPIs ----
 /** GAME sizing constants for equipment the unit operations do not size themselves. */
@@ -88,7 +89,13 @@ export function economics(s: Readonly<EqState>, streams: Record<string, StreamSt
         break;
       }
       case 'hx': sized(u.id, { type: 'hx', size: info.area ?? 0, pBarg: Math.max(barg(inlet('hot_in')), barg(inlet('cold_in'))) }); break;
-      case 'flash': { const st = inlet('in'); if (st) sized(u.id, { type: 'flash_drum', size: gasVolFlow(st) * TAU_VESSEL, pBarg: barg(st) }); break; }
+      case 'flash': {
+        const st = inlet('in'); if (st) sized(u.id, { type: 'flash_drum', size: gasVolFlow(st) * TAU_VESSEL, pBarg: barg(st) });
+        // a drum held below cooling-water temperature that has to pull heat out (latent heat of the condensate) is a refrigeration load, priced on the COP path like the NH3 separator
+        const Tdrum = info.T ?? Number.POSITIVE_INFINITY, Qd = r.duty ?? 0;
+        if (Qd < 0 && Tdrum < T_REJECT) refrig.push({ dutyW: -Qd, tColdK: Tdrum });
+        break;
+      }
       case 'nh3_sep': {
         const st = inlet('in'); if (st) sized(u.id, { type: 'flash_drum', size: gasVolFlow(st) * TAU_VESSEL, pBarg: barg(st) });
         if ((info.refrig_electric_W ?? 0) > 0) refrig.push({ dutyW: Math.max(0, -(r.duty ?? 0)), tColdK: info.T_sep ?? 253.15 });
@@ -96,6 +103,13 @@ export function economics(s: Readonly<EqState>, streams: Record<string, StreamSt
       }
       case 'boiler': steamRaisedKgS += info.steam_kg_s ?? 0; sized(u.id, { type: 'boiler', size: (info.steam_kg_s ?? 0) * 3600, pBarg: barg(inlet('in')) }); break;
       case 'absorber': { const st = inlet('in'); if (st) sized(u.id, { type: 'absorber', size: gasVolFlow(st) * TAU_BED, pBarg: barg(st) }); break; }
+      case 'column': {
+        steamBoughtKgS += info.steam_kg_s ?? 0; coolingW += info.cw_duty_W ?? 0;
+        const st = inlet('in'); sized(u.id, { type: 'vessel_vertical', size: info.vol_m3 ?? 0, pBarg: barg(st) });
+        break;
+      }
+      case 'fermenter': { coolingW += info.cw_duty_W ?? 0; const st = inlet('in'); sized(u.id, { type: 'reactor', size: info.vol_m3 ?? 0, pBarg: barg(st) }); break; }
+      case 'tubular': steamRaisedKgS += (info.q_cool ?? 0) / 2361e3; break; // the boiling-water coolant raises steam (credited at the plant's steam latent heat constant)
       case 'product': { const st = inlet('in'); if (st) productKgS += massOf(sp, st); break; }
       default: break;
     }
@@ -198,7 +212,7 @@ export function ledgerOf(s: Readonly<EqState>, withCost = true): Ledger | null {
 // ---- messages ----
 const TEMP = new Set(['T', 'T_out', 'T_in', 'T_limit', 'T_hot_in', 'T_cold_in', 'T_hot_out', 'T_cold_out', 'T_steam', 'T_max', 'Tlo', 'Thi', 'T_sep']);
 const PRESS = new Set(['P', 'Pin', 'Pout', 'Pmax', 'Pmin', 'Ph', 'Pc', 'Pset']);
-const FRACTION = new Set(['frac', 'acid', 'recovery', 'extrapolated', 'gain']);
+const FRACTION = new Set(['frac', 'acid', 'recovery', 'extrapolated', 'gain', 'xD', 'x_az', 'wt_az']);
 
 /** Number with 3-4 significant digits, pack grouping. */
 export function fmtNumber(x: number, region: string): string {

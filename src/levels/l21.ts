@@ -17,7 +17,7 @@ const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 /** DESIGN: no more than 3 mol % NH3 in the purge for the second star. */
 export const NH3_PURGE_MAX = 3;
 /** Reference design: chiller and drum at -20 C, purge 2 %. Calibrated cost (GAME, engine at the reference; UNVERIFIED). */
-export const L21_REF = { T: T_SEP, purge: 0.02, cost: 341.65 };
+export const L21_REF = { T: T_SEP, purge: 0.02, cost: 356.21 };
 export const L21_COST_MAX = L21_REF.cost * 1.03;
 const PRESETS = { eq_reactor: { reactions: 'R1', mode: 'isothermal', T: T_RX, dP: DP_RX }, cooler: { T: T_SEP, utility: 'refrig' }, flash: { T: T_SEP, P: P_RX_OUT }, compressor: { P: P_LOOP, stages: 1 } };
 const UNITS: LevelSpec['units'] = { cooler: { max: 2, price: 9000 }, flash: { max: 1, price: 14000 }, product: { max: 1, price: 5000 } };

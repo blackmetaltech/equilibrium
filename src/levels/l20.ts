@@ -19,7 +19,7 @@ const oracle = (oracleFile.oracles as unknown as { id: string; expected: Record<
 export const L20_PART_A_PCT = oracle.expected.y_Ar_reactor_inlet! * 100;
 export const AR_MAX_PCT = 10, NH3_MIN_T_H = 8.0;
 /** The reference purge of the solver and its calibrated cost per tonne (GAME, from the engine at 1 % purge; UNVERIFIED). */
-export const L20_REF = { purge: 0.01, cost: 336.35 };
+export const L20_REF = { purge: 0.01, cost: 350.91 };
 export const L20_COST_MAX = L20_REF.cost * 1.03;
 export const P_RX_OUT = P_LOOP - DP_RX;
 

@@ -101,7 +101,7 @@ export function simulateBed(spec: BedSpec): SimResult<BedOut> {
 
 function bedRaw(spec: BedSpec): SimResult<BedOut> {
   const law = findLaw(spec.lawId);
-  if (law === undefined || (law.form !== 'temkin' && law.form !== 'eklund')) return failResult('NOT_PFR_LAW', {});
+  if (law === undefined || (law.form !== 'temkin' && law.form !== 'eklund' && law.form !== 'vbf')) return failResult('NOT_PFR_LAW', {});
   const ids = spec.species;
   const rxs = law.reactions.map((id) => reactionOf(id));
   for (const r of rxs) for (const sp of Object.keys(r.nu)) if (!ids.includes(sp)) return failResult('SPECIES_MISSING', {}, { species: sp });

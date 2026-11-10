@@ -21,10 +21,9 @@ export const L16_W_KG = L16_W_PER_MOLS * ((L16_FEED_KMOL_H * 1000) / 3600);
 export const L16_CONV = 0.6;
 export const L16_TMAX_C = 620, L16_DAMAGE_C = 630, L16_LIGHTOFF_C = 400;
 export const L16_UNITS: LevelSpec['units'] = {
-  feed: { max: 1, price: 6000 }, splitter: { max: 1, price: 2000 }, vent: { max: 1, price: 1000 }, hx: { max: 1, price: 30000 }, heater: { max: 1, price: 20000 }, packed_bed: { max: 1, price: 60000 }, product: { max: 1, price: 5000 },
+  feed: { max: 1, price: 6000 }, hx: { max: 1, price: 30000 }, heater: { max: 1, price: 20000 }, packed_bed: { max: 1, price: 60000 }, product: { max: 1, price: 5000 },
 };
 export const L16_BUDGET = 150000;
-export const TAP_FRAC = 0.0005;
 const PRESETS = { heater: { utility: 'fired', T: 683.15 }, hx: { area: 10 } };
 /** Reference build: 410 C bed inlet, a 50 m2 exchanger that carries almost all of the preheat (the fired heater only trims; a bigger exchanger leaves the fired
  *  heater nothing to do but cool, and the solve says so: UTILITY_CANNOT_REACH). */
@@ -74,11 +73,11 @@ export const l16Player = (tC: number, area: number) => (_seed?: number) => {
     if (stage === 0) { stage = 1; return [{ name: 'placeUnit', args: ['hx', 6, 6, 0] }, { name: 'placeUnit', args: ['heater', 12, 6, 0] }]; }
     if (stage === 1) {
       stage = 2;
-      const feed = U('feed'), hx = U('hx'), heat = U('heater'), bed = U('packed_bed'), prod = U('product'), tap = U('splitter'), vent = U('vent');
+      const feed = U('feed'), hx = U('hx'), heat = U('heater'), bed = U('packed_bed'), prod = U('product');
       return [
         { name: 'setParam', args: [heat.id, 'T', tC + C0] }, { name: 'setParam', args: [hx.id, 'area', area] },
         { name: 'connect', args: [feed.id, 'out', hx.id, 'cold_in'] }, { name: 'connect', args: [hx.id, 'cold_out', heat.id, 'in'] }, { name: 'connect', args: [heat.id, 'out', bed.id, 'in'] },
-        { name: 'connect', args: [bed.id, 'out', tap.id, 'in'] }, { name: 'connect', args: [tap.id, 'out', hx.id, 'hot_in'] }, { name: 'connect', args: [tap.id, 'purge', vent.id, 'in'] },
+        { name: 'connect', args: [bed.id, 'out', hx.id, 'hot_in'] },
         { name: 'connect', args: [hx.id, 'hot_out', prod.id, 'in'] },
         { name: 'commission' },
       ];
@@ -95,10 +94,6 @@ export const L16: LevelSpec = {
     const bed = put(s, 'packed_bed', 18, 2, { W: L16_W_KG, mode: 'adiabatic' });
     s.flowsheet.units.find((u) => u.id === bed)!.catalystId = 'v2o5';
     put(s, 'product', 22, 8);
-    // the analyser tap on the effluent line: a pre-placed splitter taking 0.05 % of the gas to a sample vent. It is also what lets the sequential solver see a way out of the
-    // feed-effluent loop (hx has no `exits` in the registry; proposed fix in the report).
-    put(s, 'splitter', 18, 8, { frac: TAP_FRAC });
-    put(s, 'vent', 22, 12);
     sealSetup(s);
   },
   measures: lightMeasures,

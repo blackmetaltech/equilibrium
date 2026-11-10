@@ -45,7 +45,7 @@ export const unitOf = (s: EqState, id: unknown): UnitInst => {
 const PREFIX: Record<string, string> = {
   feed: 'F', mixer: 'M', mixer3: 'M', mixer4: 'M', splitter: 'X', purge: 'X', heater: 'H', cooler: 'C', hx: 'E', compressor: 'K', valve: 'V',
   flash: 'D', nh3_sep: 'D', boiler: 'B', absorber: 'A', stack: 'Z', relief: 'R', flare: 'L', interlock: 'I', sink: 'N', product: 'T', vent: 'Y',
-  eq_reactor: 'R', eq_bed: 'R', packed_bed: 'R', multibed: 'R', cstr: 'R', stoich_reactor: 'R', burner: 'R', gasifier: 'R', co_burner: 'R',
+  eq_reactor: 'R', eq_bed: 'R', packed_bed: 'R', multibed: 'R', cstr: 'R', stoich_reactor: 'R', burner: 'R', gasifier: 'R', co_burner: 'R', tubular: 'R', fermenter: 'R', column: 'D', batch: 'R',
 };
 const nextName = (s: EqState, prefix: string): string => `${prefix}-${100 + s.flowsheet.nextId++}`;
 

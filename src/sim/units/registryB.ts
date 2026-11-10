@@ -2,6 +2,8 @@
 import type { UnitInst } from '../types';
 import { absorber } from './absorber';
 import { boiler } from './boiler';
+import { column } from './column';
+import { fermenter } from './fermenter';
 import { flash } from './flash';
 import { interlock } from './interlock';
 import { relief } from './relief';
@@ -19,4 +21,7 @@ export const UNIT_DEFS_B: Record<string, UnitDefM16> = {
   relief: { inlets: ['in'], outlets: [], fn: relief, isSink: true, exits: () => true },
   flare: { inlets: ['in'], outlets: [], fn: relief, isSink: true, exits: () => true },
   interlock: { inlets: [], outlets: [], fn: interlock },
+  // M1.20 (full-game night): shortcut column with NRTL (L23) and the yeast fermenter (L23); `vap` is the distillate / the CO2 off-gas
+  column: { inlets: ['in'], outlets: ['vap', 'liq'], fn: column, phaseIn: { in: 'L' } },
+  fermenter: { inlets: ['in'], outlets: ['out', 'vap'], fn: fermenter, phaseIn: { in: 'L' }, consumes: (_u, i, sp) => sp[i] === 'C6H12O6' },
 };

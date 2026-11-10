@@ -1,11 +1,6 @@
 // Strings of the chapter-4 levels (lv.<ID>.*). Owned by the chapter-4 worker. Voices: Mara (dry, exact), Tomas (practical), Victor (money), Noor (sober).
 // `{x}` marks a number from the player's plant. Caps legends use plain ASCII digits (the console font has no subscripts) and stay at 14 characters.
 export const levelsCh4: Record<string, string> = {
-  // ---- diagnostics of the packed bed that the chapter-4 plants raise (the engine layer had no text for them yet)
-  'info.BED_BUDGET': 'This bed needed more than {cap} rate evaluations ({evals} so far); the rest of it was finished with coarser steps.',
-  'info.BED_STIFF_SWITCHED': 'The bed went stiff near equilibrium at {W} kg of catalyst; the solver switched to implicit steps.',
-  'info.BELOW_LIGHTOFF': 'The gas enters at {T} K, below the catalyst light-off ({Tmin} K): the catalyst is nearly asleep.',
-  'info.CATALYST_OVERTEMP': 'The bed reaches {Tmax} K, above the catalyst window top of {limit} K: the catalyst starts to sinter.',
 
   // ---- L15 Rate vs Ceiling
   'lv.L15.title': 'Rate vs Ceiling', 'lv.L15.place': 'Converter hall, the single bed',
@@ -60,7 +55,7 @@ export const levelsCh4: Record<string, string> = {
   'lv.L16.coach.place_hx.why': 'Why: the bed gives off heat once it is lit; the exchanger hands it back to the gas still on its way in.',
   'lv.L16.coach.place_heater.text': 'Place the start-up heater after the exchanger. Its outlet temperature is the bed inlet.',
   'lv.L16.coach.place_heater.why': 'Why: a cold plant has no hot effluent yet. Something has to light the catalyst first.',
-  'lv.L16.coach.pipe_up.text': 'Pipe it: feed to the exchanger cold side, then the heater, the bed, the sample tap, the exchanger hot side, the tank.',
+  'lv.L16.coach.pipe_up.text': 'Pipe it: feed to the exchanger cold side, then the heater, the bed, the exchanger hot side, the tank.',
   'lv.L16.coach.pipe_up.why': 'Why: the bed outlet runs back through the exchanger, so the loop closes through the gas itself.',
   'lv.L16.coach.commission.text': 'Set the heater near 410 °C and commission.',
   'lv.L16.coach.commission.why': 'Why: the catalyst wakes between about 400 and 420 °C, and the Arrhenius rate climbs like a cliff.',

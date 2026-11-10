@@ -1,7 +1,8 @@
 // Shared helpers and utility data for the M1.6 unit operations (DESIGN 3.7, 3.8). SI inside: mol/s, K, Pa, W.
 import type { SimResult, StreamState, UnitInst } from '../types';
 import { failResult } from '../types';
-import { THERMO, hOf } from '../thermo/species';
+import { SPECIES } from '../../data/species';
+import { THERMO, hOf, hasThermo } from '../thermo/species';
 
 /** Numeric parameter with default. */
 export const num = (u: UnitInst, k: string, d = 0): number => { const v = u.params[k]; return typeof v === 'number' ? v : d; };
@@ -66,3 +67,19 @@ export function steamLatent(): number {
   const g = THERMO.H2O!, l = THERMO['H2O(l)']!;
   return (hOf(g, UTIL.steam.T) - hOf(l, UTIL.steam.T)) / g.M;
 }
+
+/** Specific heat assumed for a pseudo-species without thermo data (biomass, lumped mixtures), J/(g K): water-like (GAME). */
+export const CP_PSEUDO_J_G_K = 4.18;
+/** Enthalpy flow of amounts n (mol/s) at T for a species list that may hold pseudo-species with no thermo rows: catalogue enthalpies where they exist,
+ *  M x CP_PSEUDO x (T - 298.15) for the others (sensible only). W. */
+export function enthalpyFlowAny(species: readonly string[], n: readonly number[], T: number): number {
+  let h = 0;
+  species.forEach((id, i) => {
+    const x = n[i] ?? 0;
+    if (!(x > 0)) return;
+    h += hasThermo(id) ? x * hOf(THERMO[id]!, T) : x * (SPECIES[id]?.M ?? 0) * CP_PSEUDO_J_G_K * (T - 298.15);
+  });
+  return h;
+}
+/** Mass flow, kg/s, of amounts n in mol/s from the catalogue molar masses (needs no thermo). */
+export const massFlowAny = (species: readonly string[], n: readonly number[]): number => species.reduce((a, id, i) => a + ((n[i] ?? 0) * (SPECIES[id]?.M ?? 0)) / 1000, 0);

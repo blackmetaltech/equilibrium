@@ -13,12 +13,17 @@ import { findReaction } from '../data/reactions';
 import { lnKOfReaction } from '../sim/chem/reactions';
 import { psatSpecies } from '../sim/thermo/vle';
 import type { EqState } from '../state';
+import { ledgerOf, pricesOf } from '../engine/solved';
+import { refrigerationCostPerH } from '../sim/econ/opex';
 import { NAIVE, SPEC_BY_ID } from './registry';
-import { L19_COST_MAX, L19_KW_MAX, L19_REF, P_LOOP, DP_RX, T_RX } from './l19';
+import { L19_COST_MAX, L19_KW_MAX, L19_REF, P_LOOP, DP_RX, T_RX, T_SEP } from './l19';
 import { L20_COST_MAX, L20_PART_A_PCT, L20_REF, purgeScript } from './l20';
 import { L21_COST_MAX, L21_REF, chillScript, raoultPct } from './l21';
+import { L23_COST_MAX, L23_KL_MIN, L23_REF, L23_SPIRIT_WT, L23_FUEL_WT, spiritsScript, wtToMole } from './l23';
+import { azeotrope } from '../sim/thermo/nrtl';
+import { L22_CARBON_MIN, L22_COST_MAX, L22_MEOH_MIN_T_H, L22_REF, L22_SINTER_K, L22_SN, methanolScript, stoichNumber } from './l22';
 
-const CH5 = ['L19', 'L20', 'L21'];
+const CH5 = ['L19', 'L20', 'L21', 'L22', 'L23'];
 const oracles = oracleFile.oracles as unknown as { id: string; expected: Record<string, any>; inputs: Record<string, any> }[];
 const oracle = (id: string) => oracles.find((o) => o.id === id)!;
 
@@ -64,7 +69,7 @@ function allFinite(v: unknown, path = ''): string | null {
 }
 
 describe('registry', () => {
-  it('L19-L21 are registered with titles, in chapter 5, in order', () => {
+  it('L19-L23 are registered with titles, in chapter 5, in order', () => {
     for (const [i, id] of CH5.entries()) {
       const spec = SPEC_BY_ID[id]!;
       expect(spec.chapter).toBe(5); expect(spec.index).toBe(19 + i);
@@ -109,6 +114,85 @@ describe('the solver metrics and the calibrated star thresholds (GAME, UNVERIFIE
     const v = m(solve('L21'), 'L21').v;
     expect(v.cost_per_t).toBeCloseTo(L21_REF.cost, 0); expect(L21_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
     expect(v.nh3_purge_pct).toBeLessThan(3);
+  });
+});
+
+describe('a cold flash drum is priced as refrigeration (economics, COP path like the NH3 separator)', () => {
+  it('L21: the drum latent duty at -20 C is inside the refrigeration opex', () => {
+    const st = solve('L21').state, sol = st.solved!;
+    const drum = st.flowsheet.units.find((u) => u.type === 'flash')!;
+    const duty = sol.units[drum.id]!.duty!;
+    expect(duty).toBeLessThan(0);
+    const led = ledgerOf(st)!, ref = (led.cost!.opex as Record<string, number>).refrigeration!;
+    expect(ref).toBeGreaterThanOrEqual(refrigerationCostPerH(-duty, T_SEP, 303.15, pricesOf(st)) * 0.999);
+  });
+});
+
+describe('L22 The Methanol Loop', () => {
+  it('the solver design is the reference: cost, rate and carbon efficiency; thresholds x 1.03 and the calibrated target', () => {
+    const v = m(solve('L22'), 'L22').v;
+    expect(v.cost_per_t).toBeCloseTo(L22_REF.cost, 0); expect(L22_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(v.meoh_t_h!).toBeGreaterThanOrEqual(L22_MEOH_MIN_T_H); expect(v.carbon_eff!).toBeGreaterThanOrEqual(L22_CARBON_MIN);
+    expect(v.hot_c! + 273.15).toBeLessThan(L22_SINTER_K); expect(v.sinter).toBe(0);
+  });
+  it('the stoichiometric number of the fresh gas is (H2 - CO2) / (CO + CO2) = 4.33 and the Call-it grades it', () => {
+    expect(L22_SN).toBeCloseTo(0.65 / 0.15, 12); expect(stoichNumber(2, 1, 0)).toBe(2);
+    const e = start('L22'); act(e, 'callIt', 4.34); expect(e.state.prediction).not.toBeNull();
+  });
+  it('the DESIGN tension: at the default 250 C coolant the hot spot passes 280 C (sintering, no star 2, verdict names it); the coolant at 220 C holds it', () => {
+    const hot = run('L22', methanolScript(523.15, 10000, 0.2, false)), cold = run('L22', methanolScript(493.15, 10000, 0.2, false));
+    const mh = m(hot, 'L22').v, mc = m(cold, 'L22').v;
+    expect(mh.hot_c!).toBeGreaterThan(280); expect(mh.sinter).toBe(1); expect(mc.hot_c!).toBeLessThan(280); expect(mc.sinter).toBe(0);
+    const sp = SPEC_BY_ID.L22!;
+    expect(sp.verdict(hot.state, m(hot, 'L22'), sp.goals(hot.state, m(hot, 'L22'))).key).toBe('sintered'); expect(sp.extraStars(hot.state, m(hot, 'L22'), [])[0]).toBe(false); expect(sp.extraStars(cold.state, m(cold, 'L22'), [])[0]).toBe(true);
+    expect(mh.hot_w!).toBeGreaterThan(0); // the peak is inside the tube, not at the inlet or the outlet
+  });
+  it('no purge: NO_EXIT (the inerts and the surplus hydrogen have no way out); a 3 % purge swells the loop and starves the hot spot', () => {
+    const e = run('L22', methanolScript(493.15, 10000, 0, false));
+    expect(e.state.solved?.ok).toBe(false); expect(e.state.solved?.failure?.code).toBe('NO_EXIT');
+    const slow = m(run('L22', methanolScript(493.15, 10000, 0.03, false)), 'L22').v, ref = m(solve('L22'), 'L22').v;
+    expect(slow.loop_kmol_h!).toBeGreaterThan(3 * ref.loop_kmol_h!); expect(slow.hot_c!).toBeLessThan(ref.hot_c!);
+  });
+  it('a big purge throws the carbon away (leaky verdict)', () => {
+    const e = run('L22', methanolScript(483.15, 10000, 0.4, false)), mm = m(e, 'L22'), sp = SPEC_BY_ID.L22!;
+    expect(mm.v.carbon_eff!).toBeLessThan(L22_CARBON_MIN);
+    expect(sp.verdict(e.state, mm, sp.goals(e.state, mm)).key).toBe('leaky');
+  });
+  it('the equation evaluates to the SN it shows; the tube makes steam (credited) and the reactor energy closes through the ledger', () => {
+    const e = solve('L22'); expect(equationHolds(card(e).equation)).toBe(true);
+    expect(e.state.solved!.kpis.steam_raised_t_per_h!).toBeGreaterThan(1);
+    const led = ledgerOf(e.state)!; expect(led.atomRel).toBeLessThan(1e-6);
+  });
+});
+
+describe('L23 Spirits', () => {
+  it('the solver design is the reference: cost, rate, purity, the yeast at its 32 C DESIGN numbers (90 % of the sugar, 22.5 h)', () => {
+    const e = solve('L23'), v = m(e, 'L23').v;
+    expect(v.cost_per_t).toBeCloseTo(L23_REF.cost, 0); expect(L23_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(v.kl_day!).toBeGreaterThanOrEqual(L23_KL_MIN); expect(v.spirit_wt!).toBeGreaterThanOrEqual(L23_SPIRIT_WT * 100);
+    expect(v.conv!).toBeGreaterThan(0.895); expect(v.conv!).toBeLessThan(0.915); expect(v.time_h).toBeCloseTo(22.5, 9);
+  });
+  it('Part B: 99.5 wt % fuel spirit hits the azeotrope wall (AZEOTROPE_LIMIT at about 94.8 wt %, DESIGN 94.9) however much reflux; the verdict says so', () => {
+    const e = run('L23', spiritsScript(L23_REF.T, L23_REF.time, wtToMole(L23_FUEL_WT), 3, false));
+    expect(e.state.solved!.ok).toBe(false); expect(e.state.solved!.failure!.code).toBe('AZEOTROPE_LIMIT');
+    const wall = azeotrope('C2H5OH', 'H2O', 101325)!.wt * 100; expect(wall).toBeGreaterThan(94.5); expect(wall).toBeLessThan(95.2);
+    const sp = SPEC_BY_ID.L23!; expect(sp.verdict(e.state, m(e, 'L23'), []).key).toBe('wall');
+    expect(info(e).annunciators.find((a: any) => a.key === 'wall').state).toBe('critical');
+  });
+  it('the yeast: 42 C stalls the batch (verdict stalled, no star 2), 45 C kills it (YEAST_KILLED)', () => {
+    const slow = run('L23', spiritsScript(315.15, L23_REF.time, L23_REF.xD, 1.3, false)), sp = SPEC_BY_ID.L23!, ms = m(slow, 'L23');
+    expect(slow.state.solved!.ok).toBe(true); expect(ms.v.conv!).toBeLessThan(0.5); expect(sp.verdict(slow.state, ms, sp.goals(slow.state, ms)).key).toBe('stalled');
+    expect(sp.extraStars(slow.state, ms, [])[0]).toBe(false);
+    const dead = run('L23', spiritsScript(318.15, L23_REF.time, L23_REF.xD, 1.3, false));
+    expect(dead.state.solved!.failure!.code).toBe('YEAST_KILLED'); expect(sp.verdict(dead.state, m(dead, 'L23'), []).key).toBe('dead');
+  });
+  it('purer spirit costs more: the column steam per litre and the trays rise toward the wall', () => {
+    const a = m(run('L23', spiritsScript(L23_REF.T, L23_REF.time, wtToMole(0.9), 1.3, false)), 'L23').v, b = m(run('L23', spiritsScript(L23_REF.T, L23_REF.time, wtToMole(0.945), 1.3, false)), 'L23').v;
+    expect(b.trays!).toBeGreaterThan(a.trays!); expect(b.steam_kg_per_l!).toBeGreaterThan(a.steam_kg_per_l!);
+  });
+  it('the Call-it is the model wall in mass percent (within 1 %), the atom ledger closes through the fermenter and the column', () => {
+    const e = start('L23'); act(e, 'callIt', 94.8); expect(e.state.prediction).not.toBeNull();
+    const w = solve('L23'); expect(ledgerOf(w.state)!.atomRel).toBeLessThan(1e-6); expect(equationHolds(card(w).equation)).toBe(true);
   });
 });
 

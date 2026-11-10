@@ -17,6 +17,8 @@ export interface UnitDefM16 {
   fn: UnitOp;
   isSource?: boolean;
   isSink?: boolean;
+  /** Inlet ports that may stay unconnected. */
+  optionalInlets?: string[];
   /** True when species `i` can leave the flowsheet through this unit (purge, sink). */
   exits?: (u: UnitInst, i: number, species: string[]) => boolean;
   /** True when species `i` is consumed (reactors; none in this lane). */
@@ -35,7 +37,7 @@ export const UNIT_DEFS: Record<string, UnitDefM16> = {
   mixer: mix(2), mixer3: mix(3), mixer4: mix(4),
   splitter: split(), purge: split(),
   heater: one(heater), cooler: one(heater),
-  hx: { inlets: ['hot_in', 'cold_in'], outlets: ['hot_out', 'cold_out'], fn: hx },
+  hx: { inlets: ['hot_in', 'cold_in'], outlets: ['hot_out', 'cold_out'], fn: hx, exits: () => true },
   compressor: one(compressor, { phaseIn: { in: 'V' } }),
   valve: one(valve),
   sink: sinkDef(), product: sinkDef(), vent: sinkDef(),

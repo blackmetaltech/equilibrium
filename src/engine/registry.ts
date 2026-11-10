@@ -29,6 +29,8 @@ export interface KnobSpec {
   def: number | string;
   unit: string;
   int?: boolean;
+  /** Left out of the params of a freshly placed unit (the unit then follows its inlet); `def` is where the knob starts when first touched. */
+  unset?: boolean;
   options?: string[];
 }
 
@@ -89,6 +91,10 @@ const META_LIST: UnitMeta[] = [
   m('eq_reactor', 4, 4, 'react', [T_K(700), dP()]), m('eq_bed', 4, 4, 'react', [dP()]),
   m('packed_bed', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), dP()], { catalyst: true }),
   m('multibed', 4, 4, 'react', [dP()], { catalyst: true }), m('cstr', 4, 4, 'react'),
+  m('tubular', 4, 4, 'react', [num('W', 0, 1e5, 500, 50, 1000, 'kg'), num('Tc', 483.15, 543.15, 5, 1, 523.15, 'degC'), dP()], { catalyst: true }),
+  m('fermenter', 2, 2, 'react', [num('T', 278.15, 328.15, 2, 0.5, 305.15, 'degC'), num('time', 0, 4e5, 3600, 600, 81000, 's')], { phaseOut: { out: 'L', vap: 'V' } }),
+  m('column', 2, 2, 'separate', [num('xD', 0.01, 0.999, 0.05, 0.005, 0.8, 'mol%'), num('rec', 0.5, 1, 0.01, 0.001, 0.99, 'mol%'), num('rr', 1, 10, 0.5, 0.1, 1.3, ''), { ...P_PA('P', 101325), unset: true }]),
+  m('batch', 2, 2, 'react', [{ ...T_K(298.15), unset: true }, num('time', 0, 1e5, 600, 60, 600, 's')], { catalyst: true }),
   m('lab_flask', 2, 2, 'react', [num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'm³'), num('T', 150, 1500, 25, 5, 400, 'degC'), num('Pfix', 0, 4e7, 5e5, 1e5, 0, 'bar')]),
 ];
 export const META: Readonly<Record<string, UnitMeta>> = Object.fromEntries(META_LIST.map((x) => [x.type, x]));
@@ -114,7 +120,7 @@ export function knobOf(type: string, key: string): KnobSpec | undefined { return
 /** Default parameters of a freshly placed unit: every knob at its default (choice knobs left unset when ''). */
 export function defaultParams(type: string): Record<string, number | string> {
   const p: Record<string, number | string> = {};
-  for (const k of metaOf(type).knobs) if (!(k.kind === 'choice' && k.def === '')) p[k.key] = k.def;
+  for (const k of metaOf(type).knobs) if (!(k.kind === 'choice' && k.def === '') && k.unset !== true) p[k.key] = k.def;
   return p;
 }
 
@@ -132,6 +138,7 @@ export function bindRegistry(species: string[]): Registry {
     const bound: BoundDef = { type: t, inlets: d.inlets, outlets: d.outlets, fn: d.fn, phaseIn: d.phaseIn };
     if (d.isSource) bound.isSource = true;
     if (d.isSink) bound.isSink = true;
+    if (d.optionalInlets) bound.optionalInlets = d.optionalInlets;
     const ex = d.exits, co = d.consumes;
     if (ex) bound.exits = (u: UnitInst, i: number) => ex(u, i, species);
     if (co) bound.consumes = (u: UnitInst, i: number) => co(u, i, species);

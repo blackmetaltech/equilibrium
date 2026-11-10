@@ -1,10 +1,12 @@
 // Heater / cooler: outlet T (or duty) spec, optional utility with feasibility and consumption (DESIGN 3.7, 3.8).
 // Q = H_out - H_in (heat-of-formation basis). Utility limits: cooling water >= 35 C, refrigerant >= -33 C, LP steam <= 140 C,
 // fired heater <= 900 C. Consumption goes into `info` (fuel W via LHV / 0.85, steam kg/s, cooling-water duty, refrigeration electric W).
+import { brent } from '@core/numerics';
 import { makeMixture, enthalpyFlow, solveT, totalFlow } from '../thermo';
+import { hasThermo } from '../thermo/species';
 import type { UnitOp } from '../types';
 import { failResult, okResult } from '../types';
-import { CARNOT_FRACTION, LHV_CH4, MOTOR_EFF, T_REJECT, UTIL, copAt, guardInlets, has, num, steamLatent, str } from './utilities';
+import { enthalpyFlowAny, CARNOT_FRACTION, LHV_CH4, MOTOR_EFF, T_REJECT, UTIL, copAt, guardInlets, has, num, steamLatent, str } from './utilities';
 
 const TOL_T = 1e-6;
 
@@ -12,22 +14,23 @@ export const heater: UnitOp = (inlets, u, ctx) => {
   const g = guardInlets<never>(inlets, u); if (g) return g;
   const s = inlets.in;
   if (!s) return failResult('NO_INLET', { port: 0 }, { unitId: u.id });
-  const mx = makeMixture(ctx.species);
+  const rich = ctx.species.every(hasThermo);
+  const mx = rich ? makeMixture(ctx.species) : null;
+  const H = (st: { n: number[]; T: number; P: number }): number => (mx ? enthalpyFlow(mx, st) : enthalpyFlowAny(ctx.species, st.n, st.T));
   const Pout = s.P - num(u, 'dP', 0);
   if (!(Pout > 0)) return failResult('PRESSURE_NONPOSITIVE', { Pin: s.P, dP: num(u, 'dP', 0) }, { unitId: u.id });
   if (!has(u, 'T') && !has(u, 'duty')) return failResult('SPEC_MISSING', {}, { unitId: u.id });
-  const Hin = enthalpyFlow(mx, s);
+  const Hin = H(s);
   let Tout: number, Q: number;
   if (!(totalFlow(s.n) > 0)) { Tout = has(u, 'T') ? num(u, 'T') : s.T; Q = 0; }
   else if (has(u, 'T')) {
     Tout = num(u, 'T');
     if (!(Tout > 0)) return failResult('SPEC_RANGE', { T: Tout }, { unitId: u.id });
-    Q = enthalpyFlow(mx, { n: s.n, T: Tout, P: s.P }) - Hin;
+    Q = H({ n: s.n, T: Tout, P: s.P }) - Hin;
   } else {
     Q = num(u, 'duty');
-    const t = solveT(mx, Hin + Q, s.n);
-    if (!t.ok) return failResult(t.code, t.data, { unitId: u.id });
-    Tout = t.value;
+    const t = mx ? solveT(mx, Hin + Q, s.n) : brent((T) => enthalpyFlowAny(ctx.species, s.n, T) - Hin - Q, 100, 2000, { tol: 1e-9 }).x;
+    if (typeof t !== 'number') { if (!t.ok) return failResult(t.code, t.data, { unitId: u.id }); Tout = t.value; } else Tout = t;
   }
   const info: Record<string, number> = { Q, T_out: Tout, dP: s.P - Pout };
   const name = str(u, 'utility');

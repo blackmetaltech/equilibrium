@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { SimCtx, UnitInst } from '../types';
 import { UNIT_DEFS } from './registry';
+import { bindRegistry } from '../../engine/registry';
+import { validateTopology } from '../flowsheet';
 
 const ctx: SimCtx = { species: ['N2', 'H2'], thermoDetail: 'rigorous' };
 const U = (type: string, params: Record<string, number | string> = {}): UnitInst => ({ id: 'X', type, pos: { x: 0, y: 0 }, rot: 0, params });
@@ -35,5 +37,14 @@ describe('UNIT_DEFS registry', () => {
       if (!r.ok) throw new Error(t + ' ' + r.code);
       expect(Object.keys(r.value.outlets).sort(), t).toEqual([...d.outlets].sort());
     }
+  });
+  it('the exchanger can close a loop (exits), and the multibed quench port may stay open', () => {
+    expect(UNIT_DEFS.hx!.exits!(U('hx'), 0, ['N2', 'H2'])).toBe(true);
+    const reg = bindRegistry(['N2', 'H2']);
+    expect(reg.multibed!.optionalInlets).toEqual(['quench']);
+    const units = [U('feed'), U('multibed'), U('product')].map((u, i) => ({ ...u, id: ['f', 'm', 'p'][i]! }));
+    const pipes = [{ id: 'a', from: { unit: 'f', port: 'out' }, to: { unit: 'm', port: 'in' } }, { id: 'b', from: { unit: 'm', port: 'out' }, to: { unit: 'p', port: 'in' } }];
+    expect(validateTopology(units, pipes as never, reg)).toBeNull();
+    expect(validateTopology(units, [pipes[1]!] as never, reg)).not.toBeNull();
   });
 });

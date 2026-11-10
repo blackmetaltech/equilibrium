@@ -11,6 +11,8 @@ export interface UnitDef {
   isSource?: boolean;
   /** Product-like: its outlets may stay unconnected. */
   isSink?: boolean;
+  /** Inlet ports that may stay unconnected (the unit's fn gets no stream there). */
+  optionalInlets?: string[];
   /** Species `i` can leave the flowsheet through one of this unit's outlets (purge, separator, sink). Parameter aware. */
   exits?: (u: UnitInst, i: number) => boolean;
   /** A reaction in this unit consumes species `i`. */
@@ -57,7 +59,7 @@ export function validateTopology(units: UnitInst[], pipes: Pipe[], registry: Reg
   }
   for (const u of units.slice().sort((a, b) => cmp(a.id, b.id))) {
     const d = registry[u.type]!;
-    if (!d.isSource) for (const port of d.inlets) if (!into.has(key(u.id, port))) return { code: 'TOPOLOGY_OPEN_PORT', unitId: u.id, data: { port, inlet: 1 } };
+    if (!d.isSource) for (const port of d.inlets) if (!into.has(key(u.id, port)) && !d.optionalInlets?.includes(port)) return { code: 'TOPOLOGY_OPEN_PORT', unitId: u.id, data: { port, inlet: 1 } };
     if (!d.isSink) for (const port of d.outlets) if (!outOf.has(key(u.id, port))) return { code: 'TOPOLOGY_OPEN_PORT', unitId: u.id, data: { port, inlet: 0 } };
   }
   if (phase) for (const p of sortedPipes) {

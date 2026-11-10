@@ -47,8 +47,8 @@ describe('catalogue provenance', () => {
     expect(catalystOf('v2o5').rhoB).toBe(600);
     for (const c of CATALYSTS.filter((x) => x.kind === 'heterogeneous')) expect(c.rhoB, c.id).toBeGreaterThan(0);
   });
-  it('must-ship laws K1 K2 K6 K7 are implemented; the rest are stretch stubs returning NaN', () => {
-    expect(MUST_SHIP_LAWS.map((l) => l.id).sort()).toEqual(['K1', 'K2', 'K6', 'K7']);
+  it('must-ship laws K1 K2 K3 K6 K7 K8 are implemented; the rest are stretch stubs returning NaN', () => {
+    expect(MUST_SHIP_LAWS.map((l) => l.id).sort()).toEqual(['K1', 'K2', 'K3', 'K6', 'K7', 'K8']);
     for (const l of KINETICS.filter((x) => x.tier === 'stretch')) {
       const r = rate(l.id, { speciesIds: ['N2'], y: [1], T: 500, P: 1e5 });
       expect(r.every(Number.isNaN), l.id).toBe(true);
