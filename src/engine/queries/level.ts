@@ -192,12 +192,15 @@ const callIt: Fn = (s, value: unknown, named?: unknown) => {
 
 const BANK_PRICE: Record<string, string> = { H2: 'hydrogen', S: 'sulfur' };
 /** setBank(feedUnit, species, kgPerH): the bank delivers one species at a mass flow; the card shows kmol/h beside it. */
+/** Cylinder banks deliver through a regulator at 3 bar (abs): above NH3's vapour pressure at the separator's -20 °C (~1.9 bar), so the
+ *  liquid product is physically honest (playtest: liquid NH3 at 1 bar and -20 °C is impossible; it boils at -33 °C at 1 atm). */
+const BANK_P = 3e5;
 const setBank: Fn = (s, unitId: unknown, species: unknown, kgPerH: unknown) => {
   const u = unitOf(s, unitId);
   need(u.type === 'feed', t('lv.err.bank_unit', { id: u.id }));
   need(typeof species === 'string' && s.species.includes(species) && SPECIES[species] !== undefined, t('lv.err.bank_species', { species: String(species), list: s.species.join(', ') }));
   need(typeof kgPerH === 'number' && Number.isFinite(kgPerH) && kgPerH >= 0 && kgPerH <= 1e6, t('lv.err.bank_kg', { value: String(kgPerH) }));
-  const r = designActions.setFeed!(s, u.id, { x: s.species.map((x) => (x === species ? 1 : 0)), flow: fromKgH(kgPerH as number, species as string), priceKey: BANK_PRICE[species as string] ?? '' }) as { ok?: boolean; message?: string } | void;
+  const r = designActions.setFeed!(s, u.id, { x: s.species.map((x) => (x === species ? 1 : 0)), flow: fromKgH(kgPerH as number, species as string), P: BANK_P, priceKey: BANK_PRICE[species as string] ?? '' }) as { ok?: boolean; message?: string } | void;
   if (r && r.ok === false) fail(r.message ?? '');
 };
 
