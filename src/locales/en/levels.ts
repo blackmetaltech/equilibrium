@@ -6,6 +6,7 @@ export const levels: Record<string, string> = {
   'lv.goal.budget': 'Stay within the budget of {budget} (spent {spent})',
   'lv.verdict.pass': 'The run passed.', 'lv.verdict.not_run': 'Not run yet.', 'lv.verdict.solve_fail': 'The plant would not settle.', 'lv.verdict.lost': 'The plant was lost.',
   'lv.err.callit_level': 'This level has no prediction to make.',
+  'lv.err.level_act': 'This level has no control called {name}.',
   'lv.err.callit_phase': 'Make your prediction in the design phase, before the run.',
   'lv.err.callit_late': 'Call it before you commission: a prediction made after the numbers are on the printout is not a prediction.',
   'lv.err.callit_value': 'A prediction is a number of zero or more; {value} is not.',

@@ -13,6 +13,13 @@ import { codex } from './locales/en/codex';
 import { errors } from './locales/en/errors';
 import { events } from './locales/en/events';
 import { levels } from './locales/en/levels';
+import { levelsCh2 } from './locales/en/levels_ch2';
+import { levelsCh3 } from './locales/en/levels_ch3';
+import { levelsCh4 } from './locales/en/levels_ch4';
+import { levelsCh5 } from './locales/en/levels_ch5';
+import { levelsCh6 } from './locales/en/levels_ch6';
+import { levelsCh8 } from './locales/en/levels_ch8';
+import { levelsCh9 } from './locales/en/levels_ch9';
 import { ui } from './locales/en/ui';
 import { why } from './locales/en/why';
 import { REGIONS } from './regions';
@@ -23,7 +30,8 @@ describe('locales', () => {
   });
   it('en is the union of the family files, with no key defined twice', () => {
     const parts = [ui, briefs, coach, why, codex, events, errors, levels];
-    expect(Object.keys(en).length).toBe(parts.reduce((n, p) => n + Object.keys(p).length, 0));
+    const chapters = [levelsCh2, levelsCh3, levelsCh4, levelsCh5, levelsCh6, levelsCh8, levelsCh9];
+    expect(Object.keys(en).length).toBe([...parts, ...chapters].reduce((n, p) => n + Object.keys(p).length, 0));
     for (const p of parts) expect(Object.keys(p).length).toBeGreaterThan(0);
   });
   it('en has no empty strings and no hard-coded currency symbols', () => {

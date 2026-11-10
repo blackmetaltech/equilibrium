@@ -121,6 +121,8 @@ export interface EqState extends BaseState {
   undo: { past: UndoEntry[]; future: UndoEntry[] };
   /** Only what the coach predicates need. */
   ui: { pinned: string[]; coachStep: string | null };
+  /** Level-local plain-JSON data (control rigs, worksheets, schedules: Ch8/Ch9). Reset by every level setup; only the level's spec reads it. */
+  lv: Record<string, unknown>;
 }
 
 export const MAX_SPECIES = 12;

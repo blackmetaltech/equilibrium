@@ -50,7 +50,7 @@ export function levelOf(spec: LevelSpec): Level<EqState> {
   const lv: Level<EqState> = {
     id: spec.id, title: t(`lv.${spec.id}.title`), brief: t(`lv.${spec.id}.note.1`),
     concepts: spec.id === 'L00' ? [] : ['extent'],
-    setup: (s) => spec.setup(s),
+    setup: (s) => { s.lv = {}; spec.setup(s); },
     goal: (s) => isWon(spec, s) && (spec.firstRun !== true || firstRunDone(s)),
     solver: spec.solver,
   };

@@ -2,7 +2,7 @@
 // (the printout), plus the two actions only levels have: `callIt` (the optional prediction) and `setBank` (a cylinder bank metered in kg/h, DEPTH).
 // Pure: queries never mutate; every sentence is a key `lv.*` filled with the player's own numbers; every number is finite.
 import { Rng, encodeSolution, fail, need, seedState } from '@core/kit';
-import type { ActionFn, QueryFn } from '@core/kit';
+import type { ActionFn, QueryFn, System } from '@core/kit';
 import { SPECIES } from '../../data/species';
 import { t } from '../../i18n';
 import { FIRSTRUN_S } from '../../data/events';
@@ -204,4 +204,21 @@ const setBank: Fn = (s, unitId: unknown, species: unknown, kgPerH: unknown) => {
   if (r && r.ok === false) fail(r.message ?? '');
 };
 
-export const levelActions: Record<string, Fn> = { callIt, setBank };
+/** levelAct(name, ...args): a level-local action of the current level's spec (Ch8 controller tuning, Ch9 worksheets/cards/schedules). */
+const levelAct: Fn = (s, name: unknown, ...args: unknown[]) => {
+  const spec = specOf(s);
+  const f = spec?.actions && typeof name === 'string' ? spec.actions[name] : undefined;
+  need(f !== undefined, t('lv.err.level_act', { name: String(name) }));
+  f!(s, ...args);
+};
+
+export const levelActions: Record<string, Fn> = { callIt, setBank, levelAct };
+
+/** Runs the current level's `tick` while the plant runs (shift / first run). */
+export const levelTickSystem: System<EqState> = {
+  id: 'level_tick',
+  run: (s) => {
+    const spec = specOf(s);
+    if (spec?.tick && (s.phase === 'shift' || s.phase === 'firstrun') && s.shift !== null && s.shift.ended === '') spec.tick(s);
+  },
+};

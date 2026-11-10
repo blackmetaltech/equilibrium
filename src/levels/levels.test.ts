@@ -65,8 +65,10 @@ function allFinite(v: unknown, path = ''): string | null {
 }
 
 describe('registry', () => {
-  it('the five chapter-1 levels are in the game, in order, with titles', () => {
-    expect(LEVELS.map((l) => l.id)).toEqual(['L00', 'L01', 'L02', 'L03', 'L04']);
+  it('the five chapter-1 levels open the game, in order, and every level has a title, brief and solver', () => {
+    expect(LEVELS.map((l) => l.id).slice(0, 5)).toEqual(['L00', 'L01', 'L02', 'L03', 'L04']);
+    const ids = LEVELS.map((l) => l.id); expect(new Set(ids).size).toBe(ids.length);
+    expect([...ids].sort()).toEqual(ids);
     for (const l of LEVELS) { expect(l.title.length).toBeGreaterThan(3); expect(l.brief.length).toBeGreaterThan(10); expect(l.solver).toBeTypeOf('function'); }
     expect(Object.keys(NAIVE)).toEqual(SPECS.map((s) => s.id));
   });

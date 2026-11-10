@@ -89,4 +89,9 @@ export interface LevelSpec {
   masked?: (s: Readonly<EqState>) => string[];
   solver: PersonaFactory<EqState>;
   naive: PersonaFactory<EqState>;
+  /** Level-local actions, reached through the generic `levelAct(name, ...args)` action; they read/write `s.lv` (and may call other actions'
+   *  effects through plain state). Throw via `need`/`fail` to refuse with a message. */
+  actions?: Record<string, (s: EqState, ...args: unknown[]) => void>;
+  /** Level-local dynamics run once per tick while a shift or first run is running (after the engine's shift systems). Deterministic. */
+  tick?: (s: EqState) => void;
 }

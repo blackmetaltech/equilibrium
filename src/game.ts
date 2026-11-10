@@ -13,10 +13,11 @@ import { shiftActions, shiftSystems } from './engine/actions/shift';
 import { legalActions } from './engine/legal';
 import { plantQueries } from './engine/queries/plant';
 import { plotQueries } from './engine/queries/plots';
+import { instrumentQueries } from './engine/queries/instruments';
 import { streamQueries } from './engine/queries/stream';
 import { unitQueries } from './engine/queries/unit';
 import { explainQueries } from './engine/queries/explain';
-import { levelActions, levelQueries } from './engine/queries/level';
+import { levelActions, levelQueries, levelTickSystem } from './engine/queries/level';
 import { snapshotOf } from './engine/snapshot';
 import { ledgerOf } from './engine/solved';
 import { en } from './locales/en';
@@ -68,7 +69,7 @@ export const GAME: GameDef<EqState> = {
     const s: EqState = {
       ...baseState(GAME_ID, seed, mode, ctx.region.id),
       phase: 'design', thermoDetail: 'rigorous', species: [], flowsheet: emptyFlowsheet(), feeds: {}, solved: null, shift: null,
-      trends: {}, replay: [], runs: [], prediction: null, progress: emptyProgress(), ui: { pinned: [], coachStep: null },
+      trends: {}, replay: [], runs: [], prediction: null, progress: emptyProgress(), ui: { pinned: [], coachStep: null }, lv: {},
       warm: null, palette: null, limits: {}, presets: {}, plot: { ...DEFAULT_PLOT }, undo: { past: [], future: [] },
     };
     log(s, t('log.start', { works: ctx.region.strings[ctx.region.data.setting.worksName] ?? '' }));
@@ -78,8 +79,8 @@ export const GAME: GameDef<EqState> = {
   carryOver: (prev) => ({ progress: structuredClone(prev.progress) }),
   actions: { ...designActions, ...runActions, ...shiftActions, ...metaActions, ...levelActions },
   /** The shift pipeline (DESIGN 8.5): a no-op outside a shift. */
-  systems: shiftSystems,
-  queries: { ...plantQueries, ...unitQueries, ...streamQueries, ...plotQueries, ...explainQueries, ...levelQueries },
+  systems: [...shiftSystems, levelTickSystem],
+  queries: { ...plantQueries, ...unitQueries, ...streamQueries, ...plotQueries, ...instrumentQueries, ...explainQueries, ...levelQueries },
   legalActions,
   snapshot: snapshotOf,
   concepts: [
