@@ -1,0 +1,283 @@
+class_name EqConsole
+extends Control
+## The bottom enamel console (UI.md "Screen anatomy"): intercom | annunciator | chart recorder | key switch + speed on the top row, the parts rack below
+## it (desktop, handheld) or as a strip that slides up from the console (phone). Also owns the notebook-tab slot top-left and the small gear top-right.
+## Layout per device class (UI.md 11): `layout()`. Everything shown comes from the engine (levelInfo, runs); `refresh()` runs on every engine change.
+##
+## Slots for the other worker:  `rack_slot` (HBox, parts rack tiles)  and  `hud_top_left` (Control, notebook tab).  Signal `notebook_requested` (pause menu).
+signal notebook_requested
+
+var app: CbApp
+var panel: PanelContainer
+var top_row: HBoxContainer
+var intercom: Intercom
+var annunciator: Annunciator
+var recorder: ChartRecorder
+var keys: KeySwitch
+var rack_slot: HBoxContainer      ## E2b: the parts rack fills this (tiles, Dymo names, price)
+var hud_top_left: Control         ## E2b: the notebook tab goes here
+var gear: Button
+var rack_wrap: PanelContainer
+var rack_scroll: ScrollContainer
+var rack_open := false            ## phone: the rack strip is up
+var parts_btn: Button
+var _vbox: VBoxContainer
+var _on := false
+var _level := ""
+var _coach_id := ""
+var _kind := "desktop"
+var _rack_float: PanelContainer
+var phase := "design"
+var qa_li := {}                   ## QA / tests: a canned levelInfo that replaces the engine's (see qa())
+var qa_runs: Array = []
+const SPEEDS := [0, 1, 4, 16]
+
+func _init() -> void:
+	EqStrings.load_strings()
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+func build() -> void:
+	# top-left notebook slot, top-right gear
+	hud_top_left = Control.new(); hud_top_left.name = "HudTopLeft"; hud_top_left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_top_left.set_anchors_preset(Control.PRESET_TOP_LEFT); hud_top_left.offset_left = 12; hud_top_left.offset_top = 10; hud_top_left.custom_minimum_size = Vector2(380, 46); hud_top_left.size = Vector2(380, 46)
+	add_child(hud_top_left)
+	gear = GearButton.new(); gear.name = "Gear"; gear.tooltip_text = EqStrings.T("GEAR_TIP"); gear.focus_mode = CbKit.focus_mode()
+	gear.add_theme_font_size_override("font_size", EqTheme.fs(22))
+	gear.add_theme_stylebox_override("normal", _gear_sb(0.0)); gear.add_theme_stylebox_override("hover", _gear_sb(0.1)); gear.add_theme_stylebox_override("pressed", _gear_sb(0.2)); gear.add_theme_stylebox_override("focus", _gear_sb(0.1, true))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: gear.add_theme_color_override(c, EqTheme.TEXT)
+	gear.set_anchors_preset(Control.PRESET_TOP_RIGHT); gear.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	gear.pressed.connect(func(): app.toggle_menu())
+	add_child(gear)
+	# the console panel
+	panel = PanelContainer.new(); panel.name = "Console"; panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE); panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var sb := EqTheme.enamel_sb(0, 10.0); sb.set_corner_radius_all(0); sb.border_width_top = 3; sb.shadow_size = 14; sb.shadow_offset = Vector2(0, -3)
+	sb.content_margin_top = 8; sb.content_margin_bottom = 8; sb.content_margin_left = 12; sb.content_margin_right = 12
+	panel.add_theme_stylebox_override("panel", sb)
+	add_child(panel)
+	_vbox = VBoxContainer.new(); _vbox.add_theme_constant_override("separation", 8); _vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE; panel.add_child(_vbox)
+	top_row = HBoxContainer.new(); top_row.name = "TopRow"; top_row.add_theme_constant_override("separation", 10); top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE; _vbox.add_child(top_row)
+	intercom = Intercom.new(); intercom.app = app; intercom.name = "Intercom"; top_row.add_child(intercom)
+	annunciator = Annunciator.new(); annunciator.app = app; annunciator.name = "Annunciator"; top_row.add_child(annunciator)
+	recorder = ChartRecorder.new(); recorder.name = "Recorder"; recorder.size_flags_horizontal = Control.SIZE_EXPAND_FILL; top_row.add_child(recorder)
+	recorder.clicked.connect(open_recorder)
+	keys = KeySwitch.new(); keys.app = app; keys.name = "Keys"; top_row.add_child(keys)
+	keys.step_requested.connect(turn_key); keys.speed_chosen.connect(choose_speed)
+	intercom.got_it.connect(func(): if app.coach != null: app.coach.advance())
+	# the rack: its own enamel strip (second row; on a phone it floats above the console on demand)
+	rack_wrap = PanelContainer.new(); rack_wrap.name = "RackWrap"; rack_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rsb := EqTheme.enamel_sb(4, 6.0).duplicate() as StyleBoxFlat; rsb.bg_color = EqTheme.ENAMEL_LO; rsb.shadow_size = 0; rsb.border_color = Color("#12211F"); rsb.set_border_width_all(2)
+	rack_wrap.add_theme_stylebox_override("panel", rsb)
+	rack_scroll = ScrollContainer.new(); rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	rack_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rack_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL; rack_wrap.add_child(rack_scroll)
+	rack_slot = HBoxContainer.new(); rack_slot.name = "RackSlot"; rack_slot.add_theme_constant_override("separation", 8); rack_slot.size_flags_vertical = Control.SIZE_EXPAND_FILL; rack_scroll.add_child(rack_slot)
+	_vbox.add_child(rack_wrap)
+	_rack_float = PanelContainer.new(); _rack_float.name = "RackFloat"; _rack_float.mouse_filter = Control.MOUSE_FILTER_STOP; _rack_float.visible = false
+	_rack_float.add_theme_stylebox_override("panel", sb); add_child(_rack_float)
+	parts_btn = Button.new(); parts_btn.name = "PartsTab"; parts_btn.text = EqStrings.T("PARTS_TAB"); parts_btn.tooltip_text = EqStrings.T("PARTS_TIP"); parts_btn.focus_mode = CbKit.focus_mode()
+	parts_btn.add_theme_font_override("font", EqTheme.font("semi")); parts_btn.add_theme_font_size_override("font_size", EqTheme.fs(15))
+	for st in ["normal", "hover", "pressed", "focus"]: parts_btn.add_theme_stylebox_override(st, EqTheme.key_sb(false, "hover" if st != "normal" else "normal"))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: parts_btn.add_theme_color_override(c, EqTheme.INK)
+	parts_btn.pressed.connect(toggle_rack); parts_btn.visible = false; add_child(parts_btn)
+	layout()
+
+func _gear_sb(a: float, ring := false) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new(); s.bg_color = Color(EqTheme.ENAMEL, 0.55 + a); s.set_corner_radius_all(22)
+	s.border_color = EqTheme.TEAL if ring else EqTheme.ENAMEL_HI; s.set_border_width_all(3 if ring else 1)
+	s.content_margin_left = 6; s.content_margin_right = 6; s.content_margin_top = 2; s.content_margin_bottom = 2
+	return s
+
+# ---- layout ----------------------------------------------------------------------------------------------------------------------------------
+## Desktop / handheld / phone (UI.md 11). Heights and widths are logical px (the shell scales the window to the class).
+func layout() -> void:
+	if panel == null: return
+	_kind = CbLayout.kind
+	var vw := app.vw() if app != null else 1920.0
+	var phone := _kind == "phone"; var hand := _kind == "handheld"
+	var tap := maxf(CbLayout.tap(), 44.0)
+	gear.custom_minimum_size = Vector2(tap, tap); gear.offset_left = -tap - 10.0; gear.offset_top = 10.0; gear.offset_right = -10.0; gear.offset_bottom = 10.0 + tap
+	var row_h := 108.0 if _kind == "desktop" else (98.0 if hand else 84.0)
+	top_row.custom_minimum_size.y = row_h
+	intercom.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (330.0 if hand else 290.0), row_h)
+	intercom.set_max_lines(3 if _kind == "desktop" else (2 if hand else 1))
+	annunciator.max_windows = 4 if phone else 8
+	annunciator.custom_minimum_size = Vector2(430.0 if _kind == "desktop" else (300.0 if hand else 230.0), row_h)
+	if phone and annunciator.wins.size() > 4: annunciator.wins = annunciator.wins.slice(0, 4)
+	recorder.custom_minimum_size = Vector2(220.0 if _kind == "desktop" else (200.0 if hand else 190.0), row_h)
+	keys.set_compact(_kind != "desktop")
+	if phone:
+		if rack_wrap.get_parent() != _rack_float: rack_wrap.reparent(_rack_float, false)
+		rack_wrap.custom_minimum_size = Vector2(0, 84)
+		parts_btn.visible = _on; parts_btn.custom_minimum_size = Vector2(0, tap)
+		_rack_float.visible = rack_open and _on
+		_rack_float.set_anchors_preset(Control.PRESET_BOTTOM_WIDE); _rack_float.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_rack_float.offset_bottom = -(row_h + 28.0); _rack_float.offset_top = -(row_h + 28.0 + 100.0)
+		parts_btn.set_anchors_preset(Control.PRESET_BOTTOM_LEFT); parts_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		parts_btn.offset_left = 12.0; parts_btn.offset_bottom = -(row_h + 22.0); parts_btn.offset_top = -(row_h + 22.0 + tap); parts_btn.offset_right = 12.0 + 130.0
+		parts_btn.text = EqStrings.T("PARTS_TAB")
+	else:
+		if rack_wrap.get_parent() != _vbox: rack_wrap.reparent(_vbox, false)
+		rack_wrap.custom_minimum_size = Vector2(0, 88.0 if _kind == "desktop" else 76.0)
+		rack_wrap.visible = true; parts_btn.visible = false; _rack_float.visible = false
+	panel.offset_top = 0; panel.offset_bottom = 0; panel.offset_left = 0; panel.offset_right = 0
+	hud_top_left.offset_left = 12.0; hud_top_left.offset_top = 10.0
+	hud_top_left.size = Vector2(minf(420.0, vw - tap - 40.0), tap)
+	call_deferred("_notify_height")
+
+func _notify_height() -> void:
+	if app != null and app.world != null and app.world.has_method("set_cover_bottom"): app.world.call("set_cover_bottom", console_height())
+
+## Pixels the console covers at the bottom (the world may centre itself above them).
+func console_height() -> float: return panel.size.y if panel != null and _on else 0.0
+
+func toggle_rack() -> void:
+	rack_open = not rack_open; layout()
+
+func set_chrome_visible(v: bool) -> void:
+	_on = v; visible = v
+	if v: refresh()
+	layout()
+
+# ---- engine state -> widgets ----------------------------------------------------------------------------------------------------------------
+func _has_query(n: String) -> bool: return app != null and (app.b.init_data.get("queries", []) as Array).has(n)
+
+func level_info() -> Dictionary:
+	if not qa_li.is_empty(): return qa_li
+	if app == null or not app.started or not _has_query("levelInfo"): return {}
+	var li = app.b.q("levelInfo")
+	if li is Dictionary and li.get("active", true) != false and li.has("id"): return li
+	return {}
+
+func engine_phase() -> String:
+	var li := level_info()
+	if not li.is_empty() and li.has("phase"): return str(li.phase)
+	var p = app.b.q("plant") if app != null and app.started else null
+	return str(p.get("phase", "design")) if p is Dictionary else "design"
+
+func refresh() -> void:
+	if app == null or not app.started or intercom == null: return
+	var li := level_info()
+	var id := str(li.get("id", "")) if not li.is_empty() else ""
+	if id != _level: _level = id; intercom.clear(); _coach_id = "<unset>"
+	phase = engine_phase()
+	annunciator.set_windows(li.get("annunciators", []) if li.get("annunciators") is Array else [])
+	var runs: Array = qa_runs if not qa_li.is_empty() else (app.b.q("runs") if app.b.q("runs") is Array else [])
+	recorder.feed(li, runs, int(app.b.g.get("tick", 0)))
+	_sync_key()
+	_poll_coach(li)
+
+func _sync_key() -> void:
+	var want := keys.pos
+	match phase:
+		"design": want = 0
+		"commissioned": want = 1
+		"shift", "firstrun": want = 2
+	keys.set_pos(want)
+	keys.set_speed_enabled(phase == "shift" or phase == "firstrun")
+	if phase != "shift" and phase != "firstrun" and app.speed != 0 and str(app.b.g.get("status", "playing")) == "playing" and app.started: app.set_speed(0); keys.set_speed_pos(0)
+
+func _poll_coach(li: Dictionary) -> void:
+	if li.is_empty() or CbSettings.tutorial == "off": return
+	var c = li.get("coach")
+	if not (c is Dictionary): return
+	var cid := "%s:%s" % [str(li.id), str(c.get("step", ""))]
+	if cid != _coach_id:
+		_coach_id = cid
+		intercom.say(str(c.get("speaker", "MARA")), str(c.get("text", "")), "coach", cid, str(c.get("why", "")))
+
+# ---- the key ---------------------------------------------------------------------------------------------------------------------------------
+## One step of the key: DESIGN -> COMMISSION (the engine's commission action) -> RUN (start the shift). Returns the action result ({} when nothing ran).
+func turn_key() -> Dictionary:
+	if app == null or not app.started or str(app.b.g.get("status", "playing")) != "playing": return {}
+	phase = engine_phase()
+	if phase == "design":
+		var r: Dictionary = app.b.act("commission")
+		if not r.get("ok", false): app.toast(str(r.get("message", "")), "warn"); keys.set_pos(0); return r
+		if not r.get("commissioned", true): app.toast(str(r.get("message", "")) if str(r.get("message", "")) != "" else EqStrings.T("KEY_SOLVE_FAIL"), "bad"); keys.set_pos(0); return r
+		keys.set_pos(1); return r
+	elif phase == "commissioned":
+		var r2: Dictionary = app.b.act("startShift", ["shift"])
+		if not r2.get("ok", false): app.toast(str(r2.get("message", "")), "warn"); return r2
+		keys.set_pos(2); choose_speed(1); return r2
+	else:
+		app.toast(EqStrings.T("KEY_SHIFT_ON"), "info"); return {}
+
+func choose_speed(i: int) -> void:
+	if app == null or not app.started: return
+	phase = engine_phase()
+	if phase != "shift" and phase != "firstrun": keys.set_speed_pos(0); return
+	i = clampi(i, 0, 3)
+	var r: Dictionary = app.b.act("setSpeed", [SPEEDS[i]])
+	if r.get("ok", false): app.set_speed(i); keys.set_speed_pos(i); app.sfx("click")
+
+# ---- toasts and coach from the shell ------------------------------------------------------------------------------------------------------
+func toast(text: String, level: String) -> void:
+	var warn := level == "warn" or level == "bad"
+	intercom.say("TOMAS" if warn else "MARA", text, level if warn else "info")
+	if warn: app.sfx("alarm" if level == "warn" else "bad")
+
+## The shell's own coach steps (a placeholder "read" step): the line carries the teal tick, why? and, for read steps, "got it".
+func coach(step: Dictionary, index: int, _total: int) -> void:
+	if index < 0 or step.is_empty():
+		intercom.set_current(""); return
+	var sid := "shell:" + str(step.get("id", ""))
+	intercom.say("MARA", str(step.get("body", step.get("title", ""))), "coach", sid, str(step.get("why", "")))
+	if str(step.get("kind", "read")) == "read": intercom.last()["got_it"] = true; intercom.set_current(sid)
+
+# ---- the full-size recorder ------------------------------------------------------------------------------------------------------------------
+func open_recorder() -> void:
+	if app == null or app.modal() != null: return
+	var d: Dictionary = app.dialog("recorder", minf(1100.0, app.vw() - 40.0), minf(520.0, app.vs_h() - 40.0), EqTheme.ENAMEL_HI, 0.5)
+	(d.panel as PanelContainer).add_theme_stylebox_override("panel", EqTheme.enamel_sb(8, 18.0))
+	var vb: VBoxContainer = d.vb
+	var hb := HBoxContainer.new(); vb.add_child(hb)
+	var t := EqTheme.label(EqStrings.T("REC_TITLE"), 28, EqTheme.TEXT, "title"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hb.add_child(t)
+	var x := EqTheme.key_button(EqStrings.T("REC_CLOSE"), true, 16); x.pressed.connect(func(): d.host.queue_free()); hb.add_child(x)
+	vb.add_child(EqTheme.label(EqStrings.T("REC_HINT"), 15, EqTheme.DIM))
+	var big := ChartRecorder.new(); big.big = true; big.mirror(recorder); big.size_flags_vertical = Control.SIZE_EXPAND_FILL; big.custom_minimum_size = Vector2(600, 300); vb.add_child(big)
+	x.call_deferred("grab_focus")
+
+## True when the key can be turned: only inside a level (free play keeps Space as "advance one step").
+func key_available() -> bool: return not level_info().is_empty() and str(app.b.g.get("status", "playing")) == "playing"
+
+## K acknowledges the annunciator. Called from main.game_unhandled_key.
+func key(e: InputEventKey) -> bool:
+	if not _on or app.modal() != null: return false
+	if annunciator.handle_key(e): return true
+	if e.pressed and not e.echo and e.keycode == KEY_SPACE and key_available(): turn_key(); return true
+	return false
+
+## QA (CB_CAM "li=..."): a canned L01-shaped levelInfo while the engine's is not there. Spec: design | run | alarm | crit | shift | off. Each "run" adds one commission.
+func qa(spec: String) -> void:
+	var li := {"id": "L01", "phase": "design", "hero": {"key": "nh3", "label": "NH3", "unit": "kmol/h", "value": 0.0, "lo": 28.0, "hi": 34.0},
+		"secondary": {"key": "vent", "label": "vent", "unit": "%", "value": 0.0, "limit": 5.0}, "coach": null,
+		"annunciators": [{"key": "vent", "legend": "VENT FLOW HI", "state": "off"}, {"key": "nh3", "legend": "NH3 OFF SPEC", "state": "off"},
+			{"key": "ratio", "legend": "H2:N2 RATIO", "state": "normal"}, {"key": "solve", "legend": "SOLVE FAIL", "state": "off"}]}
+	if qa_li.is_empty(): qa_runs = []
+	else: li = qa_li
+	var anns: Array = li.annunciators
+	match spec:
+		"design": li.phase = "design"
+		"run":
+			var n := qa_runs.size()
+			var v: float = [18.0, 24.5, 29.8, 31.2, 30.4][n % 5]; var vv: float = [22.0, 11.0, 3.0, 2.0, 1.5][n % 5]
+			li.hero.value = v; li.secondary.value = vv; li.phase = "commissioned"
+			qa_runs.append({"tick": n + 1}); anns[0].state = "high" if vv > 5.0 else "off"; anns[1].state = "normal" if v >= 28.0 else "high"
+		"alarm": anns[0].state = "high"
+		"crit": anns[3].state = "critical"
+		"shift": li.phase = "shift"; li.hero.value = 30.5 + 0.8 * sin(Time.get_ticks_msec() * 0.003); li.secondary.value = 2.0
+		"off": for a in anns: a.state = "off"
+	qa_li = li
+	refresh()
+
+## The ⚙ drawn as a gear (no font carries the glyph on every platform).
+class GearButton extends Button:
+	func _draw() -> void:
+		var c := size * 0.5; var r := minf(size.x, size.y) * 0.26
+		var col := EqTheme.TEXT
+		for i in 8:
+			var a := TAU * float(i) / 8.0
+			draw_line(c + Vector2(cos(a), sin(a)) * r, c + Vector2(cos(a), sin(a)) * (r + 4.5), col, 4.0)
+		draw_arc(c, r, 0.0, TAU, 28, col, 3.5)
+		draw_circle(c, r * 0.38, col)
