@@ -184,6 +184,7 @@ func _cam_token(t: String) -> void:
 		_:
 			if t.begins_with("yaw") and t.substr(3).is_valid_int(): cam_rig.set_yaw_step(int(t.substr(3)))
 			elif t.begins_with("unit:"): focus_unit(t.substr(5))
+			elif t.begins_with("ui:") and app != null: PartsRack.gallery.call_deferred(app, t.substr(3))   # paper-UI gallery for screenshots (CB_CAM=ui:rack|faceplate|tag|notebook|pass|fail)
 			elif t.begins_with("pan:"):
 				var p := t.split(":"); if p.size() >= 3: cam_rig.look_at_ground(Vector3(float(p[1]), 0, float(p[2])))
 			elif t.is_valid_float(): cam_rig.set_size(float(t))
