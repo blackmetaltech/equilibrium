@@ -71,8 +71,57 @@ func _run() -> void:
 	await level("L01")
 	app.lvbay.refresh(true)
 	check(not app.lvbay.active(), "leaving the level hides the view")
+	await _ch9()
 
 func get_root_shot(tag: String) -> void:
 	if shots == "": return
 	await create_timer(0.6).timeout
 	root.get_viewport().get_texture().get_image().save_png("%s/%s.png" % [shots, tag])
+
+func _act(n: String, a: Array) -> void:
+	app.lvbay._on_act(n, a); await frames(2)
+
+func _ch9() -> void:
+	# L34 HAZOP: simulate a cell, add a row, remove it
+	await level("L34"); app.lvbay.refresh(true); await frames(2)
+	check(app.lvbay.kind == "hazop" and app.lvbay.panel is Ch9Hazop, "L34 shows the HAZOP worksheet")
+	var hz: Ch9Hazop = app.lvbay.panel
+	check((hz.view.cells as Array).size() == 30, "30 cells")
+	hz._on_cell("temp", "more"); await frames(2)
+	var done := false
+	for c in hz.view.cells: if c.param == "temp" and c.guide == "more": done = bool(c.simulated)
+	check(done, "tapping a cell simulates it")
+	await get_root_shot("l34_a")
+	await _act("addRow", ["temp", "more", hz._cell("temp", "more").causes[0], "equipment", "tahh"])
+	check((hz.view.rows as Array).size() == 1, "addRow adds a typewriter row")
+	await get_root_shot("l34_b")
+	await _act("removeRow", ["temp", "more"])
+	check((hz.view.rows as Array).size() == 0, "removeRow removes it")
+	# L35 SOP
+	await level("L35"); app.lvbay.refresh(true); await frames(2)
+	check(app.lvbay.kind == "sop" and app.lvbay.panel is Ch9Cards, "L35 shows the card rack")
+	var cs: Ch9Cards = app.lvbay.panel
+	for id in ["cool_on", "circ_on", "heat_fast", "intro_h2"]: await _act("add", [id])
+	check((cs.view.order as Array).size() == 4 and (cs.view.trace as Array).size() > 0, "cards add to the sequence with a trace")
+	await _act("move", [0, 1]); check(cs.view.order[1].id == "cool_on", "move reorders")
+	await get_root_shot("l35")
+	await _act("clear", []); check((cs.view.order as Array).is_empty(), "clear empties")
+	# L36 permit
+	await level("L36"); app.lvbay.refresh(true); await frames(2)
+	check(app.lvbay.kind == "permit", "L36 shows the permit cards")
+	for id in ["close_in_1", "close_out_1", "depress", "drain", "open_up"]: await _act("add", [id])
+	await get_root_shot("l36")
+	# L37 reconciliation
+	await level("L37"); app.lvbay.refresh(true); await frames(2)
+	check(app.lvbay.kind == "reconcile" and app.lvbay.panel is Ch9Recon, "L37 shows the logsheet")
+	await _act("reconcile", []); check(bool(app.lvbay.panel.view.shown), "reconcile fills the reconciled column")
+	await _act("flag", [3]); await _act("exclude", [3])
+	await get_root_shot("l37")
+	# L38 planning
+	await level("L38"); app.lvbay.refresh(true); await frames(2)
+	check(app.lvbay.kind == "gantt" and app.lvbay.panel is Ch9Gantt, "L38 shows the planning board")
+	var gt: Ch9Gantt = app.lvbay.panel
+	var before := int(gt.view.makespan)
+	await _act("setCrane", [2]); check(int(gt.view.crane) == 2, "crane switch")
+	await get_root_shot("l38")
+	await _act("move", [3, 0]); await _act("reset", []); check(int(gt.view.crane) == 1, "reset")

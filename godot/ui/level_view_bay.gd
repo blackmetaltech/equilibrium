@@ -4,7 +4,7 @@ extends Control
 ## bay lives; when a level has a view this bay wins and the instrument bay hides. `refresh()` is called from main.game_on_changed (throttled ~8/s).
 var app: CbApp
 var kind := ""
-var panel: ControlPanel
+var panel: Control
 var _last_ms := 0
 var _dirty := false
 var _sig := ""
@@ -24,13 +24,16 @@ func layout() -> void:
 	var vw: float = app.vw(); var vh: float = app.vs_h()
 	var portrait := vw < vh
 	var top := 10.0 + tap + 8.0
+	var board := kind != "" and kind != "control"
 	var w := minf(vw - 20.0, 620.0 if k == "desktop" else (560.0 if k == "handheld" else (640.0 if not portrait else vw - 20.0)))
+	if board: w = minf(vw - 20.0, 800.0 if not portrait else vw - 20.0)
 	var bottom_gap := 250.0 if not portrait else 230.0
 	var h := vh - top - bottom_gap
 	set_anchors_preset(Control.PRESET_TOP_RIGHT); grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	offset_right = -10.0; offset_left = -10.0 - w; offset_top = top; offset_bottom = top + h
 	custom_minimum_size = Vector2(w, 0); size = Vector2(w, h)
-	if panel != null:
+	if panel is Ch9Board: (panel as Ch9Board).fit(w, h, portrait or w < 620.0)
+	elif panel != null:
 		panel.fit(h, w, portrait)
 		panel.custom_minimum_size = Vector2(w, 0); panel.size = Vector2(w, 0)
 		panel.position = Vector2.ZERO
@@ -61,8 +64,16 @@ func refresh(force := false) -> void:
 		kind = k
 		match k:
 			"control":
-				panel = ControlPanel.new(); panel.app_ref = app; add_child(panel)
-				panel.dial_set.connect(_on_dial)
+				var cp := ControlPanel.new(); cp.app_ref = app; panel = cp; add_child(cp)
+				cp.dial_set.connect(_on_dial)
+				layout()
+			"hazop", "sop", "permit", "reconcile", "gantt":
+				match k:
+					"hazop": panel = Ch9Hazop.new()
+					"sop", "permit": panel = Ch9Cards.new()
+					"reconcile": panel = Ch9Recon.new()
+					_: panel = Ch9Gantt.new()
+				add_child(panel); (panel as Ch9Board).act.connect(_on_act)
 				layout()
 			_: kind = ""; visible = false; return
 	if app.bay != null: app.bay.visible = false
@@ -71,7 +82,12 @@ func refresh(force := false) -> void:
 	if sig == _sig: return
 	_sig = sig
 	panel.set_view(d)
-	panel.reset_size()
+	if not (panel is Ch9Board): panel.reset_size()
+
+func _on_act(name: String, args: Array) -> void:
+	var r: Dictionary = app.b.act("levelAct", [name] + args)
+	if not bool(r.get("ok", false)) and r.has("message"): app.toast(str(r.get("message", "")), "warn")
+	refresh(true)
 
 func _on_dial(key: String, value: float) -> void:
 	var r: Dictionary = app.b.act("levelAct", ["setDial", key, value])
