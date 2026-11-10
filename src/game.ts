@@ -16,6 +16,7 @@ import { plotQueries } from './engine/queries/plots';
 import { streamQueries } from './engine/queries/stream';
 import { unitQueries } from './engine/queries/unit';
 import { explainQueries } from './engine/queries/explain';
+import { levelActions, levelQueries } from './engine/queries/level';
 import { snapshotOf } from './engine/snapshot';
 import { ledgerOf } from './engine/solved';
 import { en } from './locales/en';
@@ -75,10 +76,10 @@ export const GAME: GameDef<EqState> = {
   },
   /** Campaign meta state only; nothing a level's rules read (codes are verified without it). */
   carryOver: (prev) => ({ progress: structuredClone(prev.progress) }),
-  actions: { ...designActions, ...runActions, ...shiftActions, ...metaActions },
+  actions: { ...designActions, ...runActions, ...shiftActions, ...metaActions, ...levelActions },
   /** The shift pipeline (DESIGN 8.5): a no-op outside a shift. */
   systems: shiftSystems,
-  queries: { ...plantQueries, ...unitQueries, ...streamQueries, ...plotQueries, ...explainQueries },
+  queries: { ...plantQueries, ...unitQueries, ...streamQueries, ...plotQueries, ...explainQueries, ...levelQueries },
   legalActions,
   snapshot: snapshotOf,
   concepts: [

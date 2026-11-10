@@ -101,8 +101,9 @@ describe('core machinery on our state shape (test-local level T1)', () => {
   it('the level is solvable, not won by idling, not cheesable in two moves, rarely won at random', () => {
     for (const r of checkAllLevels(TEST, { seed: 1 })) expect(r.problems, r.level).toEqual([]);
   });
-  it('the real game has no levels yet, and checkAllLevels agrees', () => {
-    expect(GAME.levels).toEqual([]); expect(checkAllLevels(GAME, { seed: 1 })).toEqual([]);
+  it('chapter 1 levels are registered, and checkAllLevels is clean for the puzzle levels (L00 is a cold open that idle play finishes by design)', () => {
+    expect(GAME.levels!.map((l) => l.id)).toEqual(['L00', 'L01', 'L02', 'L03', 'L04']);
+    for (const r of checkAllLevels({ ...GAME, levels: GAME.levels!.filter((l) => l.id !== 'L00') }, { seed: 1 })) expect(r.problems, r.level).toEqual([]);
   });
   it('personas play without violations, in the real game and the test level', () => {
     for (const p of ['idle', 'random']) for (const seed of [1, 2]) expect(play(GAME, { persona: p, seed, ticks: 80 }).violations, `${p}/${seed}`).toEqual([]);

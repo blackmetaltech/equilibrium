@@ -12,6 +12,7 @@ import { coach } from './locales/en/coach';
 import { codex } from './locales/en/codex';
 import { errors } from './locales/en/errors';
 import { events } from './locales/en/events';
+import { levels } from './locales/en/levels';
 import { ui } from './locales/en/ui';
 import { why } from './locales/en/why';
 import { REGIONS } from './regions';
@@ -20,8 +21,8 @@ describe('locales', () => {
   it('every locale has every key of en with the same placeholders', () => {
     expect(checkLocales(LOCALES, 'en')).toEqual({ missing: [], extra: [], badPlaceholders: [] });
   });
-  it('en is the union of the seven family files, with no key defined twice', () => {
-    const parts = [ui, briefs, coach, why, codex, events, errors];
+  it('en is the union of the family files, with no key defined twice', () => {
+    const parts = [ui, briefs, coach, why, codex, events, errors, levels];
     expect(Object.keys(en).length).toBe(parts.reduce((n, p) => n + Object.keys(p).length, 0));
     for (const p of parts) expect(Object.keys(p).length).toBeGreaterThan(0);
   });

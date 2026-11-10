@@ -6,7 +6,8 @@ import { coach } from './en/coach';
 import { codex } from './en/codex';
 import { errors } from './en/errors';
 import { events } from './en/events';
+import { levels } from './en/levels';
 import { ui } from './en/ui';
 import { why } from './en/why';
 
-export const en: Record<string, string> = { ...ui, ...briefs, ...coach, ...why, ...codex, ...events, ...errors };
+export const en: Record<string, string> = { ...ui, ...briefs, ...coach, ...why, ...codex, ...events, ...errors, ...levels };
