@@ -48,3 +48,8 @@ green on push (GitHub run 42688646054); `CB_SMOKE=1` → `SMOKE OK screens=2`; c
 - No workers are in flight. Phone lock never taken.
 
 - 2026-11-10 HALTED by user order: M1 done (1162 tests, bench/convergence docs); M2 WIP committed unverified (src/levels/, lab_flask, godot pipe_router/pipe_layer); P23 methanol {R4,R5} degenerate-extent solver gap open; resume from M2.1/M2.3.
+
+## Handoff after halt (orchestrator, from the last director's report)
+- M1 done: 1162 tests, tsc clean, Haber loop 2.6 ms p95, 10k loop flowsheets 100% converged. P13, reactor P1/P3, P9 still at 2-3k cases (hard-coded).
+- M2: no level files (L00, L10-L14); lab_flask unit untested; plant_world.gd edited but never compiled; pipe router/layer/UI helpers unrun.
+- Open: methanol extent solver returns feed unchanged without CO2/H2O (P23 it.fails) — fix before L22; L10 reference ~54 bar not 53; economics lacks reactor vessel cost and $/MMBtu gas pricing (L11); L00 cw_pump_trip untested; star-claim hook for L00 soft-loss; energy closure skipped for flash/NH3 sep/absorber.
