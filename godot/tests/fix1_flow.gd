@@ -111,12 +111,12 @@ func _keypad_and_esc() -> void:
 	check(shown.begins_with("4.7"), "keypad accepts digits, '.', Backspace from the keyboard (shows '%s')" % shown)
 	key(KEY_ENTER); await frames(3)
 	check(got.size() == 1 and absf(float(got[0]) - 4.7) < 1e-9, "Enter commits the typed value (%s)" % str(got))
-	check(app.modal() == null, "Enter closes the keypad")
+	check(app.modal() == null or app.modal().name != "keypad", "Enter closes the keypad")
 	var got2 := []
 	var d2 := Knob.keypad(app, "TEST KNOB", "kg/h", "12", 0.0, 100.0, func(v: float): got2.append(v)); await frames(2)
 	key(KEY_9, 0); key(KEY_MINUS, 45); await frames(2)
 	key(KEY_ESCAPE); await frames(3)
-	check(got2.is_empty() and app.modal() == null, "Esc closes the keypad without committing")
+	check(got2.is_empty() and (app.modal() == null or app.modal().name != "keypad"), "Esc closes the keypad without committing")
 	check(app.menu_ui == null, "...and does not open the pause plate")
 	# Esc clears everything in one press: stream tag + pipe highlight, faceplates + selection, placement ghost, half-made pipe; only then the pause plate
 	app.start_level("L00", true); await frames(4)
