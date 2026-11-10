@@ -5,6 +5,7 @@ extends CbApp
 ## Text is tr() from locales/strings.csv or EqStrings (ui/eq_strings.gd), or region-pack data from the engine.
 var plant_world: PlantWorld
 var chrome: EqConsole
+var lvbay: LevelViewBay   ## the level-local view (ui/level_view_bay.gd); wins the instrument bay's slot
 var bay: InstrumentBay   ## the hero instrument of the plant (ui/instrument_bay.gd)
 var audio_eq: EqAudio
 
@@ -33,7 +34,8 @@ func game_build_world(parent: Node) -> Node:
 
 func game_on_changed() -> void:
 	if chrome != null: chrome.refresh()   # intercom coach, annunciator, recorder and key follow the engine
-	if bay != null: bay.refresh()
+	if lvbay != null: lvbay.refresh()
+	if bay != null and not (lvbay != null and lvbay.active()): bay.refresh()
 	if plant_world == null: return
 	var p = b.q("plant")
 	if p is Dictionary: plant_world.set_state(p)
@@ -132,6 +134,7 @@ func game_build_chrome(r: Control) -> void:
 	chrome = EqConsole.new(); chrome.app = self; r.add_child(chrome); chrome.build()
 	chrome.rack_slot.add_child(PartsRack.build(self))
 	bay = InstrumentBay.new(); bay.app = self; chrome.add_child(bay); bay.build()
+	lvbay = LevelViewBay.new(); lvbay.app = self; chrome.add_child(lvbay); lvbay.build()
 	chrome.notebook_requested.connect(func(): Notebook.open(self))
 func game_chrome_visible(v: bool) -> void:
 	if chrome != null: chrome.set_chrome_visible(v)
@@ -140,6 +143,7 @@ func game_chrome_visible(v: bool) -> void:
 func game_relayout() -> void:
 	if chrome != null: chrome.layout()
 	if bay != null: bay.layout()
+	if lvbay != null: lvbay.layout()
 func game_toast(text: String, level: String) -> bool:
 	if chrome == null: return false
 	chrome.toast(text, level); return true
