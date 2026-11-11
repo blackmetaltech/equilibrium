@@ -52,6 +52,7 @@ export function unitsForSolve(s: EqState): UnitInst[] {
 const commission: Fn = (s) => {
   needEditable(s);
   need(s.species.length > 0 && s.flowsheet.units.some((u) => u.type === 'feed'), t('err.commission.empty'));
+  specOf(s)?.beforeCommission?.(s);
   const registry = bindRegistry(s.species);
   const units = unitsForSolve(s);
   const bad = validateTopology(units, s.flowsheet.streams, registry, phaseHook);

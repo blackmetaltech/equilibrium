@@ -5,7 +5,9 @@
 // temperature (47.4 C) to light the reactor, bring it back to 25 C and the reactor stays lit (hysteresis), then survive the guaranteed cooling-water
 // pump trip (U A x 0.3: the upper state moves to about 152 C, +20 K in 49 s).
 // Goal numbers are GAME (UNVERIFIED): the PG target and the 1.03 star margin are calibrated against the solver persona below (ch6.test.ts pins them).
+import { fail, need } from '@core/kit';
 import type { Action } from '@core/kit';
+import { tripCleared } from '../sim/dynamics/shift';
 import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { cstrCritical, cstrSteadyStates, k7Game, K7_GAME } from '../sim/units/rx_cstr';
@@ -47,6 +49,8 @@ export function l24States(): { T: number; X: number; stable: boolean }[] {
   const g = k7Game();
   return cstrSteadyStates(g.model, g.inputs).states.map((x) => ({ T: x.T, X: x.X, stable: x.stable }));
 }
+/** Adiabatic temperature rise of the whole charge reacting, K: the number of the printout equation (kJ/mol x mol/m3 / kJ/(m3 K)), a fact of the charge and not of this run. */
+export const l24DtadFull = (): number => (-K7_GAME.dH / 1000 * K7_GAME.CA0) / (K7_GAME.rhoCp / 1000);
 export const l24HotK = (): number => l24States()[2]!.T;
 export function l24IgnitionC(): number {
   const g = k7Game();
@@ -119,7 +123,7 @@ export function runawayMeasures(s: S): Measures {
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 
 export const L24: LevelSpec = {
-  id: 'L24', firstRun: false, chapter: 6, index: 24, setter: 'safety', budgetUSD: L24_BUDGET, units: L24_UNITS, notes: 2, shiftLen: L24_SHIFT_S, maxTicks: L24_SHIFT_S + 600,
+  id: 'L24', firstRun: false, chapter: 6, index: 24, setter: 'safety', budgetUSD: L24_BUDGET, units: L24_UNITS, notes: 3, shiftLen: L24_SHIFT_S, maxTicks: L24_SHIFT_S + 600,
   setup: (s) => { baseSetup(s, L24_SPECIES, L24_UNITS, PRESETS()); build(s); sealSetup(s); },
   measures: runawayMeasures,
   goals: (s, m) => {
@@ -156,7 +160,8 @@ export const L24: LevelSpec = {
     { id: 'size_relief', role: 'safety', focus: 'relief', done: (s) => unitsOfType(s, 'relief').some((u) => u.params.orifice !== 'D') },
     { id: 'commission', role: 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
     { id: 'start_shift', role: 'safety', done: (s) => s.shift !== null },
-    { id: 'set_coolant', role: 'safety', focus: 'cstr', done: (s) => (s.shift?.t ?? 0) > 0 && (typeof unitsOfType(s, 'cstr')[0]?.params.Tc === 'number' ? (unitsOfType(s, 'cstr')[0]!.params.Tc as number) > 300 : false) || (s.shift?.dc[ids.cstr]?.T ?? 0) > 80 + K || s.shift === null },
+    { id: 'reset_ilk', role: 'safety', focus: 'interlock', done: (s) => s.shift === null || s.shift.trips[ids.ilk] === undefined },
+    { id: 'set_coolant', role: 'safety', focus: 'cstr', done: (s) => s.shift === null || (s.shift.dc[ids.cstr]?.T ?? 0) > L24_SOLVE.litC + K || (typeof unitsOfType(s, 'cstr')[0]?.params.Tc === 'number' && (unitsOfType(s, 'cstr')[0]!.params.Tc as number) >= L24_SOLVE.warmK - 0.5) },
     { id: 'ignite', role: 'safety', focus: 'cstr', done: (s) => (s.shift?.dc[ids.cstr]?.T ?? 0) > 80 + K || s.shift === null },
     { id: 'cool_back', role: 'safety', focus: 'cstr', done: (s) => (s.shift?.t ?? 0) > 900 || s.shift === null },
   ] as CoachStep[],
@@ -180,7 +185,7 @@ export const L24: LevelSpec = {
   lessonVars: (s, m) => {
     const over = m.ok && m.v.ended === 1, known = over || predictionOf(s, 'ignition_c') !== null;
     return {
-      ign: known ? f(s, m.v.ignition_C!) : t('lv.L24.hidden'), hot: f(s, C(m.v.hot_K!)), dtad: f(s, m.v.dtad! > 0 ? m.v.dtad! : 148.7),
+      ign: known ? f(s, m.v.ignition_C!) : t('lv.L24.hidden'), hot: f(s, C(m.v.hot_K!)), dtad: f(s, shown(l24DtadFull())),
       result: over ? t('lv.L24.result', { peak: f(s, C(m.v.peak_K!)), pg: f(s, m.v.pg_kmol!) }) : t('lv.L24.result_wait'),
     };
   },
@@ -191,6 +196,20 @@ export const L24: LevelSpec = {
   ],
   histogram: { metric: 'pg_kmol', best: () => L24_PG_STAR * 1.03, spread: 0.5, lowerIsBetter: false },
   card: (s, m): Record<string, string | number> => (m.ok ? { states_c: l24States().map((x) => Math.round(C(x.T) * 10) / 10).join(' / '), ignition_c: m.v.ignition_C! } : {}),
+  beforeCommission: (s) => {
+    const rx = unitsOfType(s, 'cstr')[0];
+    if (rx && rx.params.Tc !== K7_GAME.Tc) rx.params.Tc = K7_GAME.Tc;
+  },
+  actions: {
+    /** resetInterlock(): release the latched trip of I-106 once the reactor is back below the trip point (the Reset button of the interlock card). */
+    resetInterlock: (s) => {
+      const sh = s.shift;
+      need(sh !== null && sh.ended === '', t('lv.L24.err.no_shift'));
+      need(sh!.trips[ids.ilk] !== undefined, t('lv.L24.err.not_tripped'));
+      if (!tripCleared(s, ids.ilk)) fail(t('lv.L24.err.still_hot'));
+      delete sh!.trips[ids.ilk]; sh!.dirty = 1;
+    },
+  },
   solver: () => solver(),
   naive: () => () => [],
 };

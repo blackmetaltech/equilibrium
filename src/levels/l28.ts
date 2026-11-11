@@ -15,7 +15,7 @@ import { THERMO, hOf } from '../sim/thermo/species';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, fromKmolH, link, predictionOf, put, putFeed, sealSetup, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, fedOf, fromKmolH, link, markPrebuilt, predictionOf, put, putFeed, sealSetup, spentOf, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const L28_SPECIES = ['CH4', 'H2O', 'CO', 'CO2', 'H2', 'N2', 'NH3'];
@@ -63,6 +63,7 @@ export function buildWorks(s: EqState): void {
   link(s, mix3, 'out', syn, 'in'); link(s, syn, 'out', cool2, 'in'); link(s, cool2, 'out', sep, 'in'); link(s, sep, 'vap', split, 'in'); link(s, sep, 'liq', prod, 'in');
   link(s, split, 'purge', fuel, 'in'); link(s, split, 'out', comp2, 'in'); link(s, comp2, 'out', mix3, 'in3');
   s.palette = [];
+  markPrebuilt(s);
   sealSetup(s);
 }
 
@@ -130,7 +131,7 @@ const COACH: CoachStep[] = [
 ];
 
 export const L28: LevelSpec = {
-  id: 'L28', firstRun: true, chapter: 7, index: 28, setter: 'manager', budgetUSD: L28_BUDGET, units: L28_UNITS, notes: 2, shiftLen: 0,
+  id: 'L28', firstRun: true, chapter: 7, index: 28, setter: 'manager', budgetUSD: L28_BUDGET, units: L28_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => { baseSetup(s, L28_SPECIES, L28_UNITS, PRESETS); buildWorks(s); },
   measures: worksMeasures,
   goals: (s, m) => {

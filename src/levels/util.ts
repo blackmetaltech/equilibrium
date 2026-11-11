@@ -64,8 +64,14 @@ export function mainSpecies(s: S, f: FeedSpec): string {
 /** Bench price total of the units in the plant under the level's price list. */
 export function spentOf(s: S, prices: Record<string, { price: number }>): number {
   let a = 0;
-  for (const u of s.flowsheet.units) a += prices[u.type]?.price ?? 0;
+  const free = (s.lv.prebuilt as string[] | undefined) ?? [];
+  for (const u of s.flowsheet.units) if (!free.includes(u.id)) a += prices[u.type]?.price ?? 0;
   return a;
+}
+
+/** One rule for the pre-built plant (L21, L22, L28): what stands at the start is already paid for and is not counted as spent; the budget is what the player adds. Call after the setup has placed the plant. */
+export function markPrebuilt(s: EqState): void {
+  s.lv.prebuilt = s.flowsheet.units.map((u) => u.id);
 }
 
 /** Relative error of a value against a target (0 when both are 0). */

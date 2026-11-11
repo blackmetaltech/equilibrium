@@ -114,7 +114,7 @@ export const levelsCh4: Record<string, string> = {
   // ---- L18 Exam Bridge: The Oxygen Rig
   'lv.L18.title': 'Exam Bridge: The Oxygen Rig', 'lv.L18.place': 'Emergency oxygen bench',
   'lv.L18.note.1': 'The emergency oxygen generator decomposes peroxide: k is 1.15 × 10⁻³ per second. How long until 5 g becomes 3 g? Write it down first.',
-  'lv.L18.note.2': 'Then make the rig deliver five litres of oxygen in ten minutes at 25 °C, with no heating. One rig on the bench will; strip the rest.',
+  'lv.L18.note.2': 'Then make the rig deliver five litres of oxygen in ten minutes at 25 °C, with no heating. One rig on the bench will; strip the rest. Two different ks: the exam sum uses the textbook k = 1.15 × 10⁻³ s⁻¹, but the rigs have their own k at 25 °C, written on each rig\'s card with its catalyst: no catalyst 1 × 10⁻⁶, iodide 1 × 10⁻³, catalase 1 × 10⁻¹ s⁻¹. Five litres in ten minutes needs about 81 % of the peroxide gone, a k of at least 2.7 × 10⁻³ s⁻¹. Money: everything on the bench counts as spent, and deleting a rig takes its price off the total again (a full refund): stripping two $25,000 rigs gives back $50,000.',
   'lv.L18.goal.o2': 'At least {target} L of O₂ in ten minutes',
   'lv.L18.goal.cold': 'The charge stays at {target} °C or colder, no heating',
   'lv.L18.star.1': 'Deliver 5 L of O₂ in ten minutes at 25 °C',
@@ -125,7 +125,7 @@ export const levelsCh4: Record<string, string> = {
   'lv.L18.callit': 'Called it: seconds for 5 g to become 3 g at k = 1.15 × 10⁻³ s⁻¹',
   'lv.L18.hero': 'O₂ in the burette', 'lv.L18.sec': 'Peroxide decomposed',
   'lv.L18.ann.warm': 'CHARGE HEATED', 'lv.L18.ann.short': 'O2 SHORT', 'lv.L18.ann.slow': 'HALF-LIFE LONG', 'lv.L18.ann.cat': 'CATALYST IN', 'lv.L18.ann.solve': 'SOLVE FAIL', 'lv.L18.ann.goal': 'GOAL MET',
-  'lv.L18.coach.strip_bench.text': 'Three rigs stand on the bench, one per catalyst: none, iodide, catalase. Take away the two you will not use.',
+  'lv.L18.coach.strip_bench.text': 'Three rigs stand on the bench, one per catalyst: none, iodide, catalase. Click each rig and read its catalyst and k on the card; keep the one whose k is at least 2.7 × 10⁻³ s⁻¹ and take away the other two.',
   'lv.L18.coach.strip_bench.why': 'Why: a rig with nothing piped to it cannot be commissioned, and a catalyst only helps if it is in the line.',
   'lv.L18.coach.pipe_up.text': 'Pipe the charge through the rig you kept and on to the emergency header.',
   'lv.L18.coach.pipe_up.why': 'Why: the burette reads the oxygen the rig delivers to the header.',
@@ -140,6 +140,6 @@ export const levelsCh4: Record<string, string> = {
   'lv.L18.verdict.pass': 'The rig delivered, cold.', 'lv.L18.verdict.heated': 'The charge was heated.', 'lv.L18.verdict.short': 'Not enough oxygen.', 'lv.L18.verdict.not_run': 'Not run yet.',
   'lv.L18.cause.heated': 'The charge ran at {t} °C. The header has no heater: the rig must work at 25 °C. A catalyst lowers Ea; a hot charge only borrows the rate.',
   'lv.L18.cause.short': 'The rig delivered {o2} L of O₂ in ten minutes against {want} L asked. Its half-life is {thalf} s, with Ea of {ea} kJ/mol. A lower Ea means a bigger k at 25 °C: choose the catalyst that lowers it most.',
-  'lv.L18.lesson': 'A catalyst opens a lower-Ea road and the rate constant grows like exp(−Ea/RT). Your rig has k = {k} × 10⁻³ per second and a half-life of {thalf} s, so {x} % of the peroxide went and the burette read {o2} L at {t} °C. Runs tried: {runs}.',
+  'lv.L18.lesson': 'A catalyst opens a lower-Ea road and the rate constant grows like exp(−Ea/RT). Your rig (catalyst: {cat}) has k = {k} s⁻¹ and a half-life of {thalf} s, so {x} % of the peroxide went and the burette read {o2} L at {t} °C. Runs tried: {runs}.',
   'lv.L18.metric.o2_l': 'O₂ delivered', 'lv.L18.metric.thalf_s': 'Half-life', 'lv.L18.metric.runs': 'Runs',
 };

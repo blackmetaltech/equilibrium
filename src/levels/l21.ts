@@ -10,7 +10,7 @@ import { scripted } from './bench';
 import { AR_MAX_PCT, NH3_MIN_T_H, P_RX_OUT, buildLoop } from './l20';
 import { DP_RX, LOOP_SPECIES, P_LOOP, T_RX, T_SEP, loopMeasures } from './l19';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, predictionOf, shown, spentOf, unitsOfType } from './util';
+import { baseSetup, commissions, markPrebuilt, predictionOf, shown, spentOf, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
@@ -21,8 +21,8 @@ export const L21_REF = { T: T_SEP, purge: 0.02, cost: 356.21 };
 export const L21_COST_MAX = L21_REF.cost * 1.03;
 const PRESETS = { eq_reactor: { reactions: 'R1', mode: 'isothermal', T: T_RX, dP: DP_RX }, cooler: { T: T_SEP, utility: 'refrig' }, flash: { T: T_SEP, P: P_RX_OUT }, compressor: { P: P_LOOP, stages: 1 } };
 const UNITS: LevelSpec['units'] = { cooler: { max: 2, price: 9000 }, flash: { max: 1, price: 14000 }, product: { max: 1, price: 5000 } };
-/** Reference design buys two coolers, the drum and the tank = 37 000 USD (GAME, UNVERIFIED). */
-export const L21_BUDGET = 50000;
+/** The pre-built loop is already paid for (not counted as spent). The reference design buys the chiller, the drum and the tank = 28 000 USD (GAME, UNVERIFIED). */
+export const L21_BUDGET = 36000;
 /** Raoult's answer the Call-it asks for: NH3 mol % in the vapour leaving a drum at T (K) and the converter-outlet pressure. */
 export const raoultPct = (T: number, P: number = P_RX_OUT): number => (psatSpecies('NH3', T)!.P / P) * 100;
 
@@ -40,7 +40,7 @@ const lit = (m: Measures, ok: boolean, bad: 'high' | 'critical' = 'high'): Annun
 
 export const L21: LevelSpec = {
   id: 'L21', firstRun: true, chapter: 5, index: 21, setter: 'mentor', budgetUSD: L21_BUDGET, units: UNITS, designLamps: ['tmatch'], notes: 2, shiftLen: 0,
-  setup: (s) => { baseSetup(s, LOOP_SPECIES, UNITS, PRESETS); buildLoop(s, true, L21_REF.purge); s.limits = { cooler: 2, flash: 1, product: 1 }; s.palette = Object.keys(UNITS); },
+  setup: (s) => { baseSetup(s, LOOP_SPECIES, UNITS, PRESETS); buildLoop(s, true, L21_REF.purge); markPrebuilt(s); s.limits = { cooler: 2, flash: 1, product: 1 }; s.palette = Object.keys(UNITS); },
   measures: loopMeasures,
   goals: (s, m) => {
     const g: ReturnType<LevelSpec['goals']> = [
