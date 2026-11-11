@@ -215,6 +215,8 @@ func _rebuild() -> void:
 	if not _bank:
 		for k in card.knobs: _add_knob(k)
 	if card.get("catalyst") is Dictionary and not _bank: _add_catalyst(card.catalyst)
+	if str(card.type) == "interlock" and str(app.b.g.get("level", "")) == "L24":   # L24: the latched trip is released here (the engine refuses while the reactor is still hot, and says so)
+		var rb := _btn(PaperStrings.t("ILK_RESET"), func(): _reset_interlock()); rb.name = "ResetInterlock"; rb.tooltip_text = PaperStrings.t("ILK_RESET_TIP"); _knob_box.add_child(rb)
 	if (card.knobs as Array).is_empty() and not _bank and not (card.get("catalyst") is Dictionary):
 		var nl := EqTheme.label("—", 18, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.5), "mono"); nl.custom_minimum_size = Vector2(90, 40); _knob_box.add_child(nl)
 	_body.add_child(HSeparator.new())
@@ -257,6 +259,11 @@ func _commit_bank(v: float) -> void:
 	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
 	refresh()
 
+func _reset_interlock() -> void:
+	var r: Dictionary = app.b.act("levelAct", ["resetInterlock"])
+	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
+	app.game_on_changed(); refresh()
+
 ## The bin: delete this unit (the hub confirms when it has pipes).
 func _delete_me() -> void:
 	var hub = app.root.get_node_or_null("PaperHub")
@@ -290,6 +297,8 @@ func _add_knob(k: Dictionary) -> void:
 		var span := hi - lo
 		var coarse := _nice(span * 0.01); var fine := _nice(span * 0.001)   # floors of the relative wheel step
 		if bool(k.get("int", false)): coarse = 1.0; fine = 1.0
+		elif has_dp and dp.get("coarse") != null and float(dp.coarse) > 0.0:   # the engine's own step for this knob (an interlock set point moves 1 degC at a time): fixed steps for the wheel and the +/- buttons
+			coarse = float(dp.coarse); fine = float(dp.get("fine", coarse)) if float(dp.get("fine", 0.0)) > 0.0 else coarse; kn.engine_steps = true
 		else: kn.relative = true   # the wheel moves ~2 % of the value (0.2 % with Shift) in 1/2/5 steps: fine enough to land a narrow window
 		var ulab := str(dp.unit) if has_dp else str(k.get("unitLabel", unit))
 		kn.setup(lab, PaperStrings.usym(ulab), lo, hi, coarse, fine, float(dp.value) if has_dp else EqFmt.to_disp(float(k.value), unit), bool(k.get("int", false)))
@@ -346,6 +355,7 @@ func _add_catalyst(cat: Dictionary) -> void:
 	_knob_box.add_child(box)
 
 func _cat_line(o: Dictionary) -> String:
+	if o.has("kText"): return "%s · k %s (25 °C)" % [str(o.name), str(o.kText)]   # a bench rig's catalyst: the rate constant, not a price
 	return "%s · %s ×%s · %s %s °C" % [str(o.name), PaperStrings.t("FP_PRICE"), PaperStrings.num(float(o.price)), PaperStrings.t("FP_LIGHTOFF"), PaperStrings.num(float(o.lightOffC))]
 
 func _commit_catalyst(id: String) -> void:
@@ -478,7 +488,7 @@ func _update() -> void:
 		if str(k.kind) == "choice" and pickers.has(str(k.key)):
 			for o in pickers[str(k.key)]: (pickers[str(k.key)][o] as Button).set_pressed_no_signal(str(o) == str(k.value))
 			continue
-		if kn == null or kn._drag: continue
+		if kn == null or kn._drag or not kn._timer.is_stopped(): continue   # never fight a hand: a drag, or clicks still waiting to be committed
 		if k.get("off") != null:   # a set point of "off" (0 = disarmed) is shown as OFF, never as the bottom of the scale
 			kn.off_disp = EqFmt.to_disp(float(k.off), str(k.unit))
 			var offn: bool = absf(float(k.value) - float(k.off)) <= 1e-9 * maxf(1.0, absf(float(k.off)))
@@ -520,6 +530,15 @@ func _update_catalyst() -> void:
 	for o in cat.options:
 		(pickers.catalyst[str(o.id)] as Button).set_pressed_no_signal(str(o.id) == cur)
 		if str(o.id) == cur: line = "%s %s · %s %s °C" % [PaperStrings.t("FP_PRICE"), "×" + PaperStrings.num(float(o.price)), PaperStrings.t("FP_LIGHTOFF"), PaperStrings.num(float(o.lightOffC))]
+	var rig = card.get("rig")
+	if rig is Dictionary:   # a batch rig (L18): its catalyst by name, k now, and whether it is fast enough for the bench's goal
+		line = PaperStrings.t("RIG_LINE") % [str(rig.catalystName), str(rig.kTextNow)]
+		var lv = PaperStrings.q(app, "levelView")
+		if lv is Dictionary and lv.get("rigs") is Array:
+			for r in lv.rigs:
+				if str(r.id) == unit_id:
+					line += "\n" + (PaperStrings.t("RIG_OK") if bool(r.fastEnough) else PaperStrings.t("RIG_SLOW")) % str(lv.get("kNeededText", ""))
+	elif line == "": pass
 	if _cat_note != null: _cat_note.text = line
 	readouts["catalyst"] = {"text": cur, "si": 0.0, "unit": "", "cap": "catalyst"}
 
@@ -588,7 +607,7 @@ func _update_feed_info() -> void:
 	var be := _bank_entry(li)
 	if be.is_empty(): return
 	for sp in _chips: (_chips[sp] as Button).set_pressed_no_signal(str(sp) == str(be.species))
-	if _bank_kg != null and not _bank_kg._drag: _bank_kg.set_value(float(be.kgPerH))
+	if _bank_kg != null and not _bank_kg._drag and _bank_kg._timer.is_stopped(): _bank_kg.set_value(float(be.kgPerH))
 	if _name_lbl != null: _name_lbl.text = (EqStrings.formula(str(be.species)) + " BANK").to_upper()   # the tape follows the chip
 	var kt := "%.2f" % float(be.kmolPerH)   # one number, one rounding: the engine's banks[].kmolPerH, everywhere
 	if _kmol_lbl != null: _kmol_lbl.text = "= " + kt + " kmol/h"
@@ -711,6 +730,9 @@ class Hub extends Node:
 		if e.keycode != KEY_DELETE and e.keycode != KEY_BACKSPACE: return
 		var f = get_viewport().gui_get_focus_owner()
 		if f is LineEdit or f is TextEdit: return
+		if _confirm != null and is_instance_valid(_confirm):   # Delete again on the open confirm answers yes
+			var cid := str(_confirm.get_meta("unit", ""))
+			get_viewport().set_input_as_handled(); _do_delete(cid); return
 		if delete_selected(false): get_viewport().set_input_as_handled()
 
 	func _input(e: InputEvent) -> void:
@@ -774,13 +796,15 @@ class Hub extends Node:
 		hb.add_child(EqTheme.label(txt, 16, EqTheme.INK, "semi"))
 		var yes := EqTheme.key_button(PaperStrings.t("DEL_YES"), true, 15); yes.name = "Yes"; yes.custom_minimum_size = Vector2(0, 36); yes.pressed.connect(func(): _do_delete(id)); hb.add_child(yes)
 		var no := EqTheme.key_button(PaperStrings.t("DEL_NO"), false, 15); no.name = "No"; no.custom_minimum_size = Vector2(0, 36); no.pressed.connect(_drop_confirm); hb.add_child(no)
+		pn.set_meta("unit", id); pn.z_index = 100; pn.focus_mode = Control.FOCUS_NONE
 		app.root.add_child(pn); _confirm = pn
 		var vr := pn.get_viewport().get_visible_rect().size
 		var ch = app.get("chrome")
 		pn.reset_size(); await pn.get_tree().process_frame
 		if not is_instance_valid(pn): return
 		var bottom := vr.y - (float(ch.console_height()) if ch != null and ch.has_method("console_height") else 190.0) - 12.0
-		pn.position = Vector2((vr.x - pn.size.x) * 0.5, bottom - pn.size.y)
+		pn.position = Vector2(clampf((vr.x - pn.size.x) * 0.5, 4.0, maxf(4.0, vr.x - pn.size.x - 4.0)), clampf(bottom - pn.size.y, 4.0, maxf(4.0, vr.y - pn.size.y - 4.0)))
+		pn.move_to_front(); no.grab_focus()   # in front of every plate; focus on Keep, so Enter never deletes by accident
 
 	func _on_place(type: String, x: int, y: int, rot: int) -> void:
 		var r: Dictionary = app.b.act("placeUnit", [type, x, y, rot])
@@ -791,6 +815,10 @@ class Hub extends Node:
 
 	func _on_unit(id: String) -> void:
 		if app.world.placing != "": return
+		if from_unit != "" and id != "" and id != from_unit:   # a pipe in hand and a click on another unit's body: its one legal port takes it
+			var cands: Array = legal.filter(func(t): return str(t.unit) == id)
+			if cands.size() == 1: _on_port(id, str(cands[0].port), not from_inlet); return
+			if cands.size() > 1: app.toast(PaperStrings.t("PIPE_WHICH") % id, "info"); return
 		clear_pipe()
 		if id == "":
 			for k in Faceplate.plates.keys(): if not (Faceplate.plates[k] as Faceplate).pinned: (Faceplate.plates[k] as Faceplate).close()

@@ -103,7 +103,7 @@ func _faceplate() -> void:
 	kn.set_value(1000.0); kn.committed.emit(1000.0); await frames(3)
 	var spec: float = float(app.b.q("unitCard", ["F-102"]).feed.flow) * 3.6
 	check(absf(kn.value - 1000.0) < 1e-6 and absf(spec - 1000.0) < 0.01 and str(fp.readouts.flow.text) == "1,000", "typed 1000: knob %s, spec %s, FLOW %s all agree" % [kn.value, spec, fp.readouts.flow.text])
-	check(kn.relative and kn.rel_step(false) <= 0.02 * kn.value and kn.rel_step(true) <= 0.002 * kn.value + 1e-9, "the wheel moves a share of the value (coarse %s, fine %s at %s)" % [kn.rel_step(false), kn.rel_step(true), kn.value])
+	check(kn.engine_steps and kn.coarse > 0.0 and kn.fine < kn.coarse, "the wheel moves by the engine's coarse / fine steps (coarse %s, fine %s at %s)" % [kn.coarse, kn.fine, kn.value])
 	kn.set_value(100.0)
 	check(kn.rel_step(false) <= 2.0 and kn.rel_step(true) <= 0.2, "at 100 the wheel can land a 0.75 pct window (coarse %s, fine %s)" % [kn.rel_step(false), kn.rel_step(true)])
 	Faceplate.close_all(); await frames(2)
@@ -141,7 +141,7 @@ func _pipes() -> void:
 	var a: Dictionary = app.b.act("placeUnit", ["feed", 2, 4, 0]); var b2: Dictionary = app.b.act("placeUnit", ["mixer", 12, 4, 0]); print(b2); app.game_on_changed(); await frames(3)
 	w.port_clicked.emit(str(a.id), "out", false); await frames(3)
 	check(hub.from_unit == str(a.id) and w.pipe_ghost_active(), "clicking an OUT starts a ghost line")
-	check(lines_text().contains("now click an inlet") or str(app.chrome.intercom.shown_text()).contains("now click an inlet"), "the intercom says now click an inlet")
+	check(lines_text().contains("drag on to a lit inlet") or str(app.chrome.intercom.shown_text()).contains("drag on to a lit inlet"), "the intercom says drag on to a lit inlet")
 	hub.clear_pipe(); await frames(2)
 	check(not w.pipe_ghost_active(), "the ghost line goes when the pipe is dropped")
 	# a real drag: press on the OUT pip, release on the IN pip

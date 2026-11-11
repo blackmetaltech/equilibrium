@@ -30,6 +30,7 @@ var _drag_acc := 0.0
 var _drag_y := 0.0           ## relative vertical drag: pointer y at the last motion event
 var _burst_st := 0.0         ## a relative knob's wheel step is fixed for the whole burst (linear notches, no acceleration while the value grows)
 var lock_reason := ""      ## shown when a locked knob is pressed
+var engine_steps := false     ## coarse / fine come from the engine's knob spec: the wheel and the +/- buttons move by exactly those (fine with Shift)
 var nudge := true            ## a - and a + button either side of the dial (touch and fine work)
 
 func _init() -> void:
@@ -70,11 +71,27 @@ static func nice(x: float) -> float:
 	var e := pow(10.0, floorf(log(x) / log(10.0))); var m := x / e
 	return e * (5.0 if m >= 5.0 else 2.0 if m >= 2.0 else 1.0)
 
-func rel_step(fine_step: bool) -> float:
+func rel_step(fine_step: bool, nudge_btn := false) -> float:
 	var floor_st := maxf((hi - lo) * 1e-5, 1e-9)
-	return maxf(nice(absf(value) * (0.002 if fine_step else 0.02)), nice(floor_st))
+	return maxf(nice(absf(value) * (0.002 if fine_step else (0.01 if nudge_btn else 0.02))), nice(floor_st))   # a - / + button steps ~1 %: 130 reaches 125 in five clicks
 
-func _step(dir: int, fine_step: bool) -> void:
+## Press and hold on a - / + button: after a short wait the step repeats (every 70 ms) until the button comes up.
+var _hold_dir := 0
+var _hold_t: Timer
+func _hold_start(dir: int) -> void:
+	_hold_dir = dir
+	if _hold_t == null: _hold_t = Timer.new(); _hold_t.one_shot = true; add_child(_hold_t); _hold_t.timeout.connect(_hold_tick)
+	_hold_t.start(0.4)
+func _hold_stop() -> void:
+	_hold_dir = 0
+	if _hold_t != null: _hold_t.stop()
+func _hold_tick() -> void:
+	if _hold_dir == 0 or not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT): _hold_dir = 0; return
+	_step(_hold_dir, _fine_mod(), true); _hold_t.start(0.07)
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_FOCUS_EXIT or what == NOTIFICATION_VISIBILITY_CHANGED: _hold_stop()
+
+func _step(dir: int, fine_step: bool, nudge_btn := false) -> void:
 	if is_finite(off_disp):   # below the bottom of the scale the knob clicks to OFF; any step up from OFF returns to the bottom
 		if is_off:
 			if dir > 0: is_off = false; set_value(lo); changing.emit(value); _timer.start()
@@ -82,7 +99,7 @@ func _step(dir: int, fine_step: bool) -> void:
 		if dir < 0 and value <= lo + 1e-9: is_off = true; queue_redraw(); changing.emit(off_disp); _timer.start(); return
 	var st := 1.0 if (integer or not choices.is_empty()) else (fine if fine_step else coarse)
 	if relative and not integer and choices.is_empty():
-		if _burst_st <= 0.0 or _timer.is_stopped(): _burst_st = rel_step(fine_step)
+		if _burst_st <= 0.0 or _timer.is_stopped(): _burst_st = rel_step(fine_step, nudge_btn)
 		st = _burst_st
 	var v := value + dir * st
 	if relative and choices.is_empty(): v = snappedf(v, st * 0.001); set_value(v); changing.emit(value); _timer.start(); return
@@ -105,12 +122,13 @@ func _gui_input(e: InputEvent) -> void:
 				if _num_rect().has_point(mb.position): _tap_number(); accept_event(); return
 				if nudge and choices.is_empty():
 					for dd in [-1, 1]:
-						if _nudge_rect(dd).has_point(mb.position): _step(dd, _fine_mod()); accept_event(); return
+						if _nudge_rect(dd).has_point(mb.position): _step(dd, _fine_mod(), true); _hold_start(dd); accept_event(); return
 				if (mb.position - _center()).length() <= R + 8.0:
 					_drag = true; _last_ang = _angle(mb.position); _drag_y = mb.position.y; _drag_acc = 0.0
 					if not choices.is_empty(): _step(1, false); _drag = false
 					accept_event()
 			else:
+				_hold_stop()
 				if _drag: _drag = false; set_value(value if relative else _snap(value, fine)); queue_redraw(); _timer.stop(); committed.emit(value)
 				accept_event()
 		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
@@ -227,7 +245,7 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var hint_t := (PaperStrings.t("KEYPAD_IN") % unit if unit != "" else "") if absurd else (PaperStrings.t("KEYPAD_RANGE") % [PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))]) + (" " + unit if unit != "" else "")
 	var hint := EqTheme.label(hint_t, 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans")
 	if allow_range: vb.add_child(hint)
-	var reason := EqTheme.label("", 14, EqTheme.RED, "semi"); reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; reason.custom_minimum_size = Vector2(300, 0); reason.visible = false; reason.name = "Reason"; vb.add_child(reason)
+	var reason := EqTheme.label("", 14, EqTheme.RED, "semi"); reason.autowrap_mode = TextServer.AUTOWRAP_OFF; reason.clip_text = true; reason.custom_minimum_size = Vector2(300, ceilf(EqTheme.font("semi").get_height(EqTheme.fs(14))) + 2.0); reason.name = "Reason"; vb.add_child(reason)   # the line is always there (empty until needed): the pad never shifts when a refusal appears
 	var buf := [initial if initial != "" else ""]
 	var upd := func() -> void: disp.text = (buf[0] if buf[0] != "" else "0") + (" " + unit if unit != "" else "")
 	upd.call()
@@ -240,15 +258,15 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 			"±": buf[0] = (buf[0] as String).substr(1) if (buf[0] as String).begins_with("-") else "-" + buf[0]
 			".": if not (buf[0] as String).contains(".") and not integer: buf[0] += ("0." if buf[0] == "" else ".")
 			_: buf[0] += ch
-		hint.label_settings = EqTheme.settings(14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans"); reason.visible = false; upd.call()
+		hint.label_settings = EqTheme.settings(14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans"); reason.text = ""; upd.call()
 	var enter := func() -> void:
 		var s: String = buf[0]
 		if s == "" or not s.is_valid_float():
-			reason.text = PaperStrings.t("KEYPAD_NONUM"); reason.visible = true; return
+			reason.text = PaperStrings.t("KEYPAD_NONUM"); return
 		var v := s.to_float()
 		if v < lo - 1e-9 or v > hi + 1e-9:
 			hint.label_settings = EqTheme.settings(14, EqTheme.RED, "semi")
-			reason.text = PaperStrings.t("KEYPAD_REJECT") % [PaperStrings.num(v, integer), PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))] + (" " + unit if unit != "" else ""); reason.visible = true; return
+			reason.text = (PaperStrings.t("KEYPAD_REJECT1") % (PaperStrings.num(v, integer) + (" " + unit if unit != "" else "")) if allow_range else PaperStrings.t("KEYPAD_REJECT") % [PaperStrings.num(v, integer), PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))]); return
 		host.queue_free(); on_ok.call(v)
 	var grid := GridContainer.new(); grid.columns = 3; grid.add_theme_constant_override("h_separation", 8); grid.add_theme_constant_override("v_separation", 8); vb.add_child(grid)
 	for k in ["7", "8", "9", "4", "5", "6", "1", "2", "3", "±", "0", "."]:

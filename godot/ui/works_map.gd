@@ -249,6 +249,7 @@ static func open(app: CbApp) -> void:
 static func start(app: CbApp, host: Control, id: String) -> void:
 	if host != null and is_instance_valid(host): host.queue_free()
 	sel_id = ""
+	BuildKeeper.predict_done.erase(id)
 	app.start_level(id, true)
 
 # ---------------------------------------------------------------------------------------------------------------------

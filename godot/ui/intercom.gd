@@ -90,6 +90,16 @@ func drop_last_if(text: String) -> bool:
 	if lines.is_empty() or str(lines.back().text) != text: return false
 	lines.pop_back(); chars = 1.0e6; _show_last(); return true
 
+## Withdraw the newest line that is exactly `text` (a refusal that no longer applies), wherever it sits in the log.
+func drop_text(text: String) -> bool:
+	for i in range(lines.size() - 1, -1, -1):
+		if str(lines[i].text) == text:
+			var was_last := i == lines.size() - 1
+			lines.remove_at(i)
+			if was_last: chars = 1.0e6; _show_last()
+			return true
+	return false
+
 func last() -> Dictionary: return lines.back() if not lines.is_empty() else {}
 
 func shown_text() -> String: return _text.text.substr(0, _text.visible_characters) if _text.visible_characters >= 0 else _text.text
@@ -111,21 +121,32 @@ func _show_last() -> void:
 	var col := _color(str(l.get("kind", "info")))
 	var full := str(l.get("text", "")) if not l.is_empty() else ""
 	for fs in [15, 14, 13, 12]:
-		_text.label_settings = EqStrings.ls(fs, col); _text.lines_skipped = 0; _text.text = full
+		_text.label_settings = EqStrings.ls(fs, col); _text.lines_skipped = 0; _text.max_lines_visible = fit_lines(); _text.text = full
 		if _text.get_line_count() <= _text.max_lines_visible or _text.size.x < 40.0: break
 	_text.text = full   # the whole line is laid out from the first letter (no re-wrap while it types) and revealed by visible_characters
 	_overflow = _text.get_line_count() > _text.max_lines_visible
+	_back = 0
 	_reveal(full.length())
 	_follow()
 	_lamps.queue_redraw(); _grille.queue_redraw()
 	tooltip_text = ""
 
+## Whole lines that fit the label's real height (the box can be shorter than max_lines): a line is never cut through its middle by the box edge.
+func fit_lines() -> int:
+	var lh := maxf(1.0, _text.get_line_height())
+	var by_height := int(floorf((_text.size.y + 1.0) / lh)) if _text.size.y > 4.0 else max_lines
+	return maxi(1, mini(max_lines, by_height))
+
 var _overflow := false
+var _back := 0               ## lines the wheel has scrolled back from the newest end of a long line
 ## Typewriter: reveal `chars` of the n-character line. A line taller than the box (it scrolls like a teleprinter) shows whole at once, so no word is ever hidden.
 func _reveal(n: int) -> void:
 	_text.visible_characters = -1 if (chars >= n or _overflow) else int(chars)
 
+var _fit_seen := -1
 func _process(dt: float) -> void:
+	var fl := fit_lines()
+	if fl != _fit_seen: _fit_seen = fl; _show_last()   # the box got its real size (or a new one): re-fit the type to whole lines
 	var l := last()
 	if l.is_empty(): return
 	var n := str(l.text).length()
@@ -136,6 +157,8 @@ func _process(dt: float) -> void:
 	elif _grille.talk: _grille.talk = false; _grille.queue_redraw()
 
 func _gui_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.pressed and (e.button_index == MOUSE_BUTTON_WHEEL_UP or e.button_index == MOUSE_BUTTON_WHEEL_DOWN) and _overflow:
+		_back = clampi(_back + (1 if e.button_index == MOUSE_BUTTON_WHEEL_UP else -1), 0, maxi(0, _text.get_line_count() - _text.max_lines_visible)); _follow(); accept_event(); return   # a long line: the wheel reads back up it
 	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: open_full(); accept_event()
 
 ## Full log, scrollable, newest at the bottom. Esc closes it (shell modal discipline).
@@ -204,10 +227,10 @@ class Grille extends Control:
 			draw_line(Vector2(cn.x - h * 0.8, y + 1.5), Vector2(cn.x + h * 0.8 + wob, y + 1.5), Color(EqTheme.ENAMEL_HI, 0.5), 1.0)
 
 func set_max_lines(n: int) -> void:
-	max_lines = n; _text.max_lines_visible = n
-	_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS if n == 1 else TextServer.OVERRUN_NO_TRIMMING
+	max_lines = n; _text.max_lines_visible = n; _show_last()
+	_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_WORD_ELLIPSIS if n == 1 else TextServer.OVERRUN_NO_TRIMMING
 
 ## Long lines scroll like a teleprinter: the newest words stay in view (the full text is in the log).
 func _follow() -> void:
 	_text.lines_skipped = 0
-	_text.lines_skipped = maxi(0, _text.get_line_count() - _text.max_lines_visible)
+	_text.lines_skipped = maxi(0, _text.get_line_count() - _text.max_lines_visible - _back)
