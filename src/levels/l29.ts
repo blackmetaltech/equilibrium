@@ -37,7 +37,7 @@ function measures(s: S): Measures {
 const VIEW = (s: S) => controlView({ s, id: 'L29', dials: [{ key: 'kc', unit: '', min: 0.1, max: 20, step: 0.1 }, { key: 'tauI', unit: 's', min: 0, max: 300, step: 5 }], series: l29Series(s) as Record<string, number[]> | null, metric: { value: measures(s).v.iae!, unit: '% s', star3: L29_IAE_STAR } });
 
 export const L29: LevelSpec = {
-  id: 'L29', firstRun: true, chapter: 8, index: 29, setter: 'mentor', budgetUSD: L29_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
+  id: 'L29', firstRun: true, chapter: 8, index: 29, setter: 'mentor', budgetUSD: L29_BUDGET, units: UNITS, notes: 3, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [{ key: 'kc', def: { learner: 1, engineer: 1 } }, { key: 'tauI', def: { learner: 0, engineer: 0 } }]),
   actions: dialActions,
   view: (s) => VIEW(s),

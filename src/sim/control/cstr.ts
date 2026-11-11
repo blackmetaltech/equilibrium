@@ -108,6 +108,18 @@ export function secondsToCritical(): number {
   return r.critAt < 0 ? CSTR.len : r.critAt - CSTR.lossAt;
 }
 
+/** Final-element lag in seconds after the trip second: the feed ramps out over ten, the coolant valve and the dump valve open after ten and twelve. */
+export const ELEMENT_LAG: Record<Action, number> = { cut_feed: 10, full_coolant: 10, dump: 12 };
+/** The highest trip temperature (whole degC) at which this final element still stops the loss-of-cooling runaway for these sensors and this vote; -1 when even a trip just above normal running is too late. Bisection on the replay. */
+export function pointOfNoReturnC(sensors: number, k: number, action: Action): number {
+  const miss = (c: number): boolean => runScenario(SCENARIOS[0]!, { sensors, k, tripK: c + 273.15, action }).crit;
+  let lo = Math.ceil(CSTR.T_NORMAL - 273.15) + 1, hi = Math.floor(CSTR.T_CRIT - 273.15);
+  if (miss(lo)) return -1;
+  if (!miss(hi)) return hi;
+  while (hi - lo > 1) { const mid = Math.floor((lo + hi) / 2); if (miss(mid)) hi = mid; else lo = mid; }
+  return lo;
+}
+
 /** What the sensors and the vote looked like at the deciding second of one scenario (the front-end's per-scenario panel): the trip second when it tripped, else the second with the most votes. */
 export interface ScenarioView { id: string; demand: boolean; at: number; sensors: { id: string; reading: number; failed: boolean; votes: boolean }[]; votes: number; need: number; tripped: boolean; trippedAt: number; peak: number; crit: boolean; outcome: 'caught' | 'missed' | 'false_trip' | 'ignored' }
 export function scenarioView(sc: Scenario, d: Design): ScenarioView {

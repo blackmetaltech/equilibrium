@@ -8,7 +8,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import {
   CHIEF_MARGIN, CREW_BASE, DEFS, EM_CAP_STEP, INSPECT_EVERY, INVEST_PRICE, MONTHS, PLANTS, RATE_MAX, RATE_MIN, STRIKES_MAX, START_CASH, TA_CRANE_HIRE_USD, TA_CREW_HIRE_USD,
-  CareerError, advance, contracted, crewLimit, decide, emCap, gasMul, initCareer, investCost, outputOf, overdue, riskOf, taDays, year, type Career,
+  CareerError, advance, contracted, crewLimit, decide, emCap, gasMul, initCareer, investCost, outputOf, overdue, previewInvest, riskOf, taDays, year, type Career, type LogRow,
 } from '../sim/career/model';
 import { naiveDecisions, solverDecisions, type Decision } from '../sim/career/policy';
 import type { EqState } from '../state';
@@ -21,6 +21,30 @@ const END_CODE = { '': 0, chief: 1, steady: 2, sold: 3, shut: 4 } as const;
 const KEYS = ['months', 'year', 'margin', 'cash', 'gas', 'criticals', 'strikes', 'end', 'emRatio', 'minCat', 'minU', 'overdue', 'contracts', 'revenue', 'cost', 'penalty', 'ref'];
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const M = (x: number): number => Math.round(x / 1e6);
+const plantLabel = (p: string): string => ((PLANTS as readonly string[]).includes(p) ? t(`lv.CAREER.plant.${p}`) : '');
+/** A log row as a sentence: events by their title, findings and endings by a readable name, never a raw key. */
+export function logLabel(l: LogRow): string {
+  const plant = plantLabel(l.plant);
+  switch (l.kind) {
+    case 'event': return t('lv.CAREER.log.event', { title: t(`event.${l.code}.title`), plant });
+    case 'fine': return t('lv.CAREER.log.fine', { finding: t(`lv.CAREER.fine.${l.code}`) });
+    case 'strike': return t('lv.CAREER.log.strike', { ending: t(`lv.CAREER.endlog.${l.code}`) });
+    default: return t(`lv.CAREER.log.${l.kind}`, { plant, n: l.n });
+  }
+}
+/** Why a year ended as it did: revenue less operating cost, penalties and spending, and the biggest drag. */
+function driverNote(y: Career['years'][number]): string {
+  const drag = Math.max(y.cost, y.pen, y.inv, y.fine);
+  const key = y.margin >= 0 ? 'ok' : drag === y.inv ? 'inv' : drag === y.pen ? 'pen' : drag === y.fine ? 'fine' : 'cost';
+  return t(`lv.CAREER.driver.${key}`, { rev: M(y.rev), cost: M(y.cost), pen: M(y.pen), inv: M(y.inv), fine: M(y.fine), margin: M(y.margin) });
+}
+const investText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
+  const pv = previewInvest(c, k), price = investCost(c, k);
+  if (price <= 0) return '';
+  if (k === 'abate') return t('lv.CAREER.invest.abate', { t: Math.round(pv.effect / 1000) });
+  if (pv.paybackMonths <= 0) return t(`lv.CAREER.invest.${k}_none`, {});
+  return t(`lv.CAREER.invest.${k}`, { save: Math.round(pv.saveUSDPerMonth / 1e4) / 100, months: Math.round(pv.paybackMonths), gj: Math.round(pv.effect), pts: pv.effect });
+};
 
 export const careerOf = (s: S): Career | null => { const c = s.lv.c as Career | undefined; return c !== undefined && c.v === 1 ? c : null; };
 const good = (c: Career): boolean => c.ending === 'chief' || c.ending === 'steady';
@@ -124,19 +148,19 @@ export const CAREER: LevelSpec = {
     const spot = (p: (typeof PLANTS)[number]): number => c.prices[p];
     return {
       kind: 'career',
-      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
+      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
       prices: PLANTS.map((p) => ({ plant: p, label: t(`lv.CAREER.plant.${p}`), spotUSDPerT: spot(p) })),
       plants: PLANTS.map((p) => {
         const x = c.plants[p];
-        return { id: p, label: t(`lv.CAREER.plant.${p}`), capT: DEFS[p].cap, rate: x.rate, rateMin: RATE_MIN, rateMax: RATE_MAX, catalyst: x.cat, exchangerU: x.U, compressorWear: x.wear, monthsSinceInspection: x.insp, inspectionOverdue: overdue(c, p), catalystStock: x.stock, downDays: x.down, turnaroundMonth: x.ta, turnaroundCrane: x.taCrane, turnaroundCrew: x.taCrew, outputT: x.out > 0 ? x.out : outputOf(c, p), nominalT: outputOf(c, p), risk: riskOf(c, p), gasFactor: gasMul(c, p), contractedT: contracted(c, p), lastMarginUSD: x.margin, catalystPriceUSD: DEFS[p].catUSD, taDaysWithCatalyst: taDays(true, x.taCrane, x.taCrew), taDaysWithout: taDays(false, x.taCrane, x.taCrew) };
+        return { id: p, label: t(`lv.CAREER.plant.${p}`), capT: DEFS[p].cap, rate: x.rate, rateMin: RATE_MIN, rateMax: RATE_MAX, catalyst: x.cat, exchangerU: x.U, compressorWear: x.wear, monthsSinceInspection: x.insp, inspectionOverdue: overdue(c, p), catalystStock: x.stock, downDays: x.down, turnaroundMonth: x.ta, turnaroundCrane: x.taCrane, turnaroundCrew: x.taCrew, outputT: x.out > 0 ? x.out : outputOf(c, p), nominalT: outputOf(c, p), outputNote: x.out > outputOf(c, p) * 1.001 ? t('lv.CAREER.out.above') : '', risk: riskOf(c, p), gasFactor: gasMul(c, p), contractedT: contracted(c, p), lastMarginUSD: x.margin, catalystPriceUSD: DEFS[p].catUSD, taDaysWithCatalyst: taDays(true, x.taCrane, x.taCrew), taDaysWithout: taDays(false, x.taCrane, x.taCrew) };
       }),
       contracts: c.contracts.map((k) => ({ id: k.id, plant: k.p, tpm: k.tpm, priceUSD: k.price, monthsLeft: k.left, penaltyUSDPerT: k.pen, spotUSD: spot(k.p) })),
-      offers: c.offers.map((o) => ({ id: o.id, plant: o.p, tpm: o.tpm, priceUSD: o.price, term: o.term, penaltyUSDPerT: o.pen, spotUSD: spot(o.p), premium: o.price / spot(o.p) - 1, shareOfCap: o.tpm / DEFS[o.p].cap })),
+      offers: c.offers.map((o) => ({ id: o.id, plant: o.p, tpm: o.tpm, priceUSD: o.price, term: o.term, penaltyUSDPerT: o.pen, spotUSD: spot(o.p), premium: o.price / spot(o.p) - 1, shareOfCap: o.tpm / DEFS[o.p].cap, shareOfNominal: o.tpm / outputOf(c, o.p), nominalT: Math.round(outputOf(c, o.p)) })),
       calendar: PLANTS.map((p) => ({ plant: p, inspectionDueMonth: c.m + Math.max(0, INSPECT_EVERY - c.plants[p].insp), turnaroundMonth: c.plants[p].ta })),
-      options: { invest: Object.fromEntries(Object.entries(INVEST_PRICE).map(([k, v]) => [k, { level: c.invest[k as 'heat'], max: 3, nextUSD: investCost(c, k as 'heat'), prices: v.slice() }])), crews: { hired: c.crews, max: 3, limit: crewLimit(c), base: CREW_BASE }, craneHireUSD: TA_CRANE_HIRE_USD, crewHireUSD: TA_CREW_HIRE_USD },
-      review: c.years.map((y) => ({ ...y, victorNote: y.victor, noorNote: y.noor, maraNote: y.mara })),
+      options: { invest: Object.fromEntries(Object.entries(INVEST_PRICE).map(([k, v]) => [k, { level: c.invest[k as 'heat'], max: 3, nextUSD: investCost(c, k as 'heat'), prices: v.slice(), preview: investText(c, k as 'heat') }])), crews: { hired: c.crews, max: 3, limit: crewLimit(c), base: CREW_BASE }, craneHireUSD: TA_CRANE_HIRE_USD, crewHireUSD: TA_CREW_HIRE_USD },
+      review: c.years.map((y) => ({ ...y, victorNote: y.victor, noorNote: y.noor, maraNote: y.mara, driverNote: driverNote(y) })),
       history: c.hist.map((h) => ({ m: h.m, marginUSD: h.margin, cashUSD: h.cash, gas: h.gas })),
-      log: c.log.slice(-40).map((l) => ({ ...l, t: l.m, stamp: `Y${Math.floor(l.m / 12) + 1} M${String((l.m % 12) + 1).padStart(2, '0')}`, label: t(`lv.CAREER.log.${l.kind}`, { code: l.code, plant: l.plant, n: l.n }) })),
+      log: c.log.slice(-40).map((l) => ({ ...l, t: l.m, stamp: `Y${Math.floor(l.m / 12) + 1} M${String((l.m % 12) + 1).padStart(2, '0')}`, label: logLabel(l) })),
     };
   },
   solver: (() => scripted(solverDecisions)) as PersonaFactory<EqState>,

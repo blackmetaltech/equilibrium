@@ -37,7 +37,7 @@ function measures(s: S): Measures {
 }
 
 export const L34: LevelSpec = {
-  id: 'L34', chapter: 9, index: 34, setter: 'safety', budgetUSD: L34_BUDGET, units: CARRIER_UNITS, notes: 2, shiftLen: 0,
+  id: 'L34', chapter: 9, index: 34, setter: 'safety', budgetUSD: L34_BUDGET, units: CARRIER_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => { carrierSetup(s); s.lv.rows = []; s.lv.simmed = []; },
   measures,
   goals: (s, m) => {
@@ -114,7 +114,7 @@ export const L34: LevelSpec = {
     const rows = rowsOf(s), simmed = listOf<string>(s, 'simmed'), g = gradeRows(rows);
     return {
       kind: 'hazop',
-      node: { id: NODE.id, label: t('lv.L34.node'), design: { tIn: NODE.tIn, tSat: tSat(NODE.pDrum), tDew: NODE.tDew, tAbsMax: NODE.tAbsMax, tTubeMax: NODE.tTubeMax, pDrum: NODE.pDrum } },
+      node: { id: NODE.id, label: t('lv.L34.node'), design: { tIn: NODE.tIn, tSat: tSat(NODE.pDrum), tDew: NODE.tDew, tAbsMax: NODE.tAbsMax, tTubeMax: NODE.tTubeMax, pDrum: NODE.pDrum, ntu: NODE.ntu0 } },
       params: PARAMS.map((id) => ({ id, label: t(`lv.L34.param.${id}`) })),
       guides: GUIDES.map((id) => ({ id, label: t(`lv.L34.guide.${id}`) })),
       causes: CAUSES.map((id) => ({ id, label: t(`lv.L34.cause_opt.${id}`) })),
@@ -126,6 +126,7 @@ export const L34: LevelSpec = {
           param: p, guide: gw, meaningful: dv !== undefined, simulated: shownSim === true, causes: dv ? dv.causes : [],
           sim: shownSim && sm ? { tOut: sm.tOut, dewMargin: sm.dewMargin, tubeMetal: sm.tubeMetal, tUncoverMin: Math.min(9999, sm.tUncoverMin), pSteam: sm.pSteam, carry: sm.carry ? 1 : 0, cls: sm.cls, sev: sm.sev } : null,
           row: rows.some((r) => r.param === p && r.guide === gw),
+          rowState: ((): string => { const r = rows.find((x) => x.param === p && x.guide === gw); if (!r) return ''; if (!SIGNIFICANT.some((x) => x.param === p && x.guide === gw)) return 'extra'; return r.cons === sm?.cls ? 'covered' : 'wrong'; })(),
         };
       })),
       rows: rows.map((r) => {

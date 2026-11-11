@@ -149,7 +149,7 @@ describe('Call-it grading at the oracle tolerance', () => {
   it('L30: the IMC gain 1.04 +-5 %', () => { const k = imcPI(L30_PROC, 12).kc; expect(grade('L30', k).ok).toBe(true); expect(grade('L30', k * 1.04).ok).toBe(true); expect(grade('L30', k * 1.08).ok).toBe(false); });
   it('L31: ratio 3 +-1 %', () => { expect(grade('L31', 3).ok).toBe(true); expect(grade('L31', 3.02).ok).toBe(true); expect(grade('L31', 3.1).ok).toBe(false); expect(grade('L31', 0.216).ok).toBe(false); });
   it('L32: 24 K +-5 %', () => { expect(grade('L32', 24).ok).toBe(true); expect(grade('L32', 25).ok).toBe(true); expect(grade('L32', 20).ok).toBe(false); });
-  it('L33: seconds to the failure temperature +-10 %', () => { const s = secondsToCritical(); expect(grade('L33', s).ok).toBe(true); expect(grade('L33', s * 1.09).ok).toBe(true); expect(grade('L33', s * 1.2).ok).toBe(false); });
+  it('L33: adiabatic rise 200 K +-5 %', () => { const s = 200; expect(grade('L33', s).ok).toBe(true); expect(grade('L33', s * 1.04).ok).toBe(true); expect(grade('L33', s * 1.2).ok).toBe(false); });
 });
 
 describe('levelInfo, resultCard, equation, determinism', () => {
@@ -162,7 +162,7 @@ describe('levelInfo, resultCard, equation, determinism', () => {
       for (const a of i0.annunciators) { expect(a.legend.length).toBeLessThanOrEqual(14); expect(a.legend).toBe(a.legend.toUpperCase()); }
       expect(i0.annunciators.some((a: any) => a.key === 'goal')).toBe(true);
       expect(i0.coach).not.toBeNull();
-      expect(i0.note.length).toBe(2); expect(i0.stars.rules.length).toBe(3); expect(i0.callIt.prompt.length).toBeGreaterThan(10);
+      expect(i0.note.length).toBeGreaterThanOrEqual(2); expect(i0.stars.rules.length).toBe(3); expect(i0.callIt.prompt.length).toBeGreaterThan(10);
       const e = solve(id, { mode: 'engineer' });
       expect(allFinite(info(e))).toBeNull();
       const c = card(e);

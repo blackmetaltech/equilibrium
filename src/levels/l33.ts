@@ -4,7 +4,7 @@
 // turns into lost production. Dials: sensors, k, trip point (degC), action (1 cut feed, 2 full coolant, 3 dump).
 import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
-import { ACTIONS, CSTR, SCENARIOS, evaluate, hwCost, runScenario, scenarioView, secondsToCritical, type Design, type Eval } from '../sim/control/cstr';
+import { ACTIONS, CSTR, ELEMENT_LAG, SCENARIOS, evaluate, hwCost, pointOfNoReturnC, runScenario, scenarioView, secondsToCritical, type Design, type Eval } from '../sim/control/cstr';
 import type { EqState } from '../state';
 import { controlView, dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
@@ -21,7 +21,9 @@ export const designOf = (d: number[]): Design => {
 };
 export const L33_COST_REF = evaluate(designOf([L33_REF.sensors, L33_REF.k, L33_REF.tripC, L33_REF.action])).annualCost;
 export const L33_COST_STAR = L33_COST_REF * 1.03;
-export const L33_CALL_TOL = 0.1;
+export const L33_CALL_TOL = 0.05;
+/** The Call-it: the adiabatic temperature rise, Cin x dH / (rho cp) = 200 K, computable from the three figures the notebook gives. */
+export const L33_ADIABATIC_K = (CSTR.Cin * CSTR.dH) / CSTR.rhoCp;
 export const L33_T_CRIT_C = CSTR.T_CRIT - C0;
 const KEYS = ['sensors', 'k', 'tripC', 'action', 'miss', 'spurious', 'cost', 'hw', 'peakLoss', 'tripLoss', 'missLoss', 'missBlind', 'spHigh', 'spSpikes', 'spUpset', 'secs', 'cin', 'dh', 'rhocp', 'adi', 'critC', 'upsetC'];
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
@@ -49,14 +51,27 @@ function measures(s: S): Measures {
 }
 
 /** Per scenario: which sensors read what, which failed, how many votes fired of how many needed, and what came of it (view.scenarios). Empty before the first replay. */
-export function l33Scenarios(s: S): { name: string; id: string; sensors: { id: string; reading: number; failed: boolean }[]; votes: number; need: number; tripped: boolean; trippedAt: number; outcome: string; outcomeKey: string }[] {
+export function l33Scenarios(s: S): { name: string; id: string; sensors: { id: string; reading: number; failed: boolean }[]; votes: number; need: number; tripped: boolean; trippedAt: number; outcome: string; outcomeKey: string; peakC: number; lagS: number; tripAfterS: number }[] {
   const d = dialValues(s, 4);
   if (!rigOk(s, d)) return [];
   const des = designOf(d);
   return SCENARIOS.map((sc) => {
     const v = scenarioView(sc, des);
-    return { id: sc.id, name: t(`lv.L33.scn.${sc.id}`), sensors: v.sensors.map((x) => ({ id: x.id, reading: Math.round((x.reading - C0) * 10) / 10, failed: x.failed })), votes: v.votes, need: v.need, tripped: v.tripped, trippedAt: v.trippedAt, outcomeKey: v.outcome, outcome: t(`lv.L33.outcome.${v.outcome}`) };
+    return { id: sc.id, name: t(`lv.L33.scn.${sc.id}`), sensors: v.sensors.map((x) => ({ id: x.id, reading: Math.round((x.reading - C0) * 10) / 10, failed: x.failed })), votes: v.votes, need: v.need, tripped: v.tripped, trippedAt: v.trippedAt, outcomeKey: v.outcome, outcome: t(`lv.L33.outcome.${v.outcome}`), peakC: Math.round((v.peak - C0) * 10) / 10, lagS: ELEMENT_LAG[des.action], tripAfterS: v.trippedAt < 0 ? -1 : v.trippedAt - (sc.demand ? CSTR.lossAt : 0) };
   });
+}
+
+/** Per final element: the highest trip temperature (degC) that still stops the loss-of-cooling runaway with the current sensors and vote (-1: none), and the element's lag. */
+export function l33Ponr(s: S): { action: string; label: string; limitC: number; lagS: number }[] {
+  const d = dialValues(s, 4);
+  if (!rigOk(s, d)) return [];
+  const des = designOf(d);
+  return ACTIONS.map((a) => ({ action: a, label: t(`lv.ch8.choice.${a}`), limitC: pointOfNoReturnC(des.sensors, des.k, a), lagS: ELEMENT_LAG[a] }));
+}
+/** The sentence that names the point of no return for each element (used by the cause lines, the lesson and the strip footer). */
+export function ponrText(s: S, rows: { action: string; limitC: number; lagS: number }[]): string {
+  const part = (r: { action: string; limitC: number; lagS: number }) => r.limitC < 0 ? t('lv.L33.ponr.none', { el: t(`lv.ch8.choice.${r.action}`), lag: f(s, r.lagS) }) : t('lv.L33.ponr.some', { el: t(`lv.ch8.choice.${r.action}`), lim: f(s, r.limitC), lag: f(s, r.lagS) });
+  return rows.map(part).join(' ') + ' ' + t('lv.L33.ponr.dump');
 }
 
 const VIEW = (s: S) => {
@@ -65,11 +80,11 @@ const VIEW = (s: S) => {
     s, id: 'L33', dials: [{ key: 'sensors', unit: '', min: 1, max: 3, step: 1 }, { key: 'k', unit: '', min: 1, max: 3, step: 1 }, { key: 'tripC', unit: '°C', min: 60, max: 140, step: 1 }, { key: 'action', unit: '', min: 1, max: 3, step: 1, choices: ['cut_feed', 'full_coolant', 'dump'] }],
     series: r === null ? null : { t: r.t, pv: r.T.map((x) => x - C0), sp: r.T.map(() => r.trip - C0), op: r.open.map((x) => x - C0) },
     metric: { value: measures(s).v.cost!, unit: 'USD/yr', star3: L33_COST_STAR },
-  }), scenarios: l33Scenarios(s), tripAt: r === null ? -1 : runScenario(SCENARIOS[0]!, designOf(dialValues(s, 4))).trippedAt };
+  }), scenarios: l33Scenarios(s), ponr: l33Ponr(s), ponrNote: (() => { const p = l33Ponr(s); return p.length ? ponrText(s, p) : ''; })(), limitC: L33_T_CRIT_C, tripAt: r === null ? -1 : runScenario(SCENARIOS[0]!, designOf(dialValues(s, 4))).trippedAt };
 };
 
 export const L33: LevelSpec = {
-  id: 'L33', firstRun: true, chapter: 8, index: 33, setter: 'safety', budgetUSD: L33_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
+  id: 'L33', firstRun: true, chapter: 8, index: 33, setter: 'safety', budgetUSD: L33_BUDGET, units: UNITS, notes: 4, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [
     { key: 'sensors', def: { learner: 3, engineer: 1 } }, { key: 'k', def: { learner: 1, engineer: 1 } }, { key: 'tripC', def: { learner: 89, engineer: 100 } }, { key: 'action', def: { learner: 1, engineer: 1 } },
   ]),
@@ -85,10 +100,10 @@ export const L33: LevelSpec = {
     return g;
   },
   extraStars: (s, m) => [
-    predictionOf(s, 'secs_to_crit') !== null && relErr(predictionOf(s, 'secs_to_crit')!.value, secondsToCritical()) <= L33_CALL_TOL,
+    predictionOf(s, 'adiabatic_rise_k') !== null && relErr(predictionOf(s, 'adiabatic_rise_k')!.value, L33_ADIABATIC_K) <= L33_CALL_TOL,
     m.ok && m.v.cost! <= L33_COST_STAR,
   ],
-  callIt: { key: 'secs_to_crit', unit: 's', tol: L33_CALL_TOL, truth: () => secondsToCritical() },
+  callIt: { key: 'adiabatic_rise_k', unit: 'K', tol: L33_CALL_TOL, truth: () => L33_ADIABATIC_K },
   hero: (_s, m) => ({ key: 'cost', unit: 'USD/yr', value: m.v.cost!, lo: 0, hi: L33_COST_STAR * 1.5 }),
   secondary: (_s, m) => ({ key: 'peak', unit: '°C', value: m.v.peakLoss!, limit: L33_T_CRIT_C }),
   annunciators: (_s, m, g): Annunciator[] => [
@@ -108,7 +123,7 @@ export const L33: LevelSpec = {
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
-    const vars = { trip: f(s, m.v.tripC!), peak: f(s, m.v.peakLoss!), crit: f(s, m.v.critC!), n: f(s, m.v.sensors!), k: f(s, m.v.k!), upset: f(s, m.v.upsetC!), secs: f(s, m.v.secs!), cost: f(s, m.v.cost!) };
+    const vars = { trip: f(s, m.v.tripC!), peak: f(s, m.v.peakLoss!), crit: f(s, m.v.critC!), n: f(s, m.v.sensors!), k: f(s, m.v.k!), upset: f(s, m.v.upsetC!), secs: f(s, m.v.secs!), cost: f(s, m.v.cost!), ponr: ponrText(s, l33Ponr(s)) };
     const parts: string[] = [];
     if (m.v.missLoss === 1) parts.push(t(m.v.action === 3 ? 'lv.L33.cause.miss_late_dump' : m.v.action === 2 ? 'lv.L33.cause.miss_coolant' : 'lv.L33.cause.miss_late_feed', vars));
     if (m.v.missBlind === 1) parts.push(t('lv.L33.cause.miss_blind', vars), t(m.v.k === m.v.sensors ? 'lv.L33.cause.blind_all' : 'lv.L33.cause.blind_few', vars));
@@ -122,13 +137,13 @@ export const L33: LevelSpec = {
     const cin = shown(m.v.cin!), dh = shown(m.v.dh!), rc = shown(m.v.rhocp!);
     return `${f(s, cin)} × ${f(s, dh)} ÷ ${f(s, rc)} = ${f(s, shown((cin * dh) / rc))} K of adiabatic rise`;
   },
-  lessonVars: (s, m) => ({ trip: f(s, m.v.tripC!), peak: f(s, m.v.peakLoss!), crit: f(s, m.v.critC!), secs: f(s, m.v.secs!), adi: f(s, m.v.adi!), n: f(s, m.v.sensors!), k: f(s, m.v.k!), cost: f(s, m.v.cost!), upset: f(s, m.v.upsetC!) }),
+  lessonVars: (s, m) => ({ ponr: ponrText(s, l33Ponr(s)), trip: f(s, m.v.tripC!), peak: f(s, m.v.peakLoss!), crit: f(s, m.v.critC!), secs: f(s, m.v.secs!), adi: f(s, m.v.adi!), n: f(s, m.v.sensors!), k: f(s, m.v.k!), cost: f(s, m.v.cost!), upset: f(s, m.v.upsetC!) }),
   metrics: (_s, m) => [
     { key: 'cost', unit: 'USD/yr', value: m.v.cost! },
     { key: 'peak', unit: '°C', value: m.v.peakLoss! },
     { key: 'hardware', unit: 'USD', value: m.v.hw! },
   ],
   histogram: { metric: 'cost', best: () => L33_COST_REF, spread: 2.5, lowerIsBetter: true },
-  solver: dialScript([L33_REF.sensors, L33_REF.k, L33_REF.tripC, L33_REF.action], { v: secondsToCritical() }),
+  solver: dialScript([L33_REF.sensors, L33_REF.k, L33_REF.tripC, L33_REF.action], { v: L33_ADIABATIC_K }),
   naive: dialScript([1, 1, 100, 1]),
 };

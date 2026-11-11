@@ -8,12 +8,13 @@ signal dial_set(key: String, value: float)
 const S := {
 	"TITLE": "LOOP PANEL", "BUMP": "BUMP TEST", "BACK": "LOOP TRACE", "EMPTY": "Commission to record a trace", "BUMP_TITLE": "OPEN-LOOP BUMP",
 	"STAR": "STAR 3", "LEG_PV": "PV", "LEG_SP": "SP", "LEG_OP": "OP", "HINT": "Turn, wheel, or tap the number to type a value.",
-	"BUMP_HINT": "Show the open-loop bump trace and the fitted K, tau and theta.", "SEC": "s", "SCN_TITLE": "SCENARIOS · sensors, votes, trip", "SCN_VOTES": "%d / %d votes", "SCN_TRIP": "TRIP %s s", "SCN_NOTRIP": "no trip", "SCN_READS": "reads %s", "LOCKED": "Dials are locked while a run shows: turn the key to DESIGN (or press Stop) to change them.",
+	"BUMP_HINT": "Show the open-loop bump trace and the fitted K, tau and theta.", "SEC": "s", "SCN_TITLE": "SCENARIOS · sensors, votes, trip, peak °C · final-element lag", "SCN_VOTES": "%d / %d votes", "SCN_TRIP": "TRIP %s s", "SCN_NOTRIP": "no trip", "SCN_READS": "reads %s", "SCN_PEAK": "peak %s °C", "SCN_LAG": "final element lag %s s", "PONR": "NO RETURN (trip at or below): ", "PONR_NONE": "none", "STOP": "Stop · back to design", "STOP_HINT": "Leave the run and go back to editing the dials (the same as turning the key to DESIGN).", "LOCKED": "Dials are locked while a run shows: turn the key to DESIGN (or press Stop) to change them.",
 }
 var view := {}
 var chart: Chart
 var nix: Nixie
 var bump_key: Button
+var stop_key: Button          ## visible while a run shows: the same as turning the key back to DESIGN
 var knobs := {}              ## key -> Knob / Selector
 var _dial_sig := ""
 var _pv_sig := ""
@@ -23,6 +24,8 @@ var _title: Label
 var _bar: HFlowContainer
 var _bottom: HBoxContainer
 var _right: VBoxContainer
+var _scroll: ScrollContainer     ## the body scrolls when the desk would be taller than the room above the console (it must never cover the key)
+var _body: VBoxContainer
 var _scen: VBoxContainer       ## L33: one row per scenario under the strip chart (levelView.scenarios)
 var _scen_sig := ""
 
@@ -34,9 +37,14 @@ func _init() -> void:
 	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 4); add_child(vb)
 	var head := HBoxContainer.new(); vb.add_child(head)
 	_title = EqTheme.label(T("TITLE"), 12, EqTheme.INK, "semi"); _title.size_flags_horizontal = Control.SIZE_EXPAND_FILL; head.add_child(_title)
-	chart = Chart.new(); chart.custom_minimum_size = Vector2(300, 170); chart.size_flags_vertical = Control.SIZE_EXPAND_FILL; vb.add_child(chart)
-	_scen = VBoxContainer.new(); _scen.name = "Scenarios"; _scen.add_theme_constant_override("separation", 1); _scen.visible = false; vb.add_child(_scen)
-	_bottom = HBoxContainer.new(); _bottom.add_theme_constant_override("separation", 6); vb.add_child(_bottom)
+	stop_key = EqTheme.key_button(T("STOP"), false, 12); stop_key.name = "StopKey"; stop_key.custom_minimum_size = Vector2(0, 30); stop_key.tooltip_text = T("STOP_HINT"); stop_key.visible = false
+	stop_key.pressed.connect(func(): if app_ref != null and app_ref.chrome != null: app_ref.chrome.stop_and_edit())
+	head.add_child(stop_key)
+	_scroll = ScrollContainer.new(); _scroll.name = "Body"; _scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; _scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL; vb.add_child(_scroll)
+	_body = VBoxContainer.new(); _body.add_theme_constant_override("separation", 4); _body.size_flags_horizontal = Control.SIZE_EXPAND_FILL; _scroll.add_child(_body)
+	chart = Chart.new(); chart.custom_minimum_size = Vector2(300, 170); chart.size_flags_vertical = Control.SIZE_EXPAND_FILL; _body.add_child(chart)
+	_scen = VBoxContainer.new(); _scen.name = "Scenarios"; _scen.add_theme_constant_override("separation", 1); _scen.visible = false; _body.add_child(_scen)
+	_bottom = HBoxContainer.new(); _bottom.add_theme_constant_override("separation", 6); _body.add_child(_bottom)
 	var fp := PanelContainer.new(); fp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fsb := EqTheme.porcelain_sb(4, 4.0); fsb.bg_color = EqTheme.PORCELAIN.darkened(0.06); fsb.border_color = EqTheme.INK; fp.add_theme_stylebox_override("panel", fsb); _bottom.add_child(fp)
 	var fv := VBoxContainer.new(); fv.add_theme_constant_override("separation", 0); fp.add_child(fv)
@@ -57,7 +65,7 @@ func _apply_bump() -> void:
 var avail := 560.0
 var pw := 620.0
 func fit(h: float, w: float, narrow: bool) -> void:
-	avail = h; pw = w; _size_chart()
+	avail = h; pw = w; _size_chart(); _fit_scroll.call_deferred()
 	_hint.visible = not narrow or true
 func _size_chart() -> void:
 	var colw := maxf(pw - 12.0 - 190.0 - 14.0, 150.0)
@@ -66,6 +74,10 @@ func _size_chart() -> void:
 	for k in knobs: wsum += (knobs[k] as Control).custom_minimum_size.x
 	var rows := maxf(ceilf(wsum / colw), 1.0) if wsum > 0.0 else 1.0
 	chart.custom_minimum_size = Vector2(300, clampf(avail - 40.0 - rows * 134.0 - 36.0 - (_scen.get_combined_minimum_size().y if _scen.visible else 0.0), 90.0, 230.0))
+func _fit_scroll() -> void:
+	if _scroll == null: return
+	var want := _body.get_combined_minimum_size().y
+	_scroll.custom_minimum_size.y = maxf(minf(want, avail - 52.0), 120.0)
 func _unused(chart_h: float, narrow: bool) -> void:
 	chart.custom_minimum_size = Vector2(300, chart_h)
 	if narrow:
@@ -89,11 +101,12 @@ func set_view(d: Dictionary) -> void:
 	var ph0 := str(li0.get("phase", "design")) if li0 is Dictionary else "design"
 	var locked := ph0 == "shift" or ph0 == "firstrun"   # one rule for every dial: nothing turns while a run shows
 	for kk in knobs: (knobs[kk] as Control).set("editable", not locked); if knobs[kk] is Knob: (knobs[kk] as Knob).lock_reason = T("LOCKED"); (knobs[kk] as Control).modulate = Color(1, 1, 1, 0.6 if locked else 1.0); (knobs[kk] as Control).queue_redraw()
+	stop_key.visible = locked
 	if locked: _hint.text = T("LOCKED")
 	elif _hint.text == T("LOCKED"): _hint.text = T("HINT")
 	_build_scenarios(d)
-	_size_chart()
-	if _scen.visible: _size_chart.call_deferred()   # the strip's rows settle a frame late
+	_size_chart(); _fit_scroll()
+	if _scen.visible: _size_chart.call_deferred(); _fit_scroll.call_deferred()   # the strip's rows settle a frame late
 	var psig := str((d.get("series", {}) as Dictionary).get("pv", []).hash()) if d.get("series") is Dictionary else ""
 	if psig != _pv_sig and _bump: _bump = false   # a new run: back to the loop trace
 	_pv_sig = psig
@@ -142,16 +155,25 @@ func _build_scenarios(d: Dictionary) -> void:
 	_scen.visible = true
 	_scen.add_child(EqTheme.label(T("SCN_TITLE"), 11, EqTheme.INK, "semi"))
 	for r in sc:
-		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6); _scen.add_child(h)
-		var nm := EqTheme.label(str(r.name), 11, EqTheme.INK, "semi"); nm.custom_minimum_size = Vector2(120, 0); nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(nm)
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 5); _scen.add_child(h)
+		var nm := EqTheme.label(str(r.name), 11, EqTheme.INK, "semi"); nm.custom_minimum_size = Vector2(112, 0); nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(nm)
 		var lamps := HBoxContainer.new(); lamps.add_theme_constant_override("separation", 3); h.add_child(lamps)
 		for sn in r.sensors: var lp := Lamp.new(); lp.failed = bool(sn.failed); lp.reading = float(sn.reading); lp.tooltip_text = "%s %s" % [str(sn.id), "FAILED" if lp.failed else T("SCN_READS") % PaperStrings.num(lp.reading)]; lamps.add_child(lp)
 		var need := int(r.need); var fired := int(r.votes)
-		var vt := EqTheme.label(T("SCN_VOTES") % [fired, need], 11, EqTheme.INK if fired >= need else EqTheme.PEN_RED, "mono_bold"); vt.custom_minimum_size = Vector2(70, 0); h.add_child(vt)
+		var vt := EqTheme.label("%d/%d" % [fired, need], 11, EqTheme.INK if fired >= need else EqTheme.PEN_RED, "mono_bold"); vt.custom_minimum_size = Vector2(30, 0); vt.tooltip_text = T("SCN_VOTES") % [fired, need]; vt.mouse_filter = Control.MOUSE_FILTER_STOP; h.add_child(vt)
 		var tripped := bool(r.tripped)
-		var st := EqTheme.label((T("SCN_TRIP") % PaperStrings.num(float(r.trippedAt))) if tripped else T("SCN_NOTRIP"), 11, Color("#FFFFFF") if tripped else EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.4), "mono_bold")
-		var sp := PanelContainer.new(); var ssb := StyleBoxFlat.new(); ssb.bg_color = Color("#B33A2E") if tripped else Color(0, 0, 0, 0); ssb.set_content_margin_all(2); ssb.set_corner_radius_all(2); sp.add_theme_stylebox_override("panel", ssb); sp.add_child(st); sp.custom_minimum_size = Vector2(76, 0); h.add_child(sp)
-		var oc := EqTheme.label(str(r.outcome), 11, EqTheme.INK, "sans"); oc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; oc.size_flags_horizontal = Control.SIZE_EXPAND_FILL; oc.custom_minimum_size = Vector2(100, 0); h.add_child(oc)
+		var st := EqTheme.label((T("SCN_TRIP") % str(int(round(float(r.trippedAt))))) if tripped else T("SCN_NOTRIP"), 11, Color("#FFFFFF") if tripped else EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.4), "mono_bold")
+		var sp := PanelContainer.new(); var ssb := StyleBoxFlat.new(); ssb.bg_color = Color("#B33A2E") if tripped else Color(0, 0, 0, 0); ssb.set_content_margin_all(2); ssb.set_corner_radius_all(2); sp.add_theme_stylebox_override("panel", ssb); sp.add_child(st); sp.custom_minimum_size = Vector2(70, 0); h.add_child(sp)
+		var pkv := float(r.get("peakC", 0.0)); var hot := pkv >= float(d.get("limitC", 1e9))
+		var pk := EqTheme.label("%.0f °C · %d s" % [pkv, int(round(float(r.get("lagS", 0.0))))], 11, EqTheme.PEN_RED if hot else EqTheme.INK, "mono_bold"); pk.custom_minimum_size = Vector2(88, 0)
+		pk.tooltip_text = str(T("SCN_PEAK") % ("%.1f" % pkv)) + " · " + str(T("SCN_LAG") % str(int(round(float(r.get("lagS", 0.0)))))); pk.mouse_filter = Control.MOUSE_FILTER_STOP; h.add_child(pk)
+		var oc := EqTheme.label(str(r.outcome).split(":")[0], 11, EqTheme.PEN_RED if str(r.get("outcomeKey", "")) in ["missed", "false_trip"] else EqTheme.INK, "sans"); oc.tooltip_text = str(r.outcome); oc.mouse_filter = Control.MOUSE_FILTER_STOP; oc.size_flags_horizontal = Control.SIZE_EXPAND_FILL; oc.custom_minimum_size = Vector2(50, 0); oc.clip_text = true; h.add_child(oc)
+
+	var po = d.get("ponr")
+	if po is Array and not (po as Array).is_empty():
+		var parts: Array = []
+		for r in po: parts.append("%s %s" % [str(r.label), (T("PONR_NONE") if float(r.limitC) < 0.0 else "%d °C" % int(r.limitC))])
+		var pl := EqTheme.label(T("PONR") + " · ".join(parts), 11, EqTheme.INK, "semi"); pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; pl.tooltip_text = str(d.get("ponrNote", "")); pl.mouse_filter = Control.MOUSE_FILTER_STOP; _scen.add_child(pl)
 
 class Lamp extends Control:
 	var failed := false

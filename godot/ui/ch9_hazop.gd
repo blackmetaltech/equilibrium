@@ -7,7 +7,17 @@ var sel_p := ""
 var sel_g := ""
 var _pick := {}              ## "p.g" -> {cause, cons, safe} the player last chose
 
+var _footer: HBoxContainer   ## sticky: ADD / REPLACE / REMOVE ROW stay in view while the worksheet scrolls
+
+func _init() -> void:
+	super()
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 4); vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL; vb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	remove_child(scroll); scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL; vb.add_child(scroll)
+	_footer = HBoxContainer.new(); _footer.name = "Footer"; _footer.add_theme_constant_override("separation", 8); vb.add_child(_footer)
+	add_child(vb)
+
 func _build() -> void:
+	for c in _footer.get_children(): _footer.remove_child(c); c.queue_free()
 	var cov: Dictionary = view.get("coverage", {}); var node: Dictionary = view.get("node", {})
 	body.add_child(head("HAZOP WORKSHEET", str(node.get("label", ""))))
 	var prop := float(view.get("proposalUSD", 0.0)); var bud := float(view.get("budgetUSD", 0.0))
@@ -17,7 +27,7 @@ func _build() -> void:
 	line.add_child(lbl("PROPOSAL %s / %s" % [usd(prop), usd(bud)], 14, STAMP_RED if prop > bud else PENCIL, "mono_bold"))
 	var des: Dictionary = node.get("design", {})
 	if not des.is_empty():
-		line.add_child(lbl("T in %s K  T sat %s K  dew %s K" % [fnum(des.get("tIn", 0)), fnum(des.get("tSat", 0)), fnum(des.get("tDew", 0))], 12, PENCIL))
+		line.add_child(lbl("T in %s K  T sat %s K  dew %s K  NTU %s" % [fnum(des.get("tIn", 0)), fnum(des.get("tSat", 0)), fnum(des.get("tDew", 0)), fnum(des.get("ntu", 0), 1)], 12, PENCIL))
 	var grid := Grid.new(); grid.view = view; grid.sel_p = sel_p; grid.sel_g = sel_g; grid.custom_minimum_size = Vector2(300, 40.0 + 6 * 36.0)
 	grid.picked.connect(_on_cell); body.add_child(grid)
 	_editor()
@@ -40,6 +50,7 @@ func _label_of(arr: Array, id: String) -> String:
 func _editor() -> void:
 	body.add_child(HSeparator.new())
 	if sel_p == "":
+		_footer.add_child(lbl("Pick a cell: it simulates that deviation on the node.", 12, PENCIL))
 		body.add_child(lbl("Pick a cell: it simulates that deviation on the node.", 13, PENCIL)); return
 	var c := _cell(sel_p, sel_g)
 	var title := "%s  /  %s" % [_label_of(view.get("params", []), sel_p), _label_of(view.get("guides", []), sel_g)]
@@ -61,7 +72,7 @@ func _editor() -> void:
 	var sg_items: Array = []
 	for x in sgs: sg_items.append({"id": x.id, "label": "%s  %s%s" % [x.label, usd(float(x.priceUSD)), " (installed)" if bool(x.installed) else ""]})
 	var ob_s := _picker(row, "SAFEGUARD", sg_items, str(cur.get("safe", "")), func(id): _remember(key_, "safe", id))
-	var btns := HBoxContainer.new(); btns.add_theme_constant_override("separation", 8); body.add_child(btns)
+	var btns := _footer
 	btns.add_child(key("ADD ROW" if not bool(c.get("row", false)) else "REPLACE ROW", func(): emit_act("addRow", [sel_p, sel_g, _sel(ob_c), _sel(ob_k), _sel(ob_s)]), true))
 	if bool(c.get("row", false)): btns.add_child(key("REMOVE ROW", func(): emit_act("removeRow", [sel_p, sel_g])))
 
@@ -150,5 +161,8 @@ class Grid extends Control:
 				else:
 					draw_rect(r, Color("#F7F2E4")); draw_string(fb, r.position + Vector2(r.size.x * 0.5 - 4, 23), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Color(0, 0, 0, 0.3))
 				draw_rect(r, Color(0, 0, 0, 0.25), false, 1.0)
-				if bool(c.get("row", false)): draw_string(fb, r.position + Vector2(r.size.x - 18, 16), "✓", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.OKGREEN)
+				match str(c.get("rowState", "")):   # the tick counts exactly what COVERED n / m counts: a significant deviation with the right consequence class
+					"covered": draw_string(fb, r.position + Vector2(r.size.x - 18, 16), "✓", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.OKGREEN)
+					"wrong": draw_string(fb, r.position + Vector2(r.size.x - 18, 16), "✗", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.STAMP_RED)
+					"extra": draw_string(fb, r.position + Vector2(r.size.x - 16, 16), "·", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.PENCIL)
 				if str(ps[i].id) == sel_p and str(gs[j].id) == sel_g: draw_rect(r.grow(1), EqTheme.TEAL, false, 3.0)

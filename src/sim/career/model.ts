@@ -43,14 +43,14 @@ export const DEFS: Record<PlantId, PlantDef> = {
 export interface Plant { rate: number; cat: number; U: number; wear: number; insp: number; stock: number; down: number; ta: number; taCrane: number; taCrew: number; out: number; margin: number; risk: number }
 export interface Contract { id: number; p: PlantId; tpm: number; price: number; left: number; pen: number }
 export interface Offer { id: number; p: PlantId; tpm: number; price: number; term: number; pen: number; exp: number }
-export interface Review { year: number; margin: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number }
+export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number }
 export interface LogRow { m: number; kind: 'event' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty'; code: string; plant: string; n: number }
 export interface Hist { m: number; margin: number; cash: number; gas: number }
 export type Ending = '' | 'chief' | 'steady' | 'sold' | 'shut';
 export interface Career {
   v: 1; seed: number; mode: string; m: number; cash: number; gas: number; prices: Record<PlantId, number>; plants: Record<PlantId, Plant>;
   contracts: Contract[]; offers: Offer[]; nextId: number; crews: number; invest: { heat: number; abate: number; safety: number };
-  strikes: number; criticals: number; ytd: { margin: number; em: number; gasGJ: number; tonnes: number; criticals: number; eff: number; effN: number };
+  strikes: number; criticals: number; ytd: { margin: number; em: number; gasGJ: number; tonnes: number; criticals: number; eff: number; effN: number; rev: number; cost: number; pen: number; inv: number };
   years: Review[]; hist: Hist[]; log: LogRow[]; total: { revenue: number; cost: number; penalty: number; margin: number };
   last: { margin: number; revenue: number; cost: number; penalty: number; ev: string; evPlant: string };
   ending: Ending; lossYears: number;
@@ -89,7 +89,7 @@ export function initCareer(seed: number, mode: string): Career {
     prices: { nh3: DEFS.nh3.price0, acid: DEFS.acid.price0, meoh: DEFS.meoh.price0, etoh: DEFS.etoh.price0 },
     plants: { nh3: newPlant(), acid: newPlant(), meoh: newPlant(), etoh: newPlant() },
     contracts: [], offers: [], nextId: 1, crews: 0, invest: { heat: 0, abate: 0, safety: 0 }, strikes: 0, criticals: 0,
-    ytd: { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0 }, years: [], hist: [], log: [], total: { revenue: 0, cost: 0, penalty: 0, margin: 0 },
+    ytd: { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0 }, years: [], hist: [], log: [], total: { revenue: 0, cost: 0, penalty: 0, margin: 0 },
     last: { margin: 0, revenue: 0, cost: 0, penalty: 0, ev: '', evPlant: '' }, ending: '', lossYears: 0,
   };
   makeOffers(c);
@@ -127,7 +127,7 @@ export class CareerError extends Error {}
 const need = (ok: boolean, code: string): void => { if (!ok) throw new CareerError(code); };
 const alive = (c: Career): void => need(c.ending === '', 'over');
 const plantOf = (p: unknown): PlantId => { need(typeof p === 'string' && (PLANTS as readonly string[]).includes(p), 'plant'); return p as PlantId; };
-const spend = (c: Career, usd: number): void => { c.cash -= usd; c.ytd.margin -= usd; c.total.cost += usd; c.total.margin -= usd; };
+const spend = (c: Career, usd: number): void => { c.cash -= usd; c.ytd.margin -= usd; c.ytd.inv = (c.ytd.inv ?? 0) + usd; c.total.cost += usd; c.total.margin -= usd; };
 
 export function accept(c: Career, id: unknown): void {
   alive(c);
@@ -262,6 +262,7 @@ export function stepMonth(c: Career): void {
   c.cash += margin;
   c.total.revenue += revenue; c.total.cost += cost; c.total.penalty += penalty; c.total.margin += margin;
   c.last.margin = margin; c.last.revenue = revenue; c.last.cost = cost; c.last.penalty = penalty;
+  c.ytd.rev = (c.ytd.rev ?? 0) + revenue; c.ytd.cost = (c.ytd.cost ?? 0) + cost; c.ytd.pen = (c.ytd.pen ?? 0) + penalty;
   c.ytd.margin += margin; c.ytd.em += em; c.ytd.gasGJ += gasGJ; c.ytd.tonnes += tonnes; if (effDen > 0) { c.ytd.eff += effNum / effDen * 1; c.ytd.effN++; }
   c.hist.push({ m, margin, cash: c.cash, gas: gasP });
   if (c.hist.length > MONTHS) c.hist.shift();
@@ -299,16 +300,16 @@ function yearEnd(c: Career): void {
   const y = c.m / 12 - 1, yt = c.ytd;
   const emRatio = yt.em / (EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y));
   const effRatio = yt.effN > 0 ? yt.eff / yt.effN : 1;
-  let strike = 0;
-  if (emRatio > 1) { strike++; c.cash -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.total.margin -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.log.push({ m: c.m, kind: 'fine', code: 'emissions', plant: '', n: Math.round((emRatio - 1) * 1000) }); }
+  let strike = 0, fine = 0;
+  if (emRatio > 1) { fine = EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; strike++; c.cash -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.total.margin -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.log.push({ m: c.m, kind: 'fine', code: 'emissions', plant: '', n: Math.round((emRatio - 1) * 1000) }); }
   if (PLANTS.some((p) => overdue(c, p) > 6)) { strike++; c.log.push({ m: c.m, kind: 'fine', code: 'inspection', plant: '', n: 0 }); }
   c.strikes += strike;
   const victor = clamp(Math.round((yt.margin / MARGIN_TARGET_YEAR) * 100), 0, 100);
   const noor = clamp(Math.round(100 - 45 * yt.criticals - 100 * Math.max(0, emRatio - 0.9) - 25 * strike), 0, 100);
   const mara = clamp(Math.round(100 - 250 * Math.max(0, effRatio - 1)), 0, 100);
-  c.years.push({ year: y + 1, margin: yt.margin, criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
+  c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: yt.cost ?? 0, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: yt.margin, criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
   c.lossYears = yt.margin < 0 ? c.lossYears + 1 : 0;
-  c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0 };
+  c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0 };
   if (c.lossYears >= 2 || c.cash < 0) finish(c, 'sold');
   else if (c.strikes >= STRIKES_MAX) finish(c, 'shut');
 }
@@ -343,4 +344,28 @@ export function decide(c: Career, name: string, ...a: unknown[]): void {
     case 'advance': advance(c, a[0]); return;
     default: throw new CareerError('action');
   }
+}
+
+// ------------------------------------------------------------------------------------------------ investment payback preview (read by the view)
+export interface InvestPreview { /** USD a month the next level saves at today's plant state (0 when its value is not cash). */ saveUSDPerMonth: number; /** Months to pay the price back from that saving; 0 when there is no cash payback. */ paybackMonths: number; /** heat: GJ a month saved; abate: tonnes of CO2 a year cut; safety: points of incident risk removed per plant. */ effect: number }
+export function previewInvest(c: Career, kind: 'heat' | 'abate' | 'safety'): InvestPreview {
+  const price = investCost(c, kind), lvl = c.invest[kind];
+  if (kind === 'heat') {
+    let gasGJ = 0;
+    for (const p of PLANTS) gasGJ += outputOf(c, p) * DEFS[p].gasGJ * gasMul(c, p);
+    const keep = (1 - 0.07 * (lvl + 1)) / (1 - 0.07 * lvl), gj = gasGJ * (1 - keep), usd = gj * c.gas;
+    return { saveUSDPerMonth: usd, paybackMonths: usd > 0 ? price / usd : 0, effect: gj };
+  }
+  if (kind === 'abate') {
+    let em = 0;
+    for (const p of PLANTS) em += outputOf(c, p) * DEFS[p].gasGJ * gasMul(c, p) * GJ_CO2 + outputOf(c, p) * DEFS[p].proc;
+    const keep = (1 - 0.12 * (lvl + 1)) / (1 - 0.12 * lvl);
+    return { saveUSDPerMonth: 0, paybackMonths: 0, effect: em * 12 * (1 - keep) };
+  }
+  let exp = 0;
+  for (const p of PLANTS) {
+    const r = riskOf(c, p), pr = (x: number): number => clamp((x - 0.35) * 0.6, 0, 0.9);
+    exp += (pr(r) - pr(r - 0.08)) * (0.4 * CRIT_FINE_USD + 0.6 * MINOR_FINE_USD);
+  }
+  return { saveUSDPerMonth: exp, paybackMonths: exp > 0 ? price / exp : 0, effect: 8 };
 }

@@ -89,7 +89,9 @@ func _summary() -> Control:
 		h.add_child(stamp("READY" if bool(view.get("ready", false)) else "NOT READY", OKGREEN if bool(view.get("ready", false)) else AMBER_INK))
 	else:
 		h.add_child(lbl("MIN %s  (%s h)" % [fnum(mins), fnum(view.get("hours", 0), 1)], 13, Color("#1E2A2E"), "mono_bold"))
-		h.add_child(lbl("LOSS %s  ref %s  budget %s" % [usd(float(view.get("lossUSD", 0.0))), usd(float(view.get("refLossUSD", 0.0))), usd(float(view.get("budgetUSD", 0.0)))], 13, PENCIL, "mono_bold"))
+		var refv := float(view.get("refLossUSD", -1.0))
+		var refs := "ref hidden until you call it" if refv < 0.0 else "ref %s  ★★★ ≤ %s (ref +%d %%)" % [usd(refv), usd(float(view.get("starLossUSD", refv))), int(view.get("starTolPct", 3))]
+		h.add_child(lbl("LOSS %s  %s  budget %s" % [usd(float(view.get("lossUSD", 0.0))), refs, usd(float(view.get("budgetUSD", 0.0)))], 13, PENCIL, "mono_bold"))
 		h.add_child(stamp("BACK IN SERVICE" if bool(view.get("done", false)) else "OUT OF SERVICE", OKGREEN if bool(view.get("done", false)) else AMBER_INK))
 	h.add_child(stamp("SAFE" if bool(view.get("safe", false)) else "UNSAFE", OKGREEN if bool(view.get("safe", false)) else STAMP_RED))
 	if bool(view.get("halted", false)): h.add_child(stamp("HALTED", STAMP_RED))

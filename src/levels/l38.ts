@@ -23,7 +23,9 @@ export const cost = (days: number, crane: number): number => days * L38_RATE_T_P
 export const L38_REF = schedule(L38_JOBS, L38_REF_ORDER, { crew: L38_LIM.crew, crane: 2 });
 export const L38_COST_REF = cost(L38_REF.makespan, 2);
 export const L38_COST_STAR = L38_COST_REF * 1.03;
-export const L38_BUDGET = Math.round(cost(18, 1) * 1.01);
+/** Best makespans over all 8! priority orders (exhaustively checked in fix8c.test): one crane 18 d, two cranes 16 d (crew-limited), against the 13 d of the critical path alone. */
+export const L38_BEST = { one: 18, two: 16 };
+export const L38_BUDGET = 6_000_000;
 export const L38_CALL_TOL = 0.05;
 const KEYS = ['days', 'lost', 'cost', 'crane', 'window', 'cpm', 'late', 'hire', 'crewPeak', 'jobs', 'rate', 'margin'];
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
@@ -38,7 +40,7 @@ function measures(s: S): Measures {
 }
 
 export const L38: LevelSpec = {
-  id: 'L38', chapter: 9, index: 38, setter: 'manager', budgetUSD: L38_BUDGET, units: CARRIER_UNITS, notes: 2, shiftLen: 0,
+  id: 'L38', chapter: 9, index: 38, setter: 'manager', budgetUSD: L38_BUDGET, units: CARRIER_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => { carrierSetup(s); s.lv.priority = L38_START_ORDER.slice(); s.lv.crane = 1; },
   measures,
   goals: (s, m) => {
@@ -95,6 +97,7 @@ export const L38: LevelSpec = {
       kind: 'gantt', window: L38_WINDOW, horizon,
       jobs: L38_JOBS.map((j) => ({ id: j.id, label: t(`lv.L38.job.${j.id}`), days: j.days, deps: j.deps.slice(), crew: j.crew, crane: j.crane, start: sc.start[j.id]!, finish: sc.finish[j.id]!, es: L38_CPM.es[j.id]!, ls: L38_CPM.ls[j.id]!, float: L38_CPM.float[j.id]!, cpmCritical: L38_CPM.critical.includes(j.id), critical: crit.has(j.id) })),
       priority: orderOf(s), crane, limits: { crew: L38_LIM.crew, crane }, craneOptions: [1, 2], cpmDays: L38_CPM.length, cpmCritical: L38_CPM.critical.slice(),
+      hint: t('lv.L38.hint', { cpm: f(s, L38_CPM.length), one: f(s, L38_BEST.one), two: f(s, L38_BEST.two), hire: f(s, L38_CRANE_HIRE_USD), saved: f(s, (L38_BEST.one - L38_BEST.two) * L38_RATE_T_PER_D * L38_MARGIN_USD_PER_T) }),
       makespan: sc.makespan, lostTonnes: sc.makespan * L38_RATE_T_PER_D, costUSD: cost(sc.makespan, crane), craneHireUSD: L38_CRANE_HIRE_USD, budgetUSD: L38_BUDGET, rateTPerDay: L38_RATE_T_PER_D, marginUsdPerT: L38_MARGIN_USD_PER_T,
       crewByDay: crew, craneByDay: cr,
     };
