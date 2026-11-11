@@ -7,6 +7,8 @@ extends RefCounted
 ## notes each one that the engine accepted and clears the log when a different level starts; a restart replays it onto the fresh level.
 static var act_log: Array = []
 static var restarting := false
+## Levels whose prediction was made (or waived with Run anyway) in this attempt: the predict-first question is not asked again after a Retry / stop-and-edit.
+static var predict_done := {}
 static func note_act(name: String, args: Array) -> void:
 	if name == "setDial" and args.size() >= 1:
 		act_log = act_log.filter(func(a): return not (str(a[0]) == "setDial" and str((a[1] as Array)[0]) == str(args[0])))

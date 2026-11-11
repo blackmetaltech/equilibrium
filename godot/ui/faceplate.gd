@@ -478,7 +478,7 @@ func _update() -> void:
 		if str(k.kind) == "choice" and pickers.has(str(k.key)):
 			for o in pickers[str(k.key)]: (pickers[str(k.key)][o] as Button).set_pressed_no_signal(str(o) == str(k.value))
 			continue
-		if kn == null or kn._drag: continue
+		if kn == null or kn._drag or not kn._timer.is_stopped(): continue   # never fight a hand: a drag, or clicks still waiting to be committed
 		if k.get("off") != null:   # a set point of "off" (0 = disarmed) is shown as OFF, never as the bottom of the scale
 			kn.off_disp = EqFmt.to_disp(float(k.off), str(k.unit))
 			var offn: bool = absf(float(k.value) - float(k.off)) <= 1e-9 * maxf(1.0, absf(float(k.off)))
@@ -588,7 +588,7 @@ func _update_feed_info() -> void:
 	var be := _bank_entry(li)
 	if be.is_empty(): return
 	for sp in _chips: (_chips[sp] as Button).set_pressed_no_signal(str(sp) == str(be.species))
-	if _bank_kg != null and not _bank_kg._drag: _bank_kg.set_value(float(be.kgPerH))
+	if _bank_kg != null and not _bank_kg._drag and _bank_kg._timer.is_stopped(): _bank_kg.set_value(float(be.kgPerH))
 	if _name_lbl != null: _name_lbl.text = (EqStrings.formula(str(be.species)) + " BANK").to_upper()   # the tape follows the chip
 	var kt := "%.2f" % float(be.kmolPerH)   # one number, one rounding: the engine's banks[].kmolPerH, everywhere
 	if _kmol_lbl != null: _kmol_lbl.text = "= " + kt + " kmol/h"
@@ -711,6 +711,9 @@ class Hub extends Node:
 		if e.keycode != KEY_DELETE and e.keycode != KEY_BACKSPACE: return
 		var f = get_viewport().gui_get_focus_owner()
 		if f is LineEdit or f is TextEdit: return
+		if _confirm != null and is_instance_valid(_confirm):   # Delete again on the open confirm answers yes
+			var cid := str(_confirm.get_meta("unit", ""))
+			get_viewport().set_input_as_handled(); _do_delete(cid); return
 		if delete_selected(false): get_viewport().set_input_as_handled()
 
 	func _input(e: InputEvent) -> void:
@@ -774,13 +777,15 @@ class Hub extends Node:
 		hb.add_child(EqTheme.label(txt, 16, EqTheme.INK, "semi"))
 		var yes := EqTheme.key_button(PaperStrings.t("DEL_YES"), true, 15); yes.name = "Yes"; yes.custom_minimum_size = Vector2(0, 36); yes.pressed.connect(func(): _do_delete(id)); hb.add_child(yes)
 		var no := EqTheme.key_button(PaperStrings.t("DEL_NO"), false, 15); no.name = "No"; no.custom_minimum_size = Vector2(0, 36); no.pressed.connect(_drop_confirm); hb.add_child(no)
+		pn.set_meta("unit", id); pn.z_index = 100; pn.focus_mode = Control.FOCUS_NONE
 		app.root.add_child(pn); _confirm = pn
 		var vr := pn.get_viewport().get_visible_rect().size
 		var ch = app.get("chrome")
 		pn.reset_size(); await pn.get_tree().process_frame
 		if not is_instance_valid(pn): return
 		var bottom := vr.y - (float(ch.console_height()) if ch != null and ch.has_method("console_height") else 190.0) - 12.0
-		pn.position = Vector2((vr.x - pn.size.x) * 0.5, bottom - pn.size.y)
+		pn.position = Vector2(clampf((vr.x - pn.size.x) * 0.5, 4.0, maxf(4.0, vr.x - pn.size.x - 4.0)), clampf(bottom - pn.size.y, 4.0, maxf(4.0, vr.y - pn.size.y - 4.0)))
+		pn.move_to_front(); no.grab_focus()   # in front of every plate; focus on Keep, so Enter never deletes by accident
 
 	func _on_place(type: String, x: int, y: int, rot: int) -> void:
 		var r: Dictionary = app.b.act("placeUnit", [type, x, y, rot])
@@ -791,6 +796,10 @@ class Hub extends Node:
 
 	func _on_unit(id: String) -> void:
 		if app.world.placing != "": return
+		if from_unit != "" and id != "" and id != from_unit:   # a pipe in hand and a click on another unit's body: its one legal port takes it
+			var cands: Array = legal.filter(func(t): return str(t.unit) == id)
+			if cands.size() == 1: _on_port(id, str(cands[0].port), not from_inlet); return
+			if cands.size() > 1: app.toast(PaperStrings.t("PIPE_WHICH") % id, "info"); return
 		clear_pipe()
 		if id == "":
 			for k in Faceplate.plates.keys(): if not (Faceplate.plates[k] as Faceplate).pinned: (Faceplate.plates[k] as Faceplate).close()

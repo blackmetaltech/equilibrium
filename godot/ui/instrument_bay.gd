@@ -17,6 +17,7 @@ var _last_ms := 0
 var _dirty := false
 var _forced_kind := ""       ## tests / QA: pin one instrument
 var _big: InstrPaper
+var _compact := false        ## the Semenov plot before a run: a small sheet (no operating point yet, and it stays off the plant)
 const EQ_TYPES := ["eq_reactor", "eq_bed", "packed_bed", "multibed"]
 const BED_TYPES := ["eq_reactor", "eq_bed", "packed_bed"]
 
@@ -37,6 +38,7 @@ func layout() -> void:
 	var land := app.vw() > app.vs_h()   # a landscape phone is short: keep the camera buttons below the panel clear
 	var w := 340.0 if k == "desktop" else (280.0 if k == "handheld" else (300.0 if land else minf(app.vw() * 0.44, 230.0)))
 	var h := 236.0 if k == "desktop" else (196.0 if k == "handheld" else (128.0 if land else 150.0))
+	if _compact and kind == "semenov": w = roundf(w * 0.74); h = roundf(h * 0.74)
 	if view != null: view.custom_minimum_size = Vector2(w - 8.0, h - 24.0)
 	custom_minimum_size = Vector2(w, h)
 	set_anchors_preset(Control.PRESET_TOP_RIGHT); grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -121,6 +123,9 @@ func refresh(force := false) -> void:
 	_set_kind(k)
 	if k == "": return
 	_unit = str(pick.unit)
+	var design: bool = k == "semenov" and app.chrome != null and app.chrome.engine_phase() == "design"
+	if view is SemenovView: (view as SemenovView).live = not design
+	if design != _compact: _compact = design; layout(); _sig = ""
 	var d = _query(k, _unit)
 	if not (d is Dictionary) and view != null and not (view.data as Dictionary).is_empty(): view.set_data({}); _sig = ""
 	var sig := JSON.stringify(d)
@@ -150,5 +155,6 @@ func enlarge() -> void:
 	var t := EqTheme.label(_title_for(kind), 26, EqTheme.TEXT, "title"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hb.add_child(t)
 	var x := EqTheme.key_button(InstrPaper.T("INS_CLOSE"), true, 16); x.pressed.connect(func(): d.host.queue_free()); hb.add_child(x)
 	_big = _make_view(kind); _big.big = true; _big.mirror_of = view
+	if _big is SemenovView and view is SemenovView: (_big as SemenovView).live = (view as SemenovView).live
 	_big.size_flags_vertical = Control.SIZE_EXPAND_FILL; _big.custom_minimum_size = Vector2(500, 300); vb.add_child(_big)
 	x.call_deferred("grab_focus")

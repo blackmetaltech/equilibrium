@@ -3,6 +3,7 @@ extends InstrPaper
 ## The Semenov plot (DESIGN 2.7 L24): heat generated G(T) (red pen, the S-curve) and heat removed R(T) (blue pen, a straight line) on chart-recorder
 ## paper. Each crossing is a steady state: a filled disc if stable, a ring with a cross if unstable. The operating point rides a dot on the
 ## paper. When the cooling changes the R line rotates (morph over 0.4 s). Data is the engine's `semenov(unitId)`: {T,G,R,states:[{T,stable}],op:{T}}.
+var live := true       ## false in DESIGN before a run: the curves only, no operating point (nothing is "actual" yet)
 var _y_hold := 0.0     ## kW: the axis only grows while a plant is on show, so it does not jump between 0-1000 and 0-1.0 as the curves move
 func has_reading() -> bool:
 	var ts := arr(data.get("T", []))
@@ -52,7 +53,7 @@ func _draw_body() -> void:
 	var op: Dictionary = data.get("op", {})
 	var now_txt := ""
 	var opT := num(op.get("T", 0.0))
-	if opT > 0.0:
+	if opT > 0.0 and live:
 		var ox: float = px.call(opT); var oy: float = py.call(_interp(ts, gs, opT))
 		draw_line(Vector2(ox, pl.position.y), Vector2(ox, pl.end.y), Color(EqTheme.INK, 0.4), 1.0)
 		draw_colored_polygon(PackedVector2Array([Vector2(ox, pl.end.y - 1.0), Vector2(ox - 6, pl.end.y + 8), Vector2(ox + 6, pl.end.y + 8)]), EqTheme.INK)

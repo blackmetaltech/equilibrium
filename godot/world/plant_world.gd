@@ -440,8 +440,17 @@ func begin_place(type: String, rot := 0) -> void:
 	_foot.material_override = _foot_mat; _foot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(_foot)
 	_update_ghost()
 
+## The refusal a click on a taken tile put on the intercom ("Occupied by X: pick a free spot") is withdrawn once the placement works, the tool changes or the ghost sits on a free spot.
+var _place_toast := ""
+func _clear_place_toast() -> void:
+	if _place_toast == "": return
+	var ch = app.get("chrome") if app != null else null
+	if ch != null and ch.get("intercom") != null: ch.intercom.drop_text(_place_toast)
+	_place_toast = ""
+
 func cancel_place() -> void:
 	placing = ""
+	_clear_place_toast()
 	if _why_tag != null: _why_tag.visible = false
 	if _ghost != null: _ghost.queue_free(); _ghost = null
 	if _foot != null: _foot.queue_free(); _foot = null
@@ -453,7 +462,7 @@ func place_at(x: int, y: int) -> bool:
 	if placing == "": return false
 	var why := place_problem(placing, x, y, place_rot, place_ignore)
 	if why != "":
-		if app != null and app.has_method("toast"): app.toast(why, "warn")
+		if app != null and app.has_method("toast"): _place_toast = why; app.toast(why, "warn")
 		return false
 	place_requested.emit(placing, x, y, place_rot); return true
 
@@ -463,6 +472,7 @@ func _update_ghost() -> void:
 	var t := Vector2i(clampi(_cursor.x, 0, NX - fp.x), clampi(_cursor.y, 0, NZ - fp.y))
 	var why := place_problem(placing, t.x, t.y, place_rot, place_ignore)
 	_cursor_valid = why == ""
+	if _cursor_valid: _clear_place_toast()
 	var col := Color("#38D96B") if _cursor_valid else Color("#E63946")
 	_ghost_why(why, tile_to_world(t, fp) + Vector3(0, _ghost.height * _ghost.scale.y + 1.2, 0))
 	_ghost.position = tile_to_world(t, fp); _ghost.rotation_degrees.y = -90.0 * place_rot; _ghost.tint_ghost(col)
@@ -536,8 +546,12 @@ func _click_at(p: Vector2) -> void:
 			_cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
 			place_at(_cursor.x, _cursor.y)
 		return
+	_press_port = {}   # a stale press (its release went to a panel) never turns a later click into a drag
 	var pk := _pick_port(p)
-	if not pk.is_empty(): _press_port = pk; port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
+	if not pk.is_empty():
+		# a pipe already half made: this press finishes it (click, click) and its release must do nothing; else this press starts a pipe and the release may finish it (drag)
+		if not pipe_ghost_active(): _press_port = pk
+		port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
 	var id := _pick_unit(p)
 	var pid := pipes.pick(p, cam, 12.0 if id == "" else 6.0)   # over a unit only a click right on the pipe's line picks the pipe: ports, then units, then loose pipes
 	if pid != "": select(""); pipes.select(pid); pipe_clicked.emit(pid); return
@@ -546,13 +560,36 @@ func _click_at(p: Vector2) -> void:
 ## A pipe in front of a unit wins when the cursor is on its centre line closer than the unit's screen centre (pipes ride above the ground).
 func pipes_over(_pid: String, _uid: String, _p: Vector2) -> bool: return true
 
+
+## Where a drag from `from` ended: a pip right under the pointer wins; a pip a little way off counts only when it belongs to the unit under the pointer (or no
+## unit is); letting go over a unit's body takes its one lit inlet. Never a port of another unit than the one under the release point, never the start port.
+func release_target(p: Vector2, from: Dictionary) -> Dictionary:
+	var ru := _pick_unit(p)
+	var near := 18.0 if CbLayout.touch else 14.0; var far := 40.0 if CbLayout.touch else 30.0
+	var best := {}; var bs := INF; var body := []
+	for i in range(_mark_nodes.size()):
+		var n: Node3D = _mark_nodes[i]
+		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue
+		var m: Dictionary = _marks[i]
+		if str(m.unit) == str(from.unit) and str(m.port) == str(from.port): continue
+		if bool(m.inlet) == bool(from.inlet): continue
+		var d := cam.unproject_position(n.global_position).distance_to(p)
+		if ru != "" and str(m.unit) == ru and bool(m.get("hot", false)): body.append([d, m])
+		if d > far: continue
+		if d > near and ru != "" and str(m.unit) != ru: continue
+		var sc := d - (8.0 if bool(m.get("hot", false)) else 0.0)
+		if sc < bs: bs = sc; best = m
+	if best.is_empty() and ru != "" and ru != str(from.unit) and not body.is_empty():
+		body.sort_custom(func(a, b): return a[0] < b[0]); best = body[0][1]
+	return best
+
 var _press_port := {}           ## the port a left press started on: releasing over another port finishes a drag-to-connect
 func _unhandled_input(e: InputEvent) -> void:
 	if not input_ok(): _press_port = {}; return
 	if e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT and not _press_port.is_empty():
-		var rel := _pick_port(e.position)
 		var from := _press_port; _press_port = {}
-		if not rel.is_empty() and (str(rel.unit) != str(from.unit) or str(rel.port) != str(from.port)): port_clicked.emit(str(rel.unit), str(rel.port), bool(rel.inlet))
+		var rel := release_target(e.position, from)
+		if not rel.is_empty(): port_clicked.emit(str(rel.unit), str(rel.port), bool(rel.inlet))
 		return
 	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION: _hover_port(e.position)
 	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION:

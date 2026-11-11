@@ -24,6 +24,7 @@ var parts_btn: Button
 var _vbox: VBoxContainer
 var _on := false
 var _level := ""
+var _pred_level := ""          ## the last real level id seen: the predict-first memory is dropped only when a different level starts
 var _coach_id := ""
 var _kind := "desktop"
 var _rack_float: PanelContainer
@@ -160,7 +161,8 @@ func refresh() -> void:
 	var li := level_info()
 	var id := str(li.get("id", "")) if not li.is_empty() else ""
 	if id != _level:
-		_level = id; intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false; _outcome_said = false; _bank_dup = ""; _fail_sig = ""; _last_fail_msg = ""; _fail_text = ""; _notice_sig = ""
+		_level = id; if id != "" and id != _pred_level: _pred_level = id; BuildKeeper.predict_done.erase(id)
+		intercom.clear(); _coach_id = "<unset>"; _explained_runs = -1; _shift_seen = false; _outcome_said = false; _bank_dup = ""; _fail_sig = ""; _last_fail_msg = ""; _fail_text = ""; _notice_sig = ""
 		_close_paper()
 		if app.bay != null: app.bay.reset()
 		if app.lvbay != null: app.lvbay.reset()
@@ -319,8 +321,10 @@ func _sync_key() -> void:
 			"shift": nx = 0; nt = PaperStrings.t("KH_RUN")
 	keys.set_next(nx, nt)
 	keys.set_speed_enabled(phase == "shift" or phase == "firstrun")
-	keys.set_speed_note(PaperStrings.t("CLOCK_PAUSED") if (phase == "design" or phase == "commissioned") and key_available() else "")
 	if phase != "shift" and phase != "firstrun" and app.speed != 0 and str(app.b.g.get("status", "playing")) == "playing" and app.started: app.set_speed(0); keys.set_speed_pos(0)
+	# the note follows the real clock: "PAUSED" only while nothing runs (dial at the pause bars), never over a 4x / 16x shift
+	keys.set_speed_note(PaperStrings.t("CLOCK_PAUSED") if (phase == "design" or phase == "commissioned") and key_available() and app.speed == 0 and keys.speed_pos == 0 else "")
+	if (phase == "shift" or phase == "firstrun") and keys.speed_pos != app.speed: keys.set_speed_pos(app.speed)
 
 func _poll_coach(li: Dictionary) -> void:
 	if li.is_empty() or CbSettings.tutorial == "off": return
@@ -370,7 +374,9 @@ func _call_it_empty() -> bool:
 	var cis: Array = li.get("callIts", []) if li.get("callIts") is Array else []
 	if cis.is_empty() and li.get("callIt") is Dictionary: cis = [li.callIt]
 	if cis.is_empty(): return false
-	for ci in cis: if ci is Dictionary and bool(ci.get("answered", false)): return false
+	var lid := str(li.get("id", ""))
+	if BuildKeeper.predict_done.has(lid): return false   # asked, answered or waived once for this attempt: never again until a fresh start
+	for ci in cis: if ci is Dictionary and bool(ci.get("answered", false)): BuildKeeper.predict_done[lid] = true; return false
 	return true
 
 func _ask_predict() -> void:
@@ -382,7 +388,7 @@ func _ask_predict() -> void:
 	var now := EqTheme.key_button(PaperStrings.t("PRD_NOW"), true, 17); now.name = "PredictNow"; now.custom_minimum_size = Vector2(0, 48)
 	now.pressed.connect(func(): h.queue_free(); app.focus_dialog(); Notebook.open(app)); vb.add_child(now)
 	var go := EqTheme.key_button(PaperStrings.t("PRD_RUN"), false, 17); go.name = "RunAnyway"; go.custom_minimum_size = Vector2(0, 48)
-	go.pressed.connect(func(): h.queue_free(); await app.get_tree().process_frame; turn_key(true)); vb.add_child(go)
+	go.pressed.connect(func(): BuildKeeper.predict_done[str(level_info().get("id", ""))] = true; h.queue_free(); await app.get_tree().process_frame; turn_key(true)); vb.add_child(go)
 	app.focus_dialog(); now.call_deferred("grab_focus")
 
 ## Turn the key straight to a position. DESIGN from any state is one click (the run is stopped and the build kept); COMMISSION / RUN step forward as far as asked.

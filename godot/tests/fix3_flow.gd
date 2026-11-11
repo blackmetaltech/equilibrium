@@ -141,7 +141,7 @@ func _pipes() -> void:
 	var a: Dictionary = app.b.act("placeUnit", ["feed", 2, 4, 0]); var b2: Dictionary = app.b.act("placeUnit", ["mixer", 12, 4, 0]); print(b2); app.game_on_changed(); await frames(3)
 	w.port_clicked.emit(str(a.id), "out", false); await frames(3)
 	check(hub.from_unit == str(a.id) and w.pipe_ghost_active(), "clicking an OUT starts a ghost line")
-	check(lines_text().contains("now click an inlet") or str(app.chrome.intercom.shown_text()).contains("now click an inlet"), "the intercom says now click an inlet")
+	check(lines_text().contains("drag on to a lit inlet") or str(app.chrome.intercom.shown_text()).contains("drag on to a lit inlet"), "the intercom says drag on to a lit inlet")
 	hub.clear_pipe(); await frames(2)
 	check(not w.pipe_ghost_active(), "the ghost line goes when the pipe is dropped")
 	# a real drag: press on the OUT pip, release on the IN pip

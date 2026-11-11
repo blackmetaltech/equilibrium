@@ -83,7 +83,7 @@ func set_view(d: Dictionary) -> void:
 		if k == null: continue
 		var v := float(x.get("value", 0.0)); var ch: Array = x.get("choices", [])
 		if not ch.is_empty(): v -= float(x.get("min", 0.0))
-		if k is Knob and (k as Knob)._drag: continue
+		if k is Knob and ((k as Knob)._drag or not (k as Knob)._timer.is_stopped()): continue
 		if absf(k.value - v) > 1e-9: k.set_value(v)
 	var li0 = PaperStrings.q(app_ref, "levelInfo") if app_ref != null else {}
 	var ph0 := str(li0.get("phase", "design")) if li0 is Dictionary else "design"

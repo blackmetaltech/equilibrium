@@ -142,7 +142,7 @@ static func open(app) -> bool:
 	# buttons on the paper edge
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); vb0.add_child(row)
 	var retry := EqTheme.key_button(PaperStrings.t("PR_RETRY"), not won, 18); retry.name = "Retry"
-	retry.pressed.connect(func(): host.queue_free(); app.end_ui = null; app.start_level(lid, true)); row.add_child(retry)
+	retry.pressed.connect(func(): _retry(app, host)); row.add_child(retry)
 	if won:   # keep the build and chase the remaining flasks: a fresh attempt on the same plant (stars only ever go up)
 		var kp := EqTheme.key_button(PaperStrings.t("PR_KEEP"), false, 18); kp.name = "KeepImproving"
 		kp.pressed.connect(func(): host.queue_free(); app.end_ui = null; await app.get_tree().process_frame; BuildKeeper.restart(app, true)); row.add_child(kp)
@@ -155,6 +155,14 @@ static func open(app) -> bool:
 	_fit.call_deferred(app, pn, sc, vb, max_h)
 	app.focus_dialog()
 	return true
+
+## Retry keeps the design (units, pipes, knob values, answers) and says so: edit it, then commission again.
+static func _retry(app, host: Control) -> void:
+	if is_instance_valid(host): host.queue_free()
+	app.end_ui = null
+	await app.get_tree().process_frame
+	var rr: Dictionary = BuildKeeper.restart(app, true)
+	if app.chrome != null: app.chrome.intercom.say("MARA", PaperStrings.t("IC_RETRY_KEPT") if int(rr.get("fails", 0)) == 0 else PaperStrings.t("IC_STOP_FAIL") % ", ".join(PackedStringArray(rr.get("missing", []))), "info")
 
 static func _fit(app, pn: Control, sc: ScrollContainer, vb: VBoxContainer, max_h: float) -> void:
 	for i in 2: await pn.get_tree().process_frame
