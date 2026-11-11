@@ -139,8 +139,14 @@ static func key_sb(primary: bool, state := "normal") -> StyleBoxFlat:
 	s.border_width_bottom = 3
 	return s
 
+## Phone floor for a touch target: 48 dp on the Pixel 9a (2.6 px/dp; the phone layout draws at 0.5 physical px per logical px).
+const PHONE_TAP := 62.4
+class TapButton extends Button:
+	func _enter_tree() -> void:   # callers set their own minimum before adding the key: the phone floor is applied when it joins the tree
+		if CbLayout.phone: custom_minimum_size = custom_minimum_size.max(Vector2(EqTheme.PHONE_TAP, EqTheme.PHONE_TAP))
+
 static func key_button(text: String, primary := false, size := 17) -> Button:
-	var b := Button.new(); b.text = text; b.focus_mode = Control.FOCUS_ALL
+	var b := TapButton.new(); b.text = text; b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_override("font", font("semi")); b.add_theme_font_size_override("font_size", fs(size))
 	for st in ["normal", "hover", "pressed", "disabled"]: b.add_theme_stylebox_override(st, key_sb(primary, st))
 	var fstyle := key_sb(primary, "hover"); fstyle.border_color = TEAL if not primary else INK; fstyle.set_border_width_all(3)

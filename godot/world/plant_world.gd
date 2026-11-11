@@ -686,8 +686,8 @@ func pad_move(left: Vector2, right: Vector2, _trigger: float, dt: float) -> void
 
 func _on_btn(which: String) -> void:
 	match which:
-		"zoom_in": cam_rig.zoom_step(1)
-		"zoom_out": cam_rig.zoom_step(-1)
+		"zoom_in": cam_rig.zoom_by(1.0 / 1.3)
+		"zoom_out": cam_rig.zoom_by(1.3)
 		"rot_l": cam_rig.rotate_view(-1)
 		"rot_r": cam_rig.rotate_view(1)
 
@@ -732,10 +732,13 @@ func _process(dt: float) -> void:
 		var show_btn: bool = (CbLayout.touch or OS.get_environment("CB_CAM_BUTTONS") != "") and input_ok() and not title_mode and app.started
 		_btn_layer.visible = show_btn
 		if show_btn:
-			_btns.size_px = maxf(CbLayout.tap(), 48.0); _btns.relayout()
+			_btns.size_px = maxf(CbLayout.tap(), 62.4 if CbLayout.phone else 48.0); _btns.cols = 2 if (CbLayout.phone and get_viewport().get_visible_rect().size.x > get_viewport().get_visible_rect().size.y) else 1; _btns.relayout()
 			var vr := get_viewport().get_visible_rect().size
 			var ins: Vector4 = app.inset
-			_btns.position = Vector2(vr.x - ins.z - cover - _btns.size.x - 16.0, vr.y * 0.5 - _btns.size.y * 0.5 - 20.0)
+			if _btns.cols == 2:   # landscape phone: a 2x2 pad at the bottom right, just above the console (the instrument window keeps the top right)
+				_btns.position = Vector2(vr.x - ins.z - cover - _btns.size.x - 12.0, vr.y - ins.w - cover_bottom - _btns.size.y - 12.0)
+			else:
+				_btns.position = Vector2(vr.x - ins.z - cover - _btns.size.x - 16.0, vr.y * 0.5 - _btns.size.y * 0.5 - 20.0)
 	if _fps_on:
 		_fps_t += dt; _fps_n += 1
 		if _fps_t >= 5.0: print("FPS avg=%.1f over %.1fs (%d frames)" % [_fps_n / _fps_t, _fps_t, _fps_n]); _fps_t = 0.0; _fps_n = 0

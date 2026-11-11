@@ -63,17 +63,21 @@ class Campaign:
 
 	static func load_all() -> void:
 		if _loaded: return
-		_loaded = true
 		if OS.get_environment("CB_UNLOCK_ALL") == "1": unlock_all = true
-		if not persisting(): return
+		if not persisting(): return   # not marked loaded: a later attach with persistence on still reads the file
+		_loaded = true
 		var c := ConfigFile.new()
 		if c.load(path) != OK: return
+		if not c.has_section("stars"): return   # a file written before any win (or by an older build) has no section: nothing to read, nothing to log
 		for k in c.get_section_keys("stars"):
-			stars[k] = clampi(int(c.get_value("stars", k, 0)), 0, 3); hard[k] = bool(c.get_value("hard", k, false))
+			var n := clampi(int(c.get_value("stars", k, 0)), 0, 3)
+			if n >= int(stars.get(k, 0)):   # a record already in memory (this session) is never lowered by the file
+				stars[k] = n; hard[k] = bool(c.get_value("hard", k, false)) if c.has_section_key("hard", k) else false
 
 	static func save_all() -> void:
 		if not persisting(): return
 		var c := ConfigFile.new()
+		c.set_value("meta", "version", 2)   # the sections below always exist, even with no star yet
 		for k in stars: c.set_value("stars", k, stars[k]); c.set_value("hard", k, hard.get(k, false))
 		c.save(path)
 
@@ -191,7 +195,7 @@ class Campaign:
 		var es = pr.get("stars", pr)
 		if not (es is Dictionary): return
 		for id in ids:
-			if (es as Dictionary).has(id): stars[id] = clampi(int((es as Dictionary)[id]), 0, 3)   # the engine's record wins where it has one
+			if (es as Dictionary).has(id) and int((es as Dictionary)[id]) > int(stars.get(id, 0)): stars[id] = clampi(int((es as Dictionary)[id]), 0, 3)   # the engine can only add: a fresh launch's all-zero record must not wipe the file's stars
 			# an id the engine has no record of keeps the user:// copy: that file is only the migration fallback for a launch that did not Continue (the engine's progress is carried over inside a session and saved with the game)
 
 	## Hook the running game (once): a won level is recorded with its stars, the backdrop follows, and a level that has just begun is autosaved
@@ -286,7 +290,7 @@ class MapView extends RefCounted:
 		start_btn.pressed.connect(func(): if WorksMap.sel_id != "": WorksMap.start(app, host, WorksMap.sel_id))
 		ibh.add_child(start_btn)
 		if not (compact and narrow):
-			var lg := EqTheme.label(WorksMap.T("MAP_LEGEND"), 13, EqTheme.DIM, "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
+			var lg := EqTheme.label(WorksMap.T("MAP_LEGEND") + ("   ·   swipe up for chapters 5-9 and Career" if CbLayout.phone else ""), 13, EqTheme.DIM, "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
 		# first focus: the first open, unstarred node (else the first open one)
 		var pick: NodeBtn = null
 		for id in WorksMap.Campaign.ids:
@@ -323,6 +327,11 @@ class MapView extends RefCounted:
 		info.text = head + "\n" + (why if why != "" else brief)
 		start_btn.disabled = why != ""
 		for k in nodes: (nodes[k] as NodeBtn).set_selected(k == id)
+
+	## The finger is dragging a list (CbTouchScroll's cancel arrives as a release while the finger is still over the lamp, which the button would count as a tap).
+	func swiping() -> bool:
+		var ts = app.get("touch_scroll") if app != null else null
+		return ts != null and bool(ts.get("_dragging"))
 
 	## A node was pressed. Desktop: starts an open job at once. Touch: the first tap selects, the second starts. A locked job only says why.
 	func pressed(id: String) -> void:
@@ -493,7 +502,7 @@ class SiteCard extends PanelContainer:
 		nb.tooltip_text = nb.text + ("\n" + WorksMap.T("MAP_BRIDGE") if bridge else "") + ("\n" + C.lock_reason(id) if nb.state == "locked" else "")
 		var tap := maxf(CbLayout.tap(), 46.0)
 		nb.custom_minimum_size = Vector2(tap, tap + 16.0)
-		nb.pressed.connect(func(): view.pressed(id))
+		nb.pressed.connect(func(): if not view.swiping(): view.pressed(id))   # a swipe that began on a lamp scrolls the map: it is never a tap
 		nb.focus_entered.connect(func(): view.select(id))
 		nb.mouse_entered.connect(func(): if not (CbLayout.touch or WorksMap._touch_override): view.select(id))
 		view.nodes[id] = nb

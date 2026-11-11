@@ -4,6 +4,7 @@ extends Control
 signal pressed(which: String)
 const KINDS := ["zoom_in", "zoom_out", "rot_l", "rot_r"]
 var size_px := 52.0
+var cols := 1            ## phone: a 2x2 pad so the buttons stay short and clear of the instrument window
 var _hot := ""
 
 func _ready() -> void:
@@ -16,8 +17,9 @@ func _ready() -> void:
 func relayout() -> void:
 	var s := maxf(size_px, 46.0); var gap := 8.0
 	for i in range(KINDS.size()):
-		var c: Control = get_node(KINDS[i]); c.position = Vector2(0, i * (s + gap)); c.size = Vector2(s, s); c.queue_redraw()
-	custom_minimum_size = Vector2(s, 4 * s + 3 * gap); size = custom_minimum_size
+		var c: Control = get_node(KINDS[i]); c.position = Vector2((i % cols) * (s + gap), (i / cols) * (s + gap)); c.size = Vector2(s, s); c.queue_redraw()
+	var rows := int(ceil(4.0 / cols))
+	custom_minimum_size = Vector2(cols * s + (cols - 1) * gap, rows * s + (rows - 1) * gap); size = custom_minimum_size
 
 func _input_btn(e: InputEvent, which: String, c: Control) -> void:
 	if (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and e.pressed):

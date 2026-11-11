@@ -62,6 +62,8 @@ func zoom_step(dir: int) -> void:
 	if best == zoom_i and ((dir > 0 and zoom_i == 0) or (dir < 0 and zoom_i == ZOOMS.size() - 1)): return
 	set_zoom_index(best)
 
+## The zoom buttons: a step of the view height from wherever the view is (a pinched or fitted size is not a preset, and a preset step could not move from it).
+func zoom_by(f: float) -> void: set_size(_size_to * f)
 func set_size(s: float) -> void: _size_to = clampf(s, ZMIN, ZMAX)
 func look_at_ground(p: Vector3) -> void: _pan_to = Vector3(clampf(p.x, -pan_limit.x, pan_limit.x), 0, clampf(p.z, -pan_limit.y, pan_limit.y))
 func pan_ground(d: Vector3) -> void: look_at_ground(_pan_to + d)

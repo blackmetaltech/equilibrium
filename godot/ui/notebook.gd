@@ -39,7 +39,7 @@ class Answer extends Control:
 	var locked := false
 	var refused := false          ## the engine turned the typed value down: it stays on the line, in red
 	signal tapped
-	func _init() -> void: custom_minimum_size = Vector2(190, 38); mouse_default_cursor_shape = Control.CURSOR_IBEAM; focus_mode = Control.FOCUS_ALL
+	func _init() -> void: custom_minimum_size = Vector2(190, EqTheme.PHONE_TAP if CbLayout.phone else 38.0); mouse_default_cursor_shape = Control.CURSOR_IBEAM; focus_mode = Control.FOCUS_ALL
 	func _gui_input(e: InputEvent) -> void:
 		if (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or e.is_action_pressed("ui_accept"): tapped.emit(); accept_event()
 	func _draw() -> void:
@@ -85,8 +85,14 @@ static func open(app) -> Control:
 	mg.add_theme_constant_override("margin_left", 70); mg.add_theme_constant_override("margin_top", 22); mg.add_theme_constant_override("margin_bottom", 24)
 	vb.reparent(mg)
 	var sc := ScrollContainer.new(); sc.name = "PageScroll"; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; sc.follow_focus = true; mg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(mg); pn.add_child(sc)   # a page taller than the screen scrolls instead of running off it
+	sc.add_child(mg)   # a page taller than the screen scrolls instead of running off it...
+	var outer := VBoxContainer.new(); outer.name = "Page"; outer.add_theme_constant_override("separation", 0); sc.size_flags_vertical = Control.SIZE_EXPAND_FILL; outer.add_child(sc); pn.add_child(outer)
+	var fm := MarginContainer.new(); fm.name = "FooterMargin"; fm.add_theme_constant_override("margin_left", 70); fm.add_theme_constant_override("margin_right", 28); fm.add_theme_constant_override("margin_bottom", 14); fm.add_theme_constant_override("margin_top", 4)
+	var fvb := VBoxContainer.new(); fvb.name = "Footer"; fvb.add_theme_constant_override("separation", 8); fm.add_child(fvb); outer.add_child(fm)   # ...and Call it + Start work stay pinned under it
+	vb.set_meta("fvb", fvb)
+	var rule := ColorRect.new(); rule.name = "FooterRule"; rule.color = Color(EqTheme.INK, 0.35); rule.custom_minimum_size = Vector2(0, 2); outer.add_child(rule); outer.move_child(rule, 1)
 	_fill(app, host, vb, li)
+	_dismiss(app, host, sc)
 	app.focus_dialog()
 	var tw := host.create_tween(); pn.modulate.a = 0.0
 	tw.tween_property(pn, "modulate:a", 1.0, 0.18)
@@ -100,12 +106,15 @@ static func _settle(app, pn: Control, w: float) -> void:
 		await pn.get_tree().process_frame
 		if not is_instance_valid(pn): return
 	var vh: float = app.vs_h()
-	var sc := pn.get_node_or_null("PageScroll") as ScrollContainer
+	var sc := pn.find_child("PageScroll", true, false) as ScrollContainer
 	if sc != null:
 		sc.custom_minimum_size.y = 0.0; pn.reset_size(); await pn.get_tree().process_frame
 		if not is_instance_valid(pn): return
 		var need := (sc.get_child(0) as Control).get_combined_minimum_size().y
-		sc.custom_minimum_size.y = minf(need, vh - 24.0)
+		var fh := 0.0
+		var fm := pn.find_child("FooterMargin", true, false) as Control
+		if fm != null: fh = fm.get_combined_minimum_size().y + 2.0
+		sc.custom_minimum_size.y = maxf(120.0, minf(need, vh - 24.0 - fh))
 	pn.reset_size(); app.center(pn, w, 0.0)
 	await pn.get_tree().process_frame
 	if not is_instance_valid(pn): return
@@ -118,9 +127,35 @@ static func close(app) -> void:
 
 static func _rebuild(app, host: Control, vb: VBoxContainer) -> void:
 	for c in vb.get_children(): c.queue_free()
+	var fv0 = vb.get_meta("fvb", null)
+	if fv0 != null: for c in (fv0 as Control).get_children(): c.queue_free()
 	_fill(app, host, vb, info(app))
 
+## Outside tap or a swipe down from the top of the page puts the notebook away (the Start key and the tab are the other ways).
+static func _dismiss(app, host: Control, sc: ScrollContainer) -> void:
+	var dm := host.get_child(0)
+	if dm is Control: (dm as Control).gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and is_instance_valid(host): host.queue_free())
+	var w := Dismiss.new(); w.sc = sc; w.host = host; host.add_child(w)
+
+class Dismiss extends Node:
+	var sc: ScrollContainer
+	var host: Control
+	var _y0 := -1.0
+	var _x0 := 0.0
+	var _top := false
+	var _done := false
+	func _input(e: InputEvent) -> void:
+		if not is_instance_valid(sc) or not is_instance_valid(host): return
+		if e is InputEventScreenTouch and (e as InputEventScreenTouch).index == 0:
+			if e.pressed: _y0 = e.position.y; _x0 = e.position.x; _top = sc.scroll_vertical <= 1; _done = false
+			else: _y0 = -1.0
+		elif e is InputEventScreenDrag and _y0 >= 0.0 and _top and not _done and (e as InputEventScreenDrag).index == 0:
+			var dy: float = e.position.y - _y0
+			if dy > 110.0 and dy > absf(e.position.x - _x0) * 1.5 and sc.scroll_vertical <= 1: _done = true; host.queue_free()
+
 static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void:
+	var fvb: VBoxContainer = vb.get_meta("fvb", vb)
 	vb.add_theme_constant_override("separation", 10); vb.custom_minimum_size.x = minf(660.0, app.get_viewport().get_visible_rect().size.x - 140.0)   # wrapped labels need a width to size against
 	var idx := int(li.get("index", 0))
 	var title := EqTheme.label("%02d · %s" % [idx, str(li.title)], 32, EqTheme.INK, "title"); title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; title.name = "Title"; vb.add_child(title)
@@ -175,9 +210,9 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	for ci in cis:
 		if not (ci is Dictionary): continue
 		if ci == cis[0] and li.get("predictNote") != null and str(li.predictNote) != "":
-			var pn := EqTheme.label(str(li.predictNote), 15, EqTheme.PEN_BLUE, "semi"); pn.name = "PredictNote"; pn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(pn)
+			var pn := EqTheme.label(str(li.predictNote), 15, EqTheme.PEN_BLUE, "semi"); pn.name = "PredictNote"; pn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; fvb.add_child(pn)
 		var ckey := str(ci.get("key", ""))
-		var cr := HBoxContainer.new(); cr.name = "CallIt" if cis.size() == 1 else "CallIt_" + ckey; cr.add_theme_constant_override("separation", 10); vb.add_child(cr)
+		var cr := HBoxContainer.new(); cr.name = "CallIt" if cis.size() == 1 else "CallIt_" + ckey; cr.add_theme_constant_override("separation", 10); fvb.add_child(cr)
 		cr.add_child(EqTheme.dymo(PaperStrings.t("NB_CALLIT"), 13))
 		var pl := EqTheme.label(str(ci.prompt) + ":", 18, EqTheme.INK, "sans"); pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cr.add_child(pl)
 		var an := Answer.new(); an.name = "Answer"; an.unit = str(ci.unit)
@@ -189,7 +224,7 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 		if answered:   # the locked answer is written under the line, and stays there when the notebook is reopened
 			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "")
 			cnote.add_theme_color_override("font_color", EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK); cnote.label_settings = EqStrings.ls(15, EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK, "semi"); cnote.visible = true
-		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); vb.remove_child(cr); cwrap.add_child(cr); cwrap.add_child(cnote); vb.add_child(cwrap); vb.move_child(cwrap, pi)
+		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); fvb.remove_child(cr); cwrap.add_child(cr); cwrap.add_child(cnote); fvb.add_child(cwrap); fvb.move_child(cwrap, pi)
 		an.tapped.connect(func(): Knob.keypad(app, str(ci.prompt), str(ci.unit), an.text, 0.0, 1e9, func(v: float) -> void:
 			var r: Dictionary = app.b.act("callIt", [v] if ckey == "" else [v, ckey])
 			if not bool(r.get("ok", false)):   # the engine's refusal is shown on the page itself, and the typed value stays on the line
@@ -197,7 +232,7 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 				cnote.text = PaperStrings.t("NB_REFUSED") % str(r.get("message", "")); cnote.add_theme_color_override("font_color", EqTheme.RED); cnote.label_settings = EqStrings.ls(15, EqTheme.RED, "semi"); cnote.visible = true
 			else: _rebuild(app, host, vb)))
 	# mode chip (first job only), then the key
-	var foot := HBoxContainer.new(); foot.add_theme_constant_override("separation", 10); vb.add_child(foot)
+	var foot := HBoxContainer.new(); foot.add_theme_constant_override("separation", 10); fvb.add_child(foot)
 	if _is_first(app, str(li.get("id", ""))):
 		foot.add_child(EqTheme.dymo(PaperStrings.t("NB_MODE"), 13))
 		for m in ["learner", "engineer"]:

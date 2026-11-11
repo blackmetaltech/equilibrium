@@ -108,23 +108,48 @@ func layout() -> void:
 	recorder.custom_minimum_size = Vector2(220.0 if _kind == "desktop" else (200.0 if hand else 190.0), row_h)
 	keys.set_compact(_kind != "desktop")
 	if phone:
+		# the parts drawer: a sheet above its own button holding the tiles in a wrapping, finger-scrolled grid
 		if rack_wrap.get_parent() != _rack_float: rack_wrap.reparent(_rack_float, false)
-		rack_wrap.custom_minimum_size = Vector2(0, 84)
-		parts_btn.visible = _on; parts_btn.custom_minimum_size = Vector2(0, tap)
+		var dw := minf(vw * 0.62, 700.0); var dh := 262.0
+		var btn_h := maxf(tap, PHONE_TAP)
+		_rack_float.custom_minimum_size = Vector2(dw, dh)
+		rack_wrap.custom_minimum_size = Vector2(dw - 24.0, dh - 16.0); rack_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rack_wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		rack_wrap.mouse_filter = Control.MOUSE_FILTER_PASS
+		rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+		rack_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_rack_flow(true)
+		parts_btn.visible = _on; parts_btn.custom_minimum_size = Vector2(150.0, btn_h)
 		_rack_float.visible = rack_open and _on
-		_rack_float.set_anchors_preset(Control.PRESET_BOTTOM_WIDE); _rack_float.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		_rack_float.offset_bottom = -(row_h + 28.0); _rack_float.offset_top = -(row_h + 28.0 + 100.0)
-		parts_btn.set_anchors_preset(Control.PRESET_BOTTOM_LEFT); parts_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		parts_btn.offset_left = 12.0; parts_btn.offset_bottom = -(row_h + 22.0); parts_btn.offset_top = -(row_h + 22.0 + tap); parts_btn.offset_right = 12.0 + 130.0
-		parts_btn.text = EqStrings.T("PARTS_TAB")
+		for a in ["anchor_left", "anchor_right", "anchor_top", "anchor_bottom"]: _rack_float.set(a, 0.0 if a.begins_with("anchor_l") or a.begins_with("anchor_r") else 1.0)
+		var bt := -(row_h + 22.0 + btn_h + 6.0)
+		_rack_float.offset_left = 12.0; _rack_float.offset_right = 12.0 + dw; _rack_float.offset_bottom = bt; _rack_float.offset_top = bt - dh
+		_rack_float.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		parts_btn.anchor_left = 0.0; parts_btn.anchor_right = 0.0; parts_btn.anchor_top = 1.0; parts_btn.anchor_bottom = 1.0
+		parts_btn.offset_left = 12.0; parts_btn.offset_right = 12.0 + 150.0; parts_btn.offset_bottom = -(row_h + 22.0); parts_btn.offset_top = -(row_h + 22.0 + btn_h)
+		parts_btn.text = EqStrings.T("PARTS_TAB") + (" ▾" if rack_open else " ▴")
 	else:
 		if rack_wrap.get_parent() != _vbox: rack_wrap.reparent(_vbox, false)
 		rack_wrap.custom_minimum_size = Vector2(0, 88.0 if _kind == "desktop" else 76.0)
+		rack_wrap.size_flags_horizontal = Control.SIZE_FILL; rack_wrap.size_flags_vertical = Control.SIZE_FILL; rack_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		_rack_flow(false)
 		rack_wrap.visible = true; parts_btn.visible = false; _rack_float.visible = false
 	panel.offset_top = 0; panel.offset_bottom = 0; panel.offset_left = 0; panel.offset_right = 0
 	hud_top_left.offset_left = 12.0; hud_top_left.offset_top = 10.0
 	hud_top_left.size = Vector2(minf(420.0, vw - tap - 40.0), tap)
 	call_deferred("_notify_height")
+
+const PHONE_TAP := 62.4   ## 48 dp on the Pixel 9a (2.6 px/dp, the phone layout draws at 0.5 physical px per logical px)
+
+## The rack's tiles wrap into rows in the phone drawer (scrolled by finger), and run in one strip elsewhere.
+func _rack_flow(on: bool) -> void:
+	if rack == null and rack_slot != null:
+		for ch in rack_slot.get_children(): if ch.has_method("set_flow"): rack = ch
+	if rack != null and rack.has_method("set_flow"): rack.call("set_flow", on)
+
+## A tile was chosen on a phone: the drawer folds away so the ghost and the plant are in view.
+func close_rack() -> void:
+	if rack_open: rack_open = false; layout()
 
 func _notify_height() -> void:
 	if app != null and app.world != null and app.world.has_method("set_cover_bottom"): app.world.call("set_cover_bottom", console_height())

@@ -6,7 +6,7 @@ extends HBoxContainer
 var app = null
 var tiles: Array = []
 var _scroll: ScrollContainer
-var _row: HBoxContainer
+var _row: Container
 var _focus := 0
 var _sig := ""
 var _tsig := ""
@@ -27,8 +27,15 @@ class Tile extends Control:
 	var need := false       ## the level cannot be read without this part (levelInfo.notice NEEDS_UNIT): an amber chevron bobs on the tile
 	var _hover := false
 	func _init() -> void: custom_minimum_size = PartsRack.TILE; mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND; focus_mode = Control.FOCUS_ALL
+	var _press := Vector2(-1, -1)
 	func _gui_input(e: InputEvent) -> void:
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: grab_focus(); picked.emit(type); accept_event()
+		if CbLayout.phone and e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			# a finger: the tile is chosen on lift, and only if the finger did not travel (a drag scrolls the drawer)
+			if e.pressed: _press = e.position; accept_event()
+			else:
+				if _press.x >= 0.0 and e.position.distance_to(_press) < 18.0: picked.emit(type)
+				_press = Vector2(-1, -1); accept_event()
+		elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: grab_focus(); picked.emit(type); accept_event()
 		elif e is InputEventMouseMotion: pass
 		elif e.is_action_pressed("ui_accept"): picked.emit(type); accept_event()
 	func _notification(w: int) -> void:
@@ -81,6 +88,21 @@ func _init() -> void:
 	_scroll = ScrollContainer.new(); _scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL; _scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO; _scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; add_child(_scroll)
 	_row = HBoxContainer.new(); _row.add_theme_constant_override("separation", 6); _scroll.add_child(_row)
+
+var flow := false
+## Phone drawer: tiles wrap into rows (a HFlowContainer) instead of one strip.
+func set_flow(on: bool) -> void:
+	if on == flow or _row == null: return
+	flow = on
+	var nr: Container = HFlowContainer.new() if on else HBoxContainer.new()
+	nr.add_theme_constant_override("separation", 6); nr.add_theme_constant_override("h_separation", 6); nr.add_theme_constant_override("v_separation", 6)
+	nr.size_flags_horizontal = Control.SIZE_EXPAND_FILL if on else Control.SIZE_FILL
+	for t in tiles: if is_instance_valid(t) and t.get_parent() != null: t.reparent(nr, false)
+	var par := _row.get_parent(); var idx := _row.get_index()
+	par.add_child(nr); par.move_child(nr, idx); _row.queue_free(); _row = nr
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL if on else Control.SIZE_FILL
+	if on: custom_minimum_size = Vector2(0, 0)
+	else: custom_minimum_size = Vector2(0, TILE.y + 6)
 
 func _ready() -> void:
 	var n := get_parent()   # inside a scrolling slot (the console's rack strip) the tiles flow at full width and the slot scrolls
@@ -138,6 +160,7 @@ func pick(type: String) -> void:
 	if app.world.placing == type: app.world.cancel_place(); return
 	app.world.begin_place(type)
 	app.sfx("click") if app.has_method("sfx") else null
+	if CbLayout.phone and app.get("chrome") != null: app.chrome.close_rack()
 
 func pick_index(i: int) -> void:
 	if i >= 0 and i < tiles.size(): pick((tiles[i] as Tile).type)
