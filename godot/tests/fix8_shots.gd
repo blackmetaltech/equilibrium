@@ -22,6 +22,8 @@ func _initialize() -> void:
 		"l24":
 			await level("L24"); await frames(6); await snap(tag + "_design")
 			app.chrome.turn_key(true); await frames(20); await snap(tag + "_run")
+		"l03":
+			await level("L03"); await frames(10); await snap(tag)
 		"keypad":
 			await level("L10"); app.b.act("placeUnit", ["compressor", 8, 2, 0]); app.game_on_changed(); await frames(3)
 			Faceplate.attach(app); Faceplate.open(app, "K-101" if false else str(app.b.q("plant").units.back().id)); await frames(6)

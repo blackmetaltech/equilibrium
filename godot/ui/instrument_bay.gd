@@ -126,6 +126,7 @@ func refresh(force := false) -> void:
 	var design: bool = k == "semenov" and app.chrome != null and app.chrome.engine_phase() == "design"
 	if view is SemenovView: (view as SemenovView).live = not design
 	if design != _compact: _compact = design; layout(); _sig = ""
+	elif view != null and absf(size.y - custom_minimum_size.y) > 1.0: layout()   # a sheet left at a stale size (a view rebuilt mid-switch)
 	var d = _query(k, _unit)
 	if not (d is Dictionary) and view != null and not (view.data as Dictionary).is_empty(): view.set_data({}); _sig = ""
 	var sig := JSON.stringify(d)

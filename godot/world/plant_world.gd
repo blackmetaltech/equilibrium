@@ -131,6 +131,43 @@ func _fit(m: UnitModel, type: String) -> void:   ## models drawn for their own f
 	var k := minf(1.0, minf(float(f.x) / m.tiles.x, float(f.y) / m.tiles.y))
 	m.scale = Vector3(k, k, k)
 
+## Every feed says what it carries: its tank bands take the species colour and a tag over it names it (AIR, or the dominant species), so air and fuel never look alike.
+var _feed_ms := 0
+func _feed_species(g: Dictionary) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _feed_ms < 400 or app == null: return
+	_feed_ms = now
+	var sp: Array = g.get("species", []); var cols: Array = g.get("colours", [])
+	var li = PaperStrings.q(app, "levelInfo")
+	var masked: Array = li.get("masked", []) if li is Dictionary and li.get("masked") is Array else []
+	for u in g.get("units", []):
+		if str(u.get("type", "")) != "feed" or not _units.has(str(u.get("id", ""))): continue
+		var id := str(u.id)
+		var c = PaperStrings.q(app, "unitCard", [id])
+		var f = c.get("feed") if c is Dictionary else null
+		if not (f is Dictionary) or not (f.get("x") is Array): continue
+		var x: Array = f.x; var bi := -1; var bv := 0.0; var o2 := 0.0; var n2 := 0.0
+		for i in range(mini(x.size(), sp.size())):
+			if float(x[i]) > bv: bv = float(x[i]); bi = i
+			if str(sp[i]) == "O2": o2 = float(x[i])
+			if str(sp[i]) == "N2": n2 = float(x[i])
+		if bi < 0: continue
+		var air := o2 > 0.15 and n2 > 0.5
+		var col_i := bi
+		if air: col_i = sp.find("O2")
+		var txt := "AIR" if air else EqStrings.formula(str(sp[bi]))
+		if masked.has(id): txt = "FUEL ?"; col_i = -1   # an unknown fuel (L03) is never named by its tag
+		var m: UnitModel = _units[id]
+		if col_i >= 0 and col_i < cols.size(): m.set_display({"color": Color(str(cols[col_i]))})
+		var lb: Label3D = m.get_node_or_null("SpeciesTag")
+		if lb == null:
+			lb = Label3D.new(); lb.name = "SpeciesTag"; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true
+			lb.pixel_size = 0.0011; lb.font_size = 34; lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.9); lb.font = EqTheme.font("semi"); lb.render_priority = 6; lb.outline_render_priority = 5
+			lb.position = Vector3(0, m.height + 1.0, 0); m.add_child(lb)
+		lb.text = "%s · %s" % [id, txt]
+		lb.modulate = Color(str(cols[col_i])).lightened(0.35) if col_i >= 0 and col_i < cols.size() else Color("#FFD27A")
+		if col_i < 0: m.set_display({"color": Color("#E9C46A")})
+
 ## Live display from the engine snapshot: stream looks, unit heat and alarms.
 func set_snapshot(g: Dictionary) -> void:
 	var al := {}
@@ -141,6 +178,7 @@ func set_snapshot(g: Dictionary) -> void:
 		var d := {"alarm": 2 if bool(u.get("failed", false)) else clampi(int(al.get(id, 0)), 0, 2)}
 		if float(u.get("T", 0.0)) > 0.0: d["T_K"] = float(u["T"]); d["glow"] = float(u.get("glow", 0.0))
 		(_units[id] as UnitModel).set_display(d)
+	_feed_species(g)
 	pipes.set_streams(g.get("streams", []), g.get("colours", []))
 	if critters: critters.update(pipes, g.get("streams", []), g.get("species", []), _lost_pipes())
 	if critters: critters.update_reactors(self, g.get("streams", []), g.get("species", []))
@@ -181,7 +219,8 @@ func show_ports(list: Array) -> void:
 		else: var sm := SphereMesh.new(); sm.radius = r; sm.height = r * 2.0; mi.mesh = sm
 		var col := Color("#FFB703") if bool(it.inlet) else TEAL
 		var m := StandardMaterial3D.new(); m.albedo_color = col; m.emission_enabled = true; m.emission = col; m.emission_energy_multiplier = 2.5 if hot else 1.1
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 5
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 10
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA   # drawn in the transparent pass after the unit and its (translucent) alarm-beacon bars: nothing sits over a port pip
 		# the pip rides toward the camera (and a little up) so a port on the far side of a tank is not buried in its body
 		var toward := cam.global_transform.basis.z.normalized()
 		mi.material_override = m; mi.position = f.pos + f.dir * 0.3 + toward * 1.2 + Vector3(0, 0.25, 0); add_child(mi); _mark_nodes.append(mi)
@@ -223,6 +262,21 @@ func _hover_port(p: Vector2) -> void:
 		if not port_hint_shown and app != null and app.has_method("toast"):
 			port_hint_shown = true; app.toast(PaperStrings.t("PIPE_HINT"), "info")
 	else: Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+
+## A press close to a port of any unit makes that unit "hovered" at once, so its free-port pips exist for the pick (no hover motion needed first).
+func _probe_ports(p: Vector2) -> void:
+	if not _pick_port(p).is_empty() or placing != "" or pipe_ghost_active(): return
+	var bd := 30.0 if CbLayout.touch else 22.0
+	var toward := cam.global_transform.basis.z.normalized(); var hit := ""
+	for id in _units:
+		var m: UnitModel = _units[id]
+		if not m.visible: continue
+		for pn in m.ports:
+			var f := port_frame(str(id), str(pn), false)
+			if f.is_empty(): continue
+			var w: Vector3 = f.pos + f.dir * 0.3 + toward * 1.2 + Vector3(0, 0.25, 0)
+			if not cam.is_position_behind(w) and cam.unproject_position(w).distance_to(p) < bd: bd = cam.unproject_position(w).distance_to(p); hit = str(id)
+	if hit != "": _hover_unit = hit; unit_hover.emit(hit)
 
 func _pick_port(p: Vector2) -> Dictionary:
 	var best := {}; var bd := (30.0 if CbLayout.touch else 20.0)
@@ -546,6 +600,7 @@ func _click_at(p: Vector2) -> void:
 			_cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
 			place_at(_cursor.x, _cursor.y)
 		return
+	_probe_ports(p)    # the pips of a unit that is not selected or hovered yet (a first press right after placing parts): light them before picking
 	_press_port = {}   # a stale press (its release went to a panel) never turns a later click into a drag
 	var pk := _pick_port(p)
 	if not pk.is_empty():

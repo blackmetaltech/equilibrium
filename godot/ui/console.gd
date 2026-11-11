@@ -319,6 +319,7 @@ func _sync_key() -> void:
 			"design": nx = 1; nt = PaperStrings.t("KH_DESIGN")
 			"commissioned": nx = 2; nt = PaperStrings.t("KH_COMMISSIONED")
 			"shift": nx = 0; nt = PaperStrings.t("KH_RUN")
+	if str(app.b.g.get("status", "playing")) == "lost" and not level_info().is_empty(): nx = 0; nt = PaperStrings.t("KH_BACK")
 	keys.set_next(nx, nt)
 	keys.set_speed_enabled(phase == "shift" or phase == "firstrun")
 	if phase != "shift" and phase != "firstrun" and app.speed != 0 and str(app.b.g.get("status", "playing")) == "playing" and app.started: app.set_speed(0); keys.set_speed_pos(0)
@@ -339,6 +340,7 @@ func _poll_coach(li: Dictionary) -> void:
 # ---- the key ---------------------------------------------------------------------------------------------------------------------------------
 ## One step of the key: DESIGN -> COMMISSION (the engine's commission action) -> RUN (start the shift). Returns the action result ({} when nothing ran).
 func turn_key(skip_predict := false) -> Dictionary:
+	if app != null and app.started and str(app.b.g.get("status", "playing")) == "lost" and not level_info().is_empty(): return stop_and_edit()   # a lost level always has a way back: the key goes to DESIGN with the build kept
 	if app == null or not app.started or str(app.b.g.get("status", "playing")) != "playing": return {}
 	phase = engine_phase()
 	if phase == "design" and not skip_predict and _call_it_empty():
@@ -393,6 +395,7 @@ func _ask_predict() -> void:
 
 ## Turn the key straight to a position. DESIGN from any state is one click (the run is stopped and the build kept); COMMISSION / RUN step forward as far as asked.
 func goto_pos(i: int) -> void:
+	if app != null and app.started and str(app.b.g.get("status", "playing")) == "lost" and not level_info().is_empty(): stop_and_edit(); return
 	if app == null or not app.started or str(app.b.g.get("status", "playing")) != "playing": return
 	phase = engine_phase()
 	var cur := 0 if phase == "design" else (1 if phase == "commissioned" else 2)

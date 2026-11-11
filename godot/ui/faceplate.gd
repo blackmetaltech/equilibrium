@@ -215,6 +215,8 @@ func _rebuild() -> void:
 	if not _bank:
 		for k in card.knobs: _add_knob(k)
 	if card.get("catalyst") is Dictionary and not _bank: _add_catalyst(card.catalyst)
+	if str(card.type) == "interlock" and str(app.b.g.get("level", "")) == "L24":   # L24: the latched trip is released here (the engine refuses while the reactor is still hot, and says so)
+		var rb := _btn(PaperStrings.t("ILK_RESET"), func(): _reset_interlock()); rb.name = "ResetInterlock"; rb.tooltip_text = PaperStrings.t("ILK_RESET_TIP"); _knob_box.add_child(rb)
 	if (card.knobs as Array).is_empty() and not _bank and not (card.get("catalyst") is Dictionary):
 		var nl := EqTheme.label("—", 18, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.5), "mono"); nl.custom_minimum_size = Vector2(90, 40); _knob_box.add_child(nl)
 	_body.add_child(HSeparator.new())
@@ -257,6 +259,11 @@ func _commit_bank(v: float) -> void:
 	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
 	refresh()
 
+func _reset_interlock() -> void:
+	var r: Dictionary = app.b.act("levelAct", ["resetInterlock"])
+	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn")
+	app.game_on_changed(); refresh()
+
 ## The bin: delete this unit (the hub confirms when it has pipes).
 func _delete_me() -> void:
 	var hub = app.root.get_node_or_null("PaperHub")
@@ -290,6 +297,8 @@ func _add_knob(k: Dictionary) -> void:
 		var span := hi - lo
 		var coarse := _nice(span * 0.01); var fine := _nice(span * 0.001)   # floors of the relative wheel step
 		if bool(k.get("int", false)): coarse = 1.0; fine = 1.0
+		elif has_dp and dp.get("coarse") != null and float(dp.coarse) > 0.0:   # the engine's own step for this knob (an interlock set point moves 1 degC at a time): fixed steps for the wheel and the +/- buttons
+			coarse = float(dp.coarse); fine = float(dp.get("fine", coarse)) if float(dp.get("fine", 0.0)) > 0.0 else coarse; kn.engine_steps = true
 		else: kn.relative = true   # the wheel moves ~2 % of the value (0.2 % with Shift) in 1/2/5 steps: fine enough to land a narrow window
 		var ulab := str(dp.unit) if has_dp else str(k.get("unitLabel", unit))
 		kn.setup(lab, PaperStrings.usym(ulab), lo, hi, coarse, fine, float(dp.value) if has_dp else EqFmt.to_disp(float(k.value), unit), bool(k.get("int", false)))
@@ -346,6 +355,7 @@ func _add_catalyst(cat: Dictionary) -> void:
 	_knob_box.add_child(box)
 
 func _cat_line(o: Dictionary) -> String:
+	if o.has("kText"): return "%s · k %s (25 °C)" % [str(o.name), str(o.kText)]   # a bench rig's catalyst: the rate constant, not a price
 	return "%s · %s ×%s · %s %s °C" % [str(o.name), PaperStrings.t("FP_PRICE"), PaperStrings.num(float(o.price)), PaperStrings.t("FP_LIGHTOFF"), PaperStrings.num(float(o.lightOffC))]
 
 func _commit_catalyst(id: String) -> void:
@@ -520,6 +530,15 @@ func _update_catalyst() -> void:
 	for o in cat.options:
 		(pickers.catalyst[str(o.id)] as Button).set_pressed_no_signal(str(o.id) == cur)
 		if str(o.id) == cur: line = "%s %s · %s %s °C" % [PaperStrings.t("FP_PRICE"), "×" + PaperStrings.num(float(o.price)), PaperStrings.t("FP_LIGHTOFF"), PaperStrings.num(float(o.lightOffC))]
+	var rig = card.get("rig")
+	if rig is Dictionary:   # a batch rig (L18): its catalyst by name, k now, and whether it is fast enough for the bench's goal
+		line = PaperStrings.t("RIG_LINE") % [str(rig.catalystName), str(rig.kTextNow)]
+		var lv = PaperStrings.q(app, "levelView")
+		if lv is Dictionary and lv.get("rigs") is Array:
+			for r in lv.rigs:
+				if str(r.id) == unit_id:
+					line += "\n" + (PaperStrings.t("RIG_OK") if bool(r.fastEnough) else PaperStrings.t("RIG_SLOW")) % str(lv.get("kNeededText", ""))
+	elif line == "": pass
 	if _cat_note != null: _cat_note.text = line
 	readouts["catalyst"] = {"text": cur, "si": 0.0, "unit": "", "cap": "catalyst"}
 

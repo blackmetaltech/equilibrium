@@ -191,7 +191,7 @@ func _bank_and_knobs() -> void:
 	for k in app.b.q("unitCard", ["R-103"]).knobs: if str(k.key) == "X": spec = k
 	var kn: Knob = rp.knobs.X
 	var span := kn.hi - kn.lo
-	check(kn.coarse > 0.0 and kn.coarse <= span * 0.0125 + 1e-9 and kn.coarse >= span * 0.0049, "wheel step is about 1 %% of the range (%f of %f)" % [kn.coarse, span])
+	check(kn.coarse > 0.0 and spec.get("disp") is Dictionary and absf(kn.coarse - float(spec.disp.coarse)) < 1e-9 and kn.coarse <= span * 0.1, "wheel step is the engine's disp.coarse (%f of %f)" % [kn.coarse, span])   # F8: knobs carry the engine's own steps
 	check(kn.fine <= kn.coarse * 0.25 and kn.fine > 0.0, "Shift step is a tenth of that (%f)" % kn.fine)
 	kn.set_value(kn.hi + 1000.0); check(kn.value <= kn.hi + 1e-9, "a knob never goes above the engine max")
 	kn.set_value(kn.lo - 1000.0); check(kn.value >= kn.lo - 1e-9, "...or below the engine min")
@@ -290,7 +290,7 @@ func _l00() -> void:
 	var hf := Faceplate.open(app, "H-104"); await frames(2)
 	var kn: Knob = hf.knobs.T
 	var tspan := kn.hi - kn.lo
-	check(kn.coarse >= tspan * 0.005 and kn.coarse <= tspan * 0.0125 and kn.fine <= kn.coarse * 0.25, "T wheel step is ~1 %% of its range, Shift a tenth: %f / %f of %f" % [kn.coarse, kn.fine, tspan])
+	check(kn.coarse > 0.0 and kn.coarse <= tspan * 0.1 and kn.fine <= kn.coarse * 0.25, "T wheel step is the engine's coarse, Shift its fine: %f / %f of %f" % [kn.coarse, kn.fine, tspan])
 	kn.set_value(kn.lo - 500.0); check(kn.value >= kn.lo - 1e-9 and kn.value > -124.0, "T is clamped to the unitCard minimum (%f)" % kn.value)
 	kn.set_value(t_start(hf))
 	var t0 := kn.value

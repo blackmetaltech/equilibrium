@@ -30,6 +30,7 @@ var _drag_acc := 0.0
 var _drag_y := 0.0           ## relative vertical drag: pointer y at the last motion event
 var _burst_st := 0.0         ## a relative knob's wheel step is fixed for the whole burst (linear notches, no acceleration while the value grows)
 var lock_reason := ""      ## shown when a locked knob is pressed
+var engine_steps := false     ## coarse / fine come from the engine's knob spec: the wheel and the +/- buttons move by exactly those (fine with Shift)
 var nudge := true            ## a - and a + button either side of the dial (touch and fine work)
 
 func _init() -> void:

@@ -48,7 +48,7 @@ func _initialize() -> void:
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(8); CbSettings.persist = false
 	root.size = Vector2i(1920, 1080); await frames(4)
-	await _piping(); await _delete(); await _steppers(); await _keypad(); await _stale(); await _speed(); await _predict_retry(); await _semenov(); await _intercom()
+	await _piping(); await _delete(); await _steppers(); await _keypad(); await _stale(); await _speed(); await _predict_retry(); await _semenov(); await _intercom(); await _engine_addendum(); await _novice(); await _feeds_and_first_drag()
 	print("FIX8-FLOW checks=%d" % checks)
 	print("FIX8-FLOW OK" if fails == 0 else "FIX8-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
@@ -304,8 +304,8 @@ func _semenov() -> void:
 	app.chrome.turn_key(true); await frames(6); app.bay.refresh(true); await frames(3)
 	check((app.bay.view as SemenovView).live, "after commissioning the operating point is live")
 	check(design_size.x < app.bay.size.x and design_size.y < app.bay.size.y, "the DESIGN sheet is smaller than the running one: %s vs %s" % [str(design_size), str(app.bay.size)])
-	app.chrome.stop_and_edit(); await frames(6); app.bay.refresh(true); await frames(3)
-	check(app.bay.size.is_equal_approx(design_size) and not (app.bay.view as SemenovView).live, "back in DESIGN it is small again with no operating point")
+	app.chrome.stop_and_edit(); await frames(12); app.bay.refresh(true); await frames(3); app.bay.refresh(true); await frames(3)
+	check(app.bay.size.is_equal_approx(design_size) and not (app.bay.view as SemenovView).live, "back in DESIGN it is small again with no operating point: %s vs %s live %s phase %s compact %s vmin %s" % [str(app.bay.size), str(design_size), str((app.bay.view as SemenovView).live), app.chrome.engine_phase(), str(app.bay._compact), str(app.bay.view.custom_minimum_size)])
 
 # ---- 9. the intercom wraps whole words ---------------------------------------------------------------------------------------------
 func _intercom() -> void:
@@ -321,3 +321,87 @@ func _intercom() -> void:
 		check(t.visible_characters == -1, "%s: the whole line is revealed" % str(sz))
 		check(t.get_line_count() <= t.max_lines_visible or t.lines_skipped > 0, "%s: a line longer than the box scrolls by whole lines" % str(sz))
 	root.size = Vector2i(1920, 1080); await frames(4)
+
+# ---- addendum: interlock reset, engine knob steps, the L18 rig card ----------------------------------------------------------------
+func _engine_addendum() -> void:
+	await level("L24"); Faceplate.attach(app)
+	var ilk := ""
+	for u in app.b.q("plant").units: if str(u.type) == "interlock": ilk = str(u.id)
+	check(ilk != "", "L24 has its interlock")
+	var fp: Faceplate = Faceplate.open(app, ilk); await frames(6)
+	var rb: Button = fp.find_child("ResetInterlock", true, false)
+	check(rb != null, "the interlock card carries a RESET button")
+	if rb != null:
+		var n0: int = app.chrome.intercom.lines.size()
+		rb.pressed.emit(); await frames(3)
+		var ic = app.chrome.intercom
+		check(ic.lines.size() > n0 and str(ic.last().text) != "" and str(ic.last().kind) == "warn", "RESET with nothing tripped shows the engine's refusal text: %s" % str(ic.last().text))
+	var kn: Knob = null
+	for k in fp.knobs: kn = fp.knobs[k]
+	var d = null
+	for k in app.b.q("unitCard", [ilk]).knobs: d = k.get("disp")
+	check(d is Dictionary and kn != null and absf(kn.coarse - float(d.coarse)) < 1e-9 and absf(kn.fine - float(d.fine)) < 1e-9, "the knob steps are the engine's disp.coarse / disp.fine: %s vs %s" % [str(d), str(kn.coarse if kn else -1)])
+	if kn != null:
+		kn.set_value(130.0)
+		var e := InputEventMouseButton.new(); e.button_index = MOUSE_BUTTON_LEFT; e.pressed = true; e.position = kn._nudge_rect(-1).get_center(); kn._gui_input(e); e.pressed = false; kn._gui_input(e)
+		check(absf(kn.value - (130.0 - kn.coarse)) < 1e-6, "one - click steps by the engine's coarse step: %f" % kn.value)
+		var e2 := InputEventMouseButton.new(); e2.button_index = MOUSE_BUTTON_WHEEL_DOWN; e2.pressed = true; kn.set_value(130.0); kn._gui_input(e2)
+		check(absf(kn.value - (130.0 - kn.coarse)) < 1e-6, "one wheel notch steps by the engine's coarse step: %f" % kn.value)
+	await level("L18"); Faceplate.attach(app)
+	var rig := ""
+	for u in app.b.q("plant").units: if str(u.type) == "batch": rig = str(u.id); break
+	check(rig != "", "L18 has bench rigs")
+	var f2: Faceplate = Faceplate.open(app, rig); await frames(6)
+	var c = app.b.q("unitCard", [rig])
+	check(f2._cat_note != null and f2._cat_note.text.contains(str(c.rig.catalystName)) and f2._cat_note.text.contains(str(c.rig.kTextNow)), "the rig card names its catalyst and shows k now: %s" % (f2._cat_note.text if f2._cat_note else ""))
+	var lv = app.b.q("levelView")
+	check(f2._cat_note.text.contains(str(lv.kNeededText)) and (f2._cat_note.text.contains("fast enough") or f2._cat_note.text.contains("too slow")), "the bench summary gives fast enough / too slow against kNeeded")
+	var ids := (f2.pickers["catalyst"] as Dictionary).keys()
+	check(ids.size() == 3 and ids.has("iodide") and ids.has("catalase") and ids.has("none"), "the rig's picker offers none / iodide / catalase: %s" % str(ids))
+	check((f2.pickers["catalyst"]["iodide"] as Button).tooltip_text.contains("k "), "an option's tooltip carries its k")
+
+# ---- novice addendum: a lost level has a way back; Retry = the menu's keep-my-build; first drag from a feed; feeds tell air from fuel ---------------
+func _units_sig() -> String:
+	var a: Array = []
+	for u in app.b.q("plant").units: a.append("%s@%d,%d" % [str(u.id), int(u.pos.x), int(u.pos.y)])
+	for st in app.b.q("plant").streams: a.append("%s>%s" % [str(st.from.unit), str(st.to.unit)])
+	a.sort(); return ",".join(a)
+func _novice() -> void:
+	await level("L24"); await frames(3)
+	var before := _units_sig()
+	app.chrome.turn_key(true); await frames(6)
+	app.b.g["status"] = "lost"; app.chrome.refresh(); await frames(4)   # the engine's lost state as the client mirrors it
+	if true:
+		app.chrome.turn_key(); await frames(8)
+		check(str(app.b.g.get("status", "playing")) == "playing", "turning the key on a lost level returns to a playable DESIGN")
+		check(app.chrome.engine_phase() == "design", "and the phase is design: %s" % app.chrome.engine_phase())
+		check(_units_sig() == before, "the plant is kept exactly through the way back")
+		# Retry from a ticket == Restart, keep my build
+		await Printout._retry(app, Control.new()); await frames(6)
+		check(_units_sig() == before, "Retry keeps the plant exactly like the menu's keep-my-build")
+
+func _feeds_and_first_drag() -> void:
+	await level("L03"); await frames(6)
+	app.game_on_changed(); app.world._feed_ms = 0; app.world.set_snapshot(app.b.g); await frames(3)
+	var ids: Array = []
+	for u in app.b.q("plant").units: if str(u.type) == "feed": ids.append(str(u.id))
+	check(ids.size() >= 2, "L03 has two feeds")
+	var tags: Array = []; var bands: Array = []
+	for id in ids:
+		var m = app.world.unit_node(id) if app.world.has_method("unit_node") else app.world._units[id]
+		var lb: Label3D = m.get_node_or_null("SpeciesTag"); tags.append(lb.text if lb != null else ""); bands.append(m._bands[0].albedo_color if m._bands.size() > 0 else Color.BLACK)
+	check(tags.size() >= 2 and tags[0] != tags[1] and tags[0] != "" and tags[1] != "", "air and fuel feeds carry different tags: %s" % str(tags))
+	check(bands.size() >= 2 and not bands[0].is_equal_approx(bands[1]), "and different colour bands: %s" % str(bands))
+	check(str(tags).contains("AIR"), "the air feed says AIR")
+	# the first press on a feed's port, with another part placed since and no hover first, pipes (does not just select a machine)
+	Faceplate.attach(app)
+	var f1: String = ids[0]; var bn := await place("burner", 10, 3)
+	app.world.select(bn); hub()._refresh_ports(); hub().hover_id = ""; await frames(3)
+	var pf: Dictionary = app.world.port_frame(f1, "out", false)
+	var toward: Vector3 = app.world.cam.global_transform.basis.z.normalized()
+	var sp: Vector2 = app.world.cam.unproject_position(pf.pos + pf.dir * 0.3 + toward * 1.2 + Vector3(0, 0.25, 0))
+	var sel0: String = app.world.selected_id
+	mouse(sp, true); await frames(2)
+	check(hub().from_unit == f1, "the first press on the feed's port starts a pipe from it (from=%s)" % hub().from_unit)
+	mouse(sp, false); await frames(2)
+	hub().clear_pipe()
