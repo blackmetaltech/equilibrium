@@ -1,5 +1,5 @@
 // L16 · Light-off (DESIGN 2.6 Chapter 4). First contact bed of the acid plant: SO2 / O2 / N2 over V2O5-K2SO4 (K2 Eklund), adiabatic, 1.5 bar. The catalyst is asleep
-// below about 400 C (an Arrhenius cliff) and damaged above 620-630 C. The player pipes feed -> feed-effluent exchanger -> start-up heater -> bed -> exchanger -> tank:
+// below about 410 C (an Arrhenius cliff) and damaged above 620-630 C. The player pipes feed -> feed-effluent exchanger -> start-up heater -> bed -> exchanger -> tank:
 // you need heat to make heat. Goal: bed conversion >= 60 % with the bed's hottest point <= 620 C. A shift (feed_surge raising SO2, catalyst_age) is available
 // after the commission (data/events.ts L16 table): richer gas raises the outlet temperature, so the inlet has to come down.
 import type { Action } from '@core/kit';
@@ -9,6 +9,7 @@ import type { EqState } from '../state';
 import { readUnit, convOf, toC, C0, type BedRead } from './ch4_common';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, putFeed, put, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { V2O5_LIMIT_C, V2O5_SINTER_C, V2O5_WAKE_C } from './v2o5';
 
 type S = Readonly<EqState>;
 export const L16_SPECIES = ['SO2', 'O2', 'SO3', 'N2'];
@@ -19,7 +20,7 @@ export const L16_P = 1.5 * 101325, L16_T_FEED = 298.15;
 export const L16_W_PER_MOLS = 12;
 export const L16_W_KG = L16_W_PER_MOLS * ((L16_FEED_KMOL_H * 1000) / 3600);
 export const L16_CONV = 0.6;
-export const L16_TMAX_C = 620, L16_DAMAGE_C = 630, L16_LIGHTOFF_C = 400;
+export const L16_TMAX_C = V2O5_LIMIT_C, L16_DAMAGE_C = V2O5_SINTER_C, L16_LIGHTOFF_C = V2O5_WAKE_C;
 export const L16_UNITS: LevelSpec['units'] = {
   feed: { max: 1, price: 6000 }, hx: { max: 1, price: 30000 }, heater: { max: 1, price: 20000 }, packed_bed: { max: 1, price: 60000 }, product: { max: 1, price: 5000 },
 };
@@ -118,7 +119,7 @@ export const L16: LevelSpec = {
   annunciators: (s, m, g): Annunciator[] => {
     const failed = s.solved !== null && !s.solved.ok;
     return [
-      { key: 'light', legend: t('lv.L16.ann.light'), state: !m.ok ? 'off' : m.v.in_c! < L16_LIGHTOFF_C ? 'high' : 'normal' },
+      { key: 'light', legend: t('lv.L16.ann.light'), state: !m.ok ? 'off' : m.v.in_c! < L16_LIGHTOFF_C - 0.5 ? 'high' : 'normal' },
       { key: 'asleep', legend: t('lv.L16.ann.asleep'), state: !m.ok ? 'off' : m.v.conv! < 0.3 ? 'high' : 'normal' },
       { key: 'bedhi', legend: t('lv.L16.ann.bedhi'), state: !m.ok ? 'off' : m.v.tmax_c! > L16_DAMAGE_C ? 'critical' : m.v.tmax_c! > L16_TMAX_C ? 'high' : 'normal' },
       { key: 'fire', legend: t('lv.L16.ann.fire'), state: !m.ok ? 'off' : m.v.heater_kw! > 1e-3 ? 'high' : 'normal' },

@@ -1,6 +1,7 @@
 // The level layer the front-end reads: `levelInfo` (the notebook page, the console: goals, stars, hero readout, annunciators, coach, lesson) and `resultCard`
 // (the printout), plus the two actions only levels have: `callIt` (the optional prediction) and `setBank` (a cylinder bank metered in kg/h, DEPTH).
 // Pure: queries never mutate; every sentence is a key `lv.*` filled with the player's own numbers; every number is finite.
+import { formatNumber } from '@core/regions';
 import { Rng, encodeSolution, fail, need, seedState } from '@core/kit';
 import type { ActionFn, QueryFn, System } from '@core/kit';
 import { SPECIES } from '../../data/species';
@@ -61,6 +62,11 @@ export function starsOf(s: S, spec: LevelSpec, m: Measures, g: GoalEval[]): { ha
 }
 
 // ------------------------------------------------------------------------------------------------ helpers
+/** Sane entry bounds of a call-it (spec override, else by unit): a temperature in °C is 0-2000, a percentage 0-100. */
+export function callBounds(c: { unit: string; min?: number; max?: number }): { min: number; max: number } {
+  const byUnit: Record<string, number> = { '°C': 2000, C: 1e3, K: 5000, '%': 100, MW: 1e5, bar: 1e5, 'mol/mol': 1e3 };
+  return { min: c.min ?? 0, max: c.max ?? byUnit[c.unit] ?? 1e12 };
+}
 const regionOf = (s: S) => REGIONS.get(s.region);
 const fmt = (s: S, x: number): string => fmtNumber(x, s.region);
 const money = (s: S, x: number): string => `${fmt(s, x)} ${regionOf(s).currency.code}`;
@@ -147,11 +153,36 @@ function honestGoals(goals: GoalEval[], m: Measures): GoalEval[] {
   return goals.map((g) => { if (g.keep) return { ...g, met: false }; const { value: _v, ...rest } = g; return { ...rest, met: false }; });
 }
 
+/** Histogram edge labels with just enough decimals that no two neighbours read alike (never 9, 9, 10, 10). */
+export function edgeLabels(edges: number[], region: string): string[] {
+  const pack = REGIONS.get(region);
+  for (let d = 0; d <= 6; d++) {
+    const out = edges.map((x) => formatNumber(x, pack, d));
+    if (d === 6 || new Set(out).size === out.length) return out;
+  }
+  return edges.map(String);
+}
+
+/** "Hold the plant through the shift" is only held if the other goals hold at the end: an off-spec run must not print PASS beside it. */
+function heldGoals(goals: GoalEval[]): GoalEval[] {
+  const others = goals.filter((g) => g.key !== 'shift').every((g) => g.met);
+  return goals.map((g) => (g.key === 'shift' && g.met && !others ? { ...g, met: false } : g));
+}
+
+/** The shift clock: plant seconds run and total, the wall seconds left at the current speed (null when paused or no shift). */
+function shiftClockOf(s: S, spec: LevelSpec): { t: number; total: number; speed: number; etaWallS: number | null; running: boolean; ended: boolean } | null {
+  if (spec.shiftLen <= 0) return null;
+  const sh = s.shift;
+  if (sh === null) return { t: 0, total: spec.shiftLen, speed: 1, etaWallS: null, running: false, ended: false };
+  const left = Math.max(0, sh.len - sh.t), running = sh.ended === '';
+  return { t: fin(sh.t), total: fin(sh.len), speed: sh.speed, etaWallS: running && sh.speed > 0 ? Math.ceil(left / sh.speed) : running ? null : 0, running, ended: !running };
+}
+
 // ------------------------------------------------------------------------------------------------ queries
 const levelInfo: QueryFn<EqState> = (s) => {
   const spec = specOf(s);
   if (!spec) return null;
-  const m = spec.measures(s), goals = honestGoals(spec.goals(s, m), m);
+  const m = spec.measures(s), goals = heldGoals(honestGoals(spec.goals(s, m), m));
   const lack = !m.ok && s.solved !== null && s.solved.ok ? missingUnit(s, spec) : null;
   const notice = lack === null ? null : { code: 'NEEDS_UNIT', unit: lack, text: t('lv.needs_unit', { unit: t(`label.unit.${lack}`) }) };
   const pack = regionOf(s), cast = pack.data.cast[spec.setter];
@@ -177,7 +208,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     budgetUSD: spec.budgetUSD, spentUSD: spent,
     stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`)) },
     callIt: call === null ? null : {
-      key: call.key, prompt: t(`lv.${spec.id}.callit`), unit: call.unit, answered: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
+      key: call.key, prompt: t(`lv.${spec.id}.callit`), unit: call.unit, ...callBounds(call), answered: grade.answered, locked: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
       ...(grade.ok !== undefined && (s.solved !== null || s.status !== 'playing') ? { ok: grade.ok, truth: fin(grade.truth ?? 0) } : {}),
       ...(call.named ? { named: grade.named ?? '', options: s.species.filter((x) => x === 'N2' || x === 'H2') } : {}),
       ...(call.lateOk ? { late: true } : {}),
@@ -186,7 +217,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     callIts: (spec.callIts ?? []).map((c) => {
       const a = answerOf(s, spec, c.key), tr = c.truth(s, m), over = s.solved !== null || s.status !== 'playing';
       const ok = a !== null && tr !== null ? (c.tol === 0 ? a.value === tr : relErr(a.value, tr) <= c.tol) : undefined;
-      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`), unit: c.unit, answered: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
+      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`), unit: c.unit, ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
     }),
     allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
     hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },
@@ -205,6 +236,8 @@ const levelInfo: QueryFn<EqState> = (s) => {
     mode: s.mode,
     /** Extras: the cylinder banks (kg/h and kmol/h side by side), feed units whose composition no card may show, the shift length. */
     banks, bankSpecies: spec.bankSpecies ?? [], masked: spec.masked ? spec.masked(s) : [], shiftLen: spec.shiftLen,
+    /** {t, total} plant seconds, speed, etaWallS (wall seconds left at this speed): the shift clock for the console; null on a level without a shift. */
+    shiftClock: shiftClockOf(s, spec),
   };
 };
 
@@ -214,7 +247,7 @@ const resultCard: QueryFn<EqState> = (s) => {
   const ended = s.status !== 'playing';
   if (!ended && spec.firstRun === true && s.phase === 'firstrun') return null;   // the plant works first; the printout comes when the first run ends
   if (s.solved === null && !ended && !(spec.shiftLen > 0 && s.shift !== null && s.shift.ended !== '')) return null;
-  const m = spec.measures(s), goals = spec.goals(s, m), st = starsOf(s, spec, m, goals);
+  const m = spec.measures(s), rawGoals = spec.goals(s, m), goals = heldGoals(rawGoals), st = starsOf(s, spec, m, rawGoals);
   const won = s.status === 'won';
   let verdictKey: string, cause: string | null;
   if (s.solved !== null && !s.solved.ok && s.solved.failure) {
@@ -228,11 +261,16 @@ const resultCard: QueryFn<EqState> = (s) => {
   const metrics = spec.metrics(s, m).map((x) => ({ key: x.key, label: t(`lv.${spec.id}.metric.${x.key}`), value: fin(x.value), unit: x.unit }));
   const h = spec.histogram;
   const histogram = won && h && m.ok ? simulatedHistogram(spec.id, h.metric, fin(h.best(s, m)), h.spread, h.lowerIsBetter, fin(metrics.find((x) => x.key === h.metric)?.value ?? 0)) : null;
+  const histMetric = metrics.find((x) => x.key === h?.metric);
+  const histOut = histogram && histMetric ? { ...histogram, title: histMetric.label, unit: histMetric.unit, labels: edgeLabels(histogram.edges, s.region) } : histogram;
   const grade = gradeCallIt(s, spec, m);
   const eq = m.ok || spec.shiftLen === 0 ? spec.equation(s, m) : null;
   return {
     won, verdictKey, verdictText, ...(cause !== null ? { cause } : {}), ...(eq !== null ? { equation: eq } : {}), metrics,
-    stars: { have: st.have, earned: st.earned }, histogram,
+    stars: { have: st.have, earned: st.earned }, histogram: histOut,
+    goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met })),
+    /** True when the run did not end in a win; `abortText` is a whole sentence for the banner (never a fragment to wrap in parentheses). */
+    aborted: !won, ...(!won ? { abortText: t('lv.report.aborted', { cause: cause ?? verdictText }) } : {}),
     ...(spec.callIt ? { callIt: grade } : {}),
     lesson: t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
     designCode: encodeSolution({ game: s.game, level: spec.id, ruleset: s.ruleset, seed: s.seed, mode: s.mode, actions: s.levelActions ?? [] }),
@@ -257,6 +295,10 @@ const callIt: Fn = (s, value: unknown, named?: unknown) => {
   need(s.phase === 'design' || (c.lateOk === true && s.phase === 'commissioned'), t('lv.err.callit_phase'));
   need(typeof value === 'number' && Number.isFinite(value) && value >= 0, t('lv.err.callit_value', { value: String(value) }));
   const extra = typeof named === 'string' ? spec!.callIts?.find((x) => x.key === named && x.key !== c.key) : undefined;
+  const item = extra ?? c, b = callBounds(item);
+  need(value >= b.min && value <= b.max, t('lv.err.callit_range', { value: String(value), min: fmt(s, b.min), max: fmt(s, b.max), unit: item.unit }));
+  const prior = answerOf(s, spec!, item.key);
+  need(prior === null, t('lv.err.callit_once', { value: fmt(s, prior?.value ?? 0) }));
   if (extra) return;   // another item of the same level: recorded in the solution log (`answerOf` reads it), the main prediction stays
   const p: Prediction = { quantity: c.key, value };
   if (c.named && typeof named === 'string' && s.species.includes(named)) p.named = named;

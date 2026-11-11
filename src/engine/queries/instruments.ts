@@ -150,12 +150,14 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
   /** Heat per unit from the solved energy balance: reactors release the heat of reaction (formation-basis enthalpy in minus out at 298.15 K), boilers recover heat, coolers / intercoolers / refrigeration lose it, heaters are duty. totalMW = the heat released. */
   heatLedger: (s) => {
     const sol = liveOf(s);
-    if (!sol || !s.species.every(hasThermo)) return { items: [], totalMW: 0 };
+    const labels = { ribbon: t('ledger.ribbon'), release: t('ledger.release'), recovered: t('ledger.recovered'), lost: t('ledger.lost'), duty: t('ledger.duty'), exchanger: t('ledger.exchanger'), efficiency: t('ledger.efficiency'), total: t('ledger.total') };
+    if (!sol || !s.species.every(hasThermo)) return { items: [], totalMW: 0, exchangerMW: 0, heaters: [], labels };
     const mx = makeMixture(s.species);
     const H = (n: readonly number[]): number => enthalpyFlowAt(mx, n, T_REF);
     const sum = (ids: string[]): number[] => s.species.map((_, i) => ids.reduce((a, id) => a + (sol.streams[id]?.n[i] ?? 0), 0));
     const items: { unitId: string; tag: string; MW: number; kind: 'release' | 'recovered' | 'lost' | 'duty' }[] = [];
-    let total = 0;
+    let total = 0, exchangerMW = 0;
+    const heaters: { unitId: string; dutyMW: number; fuelMW: number; efficiency: number; label: string }[] = [];
     for (const u of s.flowsheet.units) {
       const r = sol.units[u.id];
       if (!r) continue;
@@ -165,9 +167,15 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
         const rel = (H(sum(ins)) - H(sum(outs))) / 1e6;
         if (rel >= 0) { add(rel, 'release'); total += rel; } else add(-rel, 'duty');
       } else if (u.type === 'boiler') add(-fin(r.duty) / 1e6, 'recovered');
-      else if (u.type === 'heater') add(fin(r.duty) / 1e6, 'duty');
+      else if (u.type === 'hx') { const q = Math.abs(fin(r.info.Q)) / 1e6; exchangerMW += q; add(q, 'recovered'); }
+      else if (u.type === 'heater') {
+        const dutyMW = fin(r.duty) / 1e6, fuelMW = fin(r.info.fuel_W) / 1e6;
+        add(dutyMW, 'duty');
+        if (fuelMW > 0 && dutyMW > 0) heaters.push({ unitId: u.id, dutyMW, fuelMW, efficiency: dutyMW / fuelMW, label: t('ledger.heater_eff', { id: u.id, duty: dutyMW.toFixed(2), fuel: fuelMW.toFixed(2), eff: (100 * dutyMW / fuelMW).toFixed(0) }) });
+      }
       else if (u.type === 'cooler' || u.type === 'compressor' || u.type === 'nh3_sep') add(-fin(r.duty) / 1e6, 'lost');
     }
-    return { items: items.filter((i) => i.MW > 0), totalMW: total };
+    /** exchangerMW: heat the exchangers move between process streams (a recovered line of its own); heaters: duty against the fuel burnt, efficiency = duty / fuel; labels: every word the ledger prints. */
+    return { items: items.filter((i) => i.MW > 0), totalMW: total, exchangerMW, heaters, labels };
   },
 };

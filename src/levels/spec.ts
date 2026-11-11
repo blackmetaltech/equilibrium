@@ -34,6 +34,9 @@ export interface CallItSpec {
   lateOk?: boolean;
   /** The answer also names something (L04: the limiting reagent): the species id that is right. */
   named?: (s: Readonly<EqState>) => string;
+  /** Sane bounds of the entry (inclusive), in `unit`; default by unit (a temperature in °C is 0-2000). Exposed in levelInfo and enforced by `callIt`. */
+  min?: number;
+  max?: number;
 }
 
 export interface HeroSpec { key: string; unit: string; value: number; lo: number; hi: number }
