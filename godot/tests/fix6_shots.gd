@@ -27,7 +27,15 @@ func _initialize() -> void:
 		"l06":
 			await level("L06"); Faceplate.attach(app); Faceplate.open(app, "F-101"); await frames(8); await snap(tag + "_plate")
 			app.chrome.turn_key(); await frames(6); await snap(tag + "_predict")
+		"l10":
+			await level("L10"); var rr: Dictionary = act("placeUnit", ["compressor", 8, 2, 0]); Faceplate.attach(app); Faceplate.open(app, str(rr.id)); await frames(8); await snap(tag)
+		"l33":
+			await level("L33"); app.lvbay.refresh(true); await frames(4)
+			var pv: Dictionary = app.lvbay.panel.view.duplicate(true)
+			if not pv.has("scenarios") or (pv.scenarios as Array).is_empty():
+				pv["scenarios"] = [{"name": "Cooling lost", "id": "x", "sensors": [{"id": "A", "reading": 80.0, "failed": false}, {"id": "B", "reading": 0.0, "failed": true}, {"id": "C", "reading": 81.0, "failed": false}], "votes": 2, "need": 2, "tripped": true, "trippedAt": 42.0, "outcome": "Saved the vessel"}, {"name": "Sensor noise", "id": "y", "sensors": [{"id": "A", "reading": 70.0, "failed": false}], "votes": 0, "need": 2, "tripped": false, "trippedAt": -1.0, "outcome": "No false trip"}]
+			app.lvbay.panel.set_view(pv); await frames(4); await snap(tag)
 		"l35", "l37", "career":
-			await level({"l35": "L35", "l37": "L37", "career": "L38"}[which]); app.lvbay.refresh(true); await frames(4); await snap(tag)
+			await level({"l35": "L35", "l37": "L37", "career": "CAREER"}[which]); app.lvbay.refresh(true); await frames(4); await snap(tag)
 	if app.b != null: app.b.stop()
 	quit(0)

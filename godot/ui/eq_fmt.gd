@@ -9,6 +9,7 @@ static func to_disp(v: float, unit: String) -> float:
 		"kmol/h": return v * 3.6
 		"mol%": return v * 100.0
 		"kW": return v / 1e3
+		"L": return v * 1000.0
 	return v
 
 static func to_si(v: float, unit: String) -> float:
@@ -18,6 +19,7 @@ static func to_si(v: float, unit: String) -> float:
 		"kmol/h": return v / 3.6
 		"mol%": return v / 100.0
 		"kW": return v * 1e3
+		"L": return v / 1000.0
 	return v
 
 static func sym(unit: String) -> String:
@@ -29,6 +31,7 @@ static func sym(unit: String) -> String:
 		"m²": return tr_("UNIT_M2")
 		"kg": return tr_("UNIT_KG")
 		"kW": return tr_("UNIT_KW")
+		"L": return "L"
 		"K": return tr_("UNIT_K")
 		"t/h": return tr_("UNIT_TPH")
 		"kg/s": return tr_("UNIT_KGS")

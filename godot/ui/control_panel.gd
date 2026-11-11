@@ -8,7 +8,7 @@ signal dial_set(key: String, value: float)
 const S := {
 	"TITLE": "LOOP PANEL", "BUMP": "BUMP TEST", "BACK": "LOOP TRACE", "EMPTY": "Commission to record a trace", "BUMP_TITLE": "OPEN-LOOP BUMP",
 	"STAR": "STAR 3", "LEG_PV": "PV", "LEG_SP": "SP", "LEG_OP": "OP", "HINT": "Turn, wheel, or tap the number to type a value.",
-	"BUMP_HINT": "Show the open-loop bump trace and the fitted K, tau and theta.", "SEC": "s", "LOCKED": "Dials are locked while a run shows: turn the key to DESIGN (or press Stop) to change them.",
+	"BUMP_HINT": "Show the open-loop bump trace and the fitted K, tau and theta.", "SEC": "s", "SCN_TITLE": "SCENARIOS · sensors, votes, trip", "SCN_VOTES": "%d / %d votes", "SCN_TRIP": "TRIP %s s", "SCN_NOTRIP": "no trip", "SCN_READS": "reads %s", "LOCKED": "Dials are locked while a run shows: turn the key to DESIGN (or press Stop) to change them.",
 }
 var view := {}
 var chart: Chart
@@ -23,6 +23,8 @@ var _title: Label
 var _bar: HFlowContainer
 var _bottom: HBoxContainer
 var _right: VBoxContainer
+var _scen: VBoxContainer       ## L33: one row per scenario under the strip chart (levelView.scenarios)
+var _scen_sig := ""
 
 static func T(k: String) -> String: return S.get(k, k)
 
@@ -33,6 +35,7 @@ func _init() -> void:
 	var head := HBoxContainer.new(); vb.add_child(head)
 	_title = EqTheme.label(T("TITLE"), 12, EqTheme.INK, "semi"); _title.size_flags_horizontal = Control.SIZE_EXPAND_FILL; head.add_child(_title)
 	chart = Chart.new(); chart.custom_minimum_size = Vector2(300, 170); chart.size_flags_vertical = Control.SIZE_EXPAND_FILL; vb.add_child(chart)
+	_scen = VBoxContainer.new(); _scen.name = "Scenarios"; _scen.add_theme_constant_override("separation", 1); _scen.visible = false; vb.add_child(_scen)
 	_bottom = HBoxContainer.new(); _bottom.add_theme_constant_override("separation", 6); vb.add_child(_bottom)
 	var fp := PanelContainer.new(); fp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fsb := EqTheme.porcelain_sb(4, 4.0); fsb.bg_color = EqTheme.PORCELAIN.darkened(0.06); fsb.border_color = EqTheme.INK; fp.add_theme_stylebox_override("panel", fsb); _bottom.add_child(fp)
@@ -62,7 +65,7 @@ func _size_chart() -> void:
 	var wsum := 0.0
 	for k in knobs: wsum += (knobs[k] as Control).custom_minimum_size.x
 	var rows := maxf(ceilf(wsum / colw), 1.0) if wsum > 0.0 else 1.0
-	chart.custom_minimum_size = Vector2(300, clampf(avail - 40.0 - rows * 134.0 - 36.0, 90.0, 230.0))
+	chart.custom_minimum_size = Vector2(300, clampf(avail - 40.0 - rows * 134.0 - 36.0 - (_scen.get_combined_minimum_size().y if _scen.visible else 0.0), 90.0, 230.0))
 func _unused(chart_h: float, narrow: bool) -> void:
 	chart.custom_minimum_size = Vector2(300, chart_h)
 	if narrow:
@@ -88,7 +91,9 @@ func set_view(d: Dictionary) -> void:
 	for kk in knobs: (knobs[kk] as Control).set("editable", not locked); if knobs[kk] is Knob: (knobs[kk] as Knob).lock_reason = T("LOCKED"); (knobs[kk] as Control).modulate = Color(1, 1, 1, 0.6 if locked else 1.0); (knobs[kk] as Control).queue_redraw()
 	if locked: _hint.text = T("LOCKED")
 	elif _hint.text == T("LOCKED"): _hint.text = T("HINT")
+	_build_scenarios(d)
 	_size_chart()
+	if _scen.visible: _size_chart.call_deferred()   # the strip's rows settle a frame late
 	var psig := str((d.get("series", {}) as Dictionary).get("pv", []).hash()) if d.get("series") is Dictionary else ""
 	if psig != _pv_sig and _bump: _bump = false   # a new run: back to the loop trace
 	_pv_sig = psig
@@ -125,6 +130,38 @@ func _build_dials(dials: Array) -> void:
 		w.mouse_entered.connect(func(): _hint.text = lab)
 		w.focus_entered.connect(func(): _hint.text = lab)
 		knobs[key] = w; _bar.add_child(w)
+
+## The voting strip: per scenario its sensors (a failed one is a red X), the votes that fired against the votes needed, a TRIP stamp with its time, and the outcome.
+func _build_scenarios(d: Dictionary) -> void:
+	var sc = d.get("scenarios")
+	var sig := JSON.stringify(sc)
+	if sig == _scen_sig: return
+	_scen_sig = sig
+	for c in _scen.get_children(): c.queue_free()
+	if not (sc is Array) or (sc as Array).is_empty(): _scen.visible = false; return
+	_scen.visible = true
+	_scen.add_child(EqTheme.label(T("SCN_TITLE"), 11, EqTheme.INK, "semi"))
+	for r in sc:
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6); _scen.add_child(h)
+		var nm := EqTheme.label(str(r.name), 11, EqTheme.INK, "semi"); nm.custom_minimum_size = Vector2(120, 0); nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(nm)
+		var lamps := HBoxContainer.new(); lamps.add_theme_constant_override("separation", 3); h.add_child(lamps)
+		for sn in r.sensors: var lp := Lamp.new(); lp.failed = bool(sn.failed); lp.reading = float(sn.reading); lp.tooltip_text = "%s %s" % [str(sn.id), "FAILED" if lp.failed else T("SCN_READS") % PaperStrings.num(lp.reading)]; lamps.add_child(lp)
+		var need := int(r.need); var fired := int(r.votes)
+		var vt := EqTheme.label(T("SCN_VOTES") % [fired, need], 11, EqTheme.INK if fired >= need else EqTheme.PEN_RED, "mono_bold"); vt.custom_minimum_size = Vector2(70, 0); h.add_child(vt)
+		var tripped := bool(r.tripped)
+		var st := EqTheme.label((T("SCN_TRIP") % PaperStrings.num(float(r.trippedAt))) if tripped else T("SCN_NOTRIP"), 11, Color("#FFFFFF") if tripped else EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.4), "mono_bold")
+		var sp := PanelContainer.new(); var ssb := StyleBoxFlat.new(); ssb.bg_color = Color("#B33A2E") if tripped else Color(0, 0, 0, 0); ssb.set_content_margin_all(2); ssb.set_corner_radius_all(2); sp.add_theme_stylebox_override("panel", ssb); sp.add_child(st); sp.custom_minimum_size = Vector2(76, 0); h.add_child(sp)
+		var oc := EqTheme.label(str(r.outcome), 11, EqTheme.INK, "sans"); oc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; oc.size_flags_horizontal = Control.SIZE_EXPAND_FILL; oc.custom_minimum_size = Vector2(100, 0); h.add_child(oc)
+
+class Lamp extends Control:
+	var failed := false
+	var reading := 0.0
+	func _init() -> void: custom_minimum_size = Vector2(16, 16); mouse_filter = Control.MOUSE_FILTER_STOP
+	func _draw() -> void:
+		var c := size * 0.5
+		draw_circle(c, 7.0, Color("#1E2A2E")); draw_circle(c, 5.5, Color("#B33A2E") if failed else EqTheme.TEAL)
+		if failed:
+			draw_line(c + Vector2(-4, -4), c + Vector2(4, 4), Color("#FFFFFF"), 2.0); draw_line(c + Vector2(-4, 4), c + Vector2(4, -4), Color("#FFFFFF"), 2.0)
 
 var app_ref = null
 func _app(): return app_ref

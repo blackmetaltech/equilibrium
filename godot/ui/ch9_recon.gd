@@ -42,5 +42,5 @@ func _build() -> void:
 	for n in view.get("nodes", []):
 		ng.add_child(lbl(str(n.id), 13, Color("#1E2A2E"), "mono_bold"))
 		var nl := lbl(str(n.label), 12, PENCIL, "sans"); nl.custom_minimum_size = Vector2(300, 0); nl.clip_text = true; ng.add_child(nl)
-		ng.add_child(lbl("%+.3f" % float(n.imbalance), 13, STAMP_RED if absf(float(n.imbalance)) > 0.5 else Color("#1E2A2E")))
-		ng.add_child(lbl("→ " + ("%+.3f" % float(n.imbalanceAfter)) if shown else "→ —", 13, OKGREEN if shown else PENCIL))
+		ng.add_child(lbl("%+.3f" % float(n.imbalance), 13, STAMP_RED if (absf(float(n.imbalance)) > float(n.tol) if n.has("tol") else absf(float(n.imbalance)) > 0.5) else Color("#1E2A2E")))
+		ng.add_child(lbl("→ " + ("%+.3f" % float(n.imbalanceAfter)) if shown else "→ —", 13, (OKGREEN if bool(n.get("closes", true)) else STAMP_RED) if shown else PENCIL))

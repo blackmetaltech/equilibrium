@@ -174,6 +174,8 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	elif li.get("callIt") is Dictionary: cis = [li.callIt]
 	for ci in cis:
 		if not (ci is Dictionary): continue
+		if ci == cis[0] and li.get("predictNote") != null and str(li.predictNote) != "":
+			var pn := EqTheme.label(str(li.predictNote), 15, EqTheme.PEN_BLUE, "semi"); pn.name = "PredictNote"; pn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(pn)
 		var ckey := str(ci.get("key", ""))
 		var cr := HBoxContainer.new(); cr.name = "CallIt" if cis.size() == 1 else "CallIt_" + ckey; cr.add_theme_constant_override("separation", 10); vb.add_child(cr)
 		cr.add_child(EqTheme.dymo(PaperStrings.t("NB_CALLIT"), 13))

@@ -283,13 +283,13 @@ func _failure() -> void:
 	var uid := ""; var sig := ""
 	if f is Dictionary:
 		uid = str(f.get("unitId", "")) if f.get("unitId") != null else ""
-		sig = str(f.get("code", "")) + "|" + uid
+		sig = str(f.get("code", "")) + "|" + uid + "|" + str(str(f.get("message", "")).hash()) + "|" + str(JSON.stringify(f.get("data", "")).hash())   # a new number in the same fault is a new line
 	if app.world.has_method("set_fail_focus"): app.world.call("set_fail_focus", uid)
 	if sig == _fail_sig: return
 	_fail_sig = sig
 	if sig == "":   # the fault cleared: its line must not stay up as if it were still true
 		if _fail_text != "" and intercom.drop_last_if(_fail_text): _fail_text = ""; _back_to_coach(level_info())
-		_fail_text = ""; return
+		_fail_text = ""; _last_fail_msg = ""; return
 	var msg := ""
 	if uid != "":
 		var c = PaperStrings.q(app, "unitCard", [uid])

@@ -35,6 +35,7 @@ func set_windows(list: Array) -> void:
 		var alarmed := false
 		for a in list.slice(0, max_windows):
 			var key := str(a.get("key", "")); var st := str(a.get("state", "off"))
+			if a.has("lit") and not bool(a.lit) and (st == "high" or st == "critical"): st = "normal"   # the engine says this window is not lit: it never draws lit
 			var prev: Dictionary = old.get(key, {})
 			var ack := true
 			if st == "high" or st == "critical":
@@ -107,7 +108,7 @@ func _draw() -> void:
 		match st:
 			"normal":   # a healthy condition is DARK glass on a real panel; only the GOAL window lights (teal) when the job is done
 				if str(w.get("key", "")) == "goal": lit = EqTheme.TEAL; back = EqTheme.TEAL; txt = Color("#08201D"); glow = 0.3
-				else: back = Color("#1E2B28"); txt = Color("#6FA394")
+				else: back = Color("#121A18"); txt = Color("#46544F")   # a healthy window is dark glass with a dim legend: never green
 			"high":
 				var on: bool = w.acked or flash
 				lit = EqTheme.AMBER; back = EqTheme.AMBER if on else Color("#4A3A0C"); txt = Color("#2A1D00") if on else Color("#8A6F1E"); glow = 0.28 if on else 0.0

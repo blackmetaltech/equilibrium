@@ -24,7 +24,7 @@ func _m(v: float) -> String: return ("%.1f MUSD" % (v / 1e6))
 func _build() -> void:
 	var d: Dictionary = view.get("dashboard", {})
 	if d.is_empty(): body.add_child(lbl("The office is closed.", 14, PENCIL)); return
-	var month := int(d.month); var yr := int(d.year)
+	var month := int(d.get("monthNow", int(d.month) + 1)); var yr := int(d.year)   # the month now in progress, 1-based (the engine's monthNow)
 	body.add_child(head("PLANT MANAGER'S OFFICE", "YEAR %d of 5  ·  MONTH %d / %d" % [yr, month, int(d.months)]))
 	body.add_child(_calendar(d))
 	body.add_child(_advance_row(d))
@@ -44,7 +44,7 @@ func _build() -> void:
 	var lg: Array = view.get("log", [])
 	for i in range(lg.size() - 1, maxi(-1, lg.size() - 9), -1):
 		var r: Dictionary = lg[i]; var sev := str(r.kind) in ["critical", "fine", "strike", "penalty"]
-		body.add_child(lbl("m%02d  %s" % [int(r.m), str(r.label)], 12, STAMP_RED if sev else PENCIL))
+		body.add_child(lbl("%s  %s" % [str(r.get("stamp", "m%02d" % int(r.m))), str(r.label)], 12, STAMP_RED if sev else PENCIL))
 
 # ---- calendar -------------------------------------------------------------------------------------------------------------------------------
 func _calendar(d: Dictionary) -> Control:
@@ -188,7 +188,7 @@ class Cal extends Control:
 	var view := {}
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_PASS
 	func _draw() -> void:
-		var d: Dictionary = view.get("dashboard", {}); var m := int(d.get("month", 0)); var base := (mini(int(d.get("year", 1)) - 1, 4)) * 12
+		var d: Dictionary = view.get("dashboard", {}); var m := int(d.get("monthNow", int(d.get("month", 0)) + 1)) - 1; var base := (mini(int(d.get("year", 1)) - 1, 4)) * 12
 		if m > 0 and m % 12 == 0 and m < int(d.get("months", 60)): base = m - 12   # a review is due: the year just closed stays on the strip
 		var w := size.x / 12.0; var f := EqTheme.font("mono_bold"); var fs := EqTheme.fs(12)
 		for i in 12:

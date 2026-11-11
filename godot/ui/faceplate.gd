@@ -283,12 +283,16 @@ func _add_knob(k: Dictionary) -> void:
 	var unit := str(k.unit)
 	var lab := str(k.label)
 	if true:
-		var d0 := EqFmt.to_disp(0.0, unit); var lo := EqFmt.to_disp(float(k.min), unit); var hi := EqFmt.to_disp(float(k.max), unit)
+		var dp = k.get("disp")   # the engine's own display-unit numbers (unitCard knob.disp); the SI -> display conversion is only the fallback
+		var has_dp: bool = dp is Dictionary
+		var lo := float(dp.min) if has_dp else EqFmt.to_disp(float(k.min), unit)
+		var hi := float(dp.max) if has_dp else EqFmt.to_disp(float(k.max), unit)
 		var span := hi - lo
 		var coarse := _nice(span * 0.01); var fine := _nice(span * 0.001)   # floors of the relative wheel step
 		if bool(k.get("int", false)): coarse = 1.0; fine = 1.0
 		else: kn.relative = true   # the wheel moves ~2 % of the value (0.2 % with Shift) in 1/2/5 steps: fine enough to land a narrow window
-		kn.setup(lab, PaperStrings.usym(unit), lo, hi, coarse, fine, EqFmt.to_disp(float(k.value), unit), bool(k.get("int", false)))
+		var ulab := str(dp.unit) if has_dp else str(k.get("unitLabel", unit))
+		kn.setup(lab, PaperStrings.usym(ulab), lo, hi, coarse, fine, float(dp.value) if has_dp else EqFmt.to_disp(float(k.value), unit), bool(k.get("int", false)))
 	kn.name = "Knob_" + str(k.key); kn.set_meta("key", str(k.key)); kn.set_meta("spec", k)
 	kn.committed.connect(func(v: float) -> void: _commit(k, v))
 	_knob_box.add_child(kn); knobs[str(k.key)] = kn
@@ -306,7 +310,7 @@ func _add_picker(k: Dictionary) -> void:
 	var m := {}
 	for o in opts:
 		var bt := Button.new(); bt.name = "Opt_" + (str(o) if str(o) != "" else "none"); bt.toggle_mode = true; bt.focus_mode = Control.FOCUS_ALL
-		bt.text = _opt_label(key, str(o)); bt.custom_minimum_size = Vector2(0, 30)
+		bt.text = _opt_text(k, key, str(o)); bt.custom_minimum_size = Vector2(0, 30)
 		bt.add_theme_font_override("font", EqStrings.font("cap")); bt.add_theme_font_size_override("font_size", EqTheme.fs(14))
 		bt.add_theme_stylebox_override("normal", _chip_sb(false)); bt.add_theme_stylebox_override("hover", _chip_sb(false, true)); bt.add_theme_stylebox_override("pressed", _chip_sb(true)); bt.add_theme_stylebox_override("hover_pressed", _chip_sb(true)); bt.add_theme_stylebox_override("focus", _chip_sb(false, true))
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]: bt.add_theme_color_override(c, EqTheme.INK if c != "font_pressed_color" and c != "font_hover_pressed_color" else Color("#0B1F1C"))
@@ -316,6 +320,13 @@ func _add_picker(k: Dictionary) -> void:
 	_knob_box.add_child(box)
 
 ## The catalyst choice of a packed bed: one tag per catalyst the engine offers for this reaction (unitCard.catalyst), with its price and light-off on the line below.
+## An option's text: the engine's own optionLabels (a boiler's "HP · 40 bar") when it sends them, else the catalogue word.
+func _opt_text(k: Dictionary, key: String, o: String) -> String:
+	var ol = k.get("optionLabels")
+	var i: int = (k.options as Array).find(o)
+	if ol is Array and i >= 0 and i < (ol as Array).size(): return str((ol as Array)[i])
+	return _opt_label(key, o)
+
 func _add_catalyst(cat: Dictionary) -> void:
 	var box := VBoxContainer.new(); box.name = "Picker_catalyst"; box.add_theme_constant_override("separation", 2); box.custom_minimum_size = Vector2(190, 0); _cat_box = box
 	box.add_child(EqTheme.dymo(PaperStrings.t("FP_CATALYST"), 12))
@@ -436,10 +447,8 @@ func _update() -> void:
 		if is_feed and feed.has(k) and mass == null: mass = float(feed[k])
 	_set_cell("mass", PaperStrings.t("FP_MASS") + " " + PaperStrings.t("FP_KGH"), mass, "kg/h", "raw")
 	var t_cell: Variant = st.get("T") if st.has("T") else (float(feed.T) if is_feed and feed.has("T") else null)
-	var shd = app.b.g.get("shift") if app != null and app.b != null else null   # during a shift the vessel's own live temperature, not the steady solve
-	if _phase() == "shift" and shd is Dictionary and (shd as Dictionary).get("dc") is Dictionary:
-		var dcu = ((shd as Dictionary).dc as Dictionary).get(unit_id)
-		if dcu is Dictionary and (dcu as Dictionary).get("T") != null and is_finite(float(dcu.T)): t_cell = float(dcu.T)
+	var live = card.get("live")   # during a shift the engine sends the vessel's live dynamic T (K): the card shows it, not the steady solve
+	if live is Dictionary and (live as Dictionary).get("T") != null and is_finite(float(live.T)): t_cell = float(live.T)
 	_set_cell("T", "T " + PaperStrings.usym("degC"), t_cell, "degC")
 	_set_cell("P", "P " + PaperStrings.usym("bar"), st.get("P") if st.has("P") else (float(feed.P) if is_feed and feed.has("P") else null), "bar")
 	var res: Variant = card.get("results")
@@ -477,6 +486,7 @@ func _update() -> void:
 			if offn: continue
 		if str(k.kind) == "choice": kn.set_value(float((k.options as Array).find(str(k.value))))
 		elif _cmd.has(str(k.key)): kn.set_value(EqFmt.to_disp(float(_cmd[str(k.key)]), str(k.unit)))
+		elif k.get("disp") is Dictionary: kn.set_value(float(k.disp.value))
 		else: kn.set_value(EqFmt.to_disp(float(k.value), str(k.unit)))
 	_update_catalyst()
 	_update_results_c()
@@ -631,7 +641,7 @@ func _place(force := false) -> void:
 		if Rect2(pos, sz).intersects(orc.grow(4.0)): pos.x = maxf(8.0, orc.position.x - 14.0 - sz.x)
 	var sp := Vector2.ZERO
 	if app.world != null and app.world.has_method("unit_screen_pos"): sp = app.world.unit_screen_pos(unit_id)
-	if sz.x > 40.0 and get_child_count() > 0 and size.x > 40.0: _dock_pos = pos; _dock_vr = vr
+	if sz.x > 40.0 and get_child_count() > 0 and size.x > 40.0 and size.x >= get_combined_minimum_size().x - 1.0 and size.y >= get_combined_minimum_size().y - 1.0: _dock_pos = pos; _dock_vr = vr
 	if not force and pos.is_equal_approx(position) and sp.is_equal_approx(_last_pos): return
 	_last_pos = sp; position = pos
 	# the card never hides the unit it is about: when the unit sits under the card, the plot slides left (once per card) until it is clear
