@@ -21,6 +21,8 @@ func _build() -> void:
 		ctl.add_child(key("%d" % int(n), func(): emit_act("setCrane", [int(n)]), int(view.get("crane", 1)) == int(n), 13))
 	ctl.add_child(key("RESET", func(): emit_act("reset")))
 	ctl.add_child(lbl("hire %s" % usd(float(view.get("craneHireUSD", 0.0))), 12, PENCIL))
+	if str(view.get("hint", "")) != "":
+		var hl := lbl(str(view.hint), 12, PENCIL, "sans"); hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hl.custom_minimum_size = Vector2(200, 0); body.add_child(hl)
 	body.add_child(lbl("PRIORITY ORDER (drag a chip)", 12, PENCIL, "semi"))
 	var pr := Chips.new(); pr.chips = []
 	for id in view.get("priority", []):

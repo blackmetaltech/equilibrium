@@ -42,7 +42,7 @@ const VIEW = (s: S) => controlView({
 });
 
 export const L31: LevelSpec = {
-  id: 'L31', firstRun: true, chapter: 8, index: 31, setter: 'mentor', budgetUSD: L31_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
+  id: 'L31', firstRun: true, chapter: 8, index: 31, setter: 'mentor', budgetUSD: L31_BUDGET, units: UNITS, notes: 3, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [{ key: 'on', def: { learner: 0, engineer: 0 } }, { key: 'R', def: { learner: 1, engineer: 1 } }, { key: 'kc', def: { learner: 1.5, engineer: 0.3 } }, { key: 'tauI', def: { learner: 6, engineer: 0 } }]),
   actions: dialActions,
   view: (s) => VIEW(s),

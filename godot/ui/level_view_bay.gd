@@ -29,6 +29,7 @@ func layout() -> void:
 	var w := minf(vw - 20.0, 620.0 if k == "desktop" else (560.0 if k == "handheld" else (640.0 if not portrait else vw - 20.0)))
 	if board: w = minf(vw - 20.0, 800.0 if not portrait else vw - 20.0)
 	var bottom_gap := (250.0 if not portrait else 230.0) - (90.0 if board else 0.0)
+	if kind == "control" and app.chrome != null: bottom_gap = maxf(bottom_gap, app.chrome.console_height() + 14.0)   # never sit on the console: the DESIGN key and the Commission dial live in it
 	var h := vh - top - bottom_gap
 	set_anchors_preset(Control.PRESET_TOP_RIGHT); grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	offset_right = -10.0; offset_left = -10.0 - w; offset_top = top; offset_bottom = top + h
@@ -99,7 +100,8 @@ func refresh(force := false) -> void:
 	visible = true; panel.visible = true
 	_hide_rack(kind != "control")
 	_frame_world()
-	var sig := JSON.stringify(d)
+	var li1 = PaperStrings.q(app, "levelInfo")
+	var sig := JSON.stringify(d) + "|" + (str(li1.get("phase", "")) if li1 is Dictionary else "")   # the phase locks the dials and shows Stop: a phase change is a redraw
 	if sig == _sig: return
 	_sig = sig
 	panel.set_view(d)

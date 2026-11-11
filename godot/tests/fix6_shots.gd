@@ -35,6 +35,20 @@ func _initialize() -> void:
 			if not pv.has("scenarios") or (pv.scenarios as Array).is_empty():
 				pv["scenarios"] = [{"name": "Cooling lost", "id": "x", "sensors": [{"id": "A", "reading": 80.0, "failed": false}, {"id": "B", "reading": 0.0, "failed": true}, {"id": "C", "reading": 81.0, "failed": false}], "votes": 2, "need": 2, "tripped": true, "trippedAt": 42.0, "outcome": "Saved the vessel"}, {"name": "Sensor noise", "id": "y", "sensors": [{"id": "A", "reading": 70.0, "failed": false}], "votes": 0, "need": 2, "tripped": false, "trippedAt": -1.0, "outcome": "No false trip"}]
 			app.lvbay.panel.set_view(pv); await frames(4); await snap(tag)
+		"run_l31", "run_l32", "run_l33", "run_l34", "run_l35", "run_l36", "run_l37", "run_l38", "run_l29":
+			await level(which.substr(4).to_upper()); app.lvbay.refresh(true); await frames(4); await snap(tag + "_design")
+			app.chrome.turn_key(true); await frames(10); app.lvbay.refresh(true); await frames(3); await snap(tag + "_run1")
+			app.chrome.turn_key(true); await frames(10); app.lvbay.refresh(true); await frames(6); await snap(tag + "_run2")
+		"career_y2":
+			await level("CAREER"); for i in 14: act("levelAct", ["advance", 1])
+			app.lvbay.refresh(true); await frames(4); await snap(tag + "_top")
+			var sc: ScrollContainer = app.lvbay.panel.scroll; sc.scroll_vertical = 1100; await frames(3); await snap(tag + "_mid")
+			sc.scroll_vertical = 100000; await frames(3); await snap(tag + "_bottom")
+		"l34_row":
+			await level("L34"); app.lvbay.refresh(true); await frames(4)
+			var cells: Array = app.lvbay.panel.view.cells; var cc: Dictionary = {}
+			for c in cells: if bool(c.meaningful): cc = c; break
+			app.lvbay.panel._on_cell(cc.param, cc.guide); await frames(3); app.lvbay.refresh(true); await frames(3); app.lvbay.panel._on_cell(cc.param, cc.guide); await frames(4); await snap(tag)
 		"l35", "l37", "career":
 			await level({"l35": "L35", "l37": "L37", "career": "CAREER"}[which]); app.lvbay.refresh(true); await frames(4); await snap(tag)
 	if app.b != null: app.b.stop()

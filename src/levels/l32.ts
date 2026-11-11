@@ -40,7 +40,7 @@ const VIEW = (s: S) => controlView({
 });
 
 export const L32: LevelSpec = {
-  id: 'L32', firstRun: true, chapter: 8, index: 32, setter: 'mentor', budgetUSD: L32_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
+  id: 'L32', firstRun: true, chapter: 8, index: 32, setter: 'mentor', budgetUSD: L32_BUDGET, units: UNITS, notes: 3, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [
     { key: 'on', def: { learner: 0, engineer: 0 } }, /** Sluggish on purpose: even with the cascade switched on these defaults leave the header peak at 4 K and the IAE at 2660 K s, so the cascade has to be tuned (the reference 1.5 / 150 s / 2 / 6 s is reachable). */
     { key: 'mKc', def: { learner: 0.5, engineer: 0.5 } }, { key: 'mTauI', def: { learner: 300, engineer: 300 } },
@@ -91,7 +91,7 @@ export const L32: LevelSpec = {
     const K = shown(m.v.K!), d = shown(m.v.dist!);
     return `${f(s, K)} × ${f(s, d)} = ${f(s, shown(K * d))} K warmer with nobody controlling`;
   },
-  lessonVars: (s, m) => ({ hdr: f(s, m.v.hdr!), open: f(s, l32OpenLoopRise()), dist: f(s, -L32_RIG.hdr), iae: f(s, m.v.iae!), sKc: f(s, m.v.sKc!), mKc: f(s, m.v.mKc!) }),
+  lessonVars: (s, m) => ({ effect: m.v.hdr! <= L32_HDR_MAX ? t('lv.L32.effect.small', { hdr: f(s, m.v.hdr!) }) : t('lv.L32.effect.big', { hdr: f(s, m.v.hdr!), lim: f(s, L32_HDR_MAX), casc: t(m.v.on === 1 ? 'lv.L32.effect.on' : 'lv.L32.effect.off') }), hdr: f(s, m.v.hdr!), open: f(s, l32OpenLoopRise()), dist: f(s, -L32_RIG.hdr), iae: f(s, m.v.iae!), sKc: f(s, m.v.sKc!), mKc: f(s, m.v.mKc!) }),
   metrics: (_s, m) => [
     { key: 'iae', unit: 'K s', value: m.v.iae! },
     { key: 'hdr_peak', unit: 'K', value: m.v.hdr! },

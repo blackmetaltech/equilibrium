@@ -150,7 +150,7 @@ describe('levelInfo, levelView, resultCard, equation, determinism', () => {
       expect(i0.annunciators.length).toBeGreaterThanOrEqual(4); expect(i0.annunciators.length).toBeLessThanOrEqual(8);
       for (const a of i0.annunciators) { expect(a.legend.length).toBeLessThanOrEqual(14); expect(a.legend).toBe(a.legend.toUpperCase()); }
       expect(i0.annunciators.some((a: any) => a.key === 'goal')).toBe(true);
-      expect(i0.coach).not.toBeNull(); expect(i0.note.length).toBe(2); expect(i0.stars.rules.length).toBe(3); expect(i0.callIt.prompt.length).toBeGreaterThan(10);
+      expect(i0.coach).not.toBeNull(); expect(i0.note.length).toBeGreaterThanOrEqual(2); expect(i0.stars.rules.length).toBe(3); expect(i0.callIt.prompt.length).toBeGreaterThan(10);
       const e = solve(id, { mode: 'engineer' }), c = card(e);
       expect(allFinite(info(e))).toBeNull(); expect(allFinite(c)).toBeNull();
       expect(c.won).toBe(true); expect(c.histogram).not.toBeNull();

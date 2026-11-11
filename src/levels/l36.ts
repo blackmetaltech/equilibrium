@@ -28,7 +28,7 @@ function measures(s: S): Measures {
 }
 
 export const L36: LevelSpec = {
-  id: 'L36', chapter: 9, index: 36, setter: 'safety', budgetUSD: L36_BUDGET, units: CARRIER_UNITS, notes: 2, shiftLen: 0,
+  id: 'L36', chapter: 9, index: 36, setter: 'safety', budgetUSD: L36_BUDGET, units: CARRIER_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => { carrierSetup(s); s.lv.order = []; },
   measures,
   goals: (s, m) => {
@@ -88,7 +88,7 @@ export const L36: LevelSpec = {
       order: order.map((id, i) => ({ i, id, label: t(`lv.L36.step.${id}`) })),
       trace: r.events.map((e) => ({ i: e.i, id: e.id, kind: e.kind, code: e.code, text: e.code === '' ? '' : t(`lv.L36.code.${e.code}`), sev: e.sev, t: e.t })),
       state: { ...r.state }, mins: r.mins, hours: r.hours, safe: r.maxSev === 0, done: r.done, halted: r.halted,
-      lossUSD: r.lossUsd, lossUsdPerH: PERMIT.lossUsdPerH, refLossUSD: L36_LOSS_REF, budgetUSD: L36_BUDGET, residPass: PERMIT.residPass,
+      lossUSD: r.lossUsd, lossUsdPerH: PERMIT.lossUsdPerH, refLossUSD: predictionOf(s, 'bypass_loss') !== null ? L36_LOSS_REF : -1, starLossUSD: predictionOf(s, 'bypass_loss') !== null ? Math.round(L36_LOSS_STAR) : -1, starTolPct: 3, budgetUSD: L36_BUDGET, residPass: PERMIT.residPass,
     };
   },
   solver: playOnce(() => L36_REF.map((id) => act('add', id)), { callIt: () => L36_LOSS_REF }),
