@@ -38,7 +38,7 @@ func build_l01(n2: float, h2: float, commission := false) -> Dictionary:
 	for c in [[id.feed, "out", id.mixer, "in1"], [id.feed2, "out", id.mixer, "in2"], [id.mixer, "out", id.stoich_reactor, "in"], [id.stoich_reactor, "out", id.nh3_sep, "in"], [id.nh3_sep, "liq", id.product, "in"], [id.nh3_sep, "vap", id.vent, "in"]]:
 		app.b.act("connect", c)
 	app.game_on_changed()
-	if commission: app.chrome.turn_key()
+	if commission: app.chrome.turn_key(true)
 	app.game_on_changed()
 	return id
 
@@ -133,7 +133,7 @@ func _intercom_and_recorder() -> void:
 		var rc: Dictionary = app.b.act("connect", c)
 
 	app.game_on_changed(); await frames(2)
-	ch.turn_key(); app.game_on_changed(); await frames(3)
+	ch.turn_key(true); app.game_on_changed(); await frames(3)
 	check(ch.intercom.last().speaker == "MARA" and str(ch.intercom.last().text).contains("Kilograms do not count molecules"), "a missed commission says the lesson")
 	var rec := ch.recorder
 	check(rec.runs.size() == 1, "the first commission is on the recorder (%d)" % rec.runs.size())
@@ -141,7 +141,7 @@ func _intercom_and_recorder() -> void:
 	app.b.act("setBank", ["F-101", "N2", 140.1]); app.game_on_changed(); await frames(3)
 	check(not str(ch.intercom.last().text).contains("ratio"), "after a design edit the intercom no longer shows the lesson (%s)" % ch.intercom.last().text)
 	app.b.act("setBank", ["F-102", "H2", 30.24]); app.game_on_changed(); await frames(2)
-	ch.turn_key(); app.game_on_changed(); await frames(3)
+	ch.turn_key(true); app.game_on_changed(); await frames(3)
 	var txt := lines_text()
 	check(txt.contains("Goal met: "), "a winning commission says Goal met")
 	check(str(ch.intercom.last().text) == str(app.b.q("levelInfo").get("runLine", "")) and str(ch.intercom.last().text) != "", "...then the engine's run line (%s)" % ch.intercom.last().text)

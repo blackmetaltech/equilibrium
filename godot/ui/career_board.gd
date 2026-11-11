@@ -54,7 +54,8 @@ func _advance_row(d: Dictionary) -> Control:
 	var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8)
 	var over := bool(d.over)
 	var k1 := key("ADVANCE 1 MONTH", func(): emit_act("advance", [1]), true, 15); k1.disabled = over; h.add_child(k1)
-	var k3 := key("+3", func(): emit_act("advance", [3]), false, 13); k3.disabled = over; h.add_child(k3)
+	var gap := Control.new(); gap.custom_minimum_size = Vector2(28, 1); h.add_child(gap)   # keeps +3 a thumb away from ADVANCE
+	var k3 := key("+3 MONTHS", func(): emit_act("advance", [3]), false, 13); k3.disabled = over; h.add_child(k3)
 	var ev := str(d.get("lastEvent", ""))
 	h.add_child(lbl("last month %s%s" % [_m(float(d.lastMonthUSD)), ("  ·  event %s %s" % [ev, str(d.get("lastEventPlant", ""))]) if ev != "" else ""], 12, PENCIL))
 	return h
@@ -113,9 +114,9 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 		return h
 	var dr: Dictionary = _ta.get(id, {"m": m + 2, "crane": 1, "crew": 0}); dr.m = maxi(int(dr.m), m); _ta[id] = dr
 	h.add_child(lbl("TURNAROUND", 11, PENCIL, "semi"))
-	var dn := key("◀", func(): dr.m = maxi(m, int(dr.m) - 1); _render(), false, 11); dn.custom_minimum_size = Vector2(26, 26); h.add_child(dn)
+	var dn := key("◀", func(): dr.m = maxi(m, int(dr.m) - 1); _render(), false, 11); dn.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(26.0, Ch9Board.tmin())); h.add_child(dn)
 	h.add_child(lbl("month %d" % int(dr.m), 12, EqTheme.INK, "mono_bold"))
-	var up := key("▶", func(): dr.m = mini(59, int(dr.m) + 1); _render(), false, 11); up.custom_minimum_size = Vector2(26, 26); h.add_child(up)
+	var up := key("▶", func(): dr.m = mini(59, int(dr.m) + 1); _render(), false, 11); up.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(26.0, Ch9Board.tmin())); h.add_child(up)
 	var kc := key("CRANE %d" % int(dr.crane), func(): dr.crane = 2 if int(dr.crane) == 1 else 1; _render(), false, 11); kc.tooltip_text = "Second crane: faster, extra hire cost."; h.add_child(kc)
 	var kw := key("+4 CREW" if int(dr.crew) == 0 else "NO EXTRA CREW", func(): dr.crew = 4 if int(dr.crew) == 0 else 0; _render(), false, 11); h.add_child(kw)
 	var kb := key("BOOK", func(): emit_act("turnaround", [id, int(dr.m), int(dr.crane), int(dr.crew)]), true, 11); kb.disabled = over; h.add_child(kb)

@@ -38,10 +38,10 @@ func _initialize() -> void:
 				["setFeed", ["F-102", {"flow": 860.0 * 1000.0 / 3600.0}]], ["setParam", ["B-106", "T", 693.15]], ["connect", ["F-102", "out", "K-103", "in"]], ["connect", ["K-103", "out", "M-104", "in2"]], ["connect", ["F-101", "out", "M-104", "in1"]], ["connect", ["M-104", "out", "R-105", "in"]], ["connect", ["R-105", "out", "B-106", "in"]], ["connect", ["B-106", "out", "Z-107", "in"]]]: app.b.act(a[0], a[1])
 			app.game_on_changed(); await frames(4)
 			await snap("run_design")
-			app.chrome.turn_key(); app.game_on_changed(); await frames(4)
+			app.chrome.turn_key(true); app.game_on_changed(); await frames(4)
 			for i in 8: app.b.act("tick", [1]); app.game_on_changed()
 			await frames(4); await snap("run_running")
-			app.chrome.turn_key(); app.game_on_changed(); await frames(6)
+			app.chrome.turn_key(true); app.game_on_changed(); await frames(6)
 			await snap("run_stopped")
 			Notebook.open(app); await frames(8); await snap("run_notebook")
 		"ghost":

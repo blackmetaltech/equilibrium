@@ -52,7 +52,7 @@ func _rack_card(c: Dictionary, sop: bool) -> Control:
 	b.add_theme_font_override("font", EqTheme.font("mono")); b.add_theme_font_size_override("font_size", EqTheme.fs(13))
 	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: b.add_theme_color_override(st, EqTheme.INK)
 	for st in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(st, _card_sb(Color("#F6EFD9") if st != "hover" else Color("#FFFAE8"), Color("#8A7A55") if st != "focus" else EqTheme.TEAL))
-	b.custom_minimum_size = Vector2(0, 30)
+	b.custom_minimum_size = Vector2(0, maxf(30.0, Ch9Board.tmin()))
 	if sop and str(c.get("pre", "")) != "": b.tooltip_text = str(c.pre)
 	b.pressed.connect(func(): emit_act("add", [c.id]))
 	return b
@@ -69,13 +69,13 @@ func _seq_card(o: Dictionary, i: int, n: int, ev: Dictionary) -> Control:
 	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 0); p.add_child(v)
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6); v.add_child(h)
 	h.add_child(lbl("%d." % (i + 1), 13, PENCIL, "mono_bold"))
-	var nm := lbl(str(o.label), 13, EqTheme.INK, "mono_bold"); nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm.clip_text = true; h.add_child(nm)
+	var nm := lbl(str(o.label), 13, EqTheme.INK, "mono_bold"); nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; nm.custom_minimum_size = Vector2(60, 0); h.add_child(nm)   # a long card name wraps, it never truncates
 	if kind == "hazard": h.add_child(stamp("HAZARD", STAMP_RED))
 	elif kind == "blocked": h.add_child(stamp("BLOCKED", AMBER_INK))
 	elif kind == "done": h.add_child(stamp("DONE", OKGREEN))
-	var up := key("▲", func(): emit_act("move", [i, i - 1]), false, 11); up.disabled = i == 0; up.custom_minimum_size = Vector2(26, 24); h.add_child(up)
-	var dn := key("▼", func(): emit_act("move", [i, i + 1]), false, 11); dn.disabled = i == n - 1; dn.custom_minimum_size = Vector2(26, 24); h.add_child(dn)
-	var rm := key("×", func(): emit_act("remove", [i]), false, 12); rm.custom_minimum_size = Vector2(26, 24); h.add_child(rm)
+	var up := key("▲", func(): emit_act("move", [i, i - 1]), false, 11); up.disabled = i == 0; up.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(24.0, Ch9Board.tmin())); h.add_child(up)
+	var dn := key("▼", func(): emit_act("move", [i, i + 1]), false, 11); dn.disabled = i == n - 1; dn.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(24.0, Ch9Board.tmin())); h.add_child(dn)
+	var rm := key("×", func(): emit_act("remove", [i]), false, 12); rm.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(24.0, Ch9Board.tmin())); h.add_child(rm)
 	if str(ev.get("text", "")) != "":
 		var t := lbl("%s   (t+%d min)" % [str(ev.text), int(ev.t)], 12, STAMP_RED if kind == "hazard" else AMBER_INK, "sans"); t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(t)
 	return p

@@ -21,7 +21,7 @@ func _build() -> void:
 		var ex := bool(m.excluded); var fl := bool(m.flagged)
 		var dim := PENCIL if ex else Color("#1E2A2E")
 		g.add_child(lbl(str(m.tag), 13, dim, "mono_bold"))
-		var nm := lbl(str(m.label), 12, dim, "sans"); nm.custom_minimum_size = Vector2(130, 0); nm.clip_text = true; g.add_child(nm)
+		var nm := lbl(str(m.label), 12, dim, "sans"); nm.custom_minimum_size = Vector2(130, 0); nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; g.add_child(nm)
 		g.add_child(lbl("%s ± %s" % [fnum(m.reading, 2), fnum(m.sigma, 2)], 13, dim))
 		g.add_child(lbl("—" if m.recon == null else fnum(m.recon, 2), 13, dim))
 		g.add_child(lbl("—" if m.adjust == null else ("%+.2f" % float(m.adjust)), 13, dim))

@@ -7,12 +7,12 @@ const S := {
 	"FP_WHY": "Why?", "FP_CATALYST": "Catalyst", "FP_LIGHTOFF": "light-off", "FP_PRICE": "price", "FP_LENS": "Lens", "FP_WINDOW": "Window", "FP_PIN": "Pin", "FP_UNPIN": "Unpin", "FP_CLOSE": "Close",
 	"FP_PV": "PV", "FP_SP": "SP", "FP_NOSOLVE": "Commission to read the meters", "FP_FLOW": "FLOW", "FP_MASS": "MASS", "FP_DUTY": "DUTY", "FP_WORK": "SHAFT",
 	"FP_OUT": "OUT", "FP_BANK_KG": "Bank flow", "FP_MASKED": "FUEL · unknown", "FP_KMOLH": "kmol/h", "FP_KGH": "kg/h", "FP_FAILED": "FAILED",
-	"PIPE_FROM": "Pipe from %s: now click an inlet (a lit amber square), or Esc to drop it", "PIPE_FROM_IN": "Pipe into %s: now click an outlet (a lit teal ball), or Esc to drop it", "PIPE_NONE": "No free inlet fits %s %s", "PIPE_DONE": "Piped %s to %s",
+	"PIPE_HINT": "Piping: press on an outlet (OUT, a teal ball) and drag to a lit inlet, or click the outlet, then the inlet.", "PIPE_FROM": "Pipe from %s: now click an inlet (a lit amber square), or Esc to drop it", "PIPE_FROM_IN": "Pipe into %s: now click an outlet (a lit teal ball), or Esc to drop it", "PIPE_NONE": "No free inlet fits %s %s", "PIPE_DONE": "Piped %s to %s",
 	"TAG_FLOW": "FLOW", "TAG_T": "T", "TAG_P": "P", "TAG_NODATA": "No flow yet: commission the plant", "TAG_KMOL": "kmol/h", "TAG_KG": "kg/h",
 	"NB_TAB": "NOTEBOOK", "NB_GOALS": "GOALS", "NB_BUDGET": "Budget", "NB_SPENT": "spent", "NB_STARS": "FLASKS", "NB_CALLIT": "CALL IT", "NB_START": "Start work", "NB_RESUME": "Back to work",
 	"NB_PREDICTED": "predicted: %s %s", "NB_NOW": "now %s", "NB_TARGET": "target %s", "NB_MODE": "MODE", "NB_LEARNER": "Learner", "NB_ENGINEER": "Engineer", "NB_ANSWER": "answer", "NB_LOCKED": "locked in", "NB_TAP": "tap to enter",
 	"PR_HEAD": "KESTREL BAY WORKS", "PR_RUN": "RUN %03d", "PR_PASS": "PASS", "PR_FAIL": "FAIL", "PR_ABORT": "*** RUN ABORTED ***", "PR_DONE": "*** RUN COMPLETE ***",
-	"PR_YOU": "◄ YOU", "PR_CALLIT": "CALL IT", "PR_MARA": "MARA", "PR_RETRY": "Retry", "PR_NEXT": "Next job", "PR_COPY": "Copy design code", "PR_COPIED": "Design code copied",
+	"PR_YOU": "◄ YOU", "PR_CALLIT": "CALL IT", "PR_MARA": "MARA", "PR_RETRY": "Retry", "PR_KEEP": "Keep improving", "PRD_TITLE": "You haven't predicted yet", "PRD_BODY": "This job asks you to call the answer before the first commission. Write your prediction in the notebook first, or run without one.", "PRD_NOW": "Predict now", "PRD_RUN": "Run anyway", "CLOCK_PAUSED": "PAUSED · 1x ON RUN", "PR_NEXT": "Next job", "PR_COPY": "Copy design code", "PR_COPIED": "Design code copied",
 	"PR_METRICS": "METRICS", "PR_HIST": "WORKS RUNS", "PR_CAUSE": "CAUSE", "PR_LESSON": "NOTE", "PR_STARS": "FLASKS", "PR_WENT": "SHEET %d",
 	"FP_LAST_RUN": "READINGS: LAST RUN", "FP_CLOSE_ALL": "close all", "FP_TRIPPED": "Plant tripped: reset the interlock first",
 	"DEL_ASK": "Delete %s and its %d pipes?", "DEL_ASK1": "Delete %s and its pipe?", "DEL_YES": "Delete", "DEL_NO": "Keep", "DEL_TIP": "Delete (Del)",
@@ -27,7 +27,7 @@ const S := {
 	"IC_FIRST_EDIT": "The first run is on show: change anything in the design to stop it.", "KH_DESIGN": "COMMISSION", "KH_COMMISSIONED": "RUN", "KH_RUN": "STOP + EDIT", "KH_TURN": "TURN FOR",
 	"HX_HOT_IN": "HOT IN", "HX_HOT_OUT": "HOT OUT", "HX_COLD_IN": "COLD IN", "HX_COLD_OUT": "COLD OUT",
 	"UT_FIRED": "fired", "UT_STEAM": "steam", "UT_CW": "cooling water", "UT_REFRIG": "refrigerant", "UT_NONE": "none (adiabatic)", "UT_ZERO": "This heater does 0 kW: pick a utility and a duty.", "UT_COLD": "Cooling water cannot heat anything. A heater needs fired or steam.", "UT_HOT": "Fired heat or steam cannot cool anything. A cooler needs water or refrigerant.",
-	"KEYPAD_OK": "Enter", "KEYPAD_CLEAR": "Clear", "KEYPAD_IN": "in %s", "KEYPAD_RANGE": "%s to %s",
+	"KEYPAD_OK": "Enter", "KEYPAD_CLEAR": "Clear", "KEYPAD_IN": "in %s", "KEYPAD_NONUM": "Type a number first.", "KEYPAD_REJECT": "%s is outside the scale (%s to %s).", "KEYPAD_RANGE": "%s to %s",
 }
 ## One solved stream (flow mol/s, mass kg/s, T K, P Pa, top-3) from `streamTable`, or {} when the plant is not solved.
 static func stream_row(app, id: String) -> Dictionary:

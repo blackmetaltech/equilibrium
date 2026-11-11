@@ -3,9 +3,19 @@ extends RefCounted
 ## Restart / stop-and-edit without losing the player's work. The engine has no "back to design" action, so the front-end restarts the level and replays what
 ## the player had built (units, knob values, feeds, banks, pipes) and the Call it answers onto the fresh plant. `clear := true` keeps nothing but the answers.
 
+## Level-local edits (levelAct: setDial, cards, schedules, worksheets) in the order the player made them. A dial keeps only its last value. The level view bay
+## notes each one that the engine accepted and clears the log when a different level starts; a restart replays it onto the fresh level.
+static var act_log: Array = []
+static var restarting := false
+static func note_act(name: String, args: Array) -> void:
+	if name == "setDial" and args.size() >= 1:
+		act_log = act_log.filter(func(a): return not (str(a[0]) == "setDial" and str((a[1] as Array)[0]) == str(args[0])))
+	act_log.append([name, args.duplicate(true)])
+static func clear_log() -> void: act_log = []
+
 ## What the plant looks like now: units (type, tile, rot, knob values), feeds, pipes, banks and the Call it answers.
 static func capture(app) -> Dictionary:
-	var out := {"units": [], "streams": [], "banks": [], "calls": []}
+	var out := {"units": [], "streams": [], "banks": [], "calls": [], "acts": act_log.duplicate(true)}
 	var p = app.b.q("plant")
 	if not (p is Dictionary): return out
 	for u in p.get("units", []):
@@ -92,6 +102,11 @@ static func _piped(b, fu: String, fp: String, tu: String, tp: String) -> bool:
 		if str(st.from.unit) == fu and str(st.from.port) == fp and str(st.to.unit) == tu and str(st.to.port) == tp: return true
 	return false
 
+static func restore_acts(app, snap: Dictionary) -> void:
+	for a in snap.get("acts", []):
+		var r: Dictionary = app.b.act("levelAct", [a[0]] + (a[1] as Array))
+		if bool(r.get("ok", false)): note_act(str(a[0]), a[1])
+
 static func restore_calls(app, snap: Dictionary) -> void:
 	for c in snap.calls:
 		var args: Array = [float(c.value)]
@@ -104,11 +119,15 @@ static func restart(app, keep_build: bool) -> Dictionary:
 	var li = PaperStrings.q(app, "levelInfo")
 	if not (li is Dictionary) or not li.has("id"): app.new_game(app._mode_pref()); return {}
 	var snap := capture(app)
+	if not keep_build: snap.acts = []
+	restarting = true; clear_log()
 	app.start_level(str(li.id), true)
+	restarting = false
 	var fails := 0
 	last_missing = []
 	if keep_build: fails = replay(app, snap)
 	restore_calls(app, snap)
+	if keep_build: restore_acts(app, snap)
 	if keep_build and (snap.units.size() > 0 or snap.calls.size() > 0): Notebook.started[str(li.id)] = true
 	app.game_on_changed()
 	return {"fails": fails, "missing": last_missing.duplicate(), "kept": snap.units.size(), "calls": snap.calls.size()}

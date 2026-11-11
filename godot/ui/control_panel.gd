@@ -8,7 +8,7 @@ signal dial_set(key: String, value: float)
 const S := {
 	"TITLE": "LOOP PANEL", "BUMP": "BUMP TEST", "BACK": "LOOP TRACE", "EMPTY": "Commission to record a trace", "BUMP_TITLE": "OPEN-LOOP BUMP",
 	"STAR": "STAR 3", "LEG_PV": "PV", "LEG_SP": "SP", "LEG_OP": "OP", "HINT": "Turn, wheel, or tap the number to type a value.",
-	"BUMP_HINT": "Show the open-loop bump trace and the fitted K, tau and theta.", "SEC": "s",
+	"BUMP_HINT": "Show the open-loop bump trace and the fitted K, tau and theta.", "SEC": "s", "LOCKED": "Dials are locked while a run shows: turn the key to DESIGN (or press Stop) to change them.",
 }
 var view := {}
 var chart: Chart
@@ -82,6 +82,12 @@ func set_view(d: Dictionary) -> void:
 		if not ch.is_empty(): v -= float(x.get("min", 0.0))
 		if k is Knob and (k as Knob)._drag: continue
 		if absf(k.value - v) > 1e-9: k.set_value(v)
+	var li0 = PaperStrings.q(app_ref, "levelInfo") if app_ref != null else {}
+	var ph0 := str(li0.get("phase", "design")) if li0 is Dictionary else "design"
+	var locked := ph0 == "shift" or ph0 == "firstrun"   # one rule for every dial: nothing turns while a run shows
+	for kk in knobs: (knobs[kk] as Control).set("editable", not locked); if knobs[kk] is Knob: (knobs[kk] as Knob).lock_reason = T("LOCKED"); (knobs[kk] as Control).modulate = Color(1, 1, 1, 0.6 if locked else 1.0); (knobs[kk] as Control).queue_redraw()
+	if locked: _hint.text = T("LOCKED")
+	elif _hint.text == T("LOCKED"): _hint.text = T("HINT")
 	_size_chart()
 	var psig := str((d.get("series", {}) as Dictionary).get("pv", []).hash()) if d.get("series") is Dictionary else ""
 	if psig != _pv_sig and _bump: _bump = false   # a new run: back to the loop trace
@@ -295,6 +301,7 @@ class Selector extends Control:
 	var choices: Array = []
 	var value := 0.0
 	var lo := 0.0
+	var editable := true
 	func _init() -> void: custom_minimum_size = Vector2(150, 132); focus_mode = Control.FOCUS_ALL; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	func setup(l: String, ch: Array, v: float) -> void: label = l; choices = ch; set_value(v)
 	func set_value(v: float) -> void: value = clampf(roundf(v), 0.0, maxf(choices.size() - 1, 0)); queue_redraw()
@@ -311,6 +318,7 @@ class Selector extends Control:
 		var n := choices.size(); if n == 0: return
 		set_value(float(posmod(int(value) + dir, n))); committed.emit(value)
 	func _gui_input(e: InputEvent) -> void:
+		if not editable: return
 		if e is InputEventMouseButton and e.pressed:
 			if e.button_index == MOUSE_BUTTON_LEFT:
 				grab_focus()

@@ -131,9 +131,11 @@ func _keypad_and_esc() -> void:
 	hub.from_unit = "C-105"; hub.from_port = "out"; hub.from_inlet = false
 	check(tag.visible and w.placing != "" and w.pipes.selected != "", "tag, pipe highlight, selection, ghost and a half-made pipe are all up")
 	key(KEY_ESCAPE); await frames(3)
-	check(not tag.visible and w.pipes.selected == "" and Faceplate.plates.is_empty() and w.selected_id == "" and w.placing == "" and hub.from_unit == "" and app.menu_ui == null, "Esc 1 clears everything and the pause plate stays shut")
+	check(w.placing == "" and hub.from_unit == "" and tag.visible and not Faceplate.plates.is_empty() and app.menu_ui == null, "Esc 1 cancels the placement and the half-made pipe, nothing else")
 	key(KEY_ESCAPE); await frames(3)
-	check(app.menu_ui != null, "Esc 2: only then the pause plate opens")
+	check(not tag.visible and w.pipes.selected == "" and Faceplate.plates.is_empty() and w.selected_id == "" and app.menu_ui == null, "Esc 2 closes the panels and the pause plate stays shut")
+	key(KEY_ESCAPE); await frames(3)
+	check(app.menu_ui != null, "Esc 3: only then the pause plate opens")
 	key(KEY_ESCAPE); await frames(3)
 	check(app.menu_ui == null, "Esc closes the pause plate")
 	# the stream tag: never blocks, closes on any click or drag elsewhere

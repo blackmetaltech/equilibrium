@@ -4,6 +4,7 @@ extends HBoxContainer
 ## the rotary beside it picks the plant clock ‖ 1× 4× 16×. This widget only draws and asks: `step_requested` (tap, Enter, Space via the console) and
 ## `speed_chosen(i)` go to the console, which runs the engine action and calls `set_pos` / `set_speed_pos` with the result.
 signal step_requested()
+signal goto_requested(i: int)   ## a click on one of the three labelled positions: turn straight there (DESIGN from any state in one click)
 signal speed_chosen(i: int)
 var app: CbApp
 var key: KeyDial
@@ -30,6 +31,8 @@ func set_pos(p: int, animate := true) -> void:
 
 func set_speed_pos(i: int) -> void: speed.pos = clampi(i, 0, 3); speed.queue_redraw()
 func set_speed_enabled(on: bool) -> void: speed.enabled = on; speed.queue_redraw()
+func set_speed_note(t: String) -> void:
+	if speed.note != t: speed.note = t; speed.queue_redraw()
 func set_next(i: int, text: String) -> void:
 	if key.next != i or key.next_text != text: key.next = i; key.next_text = text; key.queue_redraw()
 func set_compact(c: bool) -> void: key.custom_minimum_size = Vector2(230, 76) if c else Vector2(250, 96); speed.custom_minimum_size = Vector2(100, 76) if c else Vector2(124, 96); key.compact = c; speed.compact = c; key.queue_redraw(); speed.queue_redraw()
@@ -55,9 +58,16 @@ class KeyDial extends Control:
 			queue_redraw()
 	func _gui_input(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]: accept_event(); return   # the wheel over the key never zooms the camera
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: sw.step_requested.emit(); accept_event()
-		elif e is InputEventScreenTouch and e.pressed: sw.step_requested.emit(); accept_event()
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: _click(e.position); accept_event()
+		elif e is InputEventScreenTouch and e.pressed: _click(e.position); accept_event()
 		elif e is InputEventKey and e.pressed and not e.echo and (e.keycode == KEY_ENTER or e.keycode == KEY_KP_ENTER): sw.step_requested.emit(); accept_event()
+	func _click(p: Vector2) -> void:
+		var c := Vector2(size.x * 0.5, size.y - (24.0 if compact else 30.0)); var d := p - c
+		if d.length() <= 26.0: sw.step_requested.emit(); return
+		if d.x < -22.0: sw.goto_requested.emit(0)
+		elif d.x > 22.0: sw.goto_requested.emit(2)
+		elif d.y < -22.0: sw.goto_requested.emit(1)
+		else: sw.step_requested.emit()
 	func _draw() -> void:
 		var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
 		var cy := size.y - (24.0 if compact else 30.0); var c := Vector2(size.x * 0.5, cy)
@@ -100,6 +110,7 @@ class SpeedDial extends Control:
 	var enabled := false
 	var angle := -1.2
 	var compact := false
+	var note := ""      ## a line under the dial: why the clock is stopped (design) and what starts it
 	const ANG := [-1.3, -0.45, 0.45, 1.3]
 	func _init() -> void:
 		custom_minimum_size = Vector2(124, 96); mouse_filter = Control.MOUSE_FILTER_STOP; focus_mode = CbKit.focus_mode()
@@ -147,6 +158,7 @@ class SpeedDial extends Control:
 		draw_set_transform(c, angle, Vector2.ONE)
 		draw_rect(Rect2(-2.5, -17, 5, 12), EqTheme.TEAL * Color(1, 1, 1, dim))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if note != "": draw_string(f, Vector2(0, size.y - 3.0), note, HORIZONTAL_ALIGNMENT_CENTER, size.x, EqTheme.fs(10), EqTheme.AMBER)
 		if has_focus(): draw_rect(Rect2(Vector2.ZERO, size), EqTheme.TEAL, false, 2.0)
 
 ## The coach points at the key (pulse until the step is done).

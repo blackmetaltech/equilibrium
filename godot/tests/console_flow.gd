@@ -97,7 +97,7 @@ func _run() -> void:
 		var cn: Dictionary = b.act("connect", [str(f.id), "out", str(p.id), "in"]); check(cn.get("ok", false), "connect: %s" % str(cn.get("message", "")))
 		await frames(2)
 		check(ch.keys.pos == 0, "the key rests at DESIGN")
-		var r: Dictionary = ch.turn_key()
+		var r: Dictionary = ch.turn_key(true)
 		await frames(2)
 		check(bool(r.get("ok", false)) and bool(r.get("commissioned", false)), "turning the key commissions: %s" % str(r.get("message", "")))
 		check(ch.keys.pos == 1 and ch.keys.clunks >= 1, "the key stands at COMMISSION and clunked")

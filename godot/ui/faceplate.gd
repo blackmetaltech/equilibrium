@@ -22,6 +22,8 @@ var _win: Button
 var _knob_box: GridContainer
 var _body: VBoxContainer
 var _last_pos := Vector2(-1, -1)
+var _dock_pos := Vector2(-1, -1)     # where the plate docked (the side column); kept until the screen changes or a bay would cover it
+var _dock_vr := Vector2.ZERO
 var _order := 0
 var _warn: Label
 var _last: Label
@@ -187,7 +189,7 @@ func _rebuild() -> void:
 		_carry_lbl = EqTheme.label("", 14, EqTheme.INK, "mono_bold"); _carry_lbl.name = "Carries"; _carry_lbl.label_settings = EqStrings.ls(14, EqTheme.INK, "cap"); tags.add_child(_carry_lbl)
 	_pin = _tiny(PaperStrings.t("FP_PIN"), func(): pinned = not pinned; _pin.text = PaperStrings.t("FP_UNPIN") if pinned else PaperStrings.t("FP_PIN")); head.add_child(_pin)
 	_trash = TrashButton.new(); _trash.pressed.connect(func(): _delete_me()); head.add_child(_trash)
-	_all = _tiny(PaperStrings.t("FP_CLOSE_ALL"), func(): Faceplate.close_all()); _all.name = "CloseAll"; _all.visible = plates.size() > 1; head.add_child(_all)   # two cards open: one key clears the plot
+	_all = _tiny(PaperStrings.t("FP_CLOSE_ALL"), func(): Faceplate.close_all()); _all.name = "CloseAll"; _all.visible = true; head.add_child(_all)   # two cards open: one key clears the plot
 	var x := _tiny("×", func(): close()); x.name = "Close"; head.add_child(x)
 	# body: PV bar + knobs
 	var mid := HBoxContainer.new(); mid.add_theme_constant_override("separation", 6); _body.add_child(mid)
@@ -433,7 +435,12 @@ func _update() -> void:
 	for k in ["massKgh", "kgh", "mass_kgh"]:
 		if is_feed and feed.has(k) and mass == null: mass = float(feed[k])
 	_set_cell("mass", PaperStrings.t("FP_MASS") + " " + PaperStrings.t("FP_KGH"), mass, "kg/h", "raw")
-	_set_cell("T", "T " + PaperStrings.usym("degC"), st.get("T") if st.has("T") else (float(feed.T) if is_feed and feed.has("T") else null), "degC")
+	var t_cell: Variant = st.get("T") if st.has("T") else (float(feed.T) if is_feed and feed.has("T") else null)
+	var shd = app.b.g.get("shift") if app != null and app.b != null else null   # during a shift the vessel's own live temperature, not the steady solve
+	if _phase() == "shift" and shd is Dictionary and (shd as Dictionary).get("dc") is Dictionary:
+		var dcu = ((shd as Dictionary).dc as Dictionary).get(unit_id)
+		if dcu is Dictionary and (dcu as Dictionary).get("T") != null and is_finite(float(dcu.T)): t_cell = float(dcu.T)
+	_set_cell("T", "T " + PaperStrings.usym("degC"), t_cell, "degC")
 	_set_cell("P", "P " + PaperStrings.usym("bar"), st.get("P") if st.has("P") else (float(feed.P) if is_feed and feed.has("P") else null), "bar")
 	var res: Variant = card.get("results")
 	var duty: Variant = null; var dcap := PaperStrings.t("FP_DUTY") + " kW"
@@ -475,7 +482,7 @@ func _update() -> void:
 	_update_results_c()
 	_apply_coach()
 	_update_feed_info()
-	if _all != null: _all.visible = plates.size() > 1
+	if _all != null: _all.visible = true
 	if _last != null:   # in DESIGN the knobs are the plan; meters from an earlier run say so instead of passing for the plan
 		_last.text = PaperStrings.t("FP_LAST_RUN") if (_phase() == "design" and not readouts.is_empty() and sid != "" and not is_feed) else ""
 		_last.visible = _last.text != ""
@@ -585,6 +592,21 @@ func _place(force := false) -> void:
 	if app == null: return
 	var vr := get_viewport().get_visible_rect().size
 	var sz := get_combined_minimum_size().max(size)   # wrapped text settles a frame late: trust whichever is larger
+	var ch0 = app.get("chrome")
+	var bot0 := vr.y - (float(ch0.console_height()) if ch0 != null and ch0.has_method("console_height") else 190.0) - 10.0
+	if _dock_pos.x >= 0.0 and not force and vr == _dock_vr:   # a docked plate stays where it is while the player edits: nothing re-lays it out between clicks
+		var rc0 := Rect2(_dock_pos, sz); var hit := rc0.end.y > bot0 + 4.0
+		for bayn0 in ["bay", "lvbay"]:
+			var bw0 = app.get(bayn0)
+			if bw0 == null or not is_instance_valid(bw0) or not (bw0 as Control).visible or (bayn0 == "lvbay" and not bw0.active()): continue
+			if rc0.intersects((bw0 as Control).get_global_rect().grow(6.0)): hit = true
+		for k0 in plates:
+			var o0 = plates[k0]
+			if o0 == self or not is_instance_valid(o0) or (o0 as Faceplate)._order > _order: continue
+			if rc0.intersects(Rect2((o0 as Faceplate).position, (o0 as Faceplate).size)): hit = true
+		if not hit:
+			if not position.is_equal_approx(_dock_pos): position = _dock_pos; queue_redraw()
+			return
 	var x := vr.x - 12.0
 	for k in plates:
 		var o = plates[k]
@@ -609,14 +631,13 @@ func _place(force := false) -> void:
 		if Rect2(pos, sz).intersects(orc.grow(4.0)): pos.x = maxf(8.0, orc.position.x - 14.0 - sz.x)
 	var sp := Vector2.ZERO
 	if app.world != null and app.world.has_method("unit_screen_pos"): sp = app.world.unit_screen_pos(unit_id)
+	if sz.x > 40.0 and get_child_count() > 0 and size.x > 40.0: _dock_pos = pos; _dock_vr = vr
 	if not force and pos.is_equal_approx(position) and sp.is_equal_approx(_last_pos): return
 	_last_pos = sp; position = pos
 	# the card never hides the unit it is about: when the unit sits under the card, the plot slides left (once per card) until it is clear
 	if not _uncovered and sp.x > -3000.0 and app.world != null and app.world.get("cam_rig") != null and size.x > 40.0:
 		var pr := Rect2(pos, sz).grow(28.0)
-		if pr.has_point(sp):
-			_uncovered = true
-			app.world.cam_rig.pan_pixels(Vector2(-(sp.x - pr.position.x + 40.0), 0.0))
+		if pr.has_point(sp): _uncovered = true   # the camera stays where the player put it: the plate docks in the side column instead
 	queue_redraw()
 
 func _process(_dt: float) -> void:
@@ -651,9 +672,15 @@ class Hub extends Node:
 
 	## Esc clears everything in one press: the stream tag and pipe highlight, faceplates and the selection, a placement ghost, a half-made pipe and the delete
 	## strip. Returns true when something was cleared (the pause menu stays shut).
+	## Esc closes one layer per press: first what the hand is doing (a confirm, a half-made pipe, the placement ghost), then the panels (stream tag, pipe highlight, plates, selection);
+	## only when nothing is left does Esc reach the pause plate.
 	func close_one() -> bool:
 		var w = app.world
 		var did := false
+		if _confirm != null: _drop_confirm(); did = true
+		if from_unit != "": clear_pipe(); did = true
+		if w != null and w.placing != "": w.cancel_place(); did = true
+		if did: _refresh_ports(); return true
 		var tag = app.root.get_node_or_null("StreamTag")
 		if tag != null and tag.visible: tag.dismiss(); did = true
 		if w != null and w.pipes != null and w.pipes.selected != "": w.pipes.select(""); did = true
@@ -661,9 +688,6 @@ class Hub extends Node:
 			Faceplate.close_all()
 			if w != null: w.select("")
 			hover_id = ""; did = true
-		if w != null and w.placing != "": w.cancel_place(); did = true
-		if from_unit != "": clear_pipe(); did = true
-		if _confirm != null: _drop_confirm(); did = true
 		if did: _refresh_ports()
 		return did
 

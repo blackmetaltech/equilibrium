@@ -41,7 +41,17 @@ func layout() -> void:
 		panel.position = Vector2.ZERO
 
 ## A level change: the last level's panel (trace, dials, cards) is thrown away and rebuilt from the new engine view.
+## The plant frames itself in the space the control desk leaves, so the desk never sits on the plant (once per level: the camera is not moved by opening panels).
+func _frame_world() -> void:
+	if app == null or app.world == null or kind != "control" or not ("board_cover" in app.world): return
+	var want: float = size.x + 14.0
+	if absf(float(app.world.board_cover) - want) > 4.0:
+		app.world.board_cover = want
+		if app.world.has_method("_apply"): app.world.call("_apply")
+
 func reset() -> void:
+	if app != null and app.world != null and "board_cover" in app.world and kind == "control": app.world.board_cover = 0.0
+	if not BuildKeeper.restarting: BuildKeeper.clear_log()
 	_sig = ""
 	if panel != null: panel.queue_free(); panel = null
 	kind = ""; visible = false
@@ -88,6 +98,7 @@ func refresh(force := false) -> void:
 	if app.bay != null: app.bay.visible = false
 	visible = true; panel.visible = true
 	_hide_rack(kind != "control")
+	_frame_world()
 	var sig := JSON.stringify(d)
 	if sig == _sig: return
 	_sig = sig
@@ -112,12 +123,15 @@ func _hide_rack(on: bool) -> void:
 func _on_act(name: String, args: Array) -> void:
 	var r: Dictionary = app.b.act("levelAct", [name] + args)
 	if not bool(r.get("ok", false)) and r.has("message"): app.toast(str(r.get("message", "")), "warn")
+	elif bool(r.get("ok", false)): BuildKeeper.note_act(name, args)
 	refresh(true)
 
 func _on_dial(key: String, value: float) -> void:
 	var li0 = PaperStrings.q(app, "levelInfo")
 	var was := str(li0.get("phase", "design")) if li0 is Dictionary else "design"
 	var r: Dictionary = app.b.act("levelAct", ["setDial", key, value])
+	if bool(r.get("ok", false)): BuildKeeper.note_act("setDial", [key, value])
+	else: _sig = ""   # refused: the knob goes back to the engine's value
 	if not bool(r.get("ok", false)) and r.has("message"): app.toast(str(r.get("message", "")), "warn")
 	elif was != "design" and app.chrome != null: app.chrome.intercom.say("MARA", PaperStrings.t("IC_DIAL_RESET"), "info")   # a dial edit clears the run: say so, never silently
 	refresh(true)

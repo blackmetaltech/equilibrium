@@ -22,9 +22,9 @@ func _initialize() -> void:
 	await frames(8); CbSettings.persist = false
 	await level("L01")
 	build(42.6, 127.7); await frames(3)
-	app.chrome.turn_key(); app.game_on_changed(); await frames(3)
+	app.chrome.turn_key(true); app.game_on_changed(); await frames(3)
 	app.b.act("setBank", ["F-101", "N2", 140.1]); app.b.act("setBank", ["F-102", "H2", 30.24]); app.game_on_changed(); await frames(3)
-	app.chrome.turn_key(); app.game_on_changed(); await frames(3)
+	app.chrome.turn_key(true); app.game_on_changed(); await frames(3)
 	for i in 6: app.b.act("tick", [1]); app.game_on_changed()
 	await snap("%s/l01_two_runs_%s.png" % [out, tag])
 	app.chrome.open_recorder(); await frames(4)

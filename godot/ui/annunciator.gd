@@ -135,5 +135,7 @@ func _draw() -> void:
 				if f.get_string_size((l1 + " " + pt).strip_edges(), HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x <= r.size.x - 6.0 and l2 == "": l1 = (l1 + " " + pt).strip_edges()
 				else: l2 = (l2 + " " + pt).strip_edges()
 			var cy := r.position.y + r.size.y * 0.5
-			draw_string(f, Vector2(r.position.x, cy - 1.0), l1, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fsz, txt)
-			draw_string(f, Vector2(r.position.x, cy + fsz * 0.95), l2, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fsz, txt)
+			var fz := fsz   # the legend's type shrinks until the longer line fits the window: a window never prints "PRESSURE DRO"
+			while fz > EqTheme.fs(8) and maxf(f.get_string_size(l1, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x, f.get_string_size(l2, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x) > r.size.x - 6.0: fz -= 1
+			draw_string(f, Vector2(r.position.x, cy - 1.0), l1, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fz, txt)
+			draw_string(f, Vector2(r.position.x, cy + fz * 0.95), l2, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fz, txt)

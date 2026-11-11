@@ -63,7 +63,7 @@ func build() -> void:
 	recorder = ChartRecorder.new(); recorder.name = "Recorder"; recorder.size_flags_horizontal = Control.SIZE_EXPAND_FILL; top_row.add_child(recorder)
 	recorder.clicked.connect(open_recorder)
 	keys = KeySwitch.new(); keys.app = app; keys.name = "Keys"; top_row.add_child(keys)
-	keys.step_requested.connect(turn_key); keys.speed_chosen.connect(choose_speed)
+	keys.step_requested.connect(turn_key); keys.goto_requested.connect(goto_pos); keys.speed_chosen.connect(choose_speed)
 	intercom.got_it.connect(func(): if app.coach != null: app.coach.advance())
 	# the rack: its own enamel strip (second row; on a phone it floats above the console on demand)
 	rack_wrap = PanelContainer.new(); rack_wrap.name = "RackWrap"; rack_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -319,6 +319,7 @@ func _sync_key() -> void:
 			"shift": nx = 0; nt = PaperStrings.t("KH_RUN")
 	keys.set_next(nx, nt)
 	keys.set_speed_enabled(phase == "shift" or phase == "firstrun")
+	keys.set_speed_note(PaperStrings.t("CLOCK_PAUSED") if (phase == "design" or phase == "commissioned") and key_available() else "")
 	if phase != "shift" and phase != "firstrun" and app.speed != 0 and str(app.b.g.get("status", "playing")) == "playing" and app.started: app.set_speed(0); keys.set_speed_pos(0)
 
 func _poll_coach(li: Dictionary) -> void:
@@ -333,9 +334,11 @@ func _poll_coach(li: Dictionary) -> void:
 
 # ---- the key ---------------------------------------------------------------------------------------------------------------------------------
 ## One step of the key: DESIGN -> COMMISSION (the engine's commission action) -> RUN (start the shift). Returns the action result ({} when nothing ran).
-func turn_key() -> Dictionary:
+func turn_key(skip_predict := false) -> Dictionary:
 	if app == null or not app.started or str(app.b.g.get("status", "playing")) != "playing": return {}
 	phase = engine_phase()
+	if phase == "design" and not skip_predict and _call_it_empty():
+		_ask_predict(); return {}
 	if phase == "design":
 		var r: Dictionary = app.b.act("commission")
 		if not r.get("ok", false): app.toast(str(r.get("message", "")), "warn"); keys.set_pos(0); _pulse_open_ports(str(r.get("message", ""))); return r
@@ -359,6 +362,42 @@ func turn_key() -> Dictionary:
 	elif phase == "shift": return stop_and_edit()
 	else:
 		app.toast(PaperStrings.t("IC_FIRST_EDIT"), "info"); return {}
+
+## A call-it level whose answer line is still empty: the first commission is the moment the prediction is for.
+func _call_it_empty() -> bool:
+	var li := level_info()
+	if li.is_empty() or not qa_li.is_empty(): return false
+	var cis: Array = li.get("callIts", []) if li.get("callIts") is Array else []
+	if cis.is_empty() and li.get("callIt") is Dictionary: cis = [li.callIt]
+	if cis.is_empty(): return false
+	for ci in cis: if ci is Dictionary and bool(ci.get("answered", false)): return false
+	return true
+
+func _ask_predict() -> void:
+	var d: Dictionary = app.dialog("predictask", 460.0, 0.0, EqTheme.AMBER, 0.55)
+	var vb: VBoxContainer = d.vb; var h: Control = d.host
+	d.panel.add_theme_stylebox_override("panel", EqTheme.enamel_sb(8, 18.0))
+	vb.add_child(EqTheme.label(PaperStrings.t("PRD_TITLE"), 24, EqTheme.TEXT, "title"))
+	var tx := EqTheme.label(PaperStrings.t("PRD_BODY"), 16, EqTheme.TEXT, "sans"); tx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tx.custom_minimum_size = Vector2(420, 0); vb.add_child(tx)
+	var now := EqTheme.key_button(PaperStrings.t("PRD_NOW"), true, 17); now.name = "PredictNow"; now.custom_minimum_size = Vector2(0, 48)
+	now.pressed.connect(func(): h.queue_free(); app.focus_dialog(); Notebook.open(app)); vb.add_child(now)
+	var go := EqTheme.key_button(PaperStrings.t("PRD_RUN"), false, 17); go.name = "RunAnyway"; go.custom_minimum_size = Vector2(0, 48)
+	go.pressed.connect(func(): h.queue_free(); await app.get_tree().process_frame; turn_key(true)); vb.add_child(go)
+	app.focus_dialog(); now.call_deferred("grab_focus")
+
+## Turn the key straight to a position. DESIGN from any state is one click (the run is stopped and the build kept); COMMISSION / RUN step forward as far as asked.
+func goto_pos(i: int) -> void:
+	if app == null or not app.started or str(app.b.g.get("status", "playing")) != "playing": return
+	phase = engine_phase()
+	var cur := 0 if phase == "design" else (1 if phase == "commissioned" else 2)
+	if i == cur: return
+	if i == 0: stop_and_edit(); return
+	var guard := 0
+	while cur < i and guard < 3:
+		guard += 1
+		var r := turn_key()
+		if not bool(r.get("ok", false)) or r.get("commissioned", true) == false: return
+		phase = engine_phase(); cur = 0 if phase == "design" else (1 if phase == "commissioned" else 2)
 
 ## RUN -> DESIGN: the engine has no stop action, so the level restarts with the player's build and Call it answers put back (ui/build_keeper.gd).
 ## A commission refused for pipework: the unit the message names (else every unit with an open port) pulses its open ports (the engine's openPorts).

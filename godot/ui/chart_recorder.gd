@@ -207,7 +207,7 @@ func _draw() -> void:
 	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero) + (" —" if bool(hero.get("pending", false)) else ""), EqTheme.PEN_BLUE, avail)   # pending: the reading is "—", never a made-up number
 	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec) + (" —" if bool(sec.get("pending", false)) else ""), EqTheme.PEN_RED, avail)
 	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail)
-	if not first_run.is_empty() and first_run.get("madeKg") != null:   # (madeKg null: this level makes no product, so no counter) a rolling "made so far" counter while the first run plays
+	if not first_run.is_empty() and runs.size() <= 1 and first_run.get("madeKg") != null:   # (madeKg null: this level makes no product, so no counter) a rolling "made so far" counter while the first run plays
 		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 21.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
@@ -240,6 +240,10 @@ func _legend(d: Dictionary) -> String:
 ## One strip of Dymo tape (clipped to `avail` px); returns the y for the next strip below it.
 func _tape(p: Vector2, text: String, accent: Color, avail := 1.0e6) -> float:
 	var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
+	while sz > EqTheme.fs(9) and f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0 > avail: sz -= 1   # a long legend shrinks its type before it clips
+	var fit := text.to_upper()
+	while fit.length() > 4 and f.get_string_size(fit, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0 > avail: fit = fit.left(fit.length() - 2).strip_edges() + "…"
+	text = fit
 	var w := minf(f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0, avail)
 	draw_rect(Rect2(p, Vector2(w, 17.0)), EqTheme.DYMO_TAPE)
 	draw_rect(Rect2(p + Vector2(0, 17.0), Vector2(w, 1.0)), Color(1, 1, 1, 0.12))

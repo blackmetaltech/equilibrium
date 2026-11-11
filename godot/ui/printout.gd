@@ -143,6 +143,9 @@ static func open(app) -> bool:
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); vb0.add_child(row)
 	var retry := EqTheme.key_button(PaperStrings.t("PR_RETRY"), not won, 18); retry.name = "Retry"
 	retry.pressed.connect(func(): host.queue_free(); app.end_ui = null; app.start_level(lid, true)); row.add_child(retry)
+	if won:   # keep the build and chase the remaining flasks: a fresh attempt on the same plant (stars only ever go up)
+		var kp := EqTheme.key_button(PaperStrings.t("PR_KEEP"), false, 18); kp.name = "KeepImproving"
+		kp.pressed.connect(func(): host.queue_free(); app.end_ui = null; await app.get_tree().process_frame; BuildKeeper.restart(app, true)); row.add_child(kp)
 	var nxt := str(ed.get("next_level", ""))
 	if won and nxt != "":
 		var nb := EqTheme.key_button(PaperStrings.t("PR_NEXT"), true, 18); nb.name = "Next"; nb.pressed.connect(func(): host.queue_free(); app.end_ui = null; app.start_level(nxt, true)); row.add_child(nb)

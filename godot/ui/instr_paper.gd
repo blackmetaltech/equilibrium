@@ -84,6 +84,8 @@ func _dash(a: Vector2, b: Vector2, col: Color, w := 1.5) -> void:
 ## One strip of Dymo tape; returns the y for the next strip below it.
 func tape(p: Vector2, text: String, accent: Color, avail := 1.0e6, sz := 12) -> float:
 	var f := EqStrings.font("cap"); var s := EqTheme.fs(sz)
+	while s > EqTheme.fs(8) and f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, s).x + 12.0 > avail: s -= 1   # a long tape shrinks its type before it clips
+	while text.length() > 4 and f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, s).x + 12.0 > avail: text = text.left(text.length() - 2).strip_edges() + "…"
 	var w := minf(f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, s).x + 12.0, avail)
 	var h := float(s) + 5.0
 	draw_rect(Rect2(p, Vector2(w, h)), EqTheme.DYMO_TAPE)

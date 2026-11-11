@@ -168,7 +168,7 @@ func port_frame(id: String, port: String, inlet: bool) -> Dictionary:
 ## Show port markers: [{unit, port, inlet, hot}]. Outlets are spheres, inlets cubes, legal targets are larger and brighter.
 func show_ports(list: Array) -> void:
 	for n in _mark_nodes: (n as Node).queue_free()
-	_mark_nodes.clear(); _marks = list; _caps.clear()
+	_mark_nodes.clear(); _hot_port = -1; _marks = list; _caps.clear()
 	var per_unit := {}   # unit -> marks seen so far (stagger index) and total (crowded = captions only on hover)
 	var total := {}
 	for it in list: total[str(it.unit)] = int(total.get(str(it.unit), 0)) + 1
@@ -203,6 +203,26 @@ func _hover_caps() -> void:
 		if not is_instance_valid(c[0]) or not is_instance_valid(c[1]): continue
 		var n: Node3D = c[1]
 		(c[0] as Label3D).visible = not cam.is_position_behind(n.global_position) and cam.unproject_position(n.global_position).distance_to(mp) < 60.0
+
+var _hot_port := -1
+static var port_hint_shown := false
+## The port under the pointer swells and the cursor turns to a hand: a press there starts a pipe and never selects a unit. The first time, a hint says how piping works.
+func _hover_port(p: Vector2) -> void:
+	var best := -1; var bd := (30.0 if CbLayout.touch else 20.0)
+	for i in range(_mark_nodes.size()):
+		var n: Node3D = _mark_nodes[i]
+		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue
+		var d := cam.unproject_position(n.global_position).distance_to(p)
+		if d < bd: bd = d; best = i
+	if best == _hot_port: return
+	if _hot_port >= 0 and _hot_port < _mark_nodes.size() and is_instance_valid(_mark_nodes[_hot_port]): (_mark_nodes[_hot_port] as Node3D).scale = Vector3.ONE
+	_hot_port = best
+	if best >= 0:
+		(_mark_nodes[best] as Node3D).scale = Vector3.ONE * 1.7
+		Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND)
+		if not port_hint_shown and app != null and app.has_method("toast"):
+			port_hint_shown = true; app.toast(PaperStrings.t("PIPE_HINT"), "info")
+	else: Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
 func _pick_port(p: Vector2) -> Dictionary:
 	var best := {}; var bd := (30.0 if CbLayout.touch else 20.0)
@@ -534,6 +554,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		var from := _press_port; _press_port = {}
 		if not rel.is_empty() and (str(rel.unit) != str(from.unit) or str(rel.port) != str(from.port)): port_clicked.emit(str(rel.unit), str(rel.port), bool(rel.inlet))
 		return
+	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION: _hover_port(e.position)
 	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION:
 		var h := pipes.pick(e.position, cam)
 		if h != _hover_pipe or h != "": _hover_pipe = h; pipe_hover.emit(h, e.position)

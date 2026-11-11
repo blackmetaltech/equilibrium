@@ -58,8 +58,9 @@ static func usd(v: float) -> String:
 	return ("-" if v < 0 else "") + "$" + o
 
 ## A small key-cap button.
+static func tmin() -> float: return CbLayout.tap()   ## the touch-target floor of this layout (0 on desktop)
 static func key(text: String, cb: Callable, primary := false, size := 13) -> Button:
-	var b := EqTheme.key_button(text, primary, size); b.custom_minimum_size = Vector2(0, 32); b.pressed.connect(cb)
+	var b := EqTheme.key_button(text, primary, size); b.custom_minimum_size = Vector2(tmin(), maxf(32.0, tmin())); b.pressed.connect(cb)
 	for st in ["normal", "hover", "pressed", "disabled"]:
 		var sb := EqTheme.key_sb(primary, st); sb.content_margin_left = 8; sb.content_margin_right = 8; sb.content_margin_top = 2; sb.content_margin_bottom = 2
 		b.add_theme_stylebox_override(st, sb)

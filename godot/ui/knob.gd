@@ -26,9 +26,14 @@ var _last_ang := 0.0
 var _f := 0.0
 var _timer: Timer
 var _hover_num := false
+var _drag_acc := 0.0
+var _drag_y := 0.0           ## relative vertical drag: pointer y at the last motion event
+var _burst_st := 0.0         ## a relative knob's wheel step is fixed for the whole burst (linear notches, no acceleration while the value grows)
+var lock_reason := ""      ## shown when a locked knob is pressed
+var nudge := true            ## a - and a + button either side of the dial (touch and fine work)
 
 func _init() -> void:
-	custom_minimum_size = Vector2(96, 132); focus_mode = Control.FOCUS_ALL; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	custom_minimum_size = Vector2(112, 132); focus_mode = Control.FOCUS_ALL; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_timer = Timer.new(); _timer.one_shot = true; _timer.wait_time = 0.3; add_child(_timer); _timer.timeout.connect(_flush)
 
 func setup(p_label: String, p_unit: String, p_lo: float, p_hi: float, p_coarse: float, p_fine: float, p_value: float, p_int := false, p_choices: Array = []) -> Knob:
@@ -47,6 +52,9 @@ func value_text() -> String:
 	return PaperStrings.num(value, integer) + (" " + unit if unit != "" else "")
 
 func _center() -> Vector2: return Vector2(size.x * 0.5, 4.0 + R + 4.0)
+func _nudge_rect(dir: int) -> Rect2:
+	var w := (size.x - (R + 6.0) * 2.0) * 0.5
+	return Rect2(0.0 if dir < 0 else size.x - w, 0.0, w, 4.0 + R * 2.0 + 8.0)
 func _num_rect() -> Rect2: return Rect2(0, 4.0 + R * 2.0 + 10.0, size.x, 24.0)
 
 func _snap(v: float, step: float) -> float:
@@ -73,28 +81,37 @@ func _step(dir: int, fine_step: bool) -> void:
 			return
 		if dir < 0 and value <= lo + 1e-9: is_off = true; queue_redraw(); changing.emit(off_disp); _timer.start(); return
 	var st := 1.0 if (integer or not choices.is_empty()) else (fine if fine_step else coarse)
-	if relative and not integer and choices.is_empty(): st = rel_step(fine_step)
+	if relative and not integer and choices.is_empty():
+		if _burst_st <= 0.0 or _timer.is_stopped(): _burst_st = rel_step(fine_step)
+		st = _burst_st
 	var v := value + dir * st
 	if relative and choices.is_empty(): v = snappedf(v, st * 0.001); set_value(v); changing.emit(value); _timer.start(); return
 	if not choices.is_empty(): v = wrapf(v, lo, hi + 1.0)   # options wrap around like a selector
 	set_value(_snap(v, st)); changing.emit(value); _timer.start()
 
-func _flush() -> void: committed.emit(off_disp if is_off else value)
+func _flush() -> void:
+	_burst_st = 0.0
+	committed.emit(off_disp if is_off else value)
 
 func _gui_input(e: InputEvent) -> void:
-	if not editable: return
+	if not editable:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and lock_reason != "" and app != null: app.toast(lock_reason, "warn")
+		return
 	if e is InputEventMouseButton:
 		var mb := e as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
 				grab_focus()
 				if _num_rect().has_point(mb.position): _tap_number(); accept_event(); return
+				if nudge and choices.is_empty():
+					for dd in [-1, 1]:
+						if _nudge_rect(dd).has_point(mb.position): _step(dd, _fine_mod()); accept_event(); return
 				if (mb.position - _center()).length() <= R + 8.0:
-					_drag = true; _last_ang = _angle(mb.position)
+					_drag = true; _last_ang = _angle(mb.position); _drag_y = mb.position.y; _drag_acc = 0.0
 					if not choices.is_empty(): _step(1, false); _drag = false
 					accept_event()
 			else:
-				if _drag: _drag = false; set_value(_snap(value, fine)); queue_redraw(); _timer.stop(); committed.emit(value)
+				if _drag: _drag = false; set_value(value if relative else _snap(value, fine)); queue_redraw(); _timer.stop(); committed.emit(value)
 				accept_event()
 		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 			_step(1 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else -1, _fine_mod()); accept_event()
@@ -102,11 +119,17 @@ func _gui_input(e: InputEvent) -> void:
 		var mm := e as InputEventMouseMotion
 		_hover_num = _num_rect().has_point(mm.position)
 		if _drag:
-			var d := mm.position - _center()
-			if d.length() > 6.0:
-				var a := _angle(mm.position); var da := wrapf(a - _last_ang, -180.0, 180.0); _last_ang = a
-				_f = clampf(_f + da / SWEEP * (0.1 if _fine_mod() else 1.0), 0.0, 1.0)
-				value = lo + _f * (hi - lo); changing.emit(_snap(value, fine)); queue_redraw()
+			# relative vertical drag: every 6 px up or down is one step (a tenth of that with Shift), however wide the scale; the pointer's angle about the dial is ignored
+			var dy := _drag_y - mm.position.y; _drag_y = mm.position.y; _drag_acc += dy
+			var px := 6.0 * (6.0 if _fine_mod() else 1.0)
+			var n := int(_drag_acc / px)
+			if n != 0:
+				_drag_acc -= n * px
+				var st := 1.0 if (integer or not choices.is_empty()) else coarse
+				if relative and not integer and choices.is_empty(): st = rel_step(_fine_mod())
+				var v := clampf(value + n * st, lo, hi)
+				if relative and choices.is_empty(): v = snappedf(v, st * 0.001)
+				value = v; _f = (value - lo) / maxf(hi - lo, 1e-12); changing.emit(_snap(value, 0.0) if not relative else value); queue_redraw()
 		queue_redraw()
 	elif e.is_action_pressed("ui_right") or e.is_action_pressed("ui_up"): _step(1, _fine_mod()); accept_event()
 	elif e.is_action_pressed("ui_left") or e.is_action_pressed("ui_down"): _step(-1, _fine_mod()); accept_event()
@@ -142,6 +165,17 @@ func _draw() -> void:
 	if has_focus(): draw_arc(c, R + 2.0, 0.0, TAU, 48, EqTheme.TEAL, 3.0, true)
 	if is_off: draw_arc(c, R + 2.0, 0.0, TAU, 48, EqTheme.RED, 2.0, true)
 	if _drag: draw_arc(c, R + 12.0, deg_to_rad(-SWEEP * 0.5 - 90.0), deg_to_rad(-SWEEP * 0.5 - 90.0 + SWEEP * _f), 40, EqTheme.TEAL, 3.0, true)
+	if nudge and choices.is_empty() and editable:
+		for dd in [-1, 1]:
+			var nr2: Rect2 = _nudge_rect(dd); var bc := nr2.get_center(); var br := Rect2(bc - Vector2(11, 14), Vector2(22, 28))
+			draw_rect(br, EqTheme.PORCELAIN.darkened(0.08)); draw_rect(br, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.4), false, 1.0)
+			draw_line(bc + Vector2(-5, 0), bc + Vector2(5, 0), EqTheme.INK, 2.0)
+			if dd > 0: draw_line(bc + Vector2(0, -5), bc + Vector2(0, 5), EqTheme.INK, 2.0)
+	if _drag:   # the readout above the dial while a finger or the pointer covers the number
+		var bf := EqTheme.font("mono_bold"); var bt := value_text(); var bs := EqTheme.fs(18)
+		var bw := bf.get_string_size(bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs).x + 16.0
+		var brc := Rect2(c.x - bw * 0.5, -26.0, bw, 26.0)
+		draw_rect(brc, EqTheme.INK); draw_string(bf, brc.position + Vector2(8, 19), bt, HORIZONTAL_ALIGNMENT_LEFT, bw, bs, EqTheme.PORCELAIN)
 	# number, then the unit in a smaller hand beside it
 	var nr := _num_rect(); var f := EqTheme.font("mono_bold"); var fs := EqTheme.fs(14)
 	var num_t := _num_text(); var uf := EqTheme.font("sans"); var us := EqTheme.fs(13)
@@ -193,6 +227,7 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var hint_t := (PaperStrings.t("KEYPAD_IN") % unit if unit != "" else "") if absurd else (PaperStrings.t("KEYPAD_RANGE") % [PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))]) + (" " + unit if unit != "" else "")
 	var hint := EqTheme.label(hint_t, 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans")
 	if allow_range: vb.add_child(hint)
+	var reason := EqTheme.label("", 14, EqTheme.RED, "semi"); reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; reason.custom_minimum_size = Vector2(300, 0); reason.visible = false; reason.name = "Reason"; vb.add_child(reason)
 	var buf := [initial if initial != "" else ""]
 	var upd := func() -> void: disp.text = (buf[0] if buf[0] != "" else "0") + (" " + unit if unit != "" else "")
 	upd.call()
@@ -205,13 +240,15 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 			"±": buf[0] = (buf[0] as String).substr(1) if (buf[0] as String).begins_with("-") else "-" + buf[0]
 			".": if not (buf[0] as String).contains(".") and not integer: buf[0] += ("0." if buf[0] == "" else ".")
 			_: buf[0] += ch
-		hint.label_settings = EqTheme.settings(14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans"); upd.call()
+		hint.label_settings = EqTheme.settings(14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans"); reason.visible = false; upd.call()
 	var enter := func() -> void:
 		var s: String = buf[0]
-		if s == "" or not s.is_valid_float(): return
+		if s == "" or not s.is_valid_float():
+			reason.text = PaperStrings.t("KEYPAD_NONUM"); reason.visible = true; return
 		var v := s.to_float()
 		if v < lo - 1e-9 or v > hi + 1e-9:
-			hint.label_settings = EqTheme.settings(14, EqTheme.RED, "semi"); return
+			hint.label_settings = EqTheme.settings(14, EqTheme.RED, "semi")
+			reason.text = PaperStrings.t("KEYPAD_REJECT") % [PaperStrings.num(v, integer), PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))] + (" " + unit if unit != "" else ""); reason.visible = true; return
 		host.queue_free(); on_ok.call(v)
 	var grid := GridContainer.new(); grid.columns = 3; grid.add_theme_constant_override("h_separation", 8); grid.add_theme_constant_override("v_separation", 8); vb.add_child(grid)
 	for k in ["7", "8", "9", "4", "5", "6", "1", "2", "3", "±", "0", "."]:

@@ -104,7 +104,7 @@ func _refusal() -> void:
 	await level("L06")
 	act("placeUnit", ["burner", 8, 2, 0])
 	act("connect", ["F-101", "out", "R-103", "in"])
-	app.chrome.turn_key(); await frames(4)
+	app.chrome.turn_key(true); await frames(4)
 	var pl: Array = app.plant_world.pulsing()
 	check(not pl.is_empty(), "a refused commission pulses open ports: %s" % str(pl))
 	var open: Array = app.b.q("openPorts")

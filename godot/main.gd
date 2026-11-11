@@ -32,7 +32,17 @@ func game_build_world(parent: Node) -> Node:
 	audio_eq = EqAudio.new(); add_child(audio_eq); audio_eq.start_music.call_deferred()
 	return plant_world
 
+## Design edits are autosaved too (the engine only saves on ticks and wins): a killed game's Continue brings the plant back. Written once the player pauses for a second.
+var _save_dirty := false
+var _save_at := 0.0
+func _autosave_design() -> void:
+	if not _save_dirty or Time.get_ticks_msec() < _save_at or not started or b == null or no_autosave or not CbSettings.autosave: return
+	_save_dirty = false
+	if chrome == null or not chrome.visible or str(b.g.get("level", "")) == "" or str(b.g.get("status", "playing")) != "playing": return
+	var q := quiet; quiet = true; b.act("save", ["auto"]); quiet = q
+
 func game_on_changed() -> void:
+	_save_dirty = true; _save_at = Time.get_ticks_msec() + 1000.0
 	if chrome != null: chrome.refresh()   # intercom coach, annunciator, recorder and key follow the engine
 	if lvbay != null: lvbay.refresh()
 	if bay != null and not (lvbay != null and lvbay.active()): bay.refresh()
@@ -171,6 +181,7 @@ func game_end_screen() -> bool:
 ## A slow frame (a phone, a busy desktop) still delivers 4 or 16 ticks every second: the shell steps once per frame, so the ticks it owes are caught up here.
 var _owed := 0.0
 func _process(dt: float) -> void:
+	_autosave_design()
 	var t0 := int(b.g.get("tick", 0)) if started and b != null else 0
 	super(dt)
 	if started and b != null and speed >= 2 and modal() == null and str(b.g.get("status", "playing")) == "playing":
