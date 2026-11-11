@@ -29,7 +29,8 @@ export const L03_UNITS: LevelSpec['units'] = {
 };
 export const L03_BUDGET = 130000;
 const PRESETS = { compressor: { P: P_FEED, stages: 1 }, boiler: { T: 450, steam: 'LP' } };
-const START_AIR = 150;
+/** Default air, kmol/h: lean for either fuel (propane at 10 kmol/h needs about 240 kmol/h of air for complete burning at stoichiometry, 400 gives a clean flue to read), so the intercom's "plenty of air" is true on the first burn. */
+export const START_AIR = 400;
 /** Carbon and hydrogen atoms and the O2 a mole of the fuel takes, read from the reaction catalogue (R13 methane, R16 propane). */
 function fuelFacts(id: (typeof FUELS)[number]): { c: number; h: number; o2: number } {
   const nu = findReaction(id === 'CH4' ? 'R13' : 'R16')!.nu;
@@ -170,9 +171,11 @@ export const L03: LevelSpec = {
   equation: (s, m) => {
     if (!m.ok || !(m.v.co2! + m.v.h2o! > 0)) return null;
     const co2 = shown(m.v.co2!), h2o = shown(m.v.h2o!);
+    const co = shown(m.v.co!);
+    if (co > 0) return `${f(s, co2)} + ${f(s, co)} ÷ 2 + ${f(s, h2o)} ÷ 2 = ${f(s, shown(co2 + co / 2 + h2o / 2))} kmol/h of O₂ burned`;
     return `${f(s, co2)} + ${f(s, h2o)} ÷ 2 = ${f(s, shown(co2 + h2o / 2))} kmol/h of O₂ burned`;
   },
-  lessonVars: (s, m) => ({ co2: f(s, m.v.co2!), h2o: f(s, m.v.h2o!), o2: f(s, m.v.o2!), air: f(s, m.v.air!), x: f(s, m.v.excess_air!), burns: m.v.test_burns! }),
+  lessonVars: (s, m) => ({ carbonFrom: m.v.co2! > 1e-6 ? (m.v.co! > 1e-6 ? t('lv.L03.carbon.both') : t('lv.L03.carbon.co2')) : m.v.co! > 1e-6 ? t('lv.L03.carbon.co') : t('lv.L03.carbon.co2'), co: f(s, m.v.co!), co2: f(s, m.v.co2!), h2o: f(s, m.v.h2o!), o2: f(s, m.v.o2!), air: f(s, m.v.air!), x: f(s, m.v.excess_air!), burns: m.v.test_burns! }),
   metrics: (_s, m) => [
     { key: 'test_burns', unit: '', value: m.v.test_burns! },
     { key: 'stack_loss_mw', unit: 'MW', value: m.v.stack_loss_mw! },

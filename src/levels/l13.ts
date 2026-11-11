@@ -10,6 +10,7 @@ import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, flowOf, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { V2O5_SINTER_C, V2O5_WAKE_C } from './v2o5';
 
 type S = Readonly<EqState>;
 export const L13_SPECIES = ['SO2', 'O2', 'SO3', 'N2'];
@@ -18,8 +19,8 @@ export const L13_KMOL_H = 1000;
 export const L13_P = 1.2e5;
 export const L13_CONV_MIN = 98;
 /** Light-off of the ideal V2O5 and the sintering limit, K (410 C and 630 C). */
-export const T_ASLEEP = 683.15;
-export const T_SINTER = 903.15;
+export const T_ASLEEP = V2O5_WAKE_C + 273.15;
+export const T_SINTER = V2O5_SINTER_C + 273.15;
 export const L13_T_CALL = 420 + 273.15;
 export const L13_CALL_TOL = 0.01;
 /** Catalyst and vessel bill of one bed, USD/h (GAME, UNVERIFIED), and the acid strength the SO3 is sold as. */

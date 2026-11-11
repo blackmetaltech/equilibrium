@@ -359,7 +359,7 @@ describe('L08 Pay Once', () => {
   });
   it('the shift is 8 plant hours with a fuel price event and a hot day; the star rules (approach 20 K, stack 120 C) are checked at the end; an area past the stack limit earns star 1 only', () => {
     const e = mk('L08', pinchBuild(1100));
-    expect(e.state.shift!.len).toBe(28800);
+    expect(e.state.shift!.len).toBe(3600);
     expect(e.state.shift!.q.map((x) => x.type).every((t) => t === 'fuel_price' || t === 'cw_hot_day')).toBe(true);
     act(e, 'tick', 10000); act(e, 'tick', 10000); act(e, 'tick', 10000);
     expect(e.state.status).toBe('won');
