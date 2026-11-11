@@ -68,7 +68,7 @@ export const levelsCh5: Record<string, string> = {
   // ---- L21 Cold Enough
   'lv.L21.title': 'Cold Enough', 'lv.L21.place': 'The synthesis loop, refrigeration deck',
   'lv.L21.note.1': 'The separator is not magic. Colder takes more ammonia out of the gas, but the chiller costs power.',
-  'lv.L21.note.2': 'Add the chiller and a flash drum, and set both to one temperature. Raoult tells you what the gas will still carry.',
+  'lv.L21.note.2': 'Add the chiller and a flash drum, and set both to one temperature. Raoult tells you what the gas will still carry. The loop you start with is already paid for and does not count as spent: the budget is only what you add.',
   'lv.L21.goal.nh3': 'NH₃ to the tank at least {target} t/h',
   'lv.L21.goal.ar': 'Argon in the converter feed at most {target} %',
   'lv.L21.star.1': 'At least 8.0 t/h of NH₃ with at most 10 % argon in the converter feed',
@@ -99,7 +99,7 @@ export const levelsCh5: Record<string, string> = {
   // ---- L22 The Methanol Loop
   'lv.L22.title': 'The Methanol Loop', 'lv.L22.place': 'Methanol synthesis, reactor deck',
   'lv.L22.note.1': 'Same idea, different molecule. Copper catalyst, cooled tubes, and it hates anything above 280 °C.',
-  'lv.L22.note.2': 'The loop is built except for the reactor. Place the cooled tube, set its boiling-water coolant and catalyst load, open the purge. The exotherm makes a hot spot near the tube inlet: watch it.',
+  'lv.L22.note.2': 'The loop is built except for the reactor. Place the cooled tube, set its boiling-water coolant and catalyst load, open the purge. The exotherm makes a hot spot near the tube inlet: watch it. The loop you start with is already paid for and does not count as spent: the budget is only what you add, the tube.',
   'lv.L22.goal.meoh': 'Crude methanol to the tank at least {target} t/h',
   'lv.L22.goal.carbon': 'Carbon efficiency (methanol carbon over CO + CO₂ fed) at least {target} %',
   'lv.L22.star.1': 'Crude methanol at the target rate with at least 85 % carbon efficiency',

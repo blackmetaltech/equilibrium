@@ -224,6 +224,14 @@ export function fmtNumber(x: number, region: string): string {
   const pack = packOf(region), txt = formatNumber(x, pack, d), dec = pack.numbers.decimal;
   return d > 0 && txt.includes(dec) ? txt.replace(new RegExp(`0+$`), '').replace(new RegExp(`\\${dec}$`), '') : txt;
 }
+/** One scientific notation for rate constants and the like: 3 significant figures, "1.15 × 10⁻³" (mantissa 1 to 9.99, never "0.001 × 10⁻³"). */
+export function fmtSci(x: number, region: string): string {
+  if (!Number.isFinite(x) || x === 0) return fmtNumber(x, region);
+  const [m, e] = x.toExponential(2).split('e') as [string, string];
+  const sup: Record<string, string> = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  const exp = String(Number(e)).split('').map((c) => sup[c] ?? c).join('');
+  return `${fmtNumber(Number(m), region)} × 10${exp}`;
+}
 /** Display text of an SI value in the knob's display unit (for range messages). */
 export function fmtDisplay(x: number, unit: string, region: string): string {
   const pair = DISPLAY_PAIRS[unit];

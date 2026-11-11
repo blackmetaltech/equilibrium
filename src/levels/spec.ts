@@ -99,6 +99,8 @@ export interface LevelSpec {
   /** Level-local actions, reached through the generic `levelAct(name, ...args)` action; they read/write `s.lv` (and may call other actions'
    *  effects through plain state). Throw via `need`/`fail` to refuse with a message. */
   actions?: Record<string, (s: EqState, ...args: unknown[]) => void>;
+  /** Runs at the start of every `commission`, before the plant is solved (L24: the jacket starts cold, whatever the last shift left on the dial). */
+  beforeCommission?: (s: EqState) => void;
   /** Level-local dynamics run once per tick while a shift or first run is running (after the engine's shift systems). Deterministic. */
   tick?: (s: EqState) => void;
   /** What the front-end draws for a level-local mechanic (Ch8 dials + recorder series, Ch9 worksheet / cards / Gantt). Plain JSON, finite numbers. */

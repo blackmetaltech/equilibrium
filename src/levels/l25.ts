@@ -67,7 +67,7 @@ export function dcdaMeasures(s: S): Measures {
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 
 export const L25: LevelSpec = {
-  id: 'L25', firstRun: true, chapter: 6, index: 25, setter: 'safety', budgetUSD: L25_BUDGET, units: L25_UNITS, notes: 2, shiftLen: 0,
+  id: 'L25', firstRun: true, chapter: 6, index: 25, setter: 'safety', budgetUSD: L25_BUDGET, units: L25_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => {
     baseSetup(s, L25_SPECIES, L25_UNITS, PRESETS);
     putFeed(s, 0, 0, { N2: 0.79, O2: 0.21 - L25_SO2_FRAC, SO2: L25_SO2_FRAC }, L25_FEED_KMOL_H, L25_T_K, 1.5e5);

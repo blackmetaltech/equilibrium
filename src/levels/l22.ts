@@ -9,7 +9,7 @@ import { t } from '../i18n';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, flowOf, fedOf, inStream, intoType, link, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, toKgH, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, flowOf, fedOf, inStream, intoType, link, predictionOf, put, putFeed, markPrebuilt, relErr, sealSetup, shown, spentOf, toKgH, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const L22_SPECIES = ['H2', 'CO', 'CO2', 'N2', 'CH3OH', 'H2O'];
@@ -41,6 +41,7 @@ export function buildMethanol(s: EqState, purge: number): void {
   link(s, cool, 'out', flash, 'in'); link(s, flash, 'vap', split, 'in'); link(s, flash, 'liq', prod, 'in');
   link(s, split, 'purge', vent, 'in'); link(s, split, 'out', comp, 'in'); link(s, comp, 'out', mix, 'in2');
   s.palette = ['tubular'];
+  markPrebuilt(s);
   sealSetup(s);
 }
 

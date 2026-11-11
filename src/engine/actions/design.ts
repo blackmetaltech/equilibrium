@@ -4,6 +4,7 @@
 import { fail, ok, need } from '@core/kit';
 import type { ActionFn } from '@core/kit';
 import { CATALYST_IDS, findCatalyst } from '../../data/catalysts';
+import { findLaw } from '../../data/kinetics';
 import { hasThermo } from '../../sim/thermo/species';
 import { SPECIES } from '../../data/species';
 import { PRICE_KEYS } from '../../regions/data';
@@ -221,7 +222,10 @@ const setCatalyst: Fn = (s, unitId: unknown, catalystId: unknown) => {
   needEditable(s);
   const u = unitOf(s, unitId);
   need(metaOf(u.type).catalyst === true, t('err.catalyst.not_a_reactor', { type: u.type }));
-  need(typeof catalystId === 'string' && findCatalyst(catalystId) !== undefined, t('err.catalyst.unknown', { id: String(catalystId), options: CATALYST_IDS.join(', ') }));
+  if (u.type === 'batch') {
+    const opts = (findLaw(String(u.params.law ?? 'K6'))?.variants ?? []).map((v) => v.catalyst);
+    need(typeof catalystId === 'string' && opts.includes(catalystId), t('err.catalyst.unknown', { id: String(catalystId), options: opts.join(', ') }));
+  } else need(typeof catalystId === 'string' && findCatalyst(catalystId) !== undefined, t('err.catalyst.unknown', { id: String(catalystId), options: CATALYST_IDS.join(', ') }));
   edit(s, () => { u.catalystId = catalystId as string; });
 };
 

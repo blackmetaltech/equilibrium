@@ -4,8 +4,10 @@
 // 25 C, without heating. The exam numbers ride on it: the Call-it is the NCERT time for 5 g -> 3 g at k = 1.15e-3 /s (444 s); star 2 is the Arrhenius two-point measurement
 // (runs at 293 K and 313 K, Ea from the rate ratio); the card prints the book's other working (EQ-NC-035 / 036 / 037 / 042).
 import type { Action } from '@core/kit';
+import { dmath } from '@core/numerics';
 import oracleFile from '../oracle/oracles.json';
-import { fmtNumber, plumbing } from '../engine/solved';
+import { fmtNumber, fmtSci, plumbing } from '../engine/solved';
+import { findCatalyst } from '../data/catalysts';
 import { t } from '../i18n';
 import { rigK, timeToFraction } from '../sim/units/rx_batch';
 import type { EqState } from '../state';
@@ -68,6 +70,12 @@ export function rigMeasures(s: S): Measures {
 }
 
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
+const catName = (id: string): string => (id === 'none' ? 'no catalyst' : findCatalyst(id)?.name ?? id);
+/** The smallest k (1/s) that makes the burette read L18_O2_L in the run time: O2 = 0.5 x N0 R T / P, x = 1 - exp(-k t). */
+export const l18KNeeded = (T = L18_T_FEED): number => {
+  const xNeed = L18_O2_L / 1000 / (0.5 * L18_N0_MOL * R_GAS * T / L18_P);
+  return -dmath.log(1 - xNeed) / L18_TIME_S;
+};
 const LATE = (ids: string[]) => (s: S): boolean => ids.includes(s.ui.coachStep ?? '');
 const COACH: CoachStep[] = [
   { id: 'strip_bench', role: 'safety', focus: 'batch', done: (s) => unitsOfType(s, 'batch').length <= 1 },
@@ -140,6 +148,14 @@ export const L18: LevelSpec = {
       { key: 'goal', legend: t('lv.L18.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },
     ];
   },
+  /** The bench at a glance for the front end: each rig by name with its catalyst, k and Ea (one notation), whether it is piped, and the k a rig needs. */
+  view: (s) => ({
+    kNeeded: l18KNeeded(), kNeededText: fmtSci(l18KNeeded(), s.region) + ' s⁻¹', examK: exam().k, examKText: fmtSci(exam().k, s.region) + ' s⁻¹',
+    rigs: unitsOfType(s, 'batch').map((u) => {
+      const cat = u.catalystId ?? 'none', r = rigK(cat), pl = plumbing(s);
+      return { id: u.id, catalystId: cat, catalystName: catName(cat), k25: r.k(298.15), kText25: fmtSci(r.k(298.15), s.region) + ' s⁻¹', eaKJ: r.Ea / 1000, piped: pl.inPipe(u.id, 'in') !== undefined && pl.outPipe(u.id, 'out') !== undefined, fastEnough: r.k(298.15) >= l18KNeeded() };
+    }),
+  }),
   coach: COACH,
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
@@ -149,7 +165,7 @@ export const L18: LevelSpec = {
     return { key: 'short', cause: t('lv.L18.cause.short', vars) };
   },
   equation: (s, m) => (m.ok && m.v.o2_l! > 0 ? `${f(s, shown(m.v.n_o2!))} × 8.314 × ${f(s, shown(m.v.t_k!))} ÷ ${f(s, shown(m.v.p_kpa!))} = ${f(s, shown((shown(m.v.n_o2!) * 8.314 * shown(m.v.t_k!)) / shown(m.v.p_kpa!)))}` : null),
-  lessonVars: (s, m) => ({ k: f(s, m.v.k! * 1000), thalf: f(s, m.v.thalf!), ea: f(s, m.v.ea!), x: f(s, m.v.x! * 100), o2: f(s, m.v.o2_l!), t: f(s, toC(m.v.t_k!)), runs: commissions(s) }),
+  lessonVars: (s, m) => ({ k: fmtSci(m.v.k!, s.region), cat: m.v.cat! >= 0 ? catName(SLOTS[m.v.cat!]!) : '-', thalf: f(s, m.v.thalf!), ea: f(s, m.v.ea!), x: f(s, m.v.x! * 100), o2: f(s, m.v.o2_l!), t: f(s, toC(m.v.t_k!)), runs: commissions(s) }),
   metrics: (s, m) => [
     { key: 'o2_l', unit: 'L', value: m.v.o2_l! },
     { key: 'thalf_s', unit: 's', value: m.v.thalf! },

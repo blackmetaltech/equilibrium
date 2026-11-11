@@ -8,14 +8,25 @@ import { connectProblem } from '../actions/design';
 import { defOf, footprint, hasUnitType, metaOf } from '../registry';
 import type { KnobSpec } from '../registry';
 import { DISPLAY_PAIRS } from '../../sim/si';
-import { messageOf } from '../solved';
+import { fmtSci, messageOf } from '../solved';
 import { CATALYSTS, findCatalyst } from '../../data/catalysts';
+import { findLaw } from '../../data/kinetics';
+import { rigK } from '../../sim/units/rx_batch';
 
 const find = (s: Readonly<EqState>, id: unknown) => {
   const u = s.flowsheet.units.find((x) => x.id === id);
   if (!u) fail(t('err.unit.unknown', { id: String(id) }));
   return u;
 };
+
+/** The catalysts of a batch rig are the variants of its own rate law (L18: none / iodide / catalase), each with its k at 25 °C and Ea; never the packed-bed catalogue. */
+export function rigOptions(lawId: string, region: string) {
+  const law = findLaw(lawId);
+  return (law?.variants ?? []).map((v) => {
+    const rec = findCatalyst(v.catalyst), k25 = rigK(v.catalyst, lawId).k(298.15);
+    return { id: v.catalyst, name: rec?.name ?? 'no catalyst', price: 0, lightOffC: rec?.TlightOff ?? 0, dTk: 0, tmin: rec?.Tmin ?? 10, tmax: rec?.Tmax ?? 60, k25, kText: fmtSci(k25, region) + ' s⁻¹', eaKJ: v.Ea / 1000 };
+  });
+}
 
 function catalystKnob(current: string | undefined) {
   const laws = current !== undefined ? findCatalyst(current)?.lawIds ?? [] : [];
@@ -50,6 +61,13 @@ function liveOf(s: Readonly<EqState>, id: string): { T: number; C: number } | nu
   return T !== undefined && Number.isFinite(T) && T > 0 ? { T, C: T - 273.15 } : null;
 }
 
+function rigOf(s: Readonly<EqState>, u: { id: string; catalystId?: string; params: Record<string, number | string> }) {
+  const lawId = String(u.params.law ?? 'K6'), cat = u.catalystId ?? 'none', r = rigK(cat, lawId);
+  const feed = s.flowsheet.units.find((x) => x.type === 'feed'), T = typeof u.params.T === 'number' ? u.params.T : feed !== undefined ? s.feeds[feed.id]?.T ?? 298.15 : 298.15;
+  const o = rigOptions(lawId, s.region).find((x) => x.id === cat);
+  return { catalystId: cat, catalystName: o?.name ?? cat, k25: r.k(298.15), kText25: fmtSci(r.k(298.15), s.region) + ' s⁻¹', kNow: r.k(T), kTextNow: fmtSci(r.k(T), s.region) + ' s⁻¹', T_K: T, eaKJ: r.Ea / 1000 };
+}
+
 export const unitQueries: Record<string, QueryFn<EqState>> = {
   unitCard: (s, id: unknown) => {
     const u = find(s, id);
@@ -62,7 +80,9 @@ export const unitQueries: Record<string, QueryFn<EqState>> = {
       id: u.id, type: u.type, label: t(`label.unit.${('label.unit.' + u.type) in en ? u.type : 'other'}`), pos: u.pos, rot: u.rot, footprint: footprint(u.type, u.rot), cat: m.cat,
       params: u.params, catalystId: u.catalystId ?? null,
       /** The catalyst choice knob of a reactor: the current id and the catalysts that run the same law (all packed-bed catalysts when none is set). Act with setCatalyst(unit, id). */
-      catalyst: m.catalyst === true ? catalystKnob(u.catalystId) : null,
+      catalyst: m.catalyst === true ? (u.type === 'batch' ? { id: u.catalystId ?? 'none', options: rigOptions(String(u.params.law ?? 'K6'), s.region) } : catalystKnob(u.catalystId)) : null,
+      /** A batch rig (L18): its catalyst by name, k at 25 °C and at the charge temperature in one notation, Ea; null for other units. */
+      rig: u.type === 'batch' ? rigOf(s, u) : null,
       knobs: m.knobs.filter((k) => !(k.key === 'utility' && s.presets[u.type]?.process === 1)).map((k) => ({ ...k, label: t(`label.knob.${k.key}`), value: u.params[k.key] ?? (k.kind === 'choice' && k.def === '' ? '' : k.def), isDefault: (u.params[k.key] ?? k.def) === k.def, ...dispOf(k, u.params[k.key] ?? k.def) })),
       inlets: def.inlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, true) })),
       outlets: def.outlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, false) })),

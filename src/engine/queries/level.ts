@@ -221,7 +221,7 @@ const resultCard: QueryFn<EqState> = (s) => {
     verdictKey = 'solve_fail';
     const fl = s.solved.failure;
     cause = messageOf({ code: fl.code, severity: 'fail', ...(fl.unitId !== undefined ? { unitId: fl.unitId } : {}), ...(fl.species !== undefined ? { species: fl.species } : {}), data: fl.data }, s.region);
-  } else if (s.status === 'lost' && spec.shiftLen > 0 && s.shift?.ended !== 'time') { verdictKey = 'lost'; cause = s.statusReason in en ? t(s.statusReason, { unit: s.shift?.mon.find((x) => x.tier >= 3)?.u ?? '' }) : s.statusReason; }
+  } else if (s.status === 'lost' && spec.shiftLen > 0 && s.shift?.ended !== 'time') { verdictKey = 'lost'; cause = s.statusReason in en ? t(s.statusReason, { unit: s.shift?.incident?.kind === 'loss' ? s.shift.incident.unit : s.shift?.mon.find((x) => x.tier >= 3)?.u ?? '' }).replace(/ {2,}/g, ' ') : s.statusReason; }
   else ({ key: verdictKey, cause } = spec.verdict(s, m, goals));
   const own = `lv.${spec.id}.verdict.${verdictKey}`;
   const verdictText = t(own in en ? own : `lv.verdict.${verdictKey}`);
