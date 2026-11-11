@@ -25,7 +25,7 @@ export const L07_UNITS: LevelSpec['units'] = {
   cooler: { max: 1, price: 8000 }, stack: { max: 1, price: 8000 },
 };
 export const L07_BUDGET = 120000;
-const PRESETS = { heater: { T: 298.15 }, cooler: { T: 308.15, utility: 'cw' } };
+const PRESETS = { heater: { T: 298.15, process: 1 }, cooler: { T: 308.15, utility: 'cw' } };
 const START_COKE = 60, START_AIR = 300;
 
 /** -dH298 of C + 1/2 O2 -> CO and CO + 1/2 O2 -> CO2, kJ/mol, from the reaction catalogue; their sum is the Hess answer (EQ-NC-017: -110.5 = -393.5 + 283.0). */

@@ -25,6 +25,7 @@ export const levels: Record<string, string> = {
   'lv.err.bank_kg': 'A bank delivers between 0 and 1000000 kg/h; {value} is not possible.',
 
   // ---- L00 Night Shift
+  'lv.note.predict': 'Call it: predict before your first commission. The answer box locks when you commission; a right call earns a star.',
   'lv.L00.title': 'Night Shift', 'lv.L00.place': 'The ammonia loop, 02:40',
   'lv.L00.note.1': 'Last night shift. She is running sweet, but listen for the water.',
   'lv.L00.note.2': 'When the cooling water goes quiet, you have about two minutes.',
@@ -37,10 +38,10 @@ export const levels: Record<string, string> = {
   'lv.L00.coach.inlet_down.text': 'Bring the converter inlet down: turn the outlet setpoint of the cooler {unit}.',
   'lv.L00.coach.inlet_down.why': 'Why: less heat in at the inlet puts the converter lower on its curve, and the beam comes back level. The setpoint is what you ask of the cooler; with the cooling water failing it cannot reach it all, so the stream temperature you read stays above the dial.',
   'lv.L00.verdict.saved': 'She held. One dial was enough.',
-  'lv.L00.verdict.tripped': 'The interlock took her down. That is how she went down last time.',
+  'lv.L00.verdict.tripped': 'The interlock saved her and took her down; that is how she went down last time. Getting through the night earns the first star either way, but turn the cooler dial in time and she keeps running.',
   'lv.L00.verdict.not_run': 'The shift is still running.',
   'lv.L00.card': 'The works closed six months later. You are going to bring it back.',
-  'lv.L00.lesson': 'The cooling water pump tripped and the converter inlet warmed. The converter outlet peaked at {peak} °C against {nom} °C before the dial moved. One dial, one new place on the curve.',
+  'lv.L00.lesson': 'The cooling water pump tripped and the cooler could no longer take the heat off the converter inlet. The converter outlet was {nom} °C before the trip and peaked at {peak} °C after it. One dial, one new place on the curve.',
   'lv.L00.metric.peak_c': 'Converter peak', 'lv.L00.metric.alarm_s': 'Time in alarm', 'lv.L00.metric.critical_s': 'Time in critical',
 
   // ---- L01 Moles, Not Kilograms
@@ -48,9 +49,9 @@ export const levels: Record<string, string> = {
   'lv.L01.note.1': 'We need 10 kmol of ammonia an hour for the lab. Feeds are metered in kilograms. Do not vent hydrogen; it is the expensive one.',
   'lv.L01.note.2': 'The banks read kg/h. The reactor counts molecules.',
   'lv.L01.goal.nh3': 'NH₃ product {target} kg/h, within 1 %',
-  'lv.L01.goal.vent': 'Vented H₂ and N₂ at most {target} % of the feed',
+  'lv.L01.goal.vent': 'Vented H₂ and N₂ at most {target} % of the feed, by mass (kg/h vented over kg/h fed)',
   'lv.L01.star.1': 'Goal met: 10 kmol/h of NH₃ and at most 1 % of the feed vented',
-  'lv.L01.star.2': 'At most 0.1 % of the feed vented',
+  'lv.L01.star.2': 'At most 0.1 % of the feed vented, by mass',
   'lv.L01.star.3': 'Call it: the kg/h of H₂ the job needs, within 1 %',
   'lv.L01.callit': 'Called it: H₂ the job needs, kg/h',
   'lv.L01.hero': 'NH₃ to the tank', 'lv.L01.sec': 'Vent, share of feed',
@@ -98,7 +99,7 @@ export const levels: Record<string, string> = {
   'lv.L02.coach.place_mixer.why': 'Why: the burner has one inlet.',
   'lv.L02.coach.place_burner.text': 'Place the sulfur burner after the mixer.',
   'lv.L02.coach.place_burner.why': 'Why: S + O₂ makes SO₂ here, mole for mole.',
-  'lv.L02.coach.place_stack.text': 'Put the stack on the burner outlet. It reads the gas.',
+  'lv.L02.coach.place_stack.text': 'Put the stack on the burner outlet. It reads the gas, and on this level it is the only place the gas can go (no product tank).',
   'lv.L02.coach.place_stack.why': 'Why: the stack is the analyser; it shows what the burner really makes.',
   'lv.L02.coach.pipe_up.text': 'Pipe it: air to the blower to the mixer, the pit to the mixer, then burner and stack.',
   'lv.L02.coach.pipe_up.why': 'Why: every outlet ends in a unit or the stack.',

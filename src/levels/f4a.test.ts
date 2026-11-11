@@ -161,7 +161,7 @@ describe('teacher round 2', () => {
     const e = start('L14'); const flask = e.state.flowsheet.units.find((u) => u.type === 'lab_flask')!;
     const card = e.engine.q('unitCard', [flask.id]) as any;
     expect(card.knobs.find((k: any) => k.key === 'V')).toMatchObject({ unit: 'L', decimals: 2 });
-    expect(card.knobs.find((k: any) => k.key === 'Pfix').unit).toBe('bar(a)'); expect(card.knobs.find((k: any) => k.key === 'Pfix').label).toContain('0 = off');
+    expect(card.knobs.find((k: any) => k.key === 'Pfix').unitLabel).toBe('bar(a)'); expect(card.knobs.find((k: any) => k.key === 'Pfix').label).toContain('0 = off');
     const l24 = start('L24'); const ilk = l24.state.flowsheet.units.find((u) => u.type === 'interlock')!;
     const k = (l24.engine.q('unitCard', [ilk.id]) as any).knobs[0]; expect(k.min).toBeGreaterThanOrEqual(273.15);
   });

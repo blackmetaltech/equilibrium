@@ -32,7 +32,9 @@ export function benchMeasures(s: Readonly<EqState>): Measures {
   v.vent_kmol_h = v.vent_h2! + v.vent_n2!;
   v.vent_kg_h = toKgH(intoType(s, 'vent', 'H2'), 'H2') + toKgH(intoType(s, 'vent', 'N2'), 'N2');
   v.left_h2_kg_h = toKgH(intoType(s, 'vent', 'H2'), 'H2');
-  v.vent_frac = n2Fed + h2Fed > 0 ? v.vent_kmol_h! / (n2Fed + h2Fed) : 0;
+  /** By mass: the feeds are metered, and the vent is read, in kg/h. */
+  const fedKg = v.n2_kg_h! + v.h2_kg_h!;
+  v.vent_frac = fedKg > 0 ? v.vent_kg_h! / fedKg : 0;
   return { ok: true, v };
 }
 

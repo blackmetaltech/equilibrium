@@ -110,7 +110,12 @@ export const L37: LevelSpec = {
     const r = run(s, excl), raw = rawZ(s), ok = solvedOk(s);
     return {
       kind: 'reconcile', shown: shownOn,
-      nodes: LOOP_A.map((row, i) => ({ id: `N${i + 1}`, label: t(`lv.L37.node.${i + 1}`), coeffs: row.slice(), imbalance: raw.resid[i]!, imbalanceAfter: shownOn ? row.reduce((a, c, k) => a + c * (excl.includes(k) ? r.xhat[k]! : y[k]!), 0) : raw.resid[i]! })),
+      /** `closes`: the node's imbalance (after reconciling, once shown) is inside the 95 % noise band of its meters; the front-end colours N1-N3 by it. */
+      nodes: LOOP_A.map((row, i) => {
+        const after = shownOn ? row.reduce((a, c, k) => a + c * (excl.includes(k) ? r.xhat[k]! : y[k]!), 0) : raw.resid[i]!;
+        const tol = 1.96 * Math.sqrt(row.reduce((a, c, k) => a + c * sg[k]! * c * sg[k]!, 0));
+        return { id: `N${i + 1}`, label: t(`lv.L37.node.${i + 1}`), coeffs: row.slice(), imbalance: raw.resid[i]!, imbalanceAfter: after, tol, closes: Math.abs(after) <= tol };
+      }),
       meters: y.map((v, i) => ({ i, tag: LOOP_TAGS[i]!, label: t(`lv.L37.meter.${i + 1}`), reading: v, sigma: sg[i]!, excluded: excl.includes(i), flagged: fl.includes(i), recon: shownOn ? r.xhat[i]! : null, adjust: shownOn ? r.eps[i]! : null, z: shownOn ? raw.z[i]! : null })),
       chi2: r.chi2, chi2Crit: r.chi2Crit, dof: LOOP_A.length - excl.length, chi2CritRaw: raw.chi2Crit, dofRaw: LOOP_A.length, rmsErr: ok ? rms(r.xhat) : null, flagFeeUSD: L37_CALL_FEE, budgetUSD: L37_BUDGET, zLimit: 3.29,
     };

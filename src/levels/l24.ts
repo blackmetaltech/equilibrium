@@ -173,8 +173,8 @@ export const L24: LevelSpec = {
   },
   equation: (s, m) => {
     if (!m.ok || !(m.v.dtad! > 0)) return null;
-    const dH = shown(-K7_GAME.dH / 1000), c0 = shown(K7_GAME.CA0 / 1000), rc = shown(K7_GAME.rhoCp / 1000);
-    return `${f(s, dH)} × ${f(s, c0)} ÷ ${f(s, rc)} = ${f(s, shown((dH * c0) / rc))} K of adiabatic rise`;
+    const dH = -K7_GAME.dH / 1000, c0 = K7_GAME.CA0, rc = K7_GAME.rhoCp / 1000;
+    return `${f(s, shown(dH))} × ${f(s, shown(c0))} ÷ ${f(s, shown(rc))} = ${f(s, shown((dH * c0) / rc))} K of adiabatic rise (kJ/mol × mol/m³ ÷ kJ/(m³·K))`;
   },
   // the ignition temperature is the Call-it: it is shown only once the prediction is in or the shift is over; the run numbers only once the shift is over
   lessonVars: (s, m) => {

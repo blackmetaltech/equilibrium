@@ -174,7 +174,7 @@ describe('queries', () => {
     const c = e.q('unitCard', [ids.comp]) as any;
     expect(c.type).toBe('compressor'); expect(c.label).toBe('Compressor'); expect(c.footprint).toEqual({ w: 4, h: 2 });
     expect(c.knobs.map((k: any) => k.key)).toEqual(['P', 'stages']);
-    expect(c.knobs[0]).toMatchObject({ value: 1e7, unit: 'bar(a)', min: 1e4, max: 4e7, label: 'Pressure (absolute)', isDefault: false });
+    expect(c.knobs[0]).toMatchObject({ value: 1e7, unit: 'bar', unitLabel: 'bar(a)', min: 1e4, max: 4e7, label: 'Pressure (absolute)', isDefault: false });
     expect(c.inlets).toEqual([{ port: 'in', label: 'In', stream: pipes.m_k }]); expect(c.outlets[0].stream).toBe(pipes.k_c);
     expect(c.results.work).toBeGreaterThan(0); expect(c.results.info.shaft_kW).toBeGreaterThan(0);
     const sp = e.q('unitCard', [ids.split]) as any; expect(sp.knobs[0]).toMatchObject({ key: 'frac', value: 0.05, unit: 'mol%' });

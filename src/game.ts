@@ -3,6 +3,7 @@
 import { baseState, log, type GameDef } from '@core/kit';
 import { t } from './i18n';
 import { LEVELS } from './levels';
+import { SPEC_BY_ID } from './levels/registry';
 import { PERSONAS } from './personas';
 import { REGIONS } from './regions';
 import { MAX_SPECIES, MAX_UNITS, PHASES, THERMO_DETAILS, DEFAULT_PLOT, emptyFlowsheet, emptyProgress, type EqState } from './state';
@@ -93,7 +94,7 @@ export const GAME: GameDef<EqState> = {
   /** The Works Map may still claim the stars of a won level after the level has ended. */
   afterEndActions: ['claimStars'],
   /** A won level records its stars in the campaign progress right away (the Works Map reads them from the engine). */
-  onLevelEnd: (s, outcome) => { if (outcome === 'won' && s.level !== null) recordStars(s); },
+  onLevelEnd: (s, outcome) => { if (outcome === 'won' && s.level !== null) recordStars(s); /* the control and board levels (chapters 8-9) end on the printout phase like L35-L37 / shift levels; product levels keep their first-run view at the win */ const ch = s.level !== null ? SPEC_BY_ID[s.level]?.chapter ?? 0 : 0; if (ch >= 8 && (s.phase === 'firstrun' || s.phase === 'commissioned')) s.phase = 'report'; },
   personas: PERSONAS,
   invariants: (s) => {
     const v: { rule: string; detail: string }[] = [];

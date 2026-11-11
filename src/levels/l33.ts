@@ -4,7 +4,7 @@
 // turns into lost production. Dials: sensors, k, trip point (degC), action (1 cut feed, 2 full coolant, 3 dump).
 import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
-import { ACTIONS, CSTR, SCENARIOS, evaluate, hwCost, runScenario, secondsToCritical, type Design, type Eval } from '../sim/control/cstr';
+import { ACTIONS, CSTR, SCENARIOS, evaluate, hwCost, runScenario, scenarioView, secondsToCritical, type Design, type Eval } from '../sim/control/cstr';
 import type { EqState } from '../state';
 import { controlView, dialActions, dialScript, dialValues, goalLamp, lit, none, rigOk, rigSetup, LATE } from './ch8_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
@@ -48,13 +48,24 @@ function measures(s: S): Measures {
   return { ok: true, v: { sensors: des.sensors, k: des.k, tripC: d[2]!, action: ACTIONS.indexOf(des.action) + 1, miss: ev.misses, spurious: ev.spurious, cost: ev.annualCost, hw: hwCost(des), peakLoss: by('loss').peak - C0, tripLoss: by('loss').trippedAt, missLoss: by('loss').missed ? 1 : 0, missBlind: by('loss_stuck_low').missed ? 1 : 0, spHigh: by('stuck_high').spurious ? 1 : 0, spSpikes: by('spikes').spurious ? 1 : 0, spUpset: by('cooling_upset').spurious ? 1 : 0, ...base } };
 }
 
+/** Per scenario: which sensors read what, which failed, how many votes fired of how many needed, and what came of it (view.scenarios). Empty before the first replay. */
+export function l33Scenarios(s: S): { name: string; id: string; sensors: { id: string; reading: number; failed: boolean }[]; votes: number; need: number; tripped: boolean; trippedAt: number; outcome: string; outcomeKey: string }[] {
+  const d = dialValues(s, 4);
+  if (!rigOk(s, d)) return [];
+  const des = designOf(d);
+  return SCENARIOS.map((sc) => {
+    const v = scenarioView(sc, des);
+    return { id: sc.id, name: t(`lv.L33.scn.${sc.id}`), sensors: v.sensors.map((x) => ({ id: x.id, reading: Math.round((x.reading - C0) * 10) / 10, failed: x.failed })), votes: v.votes, need: v.need, tripped: v.tripped, trippedAt: v.trippedAt, outcomeKey: v.outcome, outcome: t(`lv.L33.outcome.${v.outcome}`) };
+  });
+}
+
 const VIEW = (s: S) => {
   const r = l33Series(s);
-  return controlView({
+  return { ...controlView({
     s, id: 'L33', dials: [{ key: 'sensors', unit: '', min: 1, max: 3, step: 1 }, { key: 'k', unit: '', min: 1, max: 3, step: 1 }, { key: 'tripC', unit: '°C', min: 60, max: 140, step: 1 }, { key: 'action', unit: '', min: 1, max: 3, step: 1, choices: ['cut_feed', 'full_coolant', 'dump'] }],
     series: r === null ? null : { t: r.t, pv: r.T.map((x) => x - C0), sp: r.T.map(() => r.trip - C0), op: r.open.map((x) => x - C0) },
     metric: { value: measures(s).v.cost!, unit: 'USD/yr', star3: L33_COST_STAR },
-  });
+  }), scenarios: l33Scenarios(s), tripAt: r === null ? -1 : runScenario(SCENARIOS[0]!, designOf(dialValues(s, 4))).trippedAt };
 };
 
 export const L33: LevelSpec = {
@@ -98,11 +109,14 @@ export const L33: LevelSpec = {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
     const vars = { trip: f(s, m.v.tripC!), peak: f(s, m.v.peakLoss!), crit: f(s, m.v.critC!), n: f(s, m.v.sensors!), k: f(s, m.v.k!), upset: f(s, m.v.upsetC!), secs: f(s, m.v.secs!), cost: f(s, m.v.cost!) };
-    if (m.v.missLoss === 1) return { key: 'miss_late', cause: t(m.v.action === 3 ? 'lv.L33.cause.miss_late_dump' : m.v.action === 2 ? 'lv.L33.cause.miss_coolant' : 'lv.L33.cause.miss_late_feed', vars) };
-    if (m.v.missBlind === 1) return { key: 'miss_blind', cause: t('lv.L33.cause.miss_blind', vars) };
-    if (m.v.spUpset === 1) return { key: 'spurious_low', cause: t('lv.L33.cause.spurious_low', vars) };
-    if (m.v.spHigh === 1 || m.v.spSpikes === 1) return { key: 'spurious_vote', cause: t('lv.L33.cause.spurious_vote', vars) };
-    return { key: 'budget', cause: t('lv.L33.cause.budget', vars) };
+    const parts: string[] = [];
+    if (m.v.missLoss === 1) parts.push(t(m.v.action === 3 ? 'lv.L33.cause.miss_late_dump' : m.v.action === 2 ? 'lv.L33.cause.miss_coolant' : 'lv.L33.cause.miss_late_feed', vars));
+    if (m.v.missBlind === 1) parts.push(t('lv.L33.cause.miss_blind', vars), t(m.v.k === m.v.sensors ? 'lv.L33.cause.blind_all' : 'lv.L33.cause.blind_few', vars));
+    if (m.v.spUpset === 1) parts.push(t('lv.L33.cause.spurious_low', vars));
+    if (m.v.spHigh === 1 || m.v.spSpikes === 1) parts.push(t('lv.L33.cause.spurious_vote', vars), t(m.v.k === 1 ? 'lv.L33.cause.noise_one' : 'lv.L33.cause.noise_more', vars));
+    if (parts.length === 0) return { key: 'budget', cause: t('lv.L33.cause.budget', vars) };
+    const key = m.v.missLoss === 1 ? 'miss_late' : m.v.missBlind === 1 ? 'miss_blind' : m.v.spUpset === 1 ? 'spurious_low' : 'spurious_vote';
+    return { key, cause: parts.join(' ') };
   },
   equation: (s, m) => {
     const cin = shown(m.v.cin!), dh = shown(m.v.dh!), rc = shown(m.v.rhocp!);

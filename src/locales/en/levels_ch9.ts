@@ -89,7 +89,7 @@ export const levelsCh9: Record<string, string> = {
   // ---- L37 The Analyser Lies
   'lv.L37.title': 'The Analyser Lies', 'lv.L37.place': 'Control room, loop flow meters',
   'lv.L37.note.1': 'Five flow meters on the loop and the mass balance does not close. One of them is drifting. Reconcile the data and find it.',
-  'lv.L37.note.2': 'Normalised adjustments tell the guilty meter from the honest ones. Call it before you look, then flag one meter and take it out of the balance.',
+  'lv.L37.note.2': 'Normalised adjustments tell the guilty meter from the honest ones. Call it before you look, then flag one meter and take it out of the balance. Taking a meter out removes one degree of freedom, so the chi-square limit tightens (7.81 for three balances, 5.99 for two): a smaller number has to be reached, which is why the goal limit changes after you flag.',
   'lv.L37.goal.found': 'The drifting meter flagged, and only that one', 'lv.L37.goal.closed': 'The balance closes: chi-square at most {target} (the 95 % limit for the balances left: 3, minus one for every meter taken out)', 'lv.L37.goal.budget': 'Call-outs at most {budget}',
   'lv.L37.star.1': 'Goal met: right meter, balance closed', 'lv.L37.star.2': 'Call it: which meter is drifting', 'lv.L37.star.3': 'Reconciled flows as close to the truth as the reference',
   'lv.L37.callit': 'Called it: the number (1 to 5) of the drifting meter',

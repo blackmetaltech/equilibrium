@@ -108,7 +108,12 @@ export const explainQueries: Record<string, QueryFn<EqState>> = {
     if (sol?.ok) {
       const inId = pl.inPipe(u.id, hasUnitType(u.type) ? defOf(u.type).inlets[0] ?? 'in' : 'in'), outId = pl.outPipe(u.id, hasUnitType(u.type) ? defOf(u.type).outlets[0] ?? 'out' : 'out');
       const a = inId ? sol.streams[inId] : undefined, b = outId ? sol.streams[outId] : undefined;
-      if (a && b) out.push(t('why.unit.reading', { unit: u.id, tin: dispT(a.T, s.region), tout: dispT(b.T, s.region) }));
+      if (a && b) {
+        // during a shift the live stream temperatures, not the steady solve
+        const sh = s.shift !== null && s.shift.ended === '' ? s.shift : null;
+        const ta = (inId && sh?.disp[inId]?.T) || a.T, tb = (outId && sh?.disp[outId]?.T) || b.T;
+        out.push(t('why.unit.reading', { unit: u.id, tin: dispT(ta, s.region), tout: dispT(tb, s.region) }));
+      }
       const r = sol.units[u.id];
       if (r?.duty !== undefined && Math.abs(r.duty) > 1) out.push(t('why.unit.duty', { duty: `${fmtNumber(r.duty / 1000, s.region)} kW` }));
       if (r?.work !== undefined && Math.abs(r.work) > 1) out.push(t('why.unit.work', { work: `${fmtNumber(r.work / 1000, s.region)} kW` }));

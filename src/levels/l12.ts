@@ -123,7 +123,7 @@ export const L12: LevelSpec = {
       { key: 'co', legend: t('lv.L12.ann.co'), state: !m.ok ? 'off' : co.met ? 'normal' : m.v.co_dry_pct! > 3 ? 'critical' : 'high' },
       { key: 'cat', legend: t('lv.L12.ann.cat'), state: m.v.cat_ok ? 'normal' : 'high' },
       { key: 'steam', legend: t('lv.L12.ann.steam'), state: m.v.ratio! > 3.5 ? 'high' : 'normal' },
-      { key: 'comp', legend: t('lv.L12.ann.comp'), state: !m.ok ? 'off' : m.v.comp_kw! > 0 ? 'high' : 'normal' },
+      { key: 'comp', legend: t('lv.L12.ann.comp'), state: !m.ok || m.v.has_comp !== 1 ? 'off' : m.v.comp_kw! > 0 ? 'high' : 'normal' },
       { key: 'solve', legend: t('lv.L12.ann.solve'), state: failed ? 'critical' : 'off' },
       { key: 'goal', legend: t('lv.L12.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },
     ];

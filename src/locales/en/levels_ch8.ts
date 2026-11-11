@@ -191,6 +191,12 @@ export const levelsCh8: Record<string, string> = {
   'lv.L33.cause.spurious_low': 'A partial cooling upset warms the reactor to {upset} °C. A trip at {trip} °C fires on a situation the plant can ride through, and every false trip costs a batch.',
   'lv.L33.cause.spurious_vote': 'With {k} of {n} needed, one failed or spiking sensor trips the plant. Require two sensors to agree.',
   'lv.L33.cause.budget': 'The trip works but the hardware costs more than the budget allows.',
+  'lv.L33.cause.blind_all': 'Needing {k} of {n} means every sensor must agree, so a single sensor stuck low blocks the trip for good: a 1 of 1 or an all-must-agree vote is blinded by one stuck sensor.',
+  'lv.L33.cause.blind_few': 'With {k} of {n} a stuck sensor can still be outvoted: fewer than {k} healthy sensors would have to be left for it to be blind.',
+  'lv.L33.cause.noise_one': 'A 1 of {n} vote trips on any single stuck-high or spiking sensor, so noise alone shuts the plant. Needing two to agree outvotes one bad sensor, and three sensors keep two agreeing even when one is stuck low.',
+  'lv.L33.cause.noise_more': 'Even with {k} of {n} needed it tripped: {trip} °C sits so close to normal running that noise or a small upset (it reaches {upset} °C) crosses it on several sensors at once. Raise the trip point.',
+  'lv.L33.scn.loss': 'Loss of cooling', 'lv.L33.scn.loss_stuck_low': 'Loss of cooling, a sensor stuck low', 'lv.L33.scn.stuck_high': 'A sensor stuck high', 'lv.L33.scn.spikes': 'Noise spikes', 'lv.L33.scn.cooling_upset': 'Partial cooling upset',
+  'lv.L33.outcome.caught': 'Caught: the vote tripped in time', 'lv.L33.outcome.missed': 'Missed: the reactor ran away', 'lv.L33.outcome.false_trip': 'False trip: the plant stopped for nothing', 'lv.L33.outcome.ignored': 'Rode through: no trip',
   'lv.L33.lesson': 'With no trip the reactor reaches its failure temperature {secs} s after the cooling is lost: the adiabatic rise is {adi} K. A {k} of {n} vote at {trip} °C stopped it at {peak} °C and cost {cost} USD a year in trips and misses. The trip point has to sit above what an upset reaches ({upset} °C) and below the point of no return.',
   'lv.L33.metric.cost': 'Expected cost per year', 'lv.L33.metric.peak': 'Peak, loss of cooling', 'lv.L33.metric.hardware': 'Hardware cost',
 };

@@ -17,7 +17,7 @@ export const O2_CALL_TOL = 0.02;
 const T_PIT = 413.15, P_FEED = 1.1e5;
 /** GAME bench prices, USD per unit (UNVERIFIED). */
 export const L02_UNITS: LevelSpec['units'] = {
-  feed: { max: 2, price: 4000 }, compressor: { max: 1, price: 40000 }, mixer: { max: 1, price: 3000 }, burner: { max: 1, price: 22000 }, stack: { max: 1, price: 8000 },
+  feed: { max: 2, price: 4000 }, compressor: { max: 1, price: 40000 }, mixer: { max: 1, price: 3000 }, burner: { max: 1, price: 22000 }, stack: { max: 1, price: 8000 }, product: { max: 0, price: 1 },
 };
 export const L02_BUDGET = 100000;
 const PRESETS = { compressor: { P: P_FEED, stages: 1 } };

@@ -4,8 +4,8 @@
 export const levelsCh2: Record<string, string> = {
   // ---- L05 Heat for Free
   'lv.L05.title': 'Heat for Free', 'lv.L05.place': 'Sulfur burner house, waste-heat bay',
-  'lv.L05.note.1': 'That burner throws away a great deal of heat. Make steam with it, forty bar, and keep the gas to the converter at 420 degrees.',
-  'lv.L05.note.2': 'Then hold it for a three-minute shift. The blower wears and the feed surges; the air is your dial.',
+  'lv.L05.note.1': 'That burner throws away a great deal of heat. Make steam with it, forty bar (the HP setting of the boiler: LP is 4 bar, MP 10, HP 40), and keep the gas to the converter at 420 degrees.',
+  'lv.L05.note.2': 'Then hold it for a three-minute shift. The blower wears and the feed surges; the air is your dial. A feed surge raises the sulfur and the heat with it, so SO₂ and the heat ledger read higher after the shift than at your design point.',
   'lv.L05.note.3': 'What to build: sulfur feed and blower air into a mixer, then burner, waste-heat boiler, stack; set the boiler outlet to 420 °C.',
   'lv.L05.goal.steam': 'Export at least {target} t/h of 40 bar steam',
   'lv.L05.goal.so2': 'Burner gas 9.5 to 11 % SO₂',
@@ -96,7 +96,7 @@ export const levelsCh2: Record<string, string> = {
   // ---- L07 Hess's Road
   'lv.L07.title': 'Hess’s Road', 'lv.L07.place': 'Coke yard, the gasifier line',
   'lv.L07.note.1': 'The coke furnace is down. We have a gasifier that turns coke to CO and a CO burner. The process heater still needs 10 megawatts.',
-  'lv.L07.note.2': 'Two steps, one coke pile. Add the heat of both, and mind the heat the gasifier gives off on the way.',
+  'lv.L07.note.2': 'Two steps, one coke pile. Add the heat of both, and mind the heat the gasifier gives off on the way. The process heater here is a heat sink with no utility: it takes the heat out of the hot gas and cools it to 25 °C, and its duty is the heat delivered.',
   'lv.L07.goal.heat': 'Deliver {target} MW to the process heater, within 0.2',
   'lv.L07.goal.route': 'Use both steps and burn all the CO: at most {target} kmol/h of CO to the stack',
   'lv.L07.star.1': 'Goals met: 10 MW through gasifier and CO burner',

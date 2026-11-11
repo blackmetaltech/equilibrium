@@ -169,7 +169,9 @@ const levelInfo: QueryFn<EqState> = (s) => {
     id: spec.id, chapter: spec.chapter, index: spec.index, title: t(`lv.${spec.id}.title`), setter: cast,
     setterName: pack.strings[`cast.${cast}.name`] ?? '', setterTitle: pack.strings[`cast.${cast}.title`] ?? '',
     place: t(`lv.${spec.id}.place`),
-    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`)),
+    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`) + (spec.callIt && i === spec.notes - 1 ? ' ' + t('lv.note.predict') : '')),
+    /** The prediction rule of a call-it level, also on its own for the notebook's Call it box. */
+    predictNote: spec.callIt ? t('lv.note.predict') : null,
     notice,
     goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(lack !== null && g.value === undefined ? { readout: t('lv.goal.needs_unit', { unit: t(`label.unit.${lack}`) }) } : {}), ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
     budgetUSD: spec.budgetUSD, spentUSD: spent,
@@ -189,7 +191,9 @@ const levelInfo: QueryFn<EqState> = (s) => {
     allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
     hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },
     secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), unit: sec.unit, value: m.ok ? fin(sec.value) : 0, limit: fin(sec.limit), pending: !m.ok },
-    annunciators: m.ok || (s.solved !== null && !s.solved.ok) ? spec.annunciators(s, m, goals) : spec.annunciators(s, m, goals).map((a) => (a.key === 'solve' || spec.designLamps?.includes(a.key) ? a : { ...a, state: 'off' as const })),
+    /** `lit` is the honest window: true only for an alarm (high / critical) or the GOAL window met; a healthy fault window ('normal') is dark glass and must not read as lit. */
+    annunciators: (m.ok || (s.solved !== null && !s.solved.ok) ? spec.annunciators(s, m, goals) : spec.annunciators(s, m, goals).map((a) => (a.key === 'solve' || spec.designLamps?.includes(a.key) ? a : { ...a, state: 'off' as const })))
+      .map((a) => ({ ...a, lit: a.state === 'high' || a.state === 'critical' || (a.state === 'normal' && a.key === 'goal') })),
     phase: phaseOf(s),
     /** The level first run (L01-L04): plant seconds rolled, its length, and the product made so far; null outside it. */
     firstRun: spec.firstRun === true && s.phase === 'firstrun' ? { t: firstRunT(s), len: FIRSTRUN_S, madeKg: spec.madeKgH !== undefined || spec.chapter < 8 ? fin(madeKg(s, spec)) : null } : null,
@@ -217,7 +221,7 @@ const resultCard: QueryFn<EqState> = (s) => {
     verdictKey = 'solve_fail';
     const fl = s.solved.failure;
     cause = messageOf({ code: fl.code, severity: 'fail', ...(fl.unitId !== undefined ? { unitId: fl.unitId } : {}), ...(fl.species !== undefined ? { species: fl.species } : {}), data: fl.data }, s.region);
-  } else if (s.status === 'lost' && spec.shiftLen > 0 && s.shift?.ended !== 'time') { verdictKey = 'lost'; cause = s.statusReason; }
+  } else if (s.status === 'lost' && spec.shiftLen > 0 && s.shift?.ended !== 'time') { verdictKey = 'lost'; cause = s.statusReason in en ? t(s.statusReason, { unit: s.shift?.mon.find((x) => x.tier >= 3)?.u ?? '' }) : s.statusReason; }
   else ({ key: verdictKey, cause } = spec.verdict(s, m, goals));
   const own = `lv.${spec.id}.verdict.${verdictKey}`;
   const verdictText = t(own in en ? own : `lv.verdict.${verdictKey}`);

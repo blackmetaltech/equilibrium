@@ -6,6 +6,8 @@ import { en } from '../../locales/en';
 import type { EqState } from '../../state';
 import { connectProblem } from '../actions/design';
 import { defOf, footprint, hasUnitType, metaOf } from '../registry';
+import type { KnobSpec } from '../registry';
+import { DISPLAY_PAIRS } from '../../sim/si';
 import { messageOf } from '../solved';
 import { CATALYSTS, findCatalyst } from '../../data/catalysts';
 
@@ -22,6 +24,32 @@ function catalystKnob(current: string | undefined) {
   return { id: current ?? null, options };
 }
 
+/** The knob's numbers in the unit the player reads (`unitLabel ?? unit`): `disp` = {value, min, max, coarse, fine, unit}. */
+function dispOf(k: KnobSpec, v: number | string): { disp?: { value: number; min: number; max: number; coarse: number; fine: number; unit: string } } {
+  const pair = DISPLAY_PAIRS[k.unit];
+  if (k.kind !== 'num' || typeof v !== 'number') return {};
+  const f = pair ? pair.fromSI : (x: number): number => x;
+  const step = (x: number): number => (k.unit === 'degC' ? x : f(x));
+  return { disp: { value: f(v), min: f(k.min), max: f(k.max), coarse: step(k.coarse), fine: step(k.fine), unit: k.unitLabel ?? k.unit } };
+}
+
+/** The steady-solve temperatures with the live dynamic T replacing the unit's own T / T_out while a shift runs. */
+function liveT(s: Readonly<EqState>, id: string, c: Record<string, number> | null): Record<string, number> | null {
+  const lv = liveOf(s, id);
+  if (lv === null || c === null) return c;
+  const o = { ...c };
+  for (const k of ['T', 'T_out', 'Tout', 'T_c']) if (k in o) o[k] = lv.C;
+  return o;
+}
+function liveOf(s: Readonly<EqState>, id: string): { T: number; C: number } | null {
+  const sh = s.shift;
+  if (!sh || sh.ended !== '') return null;
+  const dc = sh.dc[id];
+  const out = s.flowsheet.streams.find((p) => p.from.unit === id);
+  const T = dc !== undefined ? dc.T : out !== undefined ? sh.disp[out.id]?.T : undefined;
+  return T !== undefined && Number.isFinite(T) && T > 0 ? { T, C: T - 273.15 } : null;
+}
+
 export const unitQueries: Record<string, QueryFn<EqState>> = {
   unitCard: (s, id: unknown) => {
     const u = find(s, id);
@@ -35,13 +63,15 @@ export const unitQueries: Record<string, QueryFn<EqState>> = {
       params: u.params, catalystId: u.catalystId ?? null,
       /** The catalyst choice knob of a reactor: the current id and the catalysts that run the same law (all packed-bed catalysts when none is set). Act with setCatalyst(unit, id). */
       catalyst: m.catalyst === true ? catalystKnob(u.catalystId) : null,
-      knobs: m.knobs.map((k) => ({ ...k, label: t(`label.knob.${k.key}`), value: u.params[k.key] ?? (k.kind === 'choice' && k.def === '' ? '' : k.def), isDefault: (u.params[k.key] ?? k.def) === k.def })),
+      knobs: m.knobs.filter((k) => !(k.key === 'utility' && s.presets[u.type]?.process === 1)).map((k) => ({ ...k, label: t(`label.knob.${k.key}`), value: u.params[k.key] ?? (k.kind === 'choice' && k.def === '' ? '' : k.def), isDefault: (u.params[k.key] ?? k.def) === k.def, ...dispOf(k, u.params[k.key] ?? k.def) })),
       inlets: def.inlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, true) })),
       outlets: def.outlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, false) })),
       feed: s.feeds[u.id] ?? null,
       results: sol?.ok ? sol.units[u.id] ?? null : null,
       /** The temperatures of the unit's results in degC (the panel shows these, not the K the solver keeps). */
-      resultsC: sol?.ok && sol.units[u.id] ? Object.fromEntries(Object.entries(sol.units[u.id]!.info).filter(([k, v]) => /^T(_?(max|min|in|out|hot|cold|c))?$/i.test(k) && Number.isFinite(v)).map(([k, v]) => [k, v - 273.15])) : null,
+      resultsC: liveT(s, u.id, sol?.ok && sol.units[u.id] ? Object.fromEntries(Object.entries(sol.units[u.id]!.info).filter(([k, v]) => /^T(_?(max|min|in|out|hot|cold|c))?$/i.test(k) && Number.isFinite(v)).map(([k, v]) => [k, v - 273.15])) : null),
+      /** During a shift: the live dynamic temperature (K) of the unit, not the steady solve (the reactor's own state, or the stream leaving it); null otherwise. */
+      live: liveOf(s, u.id),
       diags, failed: sol?.failedUnits.includes(u.id) ?? false,
     };
   },

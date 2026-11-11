@@ -33,7 +33,8 @@ export const heater: UnitOp = (inlets, u, ctx) => {
     if (typeof t !== 'number') { if (!t.ok) return failResult(t.code, t.data, { unitId: u.id }); Tout = t.value; } else Tout = t;
   }
   const info: Record<string, number> = { Q, T_out: Tout, dP: s.P - Pout };
-  const name = str(u, 'utility');
+  /** `process` = 1 (level preset): the unit is a process heat sink or source with no utility behind it; any utility choice is ignored. */
+  const name = num(u, 'process', 0) === 1 ? '' : str(u, 'utility');
   if (name !== '') {
     if (!Object.prototype.hasOwnProperty.call(UTIL, name)) return failResult('UTILITY_UNKNOWN', {}, { unitId: u.id });
     const ut = UTIL[name as keyof typeof UTIL];

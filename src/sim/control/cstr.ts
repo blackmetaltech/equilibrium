@@ -107,3 +107,19 @@ export function secondsToCritical(): number {
   const r = runScenario(SCENARIOS[0]!, null);
   return r.critAt < 0 ? CSTR.len : r.critAt - CSTR.lossAt;
 }
+
+/** What the sensors and the vote looked like at the deciding second of one scenario (the front-end's per-scenario panel): the trip second when it tripped, else the second with the most votes. */
+export interface ScenarioView { id: string; demand: boolean; at: number; sensors: { id: string; reading: number; failed: boolean; votes: boolean }[]; votes: number; need: number; tripped: boolean; trippedAt: number; peak: number; crit: boolean; outcome: 'caught' | 'missed' | 'false_trip' | 'ignored' }
+export function scenarioView(sc: Scenario, d: Design): ScenarioView {
+  const r = runScenario(sc, d), nS = d.sensors, need = Math.min(d.k, nS);
+  const at0 = (k: number): number => (k <= 0 ? CSTR.T_NORMAL : r.T[k - 1]!);
+  const count = (k: number): number => { let n = 0; for (let j = 0; j < nS; j++) if (reading(sc, j, k, at0(k)) >= d.tripK) n++; return n; };
+  let at = r.trippedAt;
+  if (at < 0) { let best = -1; at = 0; for (let k = 0; k < CSTR.len; k++) { const c = count(k); if (c > best) { best = c; at = k; } } }
+  const sensors = Array.from({ length: nS }, (_, j) => {
+    const rd = reading(sc, j, at, at0(at));
+    return { id: 'S' + (j + 1), reading: rd, failed: sc.faults.some((f) => f.sensor === j && at >= f.at && at < f.at + f.len), votes: rd >= d.tripK };
+  });
+  const tripped = r.trippedAt >= 0, missed = sc.demand && r.crit;
+  return { id: sc.id, demand: sc.demand, at, sensors, votes: sensors.filter((x) => x.votes).length, need, tripped, trippedAt: r.trippedAt, peak: r.peak, crit: r.crit, outcome: missed ? 'missed' : tripped ? (sc.demand ? 'caught' : 'false_trip') : 'ignored' };
+}

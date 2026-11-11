@@ -2,6 +2,7 @@
 // rule code does not carry: footprint (tiles), palette category, phase of every port, knob specs (the single source for Inspect, for
 // setParam's range checks and for the env's legal actions) and the solver registry bound to the level's species list.
 // Adding a lane: import its defs below and add them to RAW_DEFS (reactors: registryRx / registryCstr, owned by M1.7b / M1.8).
+import { STEAM_BAR } from '../data/vle';
 import { UNIT_DEFS } from '../sim/units/registry';
 import { UNIT_DEFS_B } from '../sim/units/registryB';
 import { UNIT_DEFS_RX } from '../sim/units/registryRx';
@@ -27,7 +28,10 @@ export interface KnobSpec {
   coarse: number;
   fine: number;
   def: number | string;
+  /** Conversion key into DISPLAY_PAIRS / the UI's EqFmt: `value`, `min`, `max`, `def` are SI numbers in the knob's unit family. */
   unit: string;
+  /** What the player reads after the number when it differs from `unit` (absolute pressure: 'bar(a)'). */
+  unitLabel?: string;
   int?: boolean;
   /** A value outside [min, max] that means "off" (an interlock set point of 0 is disarmed); the keypad range stays physical. */
   off?: number;
@@ -36,6 +40,8 @@ export interface KnobSpec {
   /** Left out of the params of a freshly placed unit (the unit then follows its inlet); `def` is where the knob starts when first touched. */
   unset?: boolean;
   options?: string[];
+  /** Player-facing text of each option (steam level with its pressure), same order as `options`. */
+  optionLabels?: string[];
 }
 
 export interface UnitMeta {
@@ -65,7 +71,7 @@ const num = (key: string, min: number, max: number, coarse: number, fine: number
 const choice = (key: string, options: string[], def: string): KnobSpec => ({ key, kind: 'choice', min: 0, max: options.length - 1, coarse: 1, fine: 1, def, unit: '', options });
 
 const T_K = (def: number): KnobSpec => num('T', 150, 1500, 25, 5, def, 'degC');
-const P_PA = (key: string, def: number): KnobSpec => num(key, 1e4, 4e7, 5e5, 1e5, def, 'bar(a)');
+const P_PA = (key: string, def: number): KnobSpec => ({ ...num(key, 1e4, 4e7, 5e5, 1e5, def, 'bar'), unitLabel: 'bar(a)' });
 const dP = (): KnobSpec => num('dP', 0, 5e6, 1e5, 1e4, 0, 'bar');
 const utilities = ['', ...Object.keys(UTIL)];
 
@@ -84,7 +90,7 @@ const META_LIST: UnitMeta[] = [
   m('valve', 2, 2, 'move', [P_PA('P', 5e5)]),
   m('flash', 2, 2, 'separate', [T_K(300), P_PA('P', 1e5)], { phaseOut: { vap: 'V', liq: 'L' } }),
   m('nh3_sep', 2, 2, 'separate', [num('T', UTIL.refrig.T, 320, 5, 1, 253.15, 'degC'), dP()], { phaseOut: { vap: 'V', liq: 'L' } }),
-  m('boiler', 4, 2, 'heat', [T_K(450), choice('steam', ['LP', 'MP', 'HP'], 'HP')]),
+  m('boiler', 4, 2, 'heat', [T_K(450), { ...choice('steam', ['LP', 'MP', 'HP'], 'HP'), optionLabels: (['LP', 'MP', 'HP'] as const).map((k) => `${k} · ${STEAM_BAR[k]} bar`) }]),
   m('absorber', 4, 4, 'separate', [num('acid', 0.98, 0.985, 0.002, 0.0005, 0.985, 'mol%'), num('recovery', 0, 0.9995, 0.05, 0.005, 0.9995, 'mol%'), choice('absorbent', ['acid', 'water'], 'acid')], { phaseOut: { acid: 'L' } }),
   m('stack', 2, 2, 'sink'), m('relief', 1, 1, 'safety', [P_PA('Pset', 2e6), choice('orifice', [...ORIFICE_LETTERS], 'D')]), m('flare', 2, 2, 'safety'),
   m('interlock', 1, 1, 'safety', [{ ...num('setpoint', 273.15, 1273.15, 5, 1, 398.15, 'degC'), unset: true, off: 0 }]),
@@ -102,7 +108,7 @@ const META_LIST: UnitMeta[] = [
   m('hno3_absorber', 4, 4, 'separate', [num('recovery', 0, 0.9995, 0.05, 0.005, 0.99, 'mol%'), num('acid', 0.55, 0.68, 0.01, 0.005, 0.6, 'mol%')], { phaseOut: { acid: 'L' } }),
   m('reformer', 4, 4, 'react', [num('T', 873.15, 1273.15, 25, 5, 1073.15, 'degC'), dP()]), m('co2_removal', 2, 2, 'separate', [num('recovery', 0, 0.999, 0.05, 0.005, 0.99, 'mol%')], { phaseOut: { out: 'V', co2: 'V' } }), m('methanator', 2, 2, 'react'),
   m('batch', 2, 2, 'react', [{ ...T_K(298.15), unset: true }, num('time', 0, 1e5, 600, 60, 600, 's')], { catalyst: true }),
-  m('lab_flask', 2, 2, 'react', [{ ...num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'L'), decimals: 2 }, num('T', 150, 1500, 25, 5, 400, 'degC'), num('Pfix', 0, 4e7, 5e5, 1e5, 0, 'bar(a)')]),
+  m('lab_flask', 2, 2, 'react', [{ ...num('V', 1e-5, 1, 1e-3, 1e-4, 1e-3, 'L'), decimals: 2 }, num('T', 150, 1500, 25, 5, 400, 'degC'), { ...num('Pfix', 0, 4e7, 5e5, 1e5, 0, 'bar'), unitLabel: 'bar(a)' }]),
 ];
 export const META: Readonly<Record<string, UnitMeta>> = Object.fromEntries(META_LIST.map((x) => [x.type, x]));
 /** Fallback for a registered type nobody described yet (a new lane): a 2x2 box with no knobs, shown in the palette under 'react'. */

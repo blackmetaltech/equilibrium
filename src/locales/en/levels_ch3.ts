@@ -70,7 +70,7 @@ export const levelsCh3: Record<string, string> = {
 
   // ---- L12 Pressure Does Nothing
   'lv.L12.title': 'Pressure Does Nothing', 'lv.L12.place': 'The shift converter',
-  'lv.L12.note.1': 'The shift converter makes hydrogen from CO and steam. Someone asked for a bigger compressor. Humour me and try it first.',
+  'lv.L12.note.1': 'The shift converter makes hydrogen from CO and steam. Someone asked for a bigger compressor. Humour me: try the compressor, see that nothing changes, then remove it.',
   'lv.L12.note.2': 'CO is fixed at 100 kmol/h; the steam feed is your ratio. HTS catalyst runs 320-450 °C, LTS 190-250 °C and costs more.',
   'lv.L12.goal.co': 'CO at the outlet at most {target} mol % (dry)',
   'lv.L12.goal.cat': 'Converter inside a catalyst window: LTS 190-250 °C or HTS 320-450 °C',
@@ -80,7 +80,7 @@ export const levelsCh3: Record<string, string> = {
   'lv.L12.callit': 'Called it: K of CO + H₂O ⇌ CO₂ + H₂ at 400 °C',
   'lv.L12.hero': 'CO at the outlet, dry', 'lv.L12.sec': 'Compressor shaft power',
   'lv.L12.ann.co': 'CO OVER 1 PCT', 'lv.L12.ann.cat': 'CAT WINDOW', 'lv.L12.ann.steam': 'STEAM HIGH', 'lv.L12.ann.comp': 'COMPRESSOR ON', 'lv.L12.ann.solve': 'SOLVE FAIL', 'lv.L12.ann.goal': 'GOAL MET',
-  'lv.L12.coach.try_bigger.text': 'Try the compressor first, as asked: place it before the converter and raise the pressure.',
+  'lv.L12.coach.try_bigger.text': 'Try the compressor, as asked: place it before the converter, raise the pressure and see nothing change; then remove it (a plant with no compressor earns the second star).',
   'lv.L12.coach.try_bigger.why': 'Why: the reaction has two molecules on each side, so pressure has nothing to push on.',
   'lv.L12.coach.commission.text': 'Commission and read the CO at the outlet.',
   'lv.L12.coach.commission.why': 'Why: compare it with the same run at low pressure.',
