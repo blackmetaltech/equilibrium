@@ -66,7 +66,7 @@ export const EVENT_TABLES: Readonly<Record<string, EventTable>> = {
   L00: { count: [1, 1], pool: ['cw_pump_trip'], guaranteed: [], fixed: [{ type: 'cw_pump_trip', at: 20 }], seed: 4021, lenS: 600 },
   L05: { count: [2, 3], pool: ['feed_surge', 'blower_wear'], guaranteed: [], fixed: [], lenS: 180 },
   L06: { count: [2, 3], pool: ['blower_wear', 'feed_surge'], guaranteed: [], fixed: [], lenS: 600 },
-  L08: { count: [2, 2], pool: ['fuel_price', 'cw_hot_day'], guaranteed: [], fixed: [], lenS: SHIFT_LEN_S },
+  L08: { count: [2, 2], pool: ['fuel_price', 'cw_hot_day'], guaranteed: [], fixed: [], lenS: 3600 },
   L13: { count: [2, 4], pool: ['feed_inerts', 'catalyst_age', 'cw_hot_day', 'feed_surge'], guaranteed: [], fixed: [], lenS: SHIFT_LEN_S },
   L15: { count: [2, 3], pool: ['catalyst_age', 'feed_inerts'], guaranteed: [], fixed: [], lenS: SHIFT_LEN_S },
   L16: { count: [2, 3], pool: ['feed_surge', 'catalyst_age'], guaranteed: [], fixed: [], lenS: SHIFT_LEN_S },

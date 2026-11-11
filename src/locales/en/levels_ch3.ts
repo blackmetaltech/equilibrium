@@ -42,7 +42,7 @@ export const levelsCh3: Record<string, string> = {
   'lv.L11.note.2': 'A is pure one-to-three, B has 5 % inerts, C has 10 %. Each feed is a contract: set the flows, 1000 kmol/h in all, converter at 450 °C.',
   'lv.L11.goal.nh3': 'At least {target} kmol/h of NH₃ formed in one pass',
   'lv.L11.goal.gas': 'Buy {target} kmol/h of gas in all, within 1 %',
-  'lv.L11.goal.temp': 'Converter at {target} °C, within 1',
+  'lv.L11.goal.temp': 'Converter at {target} °C, within 1 °C',
   'lv.L11.goal.press': 'Pressure at most {target} bar',
   'lv.L11.star.1': 'Goal met: 170 kmol/h of NH₃ from 1000 kmol/h of gas at 450 °C',
   'lv.L11.star.2': 'No more than 150 bar',

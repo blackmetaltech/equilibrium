@@ -16,7 +16,8 @@ export const SYN_KMOL_H = 1000, SYN_IN_C = 40, SYN_OUT_C = 420, SYN_TOL_C = 1;
 export const FLUE_KMOL_H = 380, FLUE_IN_C = 900;
 export const DT_MIN_K = 20, STACK_MIN_C = 120;
 export const RECOVER_MIN = 0.25;
-export const L08_LEN_S = 8 * 3600;
+/** A one-hour shift: about four minutes of wall time at 16x (play-test round 4: the 8-hour shift was not finished after 16 minutes). */
+export const L08_LEN_S = 3600;
 export const L08_UNITS: LevelSpec['units'] = {
   feed: { max: 2, price: 4000 }, hx: { max: 1, price: 30000 }, heater: { max: 1, price: 40000 }, stack: { max: 1, price: 8000 }, product: { max: 1, price: 5000 },
 };
@@ -97,7 +98,7 @@ export const L08: LevelSpec = {
     const g: GoalEval[] = [
       { key: 'outlet', met: m.ok && Math.abs(C(m.v.syn_out_K!) - SYN_OUT_C) <= SYN_TOL_C, ...(m.ok ? { value: C(m.v.syn_out_K!) } : {}), target: SYN_OUT_C },
       { key: 'recover', met: m.ok && m.v.recover! >= RECOVER_MIN, ...(m.ok ? { value: m.v.recover! * 100 } : {}), target: RECOVER_MIN * 100 },
-      { key: 'shift', met: m.ok && m.v.ended === 1, value: m.v.shift_t! / 3600, target: m.v.shift_len! / 3600 },
+      { key: 'shift', met: m.ok && m.v.ended === 1, value: m.v.shift_t! / 60, target: m.v.shift_len! / 60 },
     ];
     if (s.mode === 'engineer') { const sp = spentOf(s, L08_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L08_BUDGET, value: sp, target: L08_BUDGET }); }
     return g;
@@ -128,7 +129,7 @@ export const L08: LevelSpec = {
     if (Math.abs(C(m.v.syn_out_K!) - SYN_OUT_C) > SYN_TOL_C) return { key: 'outlet', cause: t('lv.L08.cause.outlet', { c: f(s, C(m.v.syn_out_K!)), want: SYN_OUT_C }) };
     if (C(m.v.flue_out_K!) < STACK_MIN_C) return { key: 'stack', cause: t('lv.L08.cause.stack', { c: f(s, C(m.v.flue_out_K!)), min: STACK_MIN_C }) };
     if (m.v.recover! < RECOVER_MIN) return { key: 'bare', cause: t('lv.L08.cause.bare', { q: f(s, m.v.hx_mw!), fuel: f(s, m.v.fuel_mw!), area: f(s, m.v.area!), stack: f(s, C(m.v.flue_out_K!)) }) };
-    return { key: 'unfinished', cause: t('lv.L08.cause.unfinished', { t: f(s, m.v.shift_t! / 3600), len: f(s, m.v.shift_len! / 3600) }) };
+    return { key: 'unfinished', cause: t('lv.L08.cause.unfinished', { t: f(s, m.v.shift_t! / 60), len: f(s, m.v.shift_len! / 60) }) };
   },
   equation: (s, m) => {
     if (!m.ok || !(m.v.duty_mw! > 0)) return null;
