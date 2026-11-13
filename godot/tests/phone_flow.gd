@@ -241,7 +241,9 @@ func _camera() -> void:
 	cam.tapped.disconnect(sig)
 # ---- 4. the brief / notebook sheet ----------------------------------------------------------------------------------------------------
 func _brief() -> void:
+	Notebook._seen.clear(); Notebook.started.clear()
 	await level("L01", false); await frames(8)
+	await create_timer(0.6).timeout
 	var nb := app.root.get_node_or_null("notebook")
 	check(nb != null, "the brief opens on a new level")
 	if nb == null: return
@@ -265,12 +267,12 @@ func _brief() -> void:
 	await tap(Vector2(60, 300)); await frames(4)
 	check(app.root.get_node_or_null("notebook") == null, "a tap outside the sheet puts it away")
 	# swipe down
-	Notebook.open(app); await frames(8)
+	Notebook.open(app); await create_timer(0.6).timeout
 	check(app.root.get_node_or_null("notebook") != null, "the notebook reopens from its tab")
 	await drag(Vector2(600, 120), Vector2(600, 330), 8); await frames(4)
 	check(app.root.get_node_or_null("notebook") == null, "a swipe down puts the sheet away")
 	# Start work still starts
-	Notebook.open(app); await frames(8)
+	Notebook.open(app); await create_timer(0.6).timeout
 	var st2 := app.root.get_node_or_null("notebook").find_child("Start", true, false) as Button
 	await tap(st2.get_global_rect().get_center()); await frames(4)
 	check(app.root.get_node_or_null("notebook") == null, "Start work closes the sheet")
