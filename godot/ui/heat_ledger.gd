@@ -9,13 +9,27 @@ func has_reading() -> bool: return arr(data.get("items", [])).size() > 0
 
 func _ink(kind: String) -> Color: return KIND_COL.get(kind, EqTheme.INK)
 
+## The engine's words for this ledger (levels.ts `ledger.*`: translated, region-aware), with the paper's own as the fallback.
+func _lab(key: String, fallback: String) -> String:
+	var l = data.get("labels")
+	return str(l.get(key, fallback)) if l is Dictionary else fallback
+## Lines under the bars: heat the exchangers swap, and each heater's duty against the fuel it burns (efficiency).
+func _extra_lines() -> Array:
+	var out: Array = []
+	var ex := num(data.get("exchangerMW", 0.0))
+	if ex > 0.0: out.append("%s  %s %s" % [_lab("exchanger", "exchangers"), _fmt(ex), InstrPaper.T("INS_MW")])
+	for h in arr(data.get("heaters", [])):
+		if h is Dictionary and str(h.get("label", "")) != "": out.append(str(h.label))
+	return out.slice(0, 3)
+
 func _draw_body() -> void:
 	if not has_reading(): empty_note(); return
 	var items := arr(data.items).duplicate()
 	items.sort_custom(func(a, b): return num(a.MW) > num(b.MW))
 	var mono := EqTheme.font("mono"); var fsz := EqTheme.fs(12 if not big else 14)
 	var row_h := float(fsz) + 9.0
-	var foot_h := row_h * 2.0 + 10.0
+	var extra := _extra_lines()
+	var foot_h := row_h * 2.0 + 10.0 + row_h * float(extra.size())
 	var rows_fit := maxi(int((size.y - foot_h - 6.0) / row_h), 1)
 	var shown := mini(items.size(), rows_fit)
 	var more := items.size() - shown
@@ -52,8 +66,11 @@ func _draw_body() -> void:
 		draw_rect(Rect2(rx, fy + 6.0, w, row_h - 4.0), Color("#7A1F26"), false, 1.0)
 		if w > 40.0: draw_string(mono, Vector2(rx + 4.0, fy + row_h), str(it.tag), HORIZONTAL_ALIGNMENT_LEFT, w - 6.0, EqTheme.fs(11), EqTheme.PORCELAIN)
 		rx += w
-	draw_string(mono, Vector2(5, fy + row_h), InstrPaper.T("INS_FROM"), HORIZONTAL_ALIGNMENT_LEFT, tag_w, EqTheme.fs(11), EqTheme.INK)
-	tape(Vector2(bx, fy + row_h + 8.0), "%s  %s %s" % [InstrPaper.T("INS_RELEASED"), _fmt(tot), InstrPaper.T("INS_MW")], EqTheme.PEN_RED, size.x - bx - 6.0, 12)
+	draw_string(mono, Vector2(5, fy + row_h), _lab("release", InstrPaper.T("INS_FROM")), HORIZONTAL_ALIGNMENT_LEFT, tag_w, EqTheme.fs(11), EqTheme.INK)
+	tape(Vector2(bx, fy + row_h + 8.0), "%s  %s %s" % [_lab("total", InstrPaper.T("INS_RELEASED")), _fmt(tot), InstrPaper.T("INS_MW")], EqTheme.PEN_RED, size.x - bx - 6.0, 12)
+	var ly := fy + row_h * 2.0 + 14.0
+	for ln in extra:
+		draw_string(mono, Vector2(5, ly), str(ln), HORIZONTAL_ALIGNMENT_LEFT, size.x - 10.0, EqTheme.fs(11), EqTheme.INK); ly += row_h
 	frame()
 
 func _prev_mw(unit_id: String) -> float:

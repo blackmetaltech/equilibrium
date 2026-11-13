@@ -123,7 +123,10 @@ static func restart(app, keep_build: bool) -> Dictionary:
 	var snap := capture(app)
 	if not keep_build: snap.acts = []
 	restarting = true; clear_log()
+	var had_seed: int = int(app.get("last_seed")) if app.get("last_seed") != null else 0
+	if app.get("pinned_seed") != null and had_seed > 0: app.set("pinned_seed", had_seed)   # the same level seed: a Retry is the same job (L03's fuel does not re-roll)
 	app.start_level(str(li.id), true)
+	if app.get("pinned_seed") != null: app.set("pinned_seed", -1)
 	restarting = false
 	var fails := 0
 	last_missing = []

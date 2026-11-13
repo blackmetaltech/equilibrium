@@ -9,6 +9,13 @@ var lvbay: LevelViewBay   ## the level-local view (ui/level_view_bay.gd); wins t
 var bay: InstrumentBay   ## the hero instrument of the plant (ui/instrument_bay.gd)
 var audio_eq: EqAudio
 
+## Every level start draws its seed here. A Retry / restart pins the seed of the attempt it replaces, so the level's random draw (L03's unknown fuel) is the same fuel again.
+var last_seed := 0
+var pinned_seed := -1
+func _seed() -> int:
+	last_seed = pinned_seed if pinned_seed >= 0 else super._seed()
+	return last_seed
+
 func game_config() -> Dictionary:
 	EqStrings.load_strings()
 	return {

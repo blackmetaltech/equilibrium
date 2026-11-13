@@ -270,10 +270,11 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 		host.queue_free(); on_ok.call(v)
 	var grid := GridContainer.new(); grid.columns = 3; grid.add_theme_constant_override("h_separation", 8); grid.add_theme_constant_override("v_separation", 8); vb.add_child(grid)
 	for k in ["7", "8", "9", "4", "5", "6", "1", "2", "3", "±", "0", "."]:
-		var kb := EqTheme.key_button(k, false, 22); kb.custom_minimum_size = Vector2(88, 52); kb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var kb := EqTheme.key_button(k, false, 22); kb.name = "Key_" + (k if k.is_valid_int() else ("dot" if k == "." else "pm")); kb.custom_minimum_size = Vector2(88, 52); kb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		kb.pressed.connect(func(): press.call(k)); grid.add_child(kb)
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8); vb.add_child(row)
-	var kc := EqTheme.key_button(PaperStrings.t("KEYPAD_CLEAR"), false, 18); kc.size_flags_horizontal = Control.SIZE_EXPAND_FILL; kc.pressed.connect(func(): press.call("C")); row.add_child(kc)
+	var kc := EqTheme.key_button(PaperStrings.t("KEYPAD_CLEAR"), false, 18); kc.name = "Clear"; kc.size_flags_horizontal = Control.SIZE_EXPAND_FILL; kc.pressed.connect(func(): press.call("C")); row.add_child(kc)
+	var kbk := EqTheme.key_button("DEL", false, 18); kbk.name = "Backspace"; kbk.tooltip_text = "Backspace"; kbk.size_flags_horizontal = Control.SIZE_EXPAND_FILL; kbk.pressed.connect(func(): press.call("B")); row.add_child(kbk)
 	var ko := EqTheme.key_button(PaperStrings.t("KEYPAD_OK"), true, 18); ko.size_flags_horizontal = Control.SIZE_EXPAND_FILL; ko.pressed.connect(func(): enter.call()); row.add_child(ko)
 	var catcher := KeyCatcher.new(); host.add_child(catcher)
 	catcher.on_key = func(e: InputEventKey) -> bool:

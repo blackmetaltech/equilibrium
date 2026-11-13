@@ -20,6 +20,7 @@ var _sig := ""
 var _last_tick := -1
 var _phase_prev := ""
 var _demo := true
+var shift_clock := {}       ## levelInfo.shiftClock {t, total, speed, etaWallS, running, ended}: the shift clock and how long it will take at this speed
 var first_run := {}         ## levelInfo.firstRun {t, len, madeKg} while a first run plays
 const RUN_W := 60.0
 const SAMPLE_W := 3.0
@@ -35,7 +36,7 @@ func mirror(from: ChartRecorder) -> void: src = from; _pull()
 
 func _pull() -> void:
 	if src == null: return
-	hero = src.hero; sec = src.sec; third = src.third; runs = src.runs; samples = src.samples; phase = src.phase; _demo = src._demo; first_run = src.first_run
+	hero = src.hero; sec = src.sec; third = src.third; runs = src.runs; samples = src.samples; phase = src.phase; _demo = src._demo; first_run = src.first_run; shift_clock = src.shift_clock
 	_target = src._target
 	if absf(paper - src.paper) > 0.01: paper = src.paper
 
@@ -45,6 +46,23 @@ func _scroll() -> bool: return phase == "shift" or (runs.is_empty() and not samp
 
 func _num(v) -> float:
 	return float(v) if (v is float or v is int) and is_finite(float(v)) else 0.0
+
+static func clock_fmt(sec: float) -> String:
+	var s := int(maxf(sec, 0.0)); var h := s / 3600; var m := (s % 3600) / 60
+	return "%d:%02d:%02d" % [h, m, s % 60] if h > 0 else "%d:%02d" % [m, s % 60]
+static func eta_fmt(w) -> String:
+	if w == null: return ""
+	var s := int(ceil(float(w)))
+	if s <= 0: return ""
+	return "~%ds" % s if s < 90 else "~%d min" % int(ceil(s / 60.0))
+## The shift clock line the recorder prints: plant time of the shift, and the wall time left at the chosen speed.
+func clock_text() -> String:
+	if shift_clock.is_empty(): return ""
+	var t := float(shift_clock.get("t", 0.0)); var tot := float(shift_clock.get("total", 0.0))
+	if bool(shift_clock.get("ended", false)): return EqStrings.T("CLK_ENDED") % clock_fmt(tot)
+	if not bool(shift_clock.get("running", false)): return EqStrings.T("CLK_IDLE") % clock_fmt(tot)
+	var eta := eta_fmt(shift_clock.get("etaWallS"))
+	return EqStrings.T("CLK_RUN") % [clock_fmt(t), clock_fmt(tot), ("  " + EqStrings.T("CLK_ETA") % eta) if eta != "" else ""]
 
 func _has(d: Dictionary, k: String) -> bool: return d.has(k) and (d[k] is float or d[k] is int) and is_finite(float(d[k]))
 
@@ -58,6 +76,7 @@ func feed(li: Dictionary, run_list: Array, tick: int) -> void:
 	sec = li.secondary if li.get("secondary") is Dictionary else {}
 	third = li.third if li.get("third") is Dictionary else {}
 	phase = str(li.get("phase", "design"))
+	shift_clock = li.shiftClock if li.get("shiftClock") is Dictionary else {}
 	first_run = li.firstRun if li.get("firstRun") is Dictionary and phase == "firstrun" else {}
 	var hv := _num(hero.get("value", 0.0)); var sv := _num(sec.get("value", 0.0)); var tv := _num(third.get("value", 0.0))
 	if phase == "shift":
@@ -191,6 +210,10 @@ func _draw() -> void:
 	var hi_y := _y(_num(hero.get("hi", top_v)), r, pl) if _has(hero, "hi") else -99.0; var lo_y := _y(_num(hero.get("lo", bot_v)), r, pl) if _has(hero, "lo") else 999.0
 	if absf(hi_y - (pl.position.y + 10.0)) > 14.0 and absf(lo_y - (pl.position.y + 10.0)) > 14.0: draw_string(mono, Vector2(2, pl.position.y + 11.0), _fmtax(top_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
 	if absf(lo_y - pl.end.y) > 14.0 and absf(hi_y - pl.end.y) > 14.0: draw_string(mono, Vector2(2, pl.end.y - 1.0), _fmtax(bot_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
+	var ct := clock_text()
+	if ct != "" and size.x > 150.0:
+		var cw := minf(mono.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 8.0, rx - pl.position.x - 4.0)
+		draw_rect(Rect2(rx - cw - 2.0, 1.0, cw, 17.0), Color(EqTheme.PORCELAIN, 0.92)); draw_string(mono, Vector2(rx - cw + 2.0, 14.0), ct, HORIZONTAL_ALIGNMENT_LEFT, cw - 4.0, EqTheme.fs(12), EqTheme.PEN_RED.darkened(0.15))
 	# latest pen values at the right edge
 	if n > 0:
 		var hy := clampf(hp[n - 1].y + 5.0, 14.0, size.y - 6.0)

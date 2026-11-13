@@ -225,12 +225,18 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "")
 			cnote.add_theme_color_override("font_color", EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK); cnote.label_settings = EqStrings.ls(15, EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK, "semi"); cnote.visible = true
 		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); fvb.remove_child(cr); cwrap.add_child(cr); cwrap.add_child(cnote); fvb.add_child(cwrap); fvb.move_child(cwrap, pi)
-		an.tapped.connect(func(): Knob.keypad(app, str(ci.prompt), str(ci.unit), an.text, 0.0, 1e9, func(v: float) -> void:
-			var r: Dictionary = app.b.act("callIt", [v] if ckey == "" else [v, ckey])
-			if not bool(r.get("ok", false)):   # the engine's refusal is shown on the page itself, and the typed value stays on the line
-				an.text = PaperStrings.num(v); an.refused = true; an.queue_redraw()
-				cnote.text = PaperStrings.t("NB_REFUSED") % str(r.get("message", "")); cnote.add_theme_color_override("font_color", EqTheme.RED); cnote.label_settings = EqStrings.ls(15, EqTheme.RED, "semi"); cnote.visible = true
-			else: _rebuild(app, host, vb)))
+		var lo_b := float(ci.get("min", 0.0)); var hi_b := float(ci.get("max", 1e9))   # the engine's bounds for this answer (a typed 7000 °C is refused before it is locked in)
+		var is_locked := bool(ci.get("locked", answered)) and ci.get("value") != null
+		an.locked = is_locked
+		if is_locked: an.mouse_default_cursor_shape = Control.CURSOR_ARROW; an.focus_mode = Control.FOCUS_NONE
+		an.tapped.connect(func():
+			if is_locked: return   # a locked call-it shows its answer and is never re-armed
+			Knob.keypad(app, str(ci.prompt), str(ci.unit), an.text, lo_b, hi_b, func(v: float) -> void:
+				var r: Dictionary = app.b.act("callIt", [v] if ckey == "" else [v, ckey])
+				if not bool(r.get("ok", false)):   # the engine's refusal is shown on the page itself, and the typed value stays on the line
+					an.text = PaperStrings.num(v); an.refused = true; an.queue_redraw()
+					cnote.text = PaperStrings.t("NB_REFUSED") % str(r.get("message", "")); cnote.add_theme_color_override("font_color", EqTheme.RED); cnote.label_settings = EqStrings.ls(15, EqTheme.RED, "semi"); cnote.visible = true
+				else: _rebuild(app, host, vb)))
 	# mode chip (first job only), then the key
 	var foot := HBoxContainer.new(); foot.add_theme_constant_override("separation", 10); fvb.add_child(foot)
 	if _is_first(app, str(li.get("id", ""))):

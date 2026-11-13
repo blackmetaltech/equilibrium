@@ -115,7 +115,7 @@ class Strip extends Button:
 	func set_label(t: String) -> void:
 		cap = t.to_upper(); text = ""
 		var f := EqStrings.font("cap"); var sz := EqTheme.fs(fsize)
-		custom_minimum_size = Vector2(f.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 44.0 + 30.0, maxf(sz * 1.5 + 6.0, CbLayout.tap()))
+		custom_minimum_size = Vector2(f.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 44.0 + 30.0, maxf(sz * 1.5 + 6.0, EqTheme.PHONE_TAP if CbLayout.phone else CbLayout.tap()))
 		queue_redraw()
 	func _draw() -> void:
 		var f := EqStrings.font("cap"); var sz := EqTheme.fs(fsize)

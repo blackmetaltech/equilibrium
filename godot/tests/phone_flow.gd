@@ -327,5 +327,44 @@ func _picking() -> void:
 		seen[str(w.selected_id)] = true
 	check(seen.size() >= 2, "tapping the same spot again cycles to the next unit (%s)" % str(seen.keys()))
 	await clear.call()
-func _targets() -> void: pass
+func _targets() -> void:
+	# title: every strip and the Cute toggle
+	app.started = false; app.menus.title(); await frames(8)
+	var strips := root.find_children("Strip_*", "", true, false)
+	check(strips.size() >= 4, "the title has its strips (%d)" % strips.size())
+	for st in strips: size_ok(st as Control, "title strip " + str(st.name))
+	# keypad: keys, clear, backspace, OK
+	await level("L01")
+	var got := [NAN]
+	var kd: Dictionary = Knob.keypad(app, "Test", "kg", "", 0.0, 100.0, func(v: float) -> void: got[0] = v); await frames(6)
+	var host: Control = kd.host
+	for nm in ["Key_7", "Key_0", "Key_dot", "Clear", "Backspace"]:
+		var kb := host.find_child(nm, true, false) as Control
+		check(kb != null, "keypad has %s" % nm)
+		if kb != null: size_ok(kb, "keypad " + nm)
+	for k in ["Key_1", "Key_2", "Key_3"]: await tap((host.find_child(k, true, false) as Control).get_global_rect().get_center())
+	await tap((host.find_child("Backspace", true, false) as Control).get_global_rect().get_center())
+	await tap((host.find_child("Key_5", true, false) as Control).get_global_rect().get_center())
+	var shown := ""
+	for l in host.find_children("*", "Label", true, false): if str((l as Label).text).begins_with("125 "): shown = (l as Label).text
+	check(shown != "", "backspace drops the last digit, 1-2-3-DEL-5 is 125 (shows '%s')" % shown)
+	await tap((host.find_child("Clear", true, false) as Control).get_global_rect().get_center())
+	await tap((host.find_child("Key_9", true, false) as Control).get_global_rect().get_center()); await tap((host.find_child("Key_9", true, false) as Control).get_global_rect().get_center()); await tap((host.find_child("Key_9", true, false) as Control).get_global_rect().get_center())
+	var okb: Button
+	for b in host.find_children("*", "Button", true, false): if (b as Button).text == PaperStrings.t("KEYPAD_OK"): okb = b
+	size_ok(okb, "keypad OK"); await tap(okb.get_global_rect().get_center())
+	var reason := host.find_child("Reason", true, false) as Label
+	check(is_nan(got[0]) and reason != null and reason.text != "", "999 is refused with a bound message ('%s')" % (reason.text if reason != null else ""))
+	host.queue_free(); await frames(3)
+	# result sheet buttons
+	app.new_game("sandbox"); await frames(4); Notebook.close(app); await frames(3)
+	Notebook.stub = Notebook.stub_info(); Printout.stub = Notebook.result_stub(true)
+	Printout.open(app); await create_timer(0.5).timeout
+	var po := app.root.get_node_or_null("printout") as Control
+	check(po != null, "the result sheet opens")
+	if po != null:
+		for b in po.find_children("*", "Button", true, false): if b.is_visible_in_tree(): size_ok(b as Control, "result button " + (b as Button).text)
+		po.queue_free(); app.end_ui = null
+	Notebook.stub = {}; Printout.stub = {}
+	await frames(3)
 func _intercom() -> void: pass

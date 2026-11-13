@@ -83,16 +83,19 @@ static func open(app) -> bool:
 	var run_n: int = (runs as Array).size() if runs is Array else 1
 	_line(vb, "%s · %s · %s" % [PaperStrings.t("PR_HEAD"), PaperStrings.t("PR_RUN") % run_n, lid], INKC, 26, "Header")
 	_line(vb, PaperStrings.t("PR_DONE") if won else PaperStrings.t("PR_ABORT"), EqTheme.PEN_GREEN if won else EqTheme.RED, 30, "Banner")
-	if str(rc.get("verdictText", "")) != "": _line(vb, str(rc.verdictText), INKC, 22, "Verdict")
+	var abort_t := str(rc.get("abortText", "")) if bool(rc.get("aborted", not won)) and not won else ""
+	if abort_t != "": _line(vb, abort_t, EqTheme.RED.darkened(0.15), 22, "Verdict")   # the engine's whole sentence: never "lost: (...)" around a fragment
+	elif str(rc.get("verdictText", "")) != "": _line(vb, str(rc.verdictText), INKC, 22, "Verdict")
 	if not won:
-		if str(rc.get("cause", "")) != "":
+		if str(rc.get("cause", "")) != "" and abort_t == "":
 			_line(vb, PaperStrings.t("PR_CAUSE") + ": " + str(rc.cause), EqTheme.RED.darkened(0.15), 22, "Cause")
 		if str(rc.get("equation", "")) != "":
 			var cl := Circled.new(); cl.name = "Equation"; cl.text = str(rc.equation); cl.circle_last = true; cl.size_px = 20; vb.add_child(cl)
 	# goals
 	_line(vb, "", INKC, 10)
 	_line(vb, "GOALS", INKC, 22)
-	for g in li.get("goals", []):
+	var goal_rows: Array = rc.get("goals", []) if (rc.get("goals") is Array and not (rc.get("goals") as Array).is_empty()) else li.get("goals", [])   # the card's own verdicts (PASS is held back when the shift ended off spec)
+	for g in goal_rows:
 		var ok := bool(g.get("met", false))
 		_line(vb, "%s  %s" % [PaperStrings.t("PR_PASS") if ok else PaperStrings.t("PR_FAIL"), str(g.text)], INKC if ok else EqTheme.RED.darkened(0.15), 21, "Goal_" + str(g.key))
 	# flasks, stamped
@@ -115,7 +118,7 @@ static func open(app) -> bool:
 	var hg = rc.get("histogram")
 	if won and hg is Dictionary:
 		_line(vb, "", INKC, 8)
-		_line(vb, PaperStrings.t("PR_HIST") + " · " + str(hg.metric), INKC, 22, "HistHead")
+		_line(vb, PaperStrings.t("PR_HIST") + " · " + str(hg.get("title", hg.metric)) + ((" (" + str(hg.unit) + ")") if str(hg.get("unit", "")) != "" else ""), INKC, 22, "HistHead")
 		var bins: Array = hg.bins; var edges: Array = hg.edges; var mx := 1.0
 		for b in bins: mx = maxf(mx, float(b))
 		var you := float(hg.you)
@@ -123,7 +126,9 @@ static func open(app) -> bool:
 			var lo := float(edges[i]); var hi := float(edges[i + 1])
 			var mine: bool = (i == int(hg.youBin)) if hg.has("youBin") else ((you >= lo and you < hi) or (i == bins.size() - 1 and you >= lo))   # the engine names the bin; older cards fall back to the edges
 			var bar := "█".repeat(maxi(int(round(float(bins[i]) / mx * 22.0)), 1 if int(bins[i]) > 0 else 0))
-			_line(vb, "%s|%s %d%s" % [_pad(CbKit.num(lo, 0), 9), bar, int(bins[i]), "  " + PaperStrings.t("PR_YOU") + " " + PaperStrings.num(you) if mine else ""], EqTheme.PEN_BLUE if mine else INKC, 20, "Hist_%d" % i)
+			var lbls: Array = hg.get("labels", [])
+			var edge_t := str(lbls[i]) if i < lbls.size() else CbKit.num(lo, 0)   # the engine's labels carry the decimals that keep neighbours apart
+			_line(vb, "%s|%s %d%s" % [_pad(edge_t, 9), bar, int(bins[i]), "  " + PaperStrings.t("PR_YOU") + " " + PaperStrings.num(you) if mine else ""], EqTheme.PEN_BLUE if mine else INKC, 20, "Hist_%d" % i)
 	# call it
 	var ci = rc.get("callIt")
 	if ci is Dictionary:
