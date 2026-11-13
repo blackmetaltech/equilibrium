@@ -98,10 +98,10 @@ func layout() -> void:
 	var phone := _kind == "phone"; var hand := _kind == "handheld"
 	var tap := maxf(CbLayout.tap(), 44.0)
 	gear.custom_minimum_size = Vector2(tap, tap); gear.offset_left = -tap - 10.0; gear.offset_top = 10.0; gear.offset_right = -10.0; gear.offset_bottom = 10.0 + tap
-	var row_h := 108.0 if _kind == "desktop" else (98.0 if hand else 84.0)
+	var row_h := 108.0 if _kind == "desktop" else 98.0
 	top_row.custom_minimum_size.y = row_h
-	intercom.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (330.0 if hand else 290.0), row_h)
-	intercom.set_max_lines(3 if _kind == "desktop" else (2 if hand else 1))
+	intercom.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (330.0 if hand else 360.0), row_h)
+	intercom.set_max_lines(3 if (_kind == "desktop" or phone) else 2)   # a phone shows three lines too; a tap opens the whole log
 	annunciator.max_windows = 4 if phone else 8
 	annunciator.custom_minimum_size = Vector2(430.0 if _kind == "desktop" else (300.0 if hand else 230.0), row_h)
 	if phone and annunciator.wins.size() > 4: annunciator.wins = annunciator.wins.slice(0, 4)

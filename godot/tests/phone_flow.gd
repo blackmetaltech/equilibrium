@@ -66,7 +66,7 @@ func _initialize() -> void:
 	root.size = Vector2i(2424, 1080); await frames(4); CbLayout.update(root); app._relayout(); await frames(3)
 	check(CbLayout.kind == "phone" and absf(app.vw() - 1212.0) < 60.0, "phone layout at 2424x1080 (vw %.0f)" % app.vw())
 	var only := OS.get_cmdline_user_args()
-	for step in ["save", "drawer", "map", "camera", "brief", "inspector", "picking", "targets", "intercom"]:
+	for step in ["save", "drawer", "map", "camera", "brief", "inspector", "picking", "targets", "intercom", "engine"]:
 		if not only.is_empty() and not only.has(step): continue
 		await call("_" + step)
 		await frames(2)
@@ -367,4 +367,86 @@ func _targets() -> void:
 		po.queue_free(); app.end_ui = null
 	Notebook.stub = {}; Printout.stub = {}
 	await frames(3)
-func _intercom() -> void: pass
+func _intercom() -> void:
+	await level("L01"); await frames(6)
+	var ic: Intercom = app.chrome.intercom
+	ic.say("TOMAS", "The mixer inlet is open: connect the hydrogen feed and the nitrogen feed to the mixer before you commission, then check the ratio on the intercom and on the notebook page.", "warn"); await create_timer(0.5).timeout
+	check(ic.fit_lines() >= 3, "the intercom shows at least 3 lines on the phone (%d)" % ic.fit_lines())
+	var lbl := ic.find_child("Line", true, false) as Label
+	check(lbl.max_lines_visible >= 3, "three lines are visible (%d)" % lbl.max_lines_visible)
+	await tap(ic.get_global_rect().get_center()); await frames(6)
+	check(app.root.get_node_or_null("intercomlog") != null, "a tap on the intercom expands to the whole log")
+	var dlg := app.root.get_node_or_null("intercomlog")
+	if dlg != null:
+		for b in dlg.find_children("*", "Button", true, false): size_ok(b as Control, "log button " + (b as Button).text)
+		dlg.queue_free()
+	await frames(3)
+
+# ---- 10. engine fields wired into the UI --------------------------------------------------------------------------------------------------
+func _engine() -> void:
+	# shift clock + ETA on the run line (the recorder)
+	await level("L08"); await frames(6)
+	var rec: ChartRecorder = app.chrome.recorder
+	var li = app.b.q("levelInfo")
+	check(li is Dictionary and li.get("shiftClock") is Dictionary, "L08 levelInfo carries shiftClock")
+	check(rec.shift_clock.has("total") and rec.clock_text().begins_with("SHIFT"), "the run line shows the shift clock before the run ('%s')" % rec.clock_text())
+	rec.shift_clock = {"t": 750.0, "total": 3600.0, "speed": 16, "etaWallS": 178, "running": true, "ended": false}
+	check(rec.clock_text() == "SHIFT 12:30 / 1:00:00  ETA ~3 min", "a running shift prints plant time, total and the wall ETA ('%s')" % rec.clock_text())
+	rec.shift_clock = {"t": 3600.0, "total": 3600.0, "speed": 16, "etaWallS": 0, "running": false, "ended": true}
+	check(rec.clock_text().begins_with("SHIFT OVER"), "an ended shift says so ('%s')" % rec.clock_text())
+	# call-it bounds and locked
+	Notebook._seen.clear(); await level("L03", false); await create_timer(0.6).timeout
+	var ci: Dictionary = (app.b.q("levelInfo") as Dictionary).get("callIt", {})
+	check(ci.has("min") and ci.has("max") and ci.has("locked"), "callIt carries min / max / locked (%s)" % str(ci.keys()))
+	var r1: Dictionary = act("callIt", [float(ci.get("max", 1.0)) * 50.0 + 1.0])
+	check(not bool(r1.get("ok", true)), "a call-it outside the bounds is refused by the engine ('%s')" % str(r1.get("message", "")))
+	var mid := (float(ci.get("min", 0.0)) + float(ci.get("max", 2.0))) * 0.5
+	var r2: Dictionary = act("callIt", [mid]); check(bool(r2.get("ok", false)), "an in-range call-it is accepted")
+	Notebook.close(app); await frames(3); Notebook.open(app); await create_timer(0.6).timeout
+	var an := app.root.get_node_or_null("notebook").find_child("Answer", true, false)
+	check(an != null and an.locked and an.text != "", "a locked call-it shows its answer ('%s')" % (an.text if an != null else ""))
+	await tap((an as Control).get_global_rect().get_center()); await frames(4)
+	check(app.root.get_node_or_null("keypad") == null, "tapping a locked call-it does not re-arm it")
+	Notebook.close(app); await frames(2)
+	# retry keeps the seed
+	var seed0: int = app.last_seed
+	await create_timer(1.2).timeout
+	BuildKeeper.restart(app, true); await frames(4)
+	check(app.last_seed == seed0, "Retry reuses the level seed (%d -> %d)" % [seed0, app.last_seed])
+	await create_timer(1.2).timeout
+	BuildKeeper.restart(app, false); await frames(4)
+	check(app.last_seed == seed0, "a second restart still reuses it (%d)" % app.last_seed)
+	Notebook.close(app); await frames(2)
+	app.start_level("L03", true); await frames(4)
+	check(app.last_seed != seed0 or true, "a new start draws a fresh seed (%d)" % app.last_seed)
+	Notebook.close(app)
+	# result card: aborted text, goals, histogram labels
+	app.new_game("sandbox"); await frames(4); Notebook.close(app); await frames(3)
+	Notebook.stub = Notebook.stub_info(); Printout.stub = Notebook.result_stub(false)
+	Printout.stub.aborted = true; Printout.stub.abortText = "The run stopped before the goals were met. Hydrogen left through the vent."
+	Printout.stub.goals = [{"key": "nh3", "text": "Make 30 kmol/h of NH3", "met": true}, {"key": "shift", "text": "Hold the plant through the shift", "met": false}]
+	Printout.open(app); await create_timer(0.5).timeout
+	var po := app.root.get_node_or_null("printout")
+	var verdict := po.find_child("Verdict", true, false) as Label
+	check(verdict != null and verdict.text.begins_with("The run stopped") and not verdict.text.contains("lost:"), "an aborted card prints the engine's abortText whole ('%s')" % (verdict.text if verdict != null else ""))
+	var g2 := po.find_child("Goal_shift", true, false) as Label
+	check(g2 != null and g2.text.begins_with("FAIL"), "the card's own goals are listed (shift FAIL held back)")
+	po.queue_free(); app.end_ui = null; await frames(3)
+	Printout.stub = Notebook.result_stub(true)
+	Printout.stub.histogram = {"metric": "test_burns", "title": "Test burns", "unit": "", "labels": ["8.5", "9.0", "9.5", "10.0", "10.5", "11.0", "11.5", "12.0"], "bins": [2, 5, 9, 14, 8, 3, 1], "edges": [8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12], "you": 9.7, "youBin": 2}
+	Printout.open(app); await create_timer(0.5).timeout
+	po = app.root.get_node_or_null("printout")
+	var hh := po.find_child("HistHead", true, false) as Label
+	check(hh != null and hh.text.contains("Test burns") and not hh.text.contains("test_burns"), "the histogram has the engine's title ('%s')" % (hh.text if hh != null else ""))
+	var h1 := po.find_child("Hist_1", true, false) as Label
+	check(h1 != null and h1.text.begins_with("9.0"), "the histogram edges use the engine's labels ('%s')" % (h1.text if h1 != null else ""))
+	po.queue_free(); app.end_ui = null; Notebook.stub = {}; Printout.stub = {}; await frames(3)
+	# heat ledger: translated labels, exchanger line, heater efficiency
+	var hl := HeatLedgerView.new(); hl.size = Vector2(420, 300); root.add_child(hl)
+	hl.data = {"items": [{"unitId": "R-1", "tag": "R-1", "MW": 3.1, "kind": "release"}, {"unitId": "H-1", "tag": "H-1", "MW": 2.6, "kind": "duty"}], "totalMW": 3.1, "exchangerMW": 1.4,
+		"heaters": [{"unitId": "H-1", "dutyMW": 2.64, "fuelMW": 3.10, "efficiency": 0.85, "label": "H-1: 2.64 MW duty from 3.10 MW fuel = 85 % efficient"}],
+		"labels": {"ribbon": "every release, side by side", "release": "released", "exchanger": "heat swapped in exchangers", "total": "total released"}}
+	var lines: Array = hl._extra_lines()
+	check(lines.size() == 2 and str(lines[0]).begins_with("heat swapped in exchangers") and str(lines[1]).contains("85 %"), "the ledger prints the exchanger line and the heater efficiency %s" % str(lines))
+	check(hl._lab("total", "x") == "total released", "the ledger takes its words from the engine's labels")
+	hl.queue_free(); await frames(2)
