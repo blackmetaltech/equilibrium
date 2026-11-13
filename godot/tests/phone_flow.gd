@@ -276,7 +276,56 @@ func _brief() -> void:
 	var st2 := app.root.get_node_or_null("notebook").find_child("Start", true, false) as Button
 	await tap(st2.get_global_rect().get_center()); await frames(4)
 	check(app.root.get_node_or_null("notebook") == null, "Start work closes the sheet")
-func _inspector() -> void: pass
-func _picking() -> void: pass
+func _inspector() -> void:
+	await level("L01")
+	for a in [["feed", 0, 0, 0], ["feed", 0, 4, 0], ["mixer", 4, 2, 0], ["stoich_reactor", 8, 0, 0], ["product", 18, 0, 0]]: app.b.act("placeUnit", a)
+	app.game_on_changed(); await frames(4); app.plant_world.fit_view(); await frames(10)
+	var vr := app.get_viewport().get_visible_rect()
+	var ids: Array = app.plant_world._units.keys()
+	for id in ids:
+		Faceplate.close_all(); app.plant_world.select(""); app.root.get_node("PaperHub").clear_pipe(); await frames(3)
+		var sp: Vector2 = app.plant_world.unit_screen_pos(str(id))
+		if not vr.has_point(sp): print("  (unit ", id, " off screen at ", sp, ")"); continue
+		await tap(sp); await frames(6)
+		var fp = Faceplate.plates.get(str(id))
+		if fp == null: print("  dbg ", id, " sp=", sp, " pick=", app.plant_world._pick_unit(sp), " port=", app.plant_world._pick_port(sp), " cands=", app.plant_world.touch_candidates(sp), " sel=", app.plant_world.selected_id)
+		check(fp != null, "tapping %s opens its inspector" % id)
+		if fp == null: continue
+		var r: Rect2 = (fp as Control).get_global_rect()
+		var bottom_bar := vr.size.y - float(app.chrome.console_height())
+		check(vr.grow(1.0).encloses(r), "%s inspector on screen (%s)" % [id, str(r)])
+		check(r.end.y <= bottom_bar + 1.0, "%s inspector stays above the bottom bar (%.0f vs %.0f)" % [id, r.end.y, bottom_bar])
+		check(not r.grow(18.0).has_point(sp), "%s inspector is docked away from the tapped unit (unit %s, plate %s)" % [id, str(sp), str(r)])
+		size_ok((fp as Node).find_child("Close", true, false) as Control, "%s inspector x" % id)
+		for nm in ["Why", "Lens", "Window"]:
+			pass
+		for b in (fp as Node).find_children("*", "Button", true, false):
+			if b.is_visible_in_tree(): check(vr.grow(1.0).encloses((b as Control).get_global_rect()) and r.grow(1.0).encloses((b as Control).get_global_rect()), "%s button '%s' fully inside the plate" % [id, (b as Button).text])
+	Faceplate.close_all()
+func _picking() -> void:
+	await level("L01")
+	for a in [["feed", 0, 0, 0], ["feed", 0, 4, 0], ["mixer", 4, 2, 0], ["stoich_reactor", 8, 0, 0]]: app.b.act("placeUnit", a)
+	app.game_on_changed(); await frames(4); app.plant_world.fit_view(); await frames(10)
+	var w = app.plant_world
+	var clear := func() -> void:
+		Faceplate.close_all(); w.select(""); app.root.get_node("PaperHub").clear_pipe(); w._cyc_ids = []; await frames(3)
+	await clear.call()
+	var sp: Vector2 = w.unit_screen_pos("R-104")
+	var off := sp + Vector2(0, 40)   # a finger's width below the anchor, not on the body
+	var cands: Array = w.touch_candidates(off)
+	check(cands.has("R-104"), "a tap 40 px off a unit still finds it among the candidates %s" % str(cands))
+	await tap(off); check(Faceplate.plates.size() == 1, "a tap near a unit opens an inspector (%s)" % str(Faceplate.plates.keys()))
+	# two units under one fingertip: repeated taps cycle
+	await clear.call()
+	var a: Vector2 = w.unit_screen_pos("F-101"); var b: Vector2 = w.unit_screen_pos("F-102")
+	var mid := (a + b) * 0.5
+	var c2: Array = w.touch_candidates(mid)
+	check(c2.size() >= 2, "a tap between two units has both as candidates %s" % str(c2))
+	var seen := {}
+	for i in 3:
+		await tap(mid); await frames(2)
+		seen[str(w.selected_id)] = true
+	check(seen.size() >= 2, "tapping the same spot again cycles to the next unit (%s)" % str(seen.keys()))
+	await clear.call()
 func _targets() -> void: pass
 func _intercom() -> void: pass

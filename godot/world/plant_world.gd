@@ -592,6 +592,34 @@ func _pick_unit(p: Vector2) -> String:
 				if tier == 0: break
 	return best_low if best_low != "" else best_hi
 
+## A finger is not a mouse: the nearest unit within a generous radius (about 48 dp) wins, the exact hit first; tapping the same spot again steps to the next one.
+const TOUCH_RADIUS := 62.0
+var _cyc_pos := Vector2(-9999, -9999)
+var _cyc_ids: Array = []
+var _cyc_i := 0
+var _cyc_ms := 0
+func touch_candidates(p: Vector2, exact := "") -> Array:
+	var c: Array = []
+	for id in _units:
+		var m: UnitModel = _units[id]
+		if not m.visible: continue
+		var sp := world_to_screen(m.global_position + Vector3(0, minf(m.height * m.scale.y, 1.6) * 0.5, 0))
+		var d := sp.distance_to(p)
+		var d2 := unit_screen_pos(str(id)).distance_to(p)
+		d = minf(d, d2)
+		if str(id) == exact: d = -1.0
+		if d <= TOUCH_RADIUS: c.append([d, str(id)])
+	c.sort_custom(func(a, b): return a[0] < b[0])
+	return c.map(func(x): return x[1])
+func _touch_pick(p: Vector2, exact: String) -> String:
+	var ids := touch_candidates(p, exact)
+	if ids.is_empty(): return exact
+	var now := Time.get_ticks_msec()
+	if p.distance_to(_cyc_pos) < 44.0 and now - _cyc_ms < 4000 and _cyc_ids == ids and ids.size() > 1: _cyc_i = (_cyc_i + 1) % ids.size()
+	else: _cyc_i = 0
+	_cyc_pos = p; _cyc_ids = ids; _cyc_ms = now
+	return str(ids[_cyc_i])
+
 func _click_at(p: Vector2) -> void:
 	if placing != "":
 		var g = _ground_at(p)
@@ -600,14 +628,18 @@ func _click_at(p: Vector2) -> void:
 			_cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
 			place_at(_cursor.x, _cursor.y)
 		return
-	_probe_ports(p)    # the pips of a unit that is not selected or hovered yet (a first press right after placing parts): light them before picking
+	var finger := CbLayout.touch or CbLayout.phone
+	if not finger or selected_id != "" or pipe_ghost_active(): _probe_ports(p)    # a finger taps a unit first (its pips then show); only a pipe in hand or the selected unit's pips take a tap
+	# the pips of a unit that is not selected or hovered yet (a first press right after placing parts): light them before picking
 	_press_port = {}   # a stale press (its release went to a panel) never turns a later click into a drag
 	var pk := _pick_port(p)
+	if finger and not pk.is_empty() and not pipe_ghost_active() and str(pk.unit) != selected_id: pk = {}
 	if not pk.is_empty():
 		# a pipe already half made: this press finishes it (click, click) and its release must do nothing; else this press starts a pipe and the release may finish it (drag)
 		if not pipe_ghost_active(): _press_port = pk
 		port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
 	var id := _pick_unit(p)
+	if CbLayout.touch or CbLayout.phone: id = _touch_pick(p, id)
 	var pid := pipes.pick(p, cam, 12.0 if id == "" else 6.0)   # over a unit only a click right on the pipe's line picks the pipe: ports, then units, then loose pipes
 	if pid != "": select(""); pipes.select(pid); pipe_clicked.emit(pid); return
 	pipes.select(""); select(id); unit_clicked.emit(id)

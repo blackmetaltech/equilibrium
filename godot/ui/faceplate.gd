@@ -21,6 +21,10 @@ var _lens: Button
 var _win: Button
 var _knob_box: GridContainer
 var _body: VBoxContainer
+var _scroll: ScrollContainer         # phone: everything under the header scrolls so the plate fits above the console
+var _head_box: HBoxContainer
+var _outer: VBoxContainer
+var _foot: HBoxContainer
 var _last_pos := Vector2(-1, -1)
 var _dock_pos := Vector2(-1, -1)     # where the plate docked (the side column); kept until the screen changes or a bay would cover it
 var _dock_vr := Vector2.ZERO
@@ -191,6 +195,11 @@ func _rebuild() -> void:
 	_trash = TrashButton.new(); _trash.pressed.connect(func(): _delete_me()); head.add_child(_trash)
 	_all = _tiny(PaperStrings.t("FP_CLOSE_ALL"), func(): Faceplate.close_all()); _all.name = "CloseAll"; _all.visible = true; head.add_child(_all)   # two cards open: one key clears the plot
 	var x := _tiny("×", func(): close()); x.name = "Close"; head.add_child(x)
+	_scroll = null; _head_box = head; _outer = null; _foot = null
+	if CbLayout.phone:   # a phone plate is taller than the strip above the console: header pinned, the rest scrolls by swipe
+		_scroll = ScrollContainer.new(); _scroll.name = "PlateScroll"; _scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; _scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		var inner := VBoxContainer.new(); inner.name = "PlateInner"; inner.add_theme_constant_override("separation", 8); inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_scroll.add_child(inner); _body.add_child(_scroll); _outer = _body; _body = inner
 	# body: PV bar + knobs
 	var mid := HBoxContainer.new(); mid.add_theme_constant_override("separation", 6); _body.add_child(mid)
 	_pv = PvBar.new(); mid.add_child(_pv)
@@ -232,7 +241,7 @@ func _rebuild() -> void:
 		_warn.max_lines_visible = 2; _warn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		var wp := PanelContainer.new(); wp.name = "WarnBox"; var wsb := StyleBoxFlat.new(); wsb.bg_color = Color("#C4262F"); wsb.set_corner_radius_all(3); wsb.set_content_margin_all(4); wp.add_theme_stylebox_override("panel", wsb); wp.add_child(_warn); _body.add_child(wp); _warn.set_meta("box", wp)
 	_need = EqTheme.label("", 14, EqTheme.RED, "semi"); _need.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _need.custom_minimum_size = Vector2(210, 38); _need.max_lines_visible = 2; _need.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; _body.add_child(_need)
-	var bt := HBoxContainer.new(); bt.add_theme_constant_override("separation", 4); _body.add_child(bt)
+	var bt := HBoxContainer.new(); bt.add_theme_constant_override("separation", 4); (_outer if _outer != null else _body).add_child(bt); _foot = bt   # phone: Why? / Lens / Window stay pinned under the scrolling body
 	_why = _btn(PaperStrings.t("FP_WHY"), _on_why); _lens = _btn(PaperStrings.t("FP_LENS"), func(): _open_extra("open_lens")); _win = _btn(PaperStrings.t("FP_WINDOW"), func(): _open_extra("open_window"))
 	for b in [_why, _lens, _win]: bt.add_child(b)
 
@@ -660,6 +669,7 @@ func _place(force := false) -> void:
 		if Rect2(pos, sz).intersects(orc.grow(4.0)): pos.x = maxf(8.0, orc.position.x - 14.0 - sz.x)
 	var sp := Vector2.ZERO
 	if app.world != null and app.world.has_method("unit_screen_pos"): sp = app.world.unit_screen_pos(unit_id)
+	if CbLayout.phone and sz.x > 40.0: pos = _phone_pos(vr, sz, bottom, sp)
 	if sz.x > 40.0 and get_child_count() > 0 and size.x > 40.0 and size.x >= get_combined_minimum_size().x - 1.0 and size.y >= get_combined_minimum_size().y - 1.0: _dock_pos = pos; _dock_vr = vr
 	if not force and pos.is_equal_approx(position) and sp.is_equal_approx(_last_pos): return
 	_last_pos = sp; position = pos
@@ -669,7 +679,38 @@ func _place(force := false) -> void:
 		if pr.has_point(sp): _uncovered = true   # the camera stays where the player put it: the plate docks in the side column instead
 	queue_redraw()
 
+## Phone: the plate docks in the side column farther from the tapped unit, never over the bottom bar, the Equilibrium window or the unit itself.
+func _fit_scroll(avail_h: float) -> void:
+	if _scroll == null or _scroll.get_child_count() == 0 or _head_box == null: return
+	var inner := _scroll.get_child(0) as Control
+	var want := inner.get_combined_minimum_size()
+	var maxh := maxf(90.0, avail_h - _head_box.get_combined_minimum_size().y - (_foot.get_combined_minimum_size().y if _foot != null else 0.0) - 34.0)
+	var h := clampf(want.y, 60.0, maxh)
+	_scroll.custom_minimum_size = Vector2(want.x + (14.0 if want.y > maxh else 0.0), h)
+func _phone_pos(vr: Vector2, sz: Vector2, bottom: float, sp: Vector2) -> Vector2:
+	var top := 56.0
+	var y := maxf(top, minf(bottom - sz.y, vr.y))
+	var xs: Array = [vr.x - 12.0 - sz.x, 8.0] if sp.x < vr.x * 0.5 else [8.0, vr.x - 12.0 - sz.x]
+	for k in plates:   # a second plate takes the column the first one left free
+		var o = plates[k]
+		if o == self or not is_instance_valid(o) or (o as Faceplate)._order > _order: continue
+		var orc := Rect2((o as Faceplate).position, (o as Faceplate).size)
+		xs = xs.filter(func(x): return not Rect2(Vector2(x, y), sz).intersects(orc)) + xs.filter(func(x): return Rect2(Vector2(x, y), sz).intersects(orc))
+	var best := Vector2(xs[0], y)
+	for x in xs:
+		var r := Rect2(Vector2(x, y), sz); var bad := r.grow(30.0).has_point(sp)
+		for bayn in ["bay", "lvbay"]:
+			var bw = app.get(bayn)
+			if bw == null or not is_instance_valid(bw) or not (bw as Control).visible or (bayn == "lvbay" and not bw.active()): continue
+			if r.intersects((bw as Control).get_global_rect().grow(6.0)): bad = true
+		if not bad: return Vector2(x, y)
+	return best
+
 func _process(_dt: float) -> void:
+	if CbLayout.phone and _scroll != null and app != null:
+		var ch = app.get("chrome")
+		var vh := get_viewport().get_visible_rect().size.y
+		_fit_scroll(vh - (float(ch.console_height()) if ch != null and ch.has_method("console_height") else 100.0) - 10.0 - 56.0)
 	_place()
 	for b in _boxes: if is_instance_valid(b) and bool(b.get_meta("coach", false)): (b as Control).queue_redraw()
 
