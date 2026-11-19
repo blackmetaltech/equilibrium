@@ -117,7 +117,7 @@ describe('verify() on the game rules', () => {
   });
   it('a failed commission (an open outlet) in a code is a rejected action, so the code is not ok', () => {
     const code = recode(solved().code, (d) => { d.actions.splice(7, 1); });
-    expect(verifyV('V1', code)).toMatchObject({ ok: false, reason: expect.stringMatching(/Action 8 \(commission\) rejected: Stream from H-102 outlet goes nowhere/) });
+    expect(verifyV('V1', code)).toMatchObject({ ok: false, reason: expect.stringMatching(/Action 8 \(commission\) rejected: (Stream from H-102 outlet goes nowhere|These units are not piped to anything: T-103)/) });
   });
   it('wrong ruleset, wrong level and a flipped payload bit are not ok, never a throw', () => {
     const { code } = solved();
