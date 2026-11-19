@@ -8,6 +8,8 @@ export const levels: Record<string, string> = {
   'lv.run.rerun': 'The plant is running your changed design. Watch the recorder and compare with the last run.',
   'lv.goal.pending': 'pending',
   'lv.lesson.not_run': 'The lesson quotes your own numbers: build the missing unit, commission, and it appears here.',
+  'lv.build.place': 'Place {part}',
+  'lv.build.pipe': 'Pipe {from} {fport} to {to} {tport}',
   'lv.needs_unit': 'No {unit} in the plant yet: place one and pipe it in, then commission again.',
   'lv.goal.needs_unit': 'needs a {unit}',
   'lv.shift_unmet': 'The shift is over and the goals were not all met. Read the printout, change the design and run again.',

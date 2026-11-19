@@ -11,7 +11,7 @@ import { azeotrope } from '../sim/thermo/nrtl';
 import { glucoseFeed } from '../sim/units/fermenter';
 import type { EqState } from '../state';
 import { scripted } from './bench';
-import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, inStream, intoType, predictionOf, putFeed, put, sealSetup, spentOf, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
@@ -88,6 +88,19 @@ const COACH: CoachStep[] = [
   { id: 'why', role: 'safety', done: LATE(['why']) },
 ];
 
+const O = (type: string, port: string, n = 1) => ({ type, port, n });
+/** The notebook's build order (levelInfo.buildGuide): fermenter, column, five pipes, the purity knob. */
+export const L23_GUIDE: BuildStep[] = [
+  { id: 'fer', kind: 'place', slot: { type: 'fermenter' }, at: [6, 3] },
+  { id: 'col', kind: 'place', slot: { type: 'column' }, at: [12, 3] },
+  { id: 'p_feed', kind: 'pipe', from: O('feed', 'out'), to: O('fermenter', 'in') },
+  { id: 'p_beer', kind: 'pipe', from: O('fermenter', 'out'), to: O('column', 'in') },
+  { id: 'p_co2', kind: 'pipe', from: O('fermenter', 'vap'), to: O('vent', 'in') },
+  { id: 'p_spirit', kind: 'pipe', from: O('column', 'vap'), to: O('product', 'in') },
+  { id: 'p_vinasse', kind: 'pipe', from: O('column', 'liq'), to: O('sink', 'in') },
+  { id: 'purity', kind: 'set', slot: { type: 'column' }, done: (s) => { const c = col(s); return c !== undefined && typeof c.params.xD === 'number' && (c.params.xD as number) >= wtToMole(L23_SPIRIT_WT) - 1e-9; } },
+];
+
 export const L23: LevelSpec = {
   id: 'L23', firstRun: true, chapter: 5, index: 23, setter: 'safety', budgetUSD: L23_BUDGET, units: L23_UNITS, notes: 2, shiftLen: 0,
   setup: (s) => { baseSetup(s, L23_SPECIES, L23_UNITS, PRESETS); buildDistillery(s); },
@@ -113,6 +126,7 @@ export const L23: LevelSpec = {
     { key: 'goal', legend: t('lv.L23.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },
   ],
   coach: COACH,
+  buildGuide: L23_GUIDE,
   verdict: (s, m, g) => {
     const c = code(s);
     if (c === 'AZEOTROPE_LIMIT') return { key: 'wall', cause: t('lv.L23.cause.wall', { wall: f(s, azeotrope('C2H5OH', 'H2O', L23_P)!.wt * 100), wallmol: f(s, wtToMole(azeotrope('C2H5OH', 'H2O', L23_P)!.wt) * 100) }) };

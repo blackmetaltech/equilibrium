@@ -7,6 +7,7 @@ import type { ActionFn, QueryFn, System } from '@core/kit';
 import { SPECIES } from '../../data/species';
 import { t } from '../../i18n';
 import { FIRSTRUN_S } from '../../data/events';
+import { buildGuideOf } from '../../levels/build_guide';
 import { SPEC_BY_ID, firstRunT, madeKg, specOf } from '../../levels/registry';
 import type { GoalEval, LevelSpec, Measures } from '../../levels/spec';
 import { commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, unitsOfType, type Prediction } from '../../levels/util';
@@ -229,6 +230,8 @@ const levelInfo: QueryFn<EqState> = (s) => {
     /** The level first run (L01-L04): plant seconds rolled, its length, and the product made so far; null outside it. */
     firstRun: spec.firstRun === true && s.phase === 'firstrun' ? { t: firstRunT(s), len: FIRSTRUN_S, madeKg: spec.madeKgH !== undefined || spec.chapter < 8 ? fin(madeKg(s, spec)) : null } : null,
     coach: coachOf(s, spec),
+    /** The build checklist (parts, pipes, settings, ticking from the plant); null on a level without one. */
+    buildGuide: buildGuideOf(s, spec),
     /** What the intercom says while a first run rolls: the product line only for the very first run of a product level; control / board levels and later runs get their own line (null outside a first run). */
     runLine: spec.firstRun === true && s.phase === 'firstrun' ? t(runLineKey(s, spec)) : null,
     /** Withheld while a prediction is still open (nothing commissioned, none locked): the lesson quotes the numbers the Call-it asks for. */

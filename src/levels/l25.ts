@@ -7,7 +7,7 @@ import { fmtNumber } from '../engine/solved';
 import { REGIONS } from '../regions';
 import { t } from '../i18n';
 import type { EqState } from '../state';
-import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, fedOf, flowOf, inStream, link, molarMass, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
 import { scripted } from './bench';
 
@@ -66,6 +66,26 @@ export function dcdaMeasures(s: S): Measures {
 
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 
+const O = (type: string, port: string, n = 1) => ({ type, port, n });
+const slot = (type: string, n = 1) => ({ type, n });
+/** The notebook's build order (levelInfo.buildGuide): parts in placement order, the pipes along the gas path, the catalyst and the three temperatures. */
+export const L25_GUIDE: BuildStep[] = [
+  { id: 'bed1', kind: 'place', slot: slot('packed_bed', 1), at: [2, 0] }, { id: 'cool1', kind: 'place', slot: slot('cooler', 1), at: [6, 0] },
+  { id: 'bed2', kind: 'place', slot: slot('packed_bed', 2), at: [8, 0] }, { id: 'cool2', kind: 'place', slot: slot('cooler', 2), at: [12, 0] },
+  { id: 'bed3', kind: 'place', slot: slot('packed_bed', 3), at: [14, 0] }, { id: 'abs1', kind: 'place', slot: slot('absorber', 1), at: [18, 0] },
+  { id: 'heat', kind: 'place', slot: slot('heater', 1), at: [22, 0] }, { id: 'bed4', kind: 'place', slot: slot('packed_bed', 4), at: [2, 5] },
+  { id: 'abs2', kind: 'place', slot: slot('absorber', 2), at: [6, 5] }, { id: 'stack', kind: 'place', slot: slot('stack', 1), at: [11, 5] },
+  { id: 'tank1', kind: 'place', slot: slot('product', 1), at: [14, 5] }, { id: 'tank2', kind: 'place', slot: slot('product', 2), at: [16, 5] },
+  { id: 'p1', kind: 'pipe', from: O('feed', 'out'), to: O('packed_bed', 'in', 1) }, { id: 'p2', kind: 'pipe', from: O('packed_bed', 'out', 1), to: O('cooler', 'in', 1) },
+  { id: 'p3', kind: 'pipe', from: O('cooler', 'out', 1), to: O('packed_bed', 'in', 2) }, { id: 'p4', kind: 'pipe', from: O('packed_bed', 'out', 2), to: O('cooler', 'in', 2) },
+  { id: 'p5', kind: 'pipe', from: O('cooler', 'out', 2), to: O('packed_bed', 'in', 3) }, { id: 'p6', kind: 'pipe', from: O('packed_bed', 'out', 3), to: O('absorber', 'in', 1) },
+  { id: 'p7', kind: 'pipe', from: O('absorber', 'acid', 1), to: O('product', 'in', 1) }, { id: 'p8', kind: 'pipe', from: O('absorber', 'out', 1), to: O('heater', 'in') },
+  { id: 'p9', kind: 'pipe', from: O('heater', 'out'), to: O('packed_bed', 'in', 4) }, { id: 'p10', kind: 'pipe', from: O('packed_bed', 'out', 4), to: O('absorber', 'in', 2) },
+  { id: 'p11', kind: 'pipe', from: O('absorber', 'out', 2), to: O('stack', 'in') }, { id: 'p12', kind: 'pipe', from: O('absorber', 'acid', 2), to: O('product', 'in', 2) },
+  { id: 'catalyst', kind: 'set', slot: slot('packed_bed', 1), done: (s) => { const b = unitsOfType(s, 'packed_bed'); return b.length >= 4 && b.every((u) => u.catalystId === 'v2o5' && u.params.W === L25_W_KG); } },
+  { id: 'temps', kind: 'set', slot: slot('cooler', 1), done: (s) => { const u = [...unitsOfType(s, 'cooler'), ...unitsOfType(s, 'heater')]; return u.length >= 3 && u.every((x) => typeof x.params.T === 'number' && Math.abs((x.params.T as number) - L25_T_K) < 0.6); } },
+];
+
 export const L25: LevelSpec = {
   id: 'L25', firstRun: true, chapter: 6, index: 25, setter: 'safety', budgetUSD: L25_BUDGET, units: L25_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => {
@@ -98,6 +118,7 @@ export const L25: LevelSpec = {
       { key: 'goal', legend: t('lv.L25.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },
     ];
   },
+  buildGuide: L25_GUIDE,
   coach: [
     { id: 'place_beds', role: 'safety', focus: 'packed_bed', done: (s) => unitsOfType(s, 'packed_bed').length >= 3 },
     { id: 'catalyst', role: 'safety', focus: 'packed_bed', done: (s) => unitsOfType(s, 'packed_bed').length > 0 && unitsOfType(s, 'packed_bed').every((u) => u.catalystId !== undefined) },

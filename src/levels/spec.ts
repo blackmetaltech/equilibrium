@@ -39,6 +39,21 @@ export interface CallItSpec {
   max?: number;
 }
 
+/** A part in a build guide: the `n`-th unit of `type` in placement order (1-based; units pre-placed by the level count first). */
+export interface BuildSlot { type: string; n?: number }
+/** One line of a level's build checklist (the notebook's build order as data). It ticks from engine state, never from clicks. */
+export interface BuildStep {
+  id: string;
+  /** place: a part; pipe: an OUT port to an IN port; set: a setting on a part (needs `done`, the text is `lv.<ID>.build.<id>`). */
+  kind: 'place' | 'pipe' | 'set';
+  slot?: BuildSlot;
+  /** place: the suggested anchor tile (column, row) of the footprint. */
+  at?: [number, number];
+  from?: BuildSlot & { port: string };
+  to?: BuildSlot & { port: string };
+  done?: (s: Readonly<EqState>) => boolean;
+}
+
 export interface HeroSpec { key: string; unit: string; value: number; lo: number; hi: number }
 export interface SecondarySpec { key: string; unit: string; value: number; limit: number }
 
@@ -82,6 +97,8 @@ export interface LevelSpec {
   secondary: (s: Readonly<EqState>, m: Measures) => SecondarySpec | null;
   annunciators: (s: Readonly<EqState>, m: Measures, g: GoalEval[]) => Annunciator[];
   coach: CoachStep[];
+  /** The notebook's build order as a live checklist (levelInfo.buildGuide): for levels with a big build (about 6 or more parts and pipes). */
+  buildGuide?: BuildStep[];
   /** Species a player-placed cylinder bank can carry (setBank); absent = banks are not player-filled in this level. */
   bankSpecies?: string[];
   /** Verdict of the printout: a key under `lv.<ID>.verdict.` and the sentence variables of `cause` (null = no cause line, the run passed). */

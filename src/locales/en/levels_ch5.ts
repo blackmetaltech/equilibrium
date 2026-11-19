@@ -142,6 +142,7 @@ export const levelsCh5: Record<string, string> = {
   'lv.L23.callit': 'Called it: the highest ethanol mass percent distillation can reach at 1 atm',
   'lv.L23.hero': 'Spirit to the tank', 'lv.L23.sec': 'Ethanol in the spirit',
   'lv.L23.ann.wall': 'AZEOTROPE WALL', 'lv.L23.ann.yeast': 'YEAST DEAD', 'lv.L23.ann.stall': 'BATCH STALLED', 'lv.L23.ann.purity': 'SPIRIT WEAK', 'lv.L23.ann.solve': 'SOLVE FAIL', 'lv.L23.ann.goal': 'GOAL MET',
+  'lv.L23.build.purity': 'Set the column distillate to at least 83 mol % ethanol (92.4 wt %)',
   'lv.L23.coach.call_wall.text': 'Call it first: the highest ethanol mass percent a column can deliver from ethanol and water at 1 atm.',
   'lv.L23.coach.call_wall.why': 'Why: ethanol and water form an azeotrope: past it the vapour is no richer than the liquid.',
   'lv.L23.coach.place_fermenter.text': 'Place the fermenter. Its feed is the sugar charge; the CO₂ leaves from the dome.',

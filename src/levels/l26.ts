@@ -11,7 +11,7 @@ import type { EqRegionData } from '../regions/data';
 import { SPECIES } from '../data/species';
 import type { EqState } from '../state';
 import { scripted } from './bench';
-import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
 import { fromKmolH, baseSetup, commissions, fedOf, inStream, intoType, link, markPrebuilt, predictionOf, put, putFeed, sealSetup, spentOf, toKgH, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
@@ -85,6 +85,19 @@ const COACH: CoachStep[] = [
   { id: 'why', role: 'safety', done: LATE(['why']) },
 ];
 
+const O = (type: string, port: string, n = 1) => ({ type, port, n });
+/** The notebook's build order (levelInfo.buildGuide): the gauze and the abater into the pre-built line, three pipes, the three knobs. */
+export const L26_GUIDE: BuildStep[] = [
+  { id: 'gauze', kind: 'place', slot: { type: 'gauze_burner' }, at: [10, 0] },
+  { id: 'abater', kind: 'place', slot: { type: 'n2o_abater' }, at: [4, 9] },
+  { id: 'p_mix', kind: 'pipe', from: O('mixer', 'out'), to: O('gauze_burner', 'in') },
+  { id: 'p_gauze', kind: 'pipe', from: O('gauze_burner', 'out'), to: O('n2o_abater', 'in') },
+  { id: 'p_abater', kind: 'pipe', from: O('n2o_abater', 'out'), to: O('boiler', 'in') },
+  { id: 'air', kind: 'set', slot: { type: 'feed', n: 2 }, done: (s) => Math.abs(nitricMeasures(s).v.air_kmol_h! - L26_REF.air) <= 15 },
+  { id: 'preheat', kind: 'set', slot: { type: 'heater' }, done: (s) => { const h = unitsOfType(s, 'heater')[0]; return h !== undefined && typeof h.params.T === 'number' && Math.abs((h.params.T as number) - L26_REF.preheat) < 1; } },
+  { id: 'abate', kind: 'set', slot: { type: 'n2o_abater' }, done: (s) => { const a = abater(s); return a !== undefined && typeof a.params.X === 'number' && (a.params.X as number) >= L26_REF.X - 1e-9; } },
+];
+
 export const L26: LevelSpec = {
   id: 'L26', firstRun: true, chapter: 6, index: 26, setter: 'safety', budgetUSD: L26_BUDGET, units: L26_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => { baseSetup(s, L26_SPECIES, L26_UNITS, PRESETS); buildNitric(s); },
@@ -112,6 +125,7 @@ export const L26: LevelSpec = {
     { key: 'goal', legend: t('lv.L26.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },
   ],
   coach: COACH,
+  buildGuide: L26_GUIDE,
   verdict: (s, m, g) => {
     if (code(s) === 'EXPLOSIVE_MIXTURE') { const d = s.solved!.failure!.data; return { key: 'explosion', cause: t('lv.L26.cause.explosion', { y: f(s, Number(d.y)), lfl: f(s, Number(d.lfl)), ufl: f(s, Number(d.ufl)), T: f(s, Number(d.T) - 273.15) }) }; }
     if (!m.ok) return { key: 'not_run', cause: null };
