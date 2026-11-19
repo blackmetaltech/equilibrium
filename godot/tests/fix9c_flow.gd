@@ -70,7 +70,7 @@ func _l37() -> void:
 	check(t.contains("5.99"), "after a flag the limit reads 5.99")
 
 func _career() -> void:
-	await level("CAREER"); app.lvbay.refresh(true); await frames(4)
+	app.set("pinned_seed", 7); await level("CAREER"); app.lvbay.refresh(true); await frames(4)
 	for i in 26: lact(["advance", 1])
 	app.lvbay.refresh(true); await frames(5)
 	var t := all_text(app.lvbay.panel)
