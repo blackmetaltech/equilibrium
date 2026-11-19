@@ -223,8 +223,8 @@ void none;
 /** The player's start-up recipe, exactly as the notebook says it, in the dials' own units (feed knob in kmol/h, full charge 260.6; coolant in °C) at the 1x speed.
  *  f9b_l24.test.ts drives the level through nothing but these set points, a human reaction time after each chart reading, and requires a win with no trip.
  *  Step 2: feed to feedKmolH, coolant to warmC. Step 3: when the reactor chart passes coolAtC, coolant to holdC. Step 4: when it passes feedAtC, feed to fullKmolH.
- *  (Cooling at 70 C falls back to the lazy state at 70 % feed: the unstable state of that charge is near 80 C, so the chart must be past 85 C first.) */
-export const L24_RECIPE = { feedKmolH: 182, warmC: 66, coolAtC: 85, holdC: 25, feedAtC: 100, fullKmolH: 261, speed: '1x' };
+ *  (Cooling at 70 C falls back to the lazy state at 70 % feed, so the chart must be past 80 C first. Full feed is 235 kmol/h (90 %), not the 260.6 design charge: the late feed surge then peaks near 115 C, 10 K under the 125 C trip, instead of 124 C.) */
+export const L24_RECIPE = { feedKmolH: 182, warmC: 66, coolAtC: 80, holdC: 25, feedAtC: 100, fullKmolH: 235, speed: '1x' };
 export const L24_SOLVE = { rampStep: 0.025, rampEvery: 12, starve: 0.7, warmK: 72 + K, holdK: 25 + K, litC: 70, coldK: 280, tripFeed: 0.7 };
 
 function solver() {

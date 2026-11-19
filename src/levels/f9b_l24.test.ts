@@ -33,16 +33,18 @@ function follow(react: number): { e: Env<EqState>; litAt: number; peak: number }
 describe('L24 recipe, literally', () => {
   it('the notebook text carries the recipe numbers, in the dials units and with the speed', () => {
     const notes = (info(mk()).note as string[]).join(' ');
-    for (const frag of [`${R.feedKmolH} kmol/h`, `${R.warmC} °C`, `${R.coolAtC} °C`, `${R.holdC} °C`, `${R.feedAtC} °C`, `${R.fullKmolH} kmol/h`, `speed key on ${R.speed}`, '260.6 kmol/h', 'Reset', '125 °C']) expect(notes, frag).toContain(frag);
+    for (const frag of [`${R.feedKmolH} kmol/h`, `${R.warmC} °C`, `${R.coolAtC} °C`, `${R.holdC} °C`, `${R.feedAtC} °C`, 'speed key to 16x', 'within 15 seconds', `${R.fullKmolH} kmol/h`, `speed key on ${R.speed}`, '260.6 kmol/h', 'about three minutes', 'Reset', '125 °C']) expect(notes, frag).toContain(frag);
     expect(Math.round(260.57 * 0.7)).toBe(R.feedKmolH);
+    // after step 4 the script sends no further action, so the remaining ~3000 s run at 16x: wall clock about (3600 - 500) / 16 s
+    expect((3600 - 500) / 16 / 60).toBeLessThan(4);
   });
-  for (const react of [0, 5, 10, 20, 30]) {
+  for (const react of [0, 5, 10, 15]) {
     it(`wins with no trip when the player clicks ${react} s after the chart passes ${R.coolAtC} °C`, () => {
       const { e, litAt, peak } = follow(react);
       expect(litAt).toBeGreaterThan(0);
       expect(e.state.status).toBe('won');
       expect(e.state.shift!.stat.tripN).toBe(0);
-      expect(peak).toBeLessThan(125);
+      expect(peak).toBeLessThanOrEqual(120); // 5 K or more under the 125 C trip: ignition overshoot and the late feed surge included
       expect(info(e).stars.have).toBeGreaterThanOrEqual(1);
     });
   }
