@@ -206,11 +206,11 @@ func _misc() -> void:
 	for n in w._mark_nodes: for c in (n as Node).get_children(): if c is Label3D: n3d += 1
 	check(n3d == w._marks.size() and n3d >= 3, "every pip carries its cap label (%d)" % n3d)
 	w.select(""); w.unit_clicked.emit(""); await frames(2)
-	check(w._marks.is_empty(), "no selection, no hover: no pips")
+	check(w._marks.size() >= 3 and w._marks.all(func(m): return bool(m.get("subtle", false)) and str(m.get("label", "")) == ""), "no selection, no hover: only dim pips without captions (DESIGN shows every free port)")
 	w.unit_hover.emit(str(sep.id)); await frames(2)
-	check(w._marks.size() >= 3, "hovering a unit lights its free ports")
+	check(w._marks.any(func(m): return str(m.unit) == str(sep.id) and not bool(m.get("subtle", false)) and str(m.get("label", "")) != ""), "hovering a unit gives its free ports their captions")
 	w.unit_hover.emit(""); await frames(2)
-	check(w._marks.is_empty(), "leaving it puts them out")
+	check(w._marks.all(func(m): return bool(m.get("subtle", false))), "leaving it returns them to dim pips")
 	check(Faceplate.Hub.cap("out", false) == "OUT" and Faceplate.Hub.cap("in2", true) == "IN2", "port caps from engine port names")
 	# the intercom clears on a level change
 	app.chrome.intercom.say("MARA", "Stale coach line from the last job.", "coach", "x1", "")

@@ -148,7 +148,7 @@ func _pipes() -> void:
 	w.select(str(a.id)); w.unit_clicked.emit(str(a.id)); await frames(3)
 	var pip: Vector2 = Vector2(-1, -1)
 	for i in w._mark_nodes.size():
-		if str(w._marks[i].port) == "out": pip = w.cam.unproject_position((w._mark_nodes[i] as Node3D).global_position)
+		if str(w._marks[i].port) == "out" and str(w._marks[i].unit) == str(a.id): pip = w.cam.unproject_position((w._mark_nodes[i] as Node3D).global_position)
 	check(pip.x > 0.0, "the free OUT of the feed is lit")
 	mouse(pip, true); await frames(3)
 	check(hub.from_unit == str(a.id), "pressing on the OUT starts the pipe")
