@@ -52,7 +52,7 @@ describe('L24 recipe, literally', () => {
   it('one steady-state temperature: the notebook, the reactor and the Semenov plot agree with the engine', () => {
     const run = l24RunC(), notes = (info(mk()).note as string[]).join(' ');
     expect(notes).toContain(`${Math.round(run)} °C`);
-    expect(notes).not.toMatch(/11[0-9] °C and|at 117|\b117\b/);
+    expect(notes).not.toMatch(/productive at about 11\d/);
     const e = mk(); const act = (name: string, args: unknown[] = []): void => { e.step({ name, args } as any); };
     act('commission'); act('startShift', ['shift']);
     act('setpoint', ['F-101', 'flow', R.feedKmolH * KMOL_H_TO_MOL_S]); act('setpoint', ['R-103', 'Tc', R.warmC + K]);

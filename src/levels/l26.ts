@@ -12,7 +12,7 @@ import { SPECIES } from '../data/species';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { fromKmolH, baseSetup, commissions, fedOf, inStream, intoType, link, predictionOf, put, putFeed, sealSetup, spentOf, toKgH, toKmolH, unitsOfType } from './util';
+import { fromKmolH, baseSetup, commissions, fedOf, inStream, intoType, link, markPrebuilt, predictionOf, put, putFeed, sealSetup, spentOf, toKgH, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const L26_SPECIES = ['NH3', 'O2', 'N2', 'NO', 'NO2', 'N2O', 'H2O', 'HNO3(l)', 'H2O(l)'];
@@ -21,12 +21,12 @@ export const L26_YIELD_MIN = 95, L26_NH3_MAX_PCT = 11, L26_N2O_MAX = 2.5, L26_HN
 /** Calibrated reference (GAME, UNVERIFIED, re-derived in ch6.test.ts): air flow (kmol/h), preheat (K), abater fraction, gauze exit (deg C), cost. */
 export const L26_REF = { air: 630, preheat: 473.15, X: 0.95, t_c: 860.46, cost: 63.83 };
 export const L26_COST_MAX = L26_REF.cost * 1.03;
-/** Bench prices (GAME, UNVERIFIED): the pre-built line (230 000) plus the gauze burner and the abater; the Engineer budget covers the whole plant. */
+/** Bench prices (GAME, UNVERIFIED). One rule for the money: the pre-built line (230 000) is already paid for (markPrebuilt) and is not counted as spent; the Engineer budget is what the player adds, the gauze burner (70 000) and the abater (40 000), with head-room. */
 export const L26_UNITS: LevelSpec['units'] = {
   gauze_burner: { max: 1, price: 70000 }, n2o_abater: { max: 1, price: 40000 }, feed: { max: 3, price: 4000 }, heater: { max: 1, price: 20000 }, mixer: { max: 2, price: 3000 }, boiler: { max: 1, price: 60000 }, cooler: { max: 1, price: 10000 },
   eq_reactor: { max: 1, price: 30000 }, hno3_absorber: { max: 1, price: 80000 }, product: { max: 1, price: 4000 }, stack: { max: 1, price: 8000 },
 };
-export const L26_BUDGET = 400000;
+export const L26_BUDGET = 150000;
 const PRESETS = { heater: { T: 473.15, utility: 'fired' }, boiler: { T: 473.15, steam: 'MP' }, cooler: { T: 313.15, utility: 'cw' }, eq_reactor: { reactions: 'R8', mode: 'isothermal', T: 313.15 }, hno3_absorber: { recovery: 0.99, acid: 0.6 } };
 export const L26_AIR_DEFAULT = 540;
 /** Secondary air added after the boiler (kmol/h): the oxygen the NO -> NO2 -> acid steps still need (the gauze air is fixed by the NH3 fraction). */
@@ -36,14 +36,15 @@ export function buildNitric(s: EqState): void {
   s.palette = null;
   const nh3 = putFeed(s, 0, 0, { NH3: 1 }, L26_NH3_KMOL_H, 300, L26_P, 'ammonia');
   const air = putFeed(s, 0, 6, { O2: 0.21, N2: 0.79 }, L26_AIR_DEFAULT, 298.15, L26_P);
-  const heat = put(s, 'heater', 4, 6, { T: 473.15, utility: 'fired' }), mix = put(s, 'mixer', 8, 3);
-  const boil = put(s, 'boiler', 14, 0, { T: 473.15, steam: 'MP' }), cool = put(s, 'cooler', 14, 6, { T: 313.15, utility: 'cw' });
+  const heat = put(s, 'heater', 4, 6, { T: 473.15, utility: 'fired' }), mix = put(s, 'mixer', 7, 3);
+  const boil = put(s, 'boiler', 16, 0, { T: 473.15, steam: 'MP' }), cool = put(s, 'cooler', 14, 6, { T: 313.15, utility: 'cw' });
   const rx = put(s, 'eq_reactor', 17, 9, { reactions: 'R8', mode: 'isothermal', T: 313.15 }), abs = put(s, 'hno3_absorber', 17, 2, { recovery: 0.99, acid: 0.6 });
   const sec = putFeed(s, 8, 12, { O2: 0.21, N2: 0.79 }, L26_SEC_AIR, 298.15, L26_P), mix2 = put(s, 'mixer', 11, 9);
   const prod = put(s, 'product', 21, 12), stack = put(s, 'stack', 21, 6);
   link(s, nh3, 'out', mix, 'in1'); link(s, air, 'out', heat, 'in'); link(s, heat, 'out', mix, 'in2');
   link(s, boil, 'out', mix2, 'in1'); link(s, sec, 'out', mix2, 'in2'); link(s, mix2, 'out', cool, 'in'); link(s, cool, 'out', rx, 'in'); link(s, rx, 'out', abs, 'in'); link(s, abs, 'out', stack, 'in'); link(s, abs, 'acid', prod, 'in');
   s.palette = ['gauze_burner', 'n2o_abater'];
+  markPrebuilt(s);
   sealSetup(s);
 }
 

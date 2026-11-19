@@ -229,8 +229,14 @@ class KeyCatcher extends Control:
 	var on_key: Callable
 	func _init() -> void: focus_mode = Control.FOCUS_NONE; mouse_filter = Control.MOUSE_FILTER_IGNORE; custom_minimum_size = Vector2(1, 1)
 	## `_input`, not unhandled input: a focused keypad button would otherwise swallow Enter, and synthetic key events carry a keycode but no unicode.
+	var _last_ms := {}   # keycode -> msec of the last accepted press
 	func _input(e: InputEvent) -> void:
-		if e is InputEventKey and e.pressed and not e.echo and on_key.is_valid():
+		if e is InputEventKey and e.pressed and on_key.is_valid():
+			# a held key repeats only after ~400 ms: an "echo" that arrives within 200 ms of the same key's last press is a fast second tap ("66"), not a repeat, so it counts
+			var code: int = e.keycode if e.keycode != KEY_NONE else e.physical_keycode
+			var now := Time.get_ticks_msec()
+			if e.echo and now - int(_last_ms.get(code, -100000)) > 200: return
+			_last_ms[code] = now
 			if bool(on_key.call(e)): get_viewport().set_input_as_handled()
 
 static func keypad(app, title: String, unit: String, initial: String, lo: float, hi: float, on_ok: Callable, integer := false, allow_range := true) -> Dictionary:

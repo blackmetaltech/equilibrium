@@ -127,6 +127,11 @@ func _key_click() -> void:
 	var rack: PartsRack = app.root.find_child("PartsRack", true, false)
 	check(rack != null and rack.tiles.size() > 1, "the rack is there")
 	if rack == null: return
+	# a knob the player just turned keeps the focus: the number key must still pick the tile
+	Faceplate.attach(app); Faceplate.open(app, "F-101"); await frames(6)
+	var kn := _find_knob(app.root)
+	check(kn != null, "a faceplate knob exists to hold the focus")
+	if kn != null: kn.grab_focus(); await frames(1); check(root.gui_get_focus_owner() == kn, "the knob has the focus")
 	var want := ""
 	for i in range(rack.tiles.size()):
 		var ty: String = (rack.tiles[i] as PartsRack.Tile).type
@@ -189,7 +194,57 @@ func all_text(n: Node) -> String:
 	for c in n.get_children(): s += all_text(c)
 	return s
 
+## L33 at 1280x800: the notebook page is taller than the screen, so it says so (a row cut by the scroll edge no longer reads as clipped); the scroll reveals the flask row.
 func _l33() -> void:
-	pass
+	app.start_level("L33", true); await frames(10)
+	Notebook.close(app); await frames(3); Notebook.open(app); await frames(10)
+	var nb := app.root.get_node_or_null("notebook")
+	check(nb != null, "the L33 notebook opens")
+	if nb == null: return
+	var sc := nb.find_child("PageScroll", true, false) as ScrollContainer
+	var hint := nb.find_child("ScrollHint", true, false) as Control
+	var content := (sc.get_child(0) as Control).size.y
+	check(content > sc.size.y + 10.0, "at 1280x800 the L33 page needs scrolling (%d > %d)" % [int(content), int(sc.size.y)])
+	check(hint != null and hint.visible, "the 'more below' hint is shown at the top of the page")
+	var pn := nb.find_child("FooterMargin", true, false)
+	check(hint != null and hint.get_global_rect().end.y <= (sc.get_global_rect().end.y + 1.0) and hint.get_global_rect().position.y >= sc.get_global_rect().position.y, "the hint sits on the scroll area's bottom edge")
+	sc.scroll_vertical = 100000; await frames(4)
+	check(hint != null and not hint.visible, "scrolled to the end, the hint goes")
+	var flasks: Control = null
+	for c in nb.find_children("*", "Label", true, false): if (c as Label).text.contains("Goal met"): flasks = c; break
+	check(flasks != null and sc.get_global_rect().grow(2.0).encloses(flasks.get_global_rect()), "scrolled to the end, the flask row is fully inside the page (%s in %s)" % [str(flasks.get_global_rect()) if flasks != null else "-", str(sc.get_global_rect())])
+	Notebook.close(app); await frames(3)
+
+## Career: BOOK is locked while no catalyst is in stock and says why; every investment card has a name and a key; CB_AUTOSTART=career opens the Career level.
 func _career() -> void:
-	pass
+	await level("CAREER"); app.lvbay.refresh(true); await frames(5)
+	var p = app.lvbay.panel
+	var books: Array = p.find_children("Book_*", "Button", true, false)
+	check(books.size() == 4, "four BOOK keys, one per plant (%d)" % books.size())
+	var all_off := true
+	for b in books: if not (b as Button).disabled: all_off = false
+	check(all_off, "BOOK is disabled while no catalyst is in stock")
+	var whys: Array = p.find_children("BookWhy_*", "Label", true, false)
+	check(whys.size() == 4 and (whys[0] as Label).text.contains("no catalyst in stock") and (whys[0] as Label).text.contains("locked"), "each locked BOOK says why: %s" % (whys[0] as Label).text if not whys.is_empty() else "none")
+	var t := all_text(p)
+	check(t.contains("HEAT RECOVERY") and t.contains("EMISSIONS ABATEMENT") and t.contains("SAFETY SYSTEMS") and t.contains("TURNAROUND CREWS") and t.contains("HIRE CREW"), "the four investment cards each carry a name and a key")
+	check(t.contains("Hired crews are the hands"), "the crew card says what it is for")
+	# with a catalyst bought, BOOK opens and the reason goes
+	var r: Dictionary = app.b.act("levelAct", ["buyCatalyst", "nh3"]); app.game_on_changed(); app.lvbay.refresh(true); await frames(5)
+	var b0 := app.lvbay.panel.find_child("Book_nh3", true, false) as Button
+	check(b0 != null and not b0.disabled, "after buying a catalyst BOOK is enabled for that plant (%s)" % str(r.get("ok", r)))
+	check(app.lvbay.panel.find_child("BookWhy_nh3", true, false) == null, "and its reason is gone")
+	# CB_AUTOSTART=career
+	OS.set_environment("CB_LEVEL", ""); OS.unset_environment("CB_LEVEL")
+	app.new_game("career"); await frames(4)
+	check(OS.get_environment("CB_LEVEL") == "CAREER" and app.started, "CB_AUTOSTART=career starts a game and names the Career level (CB_LEVEL=%s)" % OS.get_environment("CB_LEVEL"))
+	app.start_level(OS.get_environment("CB_LEVEL"), true); await frames(4)
+	check(str(app.b.g.get("level", "")) == "CAREER", "the Career level is open: %s" % str(app.b.g.get("level", "")))
+	OS.unset_environment("CB_LEVEL")
+
+func _find_knob(n: Node) -> Knob:
+	if n is Knob and (n as Knob).is_visible_in_tree(): return n as Knob
+	for c in n.get_children():
+		var r := _find_knob(c)
+		if r != null: return r
+	return null

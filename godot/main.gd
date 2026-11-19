@@ -201,6 +201,9 @@ func _process(dt: float) -> void:
 ## A mode this game does not have (CB_AUTOSTART=typo) is an error you can see, not a blank board.
 const MODES := ["learner", "engineer", "sandbox"]
 func new_game(mode: String) -> void:
+	if mode == "career":   # CB_AUTOSTART=career: the Career level is a level, not a mode; the alias starts a Learner game and opens it (unless CB_LEVEL names another)
+		if not OS.has_environment("CB_LEVEL"): OS.set_environment("CB_LEVEL", "CAREER")
+		mode = "learner"
 	if not MODES.has(mode):
 		push_error("EQUILIBRIUM: unknown game mode '%s' (learner, engineer or sandbox)" % mode)
 		menus.title()

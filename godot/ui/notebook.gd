@@ -118,8 +118,27 @@ static func _settle(app, pn: Control, w: float) -> void:
 	pn.reset_size(); app.center(pn, w, 0.0)
 	await pn.get_tree().process_frame
 	if not is_instance_valid(pn): return
+	if sc != null: _scroll_hint(pn, sc)
 	var y := pn.position.y; pn.position.y = y + 70.0
 	pn.create_tween().tween_property(pn, "position:y", y, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+## A page taller than the screen scrolls under the pinned footer: a row cut by the scroll edge looks clipped, so a "more below" tag sits on the edge while there is more to read.
+static func _scroll_hint(pn: Control, sc: ScrollContainer) -> void:
+	if pn.find_child("ScrollHint", true, false) != null: return
+	var ov := Control.new(); ov.name = "ScrollHintHost"; ov.mouse_filter = Control.MOUSE_FILTER_IGNORE; pn.add_child(ov)
+	var pl := PanelContainer.new(); pl.name = "ScrollHint"; pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new(); sb.bg_color = Color(EqTheme.INK, 0.88); sb.set_corner_radius_all(10); sb.content_margin_left = 10; sb.content_margin_right = 10; sb.content_margin_top = 2; sb.content_margin_bottom = 2
+	pl.add_theme_stylebox_override("panel", sb)
+	var lb := EqTheme.label("▼ more below: scroll", 13, Color("#F4EEDC"), "semi"); lb.mouse_filter = Control.MOUSE_FILTER_IGNORE; pl.add_child(lb); ov.add_child(pl)
+	var upd := func() -> void:
+		if not is_instance_valid(sc) or not is_instance_valid(pl): return
+		var content := (sc.get_child(0) as Control).size.y
+		pl.visible = sc.scroll_vertical + sc.size.y < content - 6.0
+		pl.reset_size()
+		pl.position = (sc.global_position - pn.global_position) + Vector2(sc.size.x - pl.size.x - 36.0, sc.size.y - pl.size.y - 4.0)
+	var vsb := sc.get_v_scroll_bar()
+	vsb.value_changed.connect(func(_v: float): upd.call()); vsb.changed.connect(func(): upd.call()); sc.resized.connect(func(): upd.call())
+	upd.call()
 
 static func close(app) -> void:
 	var h = app.root.get_node_or_null("notebook")
@@ -161,9 +180,11 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	var title := EqTheme.label("%02d · %s" % [idx, str(li.title)], 32, EqTheme.INK, "title"); title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; title.name = "Title"; vb.add_child(title)
 	if str(li.get("place", "")) != "": vb.add_child(EqTheme.label(str(li.place), 15, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.4), "semi"))
 	# the setter's note, handwritten-feel: pen blue, a degree off true, signed
-	var note := VBoxContainer.new(); note.name = "Note"; note.add_theme_constant_override("separation", 2); vb.add_child(note)
-	for ln in li.get("note", []):
-		var l := EqTheme.label(str(ln), 19, EqTheme.PEN_BLUE, "sans"); l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.size_flags_horizontal = Control.SIZE_EXPAND_FILL; note.add_child(l)
+	var lines: Array = li.get("note", [])
+	var many := lines.size() > 4   # a recipe in short numbered steps: each its own paragraph with air between, a little smaller so the steps fit the page
+	var note := VBoxContainer.new(); note.name = "Note"; note.add_theme_constant_override("separation", 9 if many else 2); vb.add_child(note)
+	for ln in lines:
+		var l := EqTheme.label(str(ln), 17 if many else 19, EqTheme.PEN_BLUE, "sans"); l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.size_flags_horizontal = Control.SIZE_EXPAND_FILL; note.add_child(l)
 	var sg := EqTheme.label("— " + str(li.get("setter", "")), 19, EqTheme.PEN_BLUE, "semi"); sg.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; note.add_child(sg)
 	note.rotation_degrees = -0.4
 	# goals
