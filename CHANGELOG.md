@@ -3,12 +3,24 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
-## [Unreleased] - 0.5 lane 0.5a
-- **Wall clock.** No level with a shift needs more than 300 s of waiting at its recommended speed (`src/levels/wallclock.ts`, tested). L24: shift 3600 -> 2700 s, recipe at 4x until lit then 16x,
-  warm coolant 64 -> 65 C (lit at ~430 s instead of ~530 s), coolant and feed set together at lighting (peak <= 120 C, no trip for 0-60 wall-s hand delays at 4x), PG star 7.8 -> 6.6 kmol.
-  L08: shift 3600 -> 1800 s.
-- **Career endings.** Sold / Shut / Steady / Flagship strip on the board; every year review announces the course and what would move the Works toward the other ending. Careful (payback
-  advice, turnarounds on health, contracts above spot, scheduled inspections) ends Flagship, the same player at 80 % rate ends Steady, idle and reckless are sold or shut (6 seeds each). No economics changed.
+## [0.5.0] - 2026-11-20 · "The plant you design" (big builds, a winnable Career, no long waits)
+### Added
+- **Build checklist** (`buildGuide` on a level spec) for L23 Spirits, L25 and L26 and the L24 start-up: every part, pipe and setting from the
+  notebook's build order as live rows that tick from engine state; a row arms the part, pulses the two ports or opens the plate; the next pipe
+  pulses by itself. Big builds frame the whole plot; big units show every valid anchor while placing.
+- **Career endings.** Sold / Shut / Steady / Flagship strip with what each needs; ONE five-year score (operating margin) on the ledger, strip,
+  course line, reviews, end card and histogram; "what would move you" levers with numbers; an alert strip with jump-to-plant; inspection
+  warnings two months ahead; +3 MONTHS stops at important events and needs CONTINUE ANYWAY past a warning; BOOK weighs booking now against the
+  expected cost of waiting; ACCEPT shows capacity exposure; annual memo as compact tables; the last review shows before the end card.
+- **Wall clock.** Every shift level fits 300 s of real time at its recommended speed including 30 s of human latency per step (tested).
+### Changed
+- L24 start-up: two-stage light-off (110 °C: coolant 52 + feed 215; steady: coolant 25 + feed 235), each pair safe in either order, 16x,
+  tested for late and slow hands (peak ≤ 120 °C, no trip); trip set "from 130 down to 125 °C".
+- L26 gives the ammonia flammable limits from the engine; every call-it states its tolerance; the printout shows the engine value again.
+- Placement uses the engine's unit footprints (the UI had guessed them).
+- Playtest rounds 6 and 6b: L23, L25, L26 won from the checklist alone; L24 won; a careful Career reached Flagship (171.3 vs 140 MUSD).
+### Known gaps
+- No real-phone pass since round 4 (phone disconnected); see docs/CRITIQUE-0.5.md.
 
 ## [0.4.0] - 2026-11-19 · "Employable" (depth: control room, turnaround, career; five play-test rounds)
 ### Added
