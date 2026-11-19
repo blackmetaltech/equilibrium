@@ -57,7 +57,7 @@ describe('L25 / L26: a blocked placement names a free spot', () => {
     expect(ok.ok, String(ok.message)).toBe(true);
   });
   it('L26 first-knob numbers (630 kmol/h air, 200 C preheat, 95 % abater) give a lit, safe gauze', () => {
-    const notes = (info(mk('L26')).note as string[]).join(' ');
+    const i26 = info(mk('L26')), notes = (i26.note as string[]).join(' ') + ' ' + (i26.buildGuide as { text: string }[]).map((r) => r.text).join(' ');
     for (const f of [`${L26_REF.air} kmol/h`, `${L26_REF.preheat - 273.15} °C`.replace('199.99999999999997', '200'), `${L26_REF.X * 100} %`]) expect(notes, f).toContain(f.replace(/(\d+\.\d{3,})/, (x) => String(Math.round(Number(x)))));
     const e = mk('L26');
     for (const a of nitricScript(L26_REF.air, L26_REF.preheat, L26_REF.X, 0, false)) e.step(a);

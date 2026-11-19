@@ -48,12 +48,13 @@ const WALL = 16; // the recipe runs at 16x: a human who needs w wall seconds los
 describe('L24 recipe, literally', () => {
   it('the notebook text carries the recipe numbers, in the dials units and with the speed, and is short', () => {
     const e = mk(), notes = (info(e).note as string[]);
-    const text = notes.join(' ');
-    for (const frag of [`${R.feedKmolH} kmol/h`, `${R.warmC} °C`, `${R.coolAtC} °C`, `${R.easeC} °C`, `${R.easeKmolH} kmol/h`, `${R.holdC} °C`, `${R.fullKmolH} kmol/h`, `${R.gapS} plant seconds`, `${R.settleS} plant seconds`, '16x speed key', '260.6 kmol/h', 'Reset', '125 °C']) expect(text, frag).toContain(frag);
+    // F14: the notebook is the goal plus one paragraph of why; the numbers live in the checklist rows (buildGuide)
+    const text = notes.join(' ') + ' ' + (info(e).buildGuide as { text: string }[]).map((r) => r.text).join(' ');
+    for (const frag of [`${R.feedKmolH} kmol/h`, `${R.warmC} °C`, `${R.coolAtC} °C`, `${R.easeC} °C`, `${R.easeKmolH} kmol/h`, `${R.holdC} °C`, `${R.fullKmolH} kmol/h`, `${R.gapS} plant seconds`, `${R.settleS} plant seconds`, 'speed key on 16x', '260.6 kmol/h', 'Reset', '125 °C']) expect(text, frag).toContain(frag);
     expect(Math.round(260.57 * 0.7)).toBe(R.feedKmolH);
     expect(R.speed).toBe('16x');
-    expect(notes.length).toBeLessThanOrEqual(8);
-    expect(text.length).toBeLessThan(3300);
+    expect(notes.length).toBeLessThanOrEqual(3);
+    expect(notes.join(' ').length).toBeLessThan(1700);
     const rows = (info(e).buildGuide as { id: string; text: string }[]).map((r) => r.id);
     expect(rows).toEqual(L24_GUIDE.map((g) => g.id));
     for (const r of info(e).buildGuide as { text: string }[]) expect(r.text).not.toMatch(/\{[a-zA-Z]+\}/);

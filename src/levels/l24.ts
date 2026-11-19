@@ -157,7 +157,7 @@ export const L24_GUIDE: BuildStep[] = [
 ];
 
 export const L24: LevelSpec = {
-  id: 'L24', firstRun: false, chapter: 6, index: 24, setter: 'safety', budgetUSD: L24_BUDGET, units: L24_UNITS, notes: 8, shiftLen: L24_SHIFT_S, maxTicks: L24_SHIFT_S + 600,
+  id: 'L24', firstRun: false, chapter: 6, index: 24, setter: 'safety', budgetUSD: L24_BUDGET, units: L24_UNITS, notes: 3, shiftLen: L24_SHIFT_S, maxTicks: L24_SHIFT_S + 600,
   textVars: () => {
     const run = l24RunC(), lo = l24AtFeed(l24FullFrac()).states[0]!.T, ig70 = l24AtFeed(l24StartFrac()).ignitionC;
     return { tripDefault: C(L24_TRIP_DEFAULT_K), run: Math.round(run), lazy: Math.round(C(lo)), ign70: r1(ig70), warm: L24_RECIPE.warmC, gap: r1(L24_RECIPE.warmC - ig70), trip: C(L24_TRIP_K), relief: C(CSTR_RELIEF_K), tripGap: Math.round(C(L24_TRIP_K) - run), full: Math.round(C(l24HotK())), fullGap: Math.round(C(L24_TRIP_K) - C(l24HotK())), slowPeak: L24_RECIPE.slowPeakC, feedF: L24_RECIPE.feedKmolH, slowGap: C(L24_TRIP_K) - L24_RECIPE.slowPeakC, late: L24_RECIPE.lateS, ease: L24_RECIPE.easeC, easeF: L24_RECIPE.easeKmolH, gapS: L24_RECIPE.gapS, settle: L24_RECIPE.settleS, cue: L24_RECIPE.coolAtC, hold: L24_RECIPE.holdC, fullF: L24_RECIPE.fullKmolH };

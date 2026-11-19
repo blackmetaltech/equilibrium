@@ -18,10 +18,12 @@ function play(e: Env<EqState>, ticks: number): void {
 }
 
 describe('L25 build walkthrough', () => {
-  it('the notebook names every part in order, the numbers of the build, and that build wins', () => {
+  it('the checklist names every part in order, the numbers of the build, and that build wins', () => {
     const e = mk('L25');
-    const txt = (info(e).note as string[]).join(' ');
-    expect(txt.indexOf('feed, bed 1, cooler, bed 2, cooler, bed 3, absorber 1, heater, bed 4, absorber 2, stack')).toBeGreaterThan(-1);
+    const rows = (info(e).buildGuide as { text: string }[]).map((r) => r.text);
+    const txt = (info(e).note as string[]).join(' ') + ' ' + rows.join(' ');
+    const order = ['Packed bed 1', 'Cooler 1', 'Packed bed 2', 'Cooler 2', 'Packed bed 3', 'Absorber 1', 'Heater', 'Packed bed 4', 'Absorber 2', 'Stack'].map((n) => rows.findIndex((r) => r === `Place ${n}`));
+    expect(order.every((i, k) => i >= 0 && (k === 0 || i > order[k - 1]!))).toBe(true);
     expect(txt).toContain(`${L25_W_KG} kg`); expect(txt).toContain(`${Math.round(L25_T_K - 273.15)} °C`);
     for (const w of ['OUT', 'IN', 'ACID', 'V₂O₅', '98 %']) expect(txt, w).toContain(w);
     play(e, 200);
