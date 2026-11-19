@@ -763,7 +763,7 @@ func _click_at(p: Vector2) -> void:
 	if finger and not pk.is_empty() and not pipe_ghost_active() and str(pk.unit) != selected_id: pk = {}
 	if not pk.is_empty():
 		# a pipe already half made: this press finishes it (click, click) and its release must do nothing; else this press starts a pipe and the release may finish it (drag)
-		if not pipe_ghost_active(): _press_port = pk
+		if not pipe_ghost_active(): _press_port = pk; _press_at = p
 		port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
 	var id := _pick_unit(p)
 	if CbLayout.touch or CbLayout.phone: id = _touch_pick(p, id)
@@ -797,11 +797,13 @@ func release_target(p: Vector2, from: Dictionary) -> Dictionary:
 		body.sort_custom(func(a, b): return a[0] < b[0]); best = body[0][1]
 	return best
 
+var _press_at := Vector2.ZERO
 var _press_port := {}           ## the port a left press started on: releasing over another port finishes a drag-to-connect
 func _unhandled_input(e: InputEvent) -> void:
 	if not input_ok(): _press_port = {}; return
 	if e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT and not _press_port.is_empty():
 		var from := _press_port; _press_port = {}
+		if e.position.distance_to(_press_at) < 10.0: return   # a click, not a drag: the pipe stays in hand for the second click (a port that sits over another unit's body must not connect to that unit)
 		var rel := release_target(e.position, from)
 		if not rel.is_empty(): port_clicked.emit(str(rel.unit), str(rel.port), bool(rel.inlet))
 		return

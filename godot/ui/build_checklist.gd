@@ -143,7 +143,7 @@ func activate(id: String) -> void:
 	if l.is_empty() or app == null or app.world == null: return
 	focus_id = id; _sig = ""
 	var w = app.world
-	if bool(l.get("done", false)) and l.get("unit") != null and str(l.kind) != "pipe":
+	if bool(l.get("done", false)) and l.get("unit") != null and str(l.kind) == "place":
 		w.cancel_place(); w.select(str(l.unit)); refresh(); return
 	match str(l.kind):
 		"place":

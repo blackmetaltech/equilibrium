@@ -157,17 +157,26 @@ func do_pipe(id: String, l: Dictionary) -> void:
 	check(w.guiding().size() == 2, "%s: clicking %s pulses its two ports (%s)" % [id, sid, str(w.guiding())])
 	var pa: Vector2 = w.port_screen(str(a.unit), str(a.port), false); var pb: Vector2 = w.port_screen(str(b.unit), str(b.port), true)
 	await click_at(pa, 3)
+	if OS.get_environment("CB_BG_DBG") == sid:
+		pb = w.port_screen(str(b.unit), str(b.port), true)
+		print("  dbg ghost=", w.pipe_ghost_active(), " pb=", pb, " marks=", w._marks.size(), " nodes=", w._mark_nodes.size(), " pick=", str(w._pick_port(pb)))
+		for i in w._mark_nodes.size():
+			var d: float = w.cam.unproject_position((w._mark_nodes[i] as Node3D).global_position).distance_to(pb)
+			if d < 60.0: print("    near ", d, " ", str(w._marks[i].unit), ".", str(w._marks[i].port))
 	await click_at(pb, 3)
 	if not done(sid):   # a mis-click leaves a half pipe in hand: Esc, then again once
 		await key(KEY_ESCAPE); await frames(2)
-		print("  retry pipe ", sid, " ", str(a), " -> ", str(b))
+		var ps: Array = (q("plant") as Dictionary).get("pipes", (q("plant") as Dictionary).get("streams", []))
+		var mine := ps.filter(func(x): return str(x.from.unit) in [str(a.unit), str(b.unit)] or str(x.to.unit) in [str(a.unit), str(b.unit)])
+		print("  retry pipe ", sid, " ", pa, pb, " ", str(mine))
 		await click_at(pa, 3); await click_at(pb, 3)
 	check(done(sid), "%s: two clicks on the pulsing ports pipe %s" % [id, sid])
 
 func open_plate(uid: String) -> Faceplate:
 	var w = app.world
 	Faceplate.close_all(); await frames(2)
-	await click_at(w.unit_screen_pos(uid), 3)
+	var top: Vector3 = w.anchor_world(uid)
+	await click_at(w.world_to_screen(Vector3(top.x, top.y * 0.5, top.z)), 3)   # the middle of the model, not its top
 	var fp: Faceplate = Faceplate.plates.get(uid)
 	return fp
 
@@ -184,7 +193,7 @@ func do_set(id: String, l: Dictionary) -> void:
 	await click_row(sid)
 	var cl := line(sid)
 	var plate_ok: bool = cl.get("unit") != null and Faceplate.plates.has(str(cl.unit))
-	check(plate_ok, "%s: clicking the setting line %s opens that unit's plate" % [id, sid])
+	check(plate_ok, "%s: clicking the setting line %s opens that unit's plate (line %s plates %s)" % [id, sid, str(cl), str(Faceplate.plates.keys())])
 	var types := {"L23:purity": [["column", 1, "xD", "83"]],
 		"L25:catalyst": [["packed_bed", 1, "W", "8000"], ["packed_bed", 2, "W", "8000"], ["packed_bed", 3, "W", "8000"], ["packed_bed", 4, "W", "8000"]],
 		"L25:temps": [["cooler", 1, "T", "420"], ["cooler", 2, "T", "420"], ["heater", 1, "T", "420"]],
@@ -192,7 +201,7 @@ func do_set(id: String, l: Dictionary) -> void:
 	for job in types.get(id + ":" + sid, []):
 		var uid := unit_id(str(job[0]), int(job[1]))
 		var fp := await open_plate(uid)
-		check(fp != null, "%s: the plate of %s opens from a click on the unit" % [id, uid])
+		check(fp != null, "%s: the plate of %s opens from a click on the unit (at %s, plates %s, modal %s)" % [id, uid, str(app.world.unit_screen_pos(uid)), str(Faceplate.plates.keys()), str(app.modal())])
 		if fp == null: continue
 		if str(job[0]) == "packed_bed":
 			var bt: Button = fp.find_child("Opt_v2o5", true, false) as Button

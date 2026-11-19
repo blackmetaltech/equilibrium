@@ -8,7 +8,7 @@ import { REGIONS } from '../regions';
 import { t } from '../i18n';
 import type { EqState } from '../state';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, flowOf, inStream, link, molarMass, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, fedOf, flowOf, inStream, link, markPrebuilt, molarMass, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
 import { scripted } from './bench';
 
 type S = Readonly<EqState>;
@@ -91,6 +91,7 @@ export const L25: LevelSpec = {
   setup: (s) => {
     baseSetup(s, L25_SPECIES, L25_UNITS, PRESETS);
     putFeed(s, 0, 0, { N2: 0.79, O2: 0.21 - L25_SO2_FRAC, SO2: L25_SO2_FRAC }, L25_FEED_KMOL_H, L25_T_K, 1.5e5);
+    markPrebuilt(s);   // the burner-gas feed is on site and paid for: a fresh page says $0 spent (and the notebook opens by itself)
     sealSetup(s);
   },
   measures: dcdaMeasures,
