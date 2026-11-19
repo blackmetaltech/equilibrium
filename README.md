@@ -2,7 +2,7 @@
 
 **[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.3.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
 
-**Build a chemical plant, then find out whether it works.** Place feed banks, heaters, exchangers, burners, reactors, columns and recycle loops, pipe them together, and commission the plant. Then real equilibrium, real kinetics and real heat balances decide what happens: the ammonia you can reach at 450 °C and 200 bar, the catalyst that falls asleep below 380 °C, the glycol reactor that crosses its Semenov point and runs away, the argon that builds up in a loop with no purge. The campaign climbs from std-9 stoichiometry to the work of a junior process engineer: PID tuning, interlocks, HAZOP, data reconciliation, and a five-year career running a whole Works.
+**Build a chemical plant, then find out whether it works.** Place feed banks, heaters, exchangers, burners, reactors, columns and recycle loops, pipe them together, and commission the plant. Then real equilibrium, real kinetics and real heat balances decide what happens: the ammonia you can reach at 450 °C and 200 bar, the catalyst that falls asleep below 410 °C, the glycol reactor that crosses its Semenov point and runs away, the argon that builds up in a loop with no purge. The campaign climbs from std-9 stoichiometry to the work of a junior process engineer: PID tuning, interlocks, HAZOP, data reconciliation, and a five-year career running a whole Works.
 
 The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator windows, a chart recorder, Bakelite knobs, a DESIGN / COMMISSION / RUN key switch, a green-bar printout. Every rule (thermodynamics, equilibrium, kinetics, flowsheet solving, dynamics, economics) runs in a deterministic TypeScript engine on [cobanana-core](https://github.com/ixaxaar/cobanana-core) that Godot drives through a headless Node sidecar.
 
@@ -105,12 +105,10 @@ docs/        DESIGN, DECISIONS, CRITIQUE-0.3, research
 
 ## Status and known gaps
 
-0.4 ("Employable") is in progress: the chapters, the Career and the instruments exist and play; the polish does not match yet. The 0.3 [critique](docs/CRITIQUE-0.3.md) found that the chemistry holds up and the interface fights you, and several rounds of fixes followed. Still open from the latest play-test rounds (`.work/backlog.md`):
+0.4 ("Employable") is in progress: every chapter, the Career and the instruments exist and play. The 0.3 [critique](docs/CRITIQUE-0.3.md) found that the chemistry holds up and the interface fought you; five play-test rounds and their fix rounds followed. In round 5, persona play-testers won at least one level in every chapter from the in-game guidance alone (L08, L11, L16, L18, L21, L22, L24, L27, L28, L29, L30, L33, L35, L37). Still open (`.work/backlog.md`):
 
-- **L33 The Interlock** is hard to win: the player must learn that a dump with 2-of-3 voting catches what cutting the feed misses, and the scenario strip does not yet show per-scenario peak temperature and lag.
-- **Chapter 8 loop panel** is tall and covers the DESIGN key on small screens; Chapter 9 boards need label polish on narrow screens (clipped add-row buttons, crowded notebook on the Deck).
-- **Call-it** answers for some chapter 8 and 9 levels cannot be worked out from information available before commissioning.
-- **L18** (oxygen rig): the rig panel does not show the catalyst or k, and the picker lists only industrial catalysts.
-- **L25** and **L28** were reported to need a build walkthrough and a first-knob hint (round 4 of the play-tests).
-- **Career** is not won in play-tests so far (25 months reached), and the dashboard front-end is still being tuned.
+- **Build-heavy levels** (L23 Spirits, L25, L26) are hard to finish: big units are awkward to place on a crowded plot, and the first pipe is not obvious.
+- **A few numbers still disagree across screens** (for example the L24 steady-state temperature between the notebook, the debrief and the Semenov marker).
+- **Career** has not been won in a play-test yet (24-25 months reached); the annual review now separates operating margin from investments.
+- **Phone layout** is checked on desktop at phone size, not yet on a phone since the last round.
 - No public release, no Windows or macOS build, and the Android APK is a debug build.
