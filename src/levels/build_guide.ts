@@ -41,7 +41,7 @@ export function buildGuideOf(s: S, spec: LevelSpec): GuideLine[] | null {
       line.from = { unit: a, type: g.from.type, port: g.from.port }; line.to = { unit: b, type: g.to.type, port: g.to.port };
     } else {
       done = g.done !== undefined && g.done(s);
-      text = t(`lv.${spec.id}.build.${g.id}`);
+      text = t(`lv.${spec.id}.build.${g.id}`, spec.textVars?.(s));
       if (g.slot) { line.type = g.slot.type; line.unit = slotUnit(s, g.slot); }
     }
     line.done = done; line.text = text;
