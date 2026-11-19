@@ -309,6 +309,12 @@ describe('L16 and L17 reference numbers (DESIGN vs engine)', () => {
     expect(cold.v.heater_kw!).toBeGreaterThan(50);
     expect(good.v.conv!).toBeCloseTo(0.7186, 3);
   });
+  it('L16: the star-2 hint describes a build (exchanger area about 50 m2, heater near 410 C) that earns the star; the default 10 m2 exchanger does not', () => {
+    const rule = i18n.t('lv.L16.star.2'); expect(rule).toContain('exchanger'); expect(rule).toContain('50');
+    const earned = (e: any) => (e.engine.q('levelInfo') as any).stars.earned[1];
+    expect(earned(play('L16', l16Player(410, 50)))).toBe(true);
+    expect(earned(play('L16', l16Player(410, 10)))).toBe(false);
+  });
   it('L17: a catalyst changes the rate and the light-off, never K or the equilibrium: same K and X_eq at the same temperature; colder starts give higher adiabatic-equilibrium conversion', () => {
     const a = bed16(600, 'v2o5', { W: 40 * F16, mode: 'isothermal', T: 873.15 }), b = bed16(600, 'v2o5_cs', { W: 40 * F16, mode: 'isothermal', T: 873.15 });
     expect(a.info.K).toBe(b.info.K); expect(Math.abs(a.Xeq - b.Xeq)).toBeLessThan(1e-12); expect(Math.abs(a.X - b.X)).toBeLessThan(1e-3);
