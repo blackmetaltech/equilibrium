@@ -3,7 +3,7 @@
 import { need, Rng, seedState } from '@core/kit';
 import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
-import { LOOP_A, LOOP_TAGS, LOOP_TRUE, reconcile, type ReconOut } from '../sim/ops/recon';
+import { LOOP_A, LOOP_TAGS, LOOP_TRUE, reconcile, signatureMeter, type ReconOut } from '../sim/ops/recon';
 import type { EqState } from '../state';
 import { CARRIER_UNITS, LATE, act, carrierSetup, edit, goalLamp, listOf, lit, mNone, playOnce } from './ch9_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
@@ -55,7 +55,7 @@ export const L37: LevelSpec = {
     predictionOf(s, 'biased_meter') !== null && predictionOf(s, 'biased_meter')!.value === m.v.truth,
     m.ok && m.v.err! <= m.v.errRef! * 1.03,
   ],
-  callIt: { key: 'biased_meter', unit: '', tol: 0, truth: (s) => (yOf(s).length === 5 ? rawZ(s).worst + 1 : null) },
+  callIt: { key: 'biased_meter', unit: '', tol: 0, truth: (s) => (yOf(s).length === 5 ? signatureMeter(LOOP_A, rawZ(s).resid) + 1 : null) },
   hero: (_s, m) => ({ key: 'chi2', unit: '', value: m.v.chi2 ?? 0, lo: 0, hi: Math.max(40, (m.v.crit ?? 8) * 5) }),
   secondary: (_s, m) => ({ key: 'err', unit: 't/h', value: m.v.err ?? 0, limit: 5 }),
   annunciators: (s, m, g): Annunciator[] => {
@@ -112,12 +112,12 @@ export const L37: LevelSpec = {
       kind: 'reconcile', shown: shownOn,
       /** `closes`: the node's imbalance (after reconciling, once shown) is inside the 95 % noise band of its meters; the front-end colours N1-N3 by it. */
       nodes: LOOP_A.map((row, i) => {
-        const after = shownOn ? row.reduce((a, c, k) => a + c * (excl.includes(k) ? r.xhat[k]! : y[k]!), 0) : raw.resid[i]!;
+        const after = shownOn ? row.reduce((a, c, k) => a + c * r.xhat[k]!, 0) : raw.resid[i]!;   // the reconciled flows (excluded meters replaced by the balance)
         const tol = 1.96 * Math.sqrt(row.reduce((a, c, k) => a + c * sg[k]! * c * sg[k]!, 0));
-        return { id: `N${i + 1}`, label: t(`lv.L37.node.${i + 1}`), coeffs: row.slice(), imbalance: raw.resid[i]!, imbalanceAfter: after, tol, closes: Math.abs(after) <= tol };
+        return { id: `N${i + 1}`, label: t(`lv.L37.node.${i + 1}`), coeffs: row.slice(), imbalance: raw.resid[i]!, imbalanceAfter: Math.abs(after) < 5e-9 ? 0 : after, tol, closes: Math.abs(after) <= tol, meters: LOOP_A[i]!.map((c, k) => (c !== 0 ? LOOP_TAGS[k]! : '')).filter((x) => x !== '') };
       }),
-      meters: y.map((v, i) => ({ i, tag: LOOP_TAGS[i]!, label: t(`lv.L37.meter.${i + 1}`), reading: v, sigma: sg[i]!, excluded: excl.includes(i), flagged: fl.includes(i), recon: shownOn ? r.xhat[i]! : null, adjust: shownOn ? r.eps[i]! : null, z: shownOn ? raw.z[i]! : null })),
-      chi2: r.chi2, chi2Crit: r.chi2Crit, dof: LOOP_A.length - excl.length, chi2CritRaw: raw.chi2Crit, dofRaw: LOOP_A.length, rmsErr: ok ? rms(r.xhat) : null, flagFeeUSD: L37_CALL_FEE, budgetUSD: L37_BUDGET, zLimit: 3.29,
+      meters: y.map((v, i) => ({ i, tag: LOOP_TAGS[i]!, label: t(`lv.L37.meter.${i + 1}`), onNodes: LOOP_A.map((row, n) => (row[i] !== 0 ? `N${n + 1}` : '')).filter((x) => x !== ''), reading: v, sigma: sg[i]!, excluded: excl.includes(i), flagged: fl.includes(i), recon: shownOn ? r.xhat[i]! : null, adjust: shownOn ? r.eps[i]! : null, z: shownOn ? raw.z[i]! : null })),
+      chi2: r.chi2, chi2Crit: r.chi2Crit, dof: LOOP_A.length - excl.length, chi2CritRaw: raw.chi2Crit, dofRaw: LOOP_A.length, chi2Note: t(excl.length > 0 ? 'lv.L37.chi2note.excl' : 'lv.L37.chi2note.all', { dof: LOOP_A.length - excl.length, dof0: LOOP_A.length, crit: f(s, r.chi2Crit), crit0: f(s, raw.chi2Crit), dofLess: LOOP_A.length - 1, critLess: f(s, reconcile(LOOP_A, y, sg, [0]).chi2Crit) }), rmsErr: ok ? rms(r.xhat) : null, flagFeeUSD: L37_CALL_FEE, budgetUSD: L37_BUDGET, zLimit: 3.29,
     };
   },
   solver: playOnce((s) => { const w = rawZ(s).worst; return [act('reconcile'), act('flag', w), act('exclude', w)]; }, { callIt: (s) => rawZ(s).worst + 1 }),

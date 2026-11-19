@@ -75,7 +75,7 @@ const fnv = (str: string): number => { let h = 0x811c9dc5; for (let i = 0; i < s
 function goalText(s: S, spec: LevelSpec, g: GoalEval): string {
   const vars: Record<string, string | number> = {
     target: g.target !== undefined ? fmt(s, g.target) : '-', value: g.value !== undefined ? fmt(s, g.value) : t('lv.goal.pending'),
-    budget: g.target !== undefined ? money(s, g.target) : '-', spent: g.value !== undefined ? money(s, g.value) : '-',
+    budget: g.target !== undefined ? money(s, g.target) : '-', spent: money(s, g.value ?? 0),   // nothing bought yet reads as 0, the same as the notebook's "spent"
   };
   const pendingKey = `lv.${spec.id}.goal.${g.key}.pending`;
   if (g.value === undefined && pendingKey in en) return t(pendingKey, vars);

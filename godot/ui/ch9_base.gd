@@ -30,11 +30,23 @@ func fit(w: float, h: float, p_narrow: bool) -> void:
 	custom_minimum_size = Vector2(w, h); size = Vector2(w, h)
 	if not view.is_empty(): _render()
 
+var _want_scroll := -1
+
 func set_view(d: Dictionary) -> void:
 	view = d
-	var sv := scroll.scroll_vertical
+	if _want_scroll < 0: _want_scroll = scroll.scroll_vertical   # an overlapping refresh keeps the first remembered position
 	_render()
-	scroll.set_deferred("scroll_vertical", sv)
+	_restore_scroll()
+
+## The rebuilt body has no height until the containers have laid out, so the old offset is applied after two frames (a stable page: nothing jumps after a click, a STOP or a scroll).
+func _restore_scroll() -> void:
+	scroll.scroll_vertical = _want_scroll
+	if not is_inside_tree(): _want_scroll = -1; return
+	await get_tree().process_frame
+	scroll.scroll_vertical = _want_scroll
+	await get_tree().process_frame
+	if _want_scroll >= 0: scroll.scroll_vertical = _want_scroll
+	_want_scroll = -1
 
 func _render() -> void:
 	for c in body.get_children(): body.remove_child(c); c.queue_free()

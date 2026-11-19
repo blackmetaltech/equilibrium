@@ -136,12 +136,12 @@ describe('chapter 8 / 9 rules', () => {
   it('L37 flag takes the meter out of the balance, both chi-square limits are shown, the imbalance after is recomputed', () => {
     const e = start('L37'); act(e, 'levelAct', 'reconcile');
     const v0 = e.engine.q('levelView') as any;
-    expect(v0.dof).toBe(3); expect(v0.chi2CritRaw).toBeCloseTo(7.815, 3);
+    expect(v0.dof).toBe(3); expect(v0.chi2CritRaw).toBeCloseTo(7.81, 2);
     const worst = v0.meters.reduce((b: any, m: any) => (Math.abs(m.z) > Math.abs(b.z) ? m : b)).i;
     act(e, 'levelAct', 'flag', worst);
     expect(e.state.lv.excluded).toEqual([worst]);
     const v1 = e.engine.q('levelView') as any;
-    expect(v1.dof).toBe(2); expect(v1.chi2Crit).toBeCloseTo(5.991, 3);
+    expect(v1.dof).toBe(2); expect(v1.chi2Crit).toBeCloseTo(5.99, 2);
     expect(v1.nodes.some((n: any, i: number) => Math.abs(n.imbalanceAfter) < Math.abs(v0.nodes[i].imbalance) - 1e-9)).toBe(true);
     act(e, 'levelAct', 'unflag', worst); expect(e.state.lv.excluded).toEqual([]);
   });

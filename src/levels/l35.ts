@@ -22,6 +22,22 @@ const orderOf = (s: S): string[] => listOf<string>(s, 'order');
 const codes = (r: SopOut): Set<string> => new Set(r.events.filter((e) => e.kind === 'hazard').map((e) => e.code));
 const RELEASE = ['leak', 'vent', 'flare', 'cold', 'hotspot', 'nearmiss'];
 
+const card = (id: string): string => t(`lv.L35.card.${id}`);
+/** What stops the loop being READY, named: each requirement, the card that provides it, and whether that card is missing from the sequence or in it but without effect. */
+export function missingList(order: string[], st: Record<string, number>): string[] {
+  const need: Array<[boolean, string, string]> = [
+    [st.cool === 1, 'cool_on', 'cooling'], [st.circ === 1, 'circ_on', 'circ'], [st.red === 1, 'intro_h2', 'red'], [st.p! >= SOP.pFull, 'press_full', 'press'],
+  ];
+  const out: string[] = [];
+  for (const [ok, id, k] of need) {
+    if (ok) continue;
+    const nm = t(`lv.L35.need.${k}`);
+    if (!order.includes(id)) out.push(t('lv.L35.miss.add', { card: card(id), need: nm }));
+    else if (k === 'red' && st.t! < SOP.tMinH2) out.push(t('lv.L35.miss.heat', { card: card(id), tK: f({ region: 'en' }, st.t!), tmin: f({ region: 'en' }, SOP.tMinH2), need: nm }));
+    else out.push(t('lv.L35.miss.fail', { card: card(id), need: nm }));
+  }
+  return out;
+}
 function measures(s: S): Measures {
   const order = orderOf(s), r = runSop(order), c = codes(r);
   const base = { rampMax: SOP.rampMax, rise: SOP.tReduce - SOP.tCold, ramp: SOP.rampMax };
@@ -71,7 +87,7 @@ export const L35: LevelSpec = {
     if (m.v.shock === 1) return { key: 'shock', cause: t('lv.L35.cause.shock', vars) };
     if (m.v.release === 1) return { key: 'release', cause: t('lv.L35.cause.release', vars) };
     if (m.v.blocked! > 0) return { key: 'blocked', cause: t('lv.L35.cause.blocked', vars) };
-    if (m.v.ready !== 1) return { key: 'notready', cause: t('lv.L35.cause.notready', vars) };
+    if (m.v.ready !== 1) return { key: 'notready', cause: t('lv.L35.cause.notready', { ...vars, missing: missingList(orderOf(s), runSop(orderOf(s)).state as Record<string, number>).join('; ') }) };
     return { key: 'budget', cause: t('lv.L35.cause.budget', vars) };
   },
   equation: (s, m) => `${f(s, m.v.rise!)} ÷ ${f(s, m.v.ramp!)} × 60 = ${f(s, (m.v.rise! / m.v.ramp!) * 60)} min of heating`,
@@ -82,7 +98,7 @@ export const L35: LevelSpec = {
     { key: 'cards', unit: '', value: m.v.cards ?? 0 },
   ],
   histogram: { metric: 'mins', best: () => L35_MINS_REF, spread: 0.6, lowerIsBetter: true },
-  actions: listActions('order', SOP_IDS, 24),
+  actions: listActions('order', SOP_IDS, 24, true, (id) => t(`lv.L35.card.${id}`)),
   view: (s) => {
     const order = orderOf(s), r = runSop(order);
     return {
@@ -92,7 +108,7 @@ export const L35: LevelSpec = {
       trace: r.events.map((e) => ({ i: e.i, id: e.id, kind: e.kind, code: e.code, text: e.code === '' ? '' : t(`lv.L35.code.${e.code}`), sev: e.sev, t: e.t })),
       state: { o2: r.state.o2!, p: r.state.p!, t: r.state.t!, cool: r.state.cool!, flare: r.state.flare!, circ: r.state.circ!, leak: r.state.leak!, h2: r.state.h2!, red: r.state.red! },
       initial: { ...SOP_INIT }, limits: { o2Safe: SOP.o2Safe, o2Loc: SOP.o2Loc, rampMax: SOP.rampMax, pFlareMax: SOP.pFlareMax },
-      mins: r.mins, safe: r.maxSev === 0 && r.blocked === 0, ready: r.ready, halted: r.halted, refMins: L35_MINS_REF, lossUSD: (r.mins / 60) * L35_LOSS_PER_H, budgetUSD: L35_BUDGET,
+      cardCount: SOP_CARDS.length, missing: r.ready ? [] : missingList(order, r.state as Record<string, number>), mins: r.mins, safe: r.maxSev === 0 && r.blocked === 0, ready: r.ready, halted: r.halted, refMins: L35_MINS_REF, lossUSD: (r.mins / 60) * L35_LOSS_PER_H, budgetUSD: L35_BUDGET,
     };
   },
   solver: playOnce(() => L35_REF.map((id) => act('add', id)), { callIt: () => L35_HEAT_MIN }),

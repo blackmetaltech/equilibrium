@@ -26,8 +26,9 @@ func _build() -> void:
 	var split: BoxContainer = (VBoxContainer.new() if narrow else HBoxContainer.new()); split.add_theme_constant_override("separation", 10); body.add_child(split)
 	# rack
 	var rack := VBoxContainer.new(); rack.add_theme_constant_override("separation", 4); rack.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rack.size_flags_stretch_ratio = 0.9; split.add_child(rack)
-	rack.add_child(tape("CARD RACK", 12))
 	var cards: Array = view.get("cards", view.get("steps", []))
+	var rh := HBoxContainer.new(); rh.add_theme_constant_override("separation", 8); rack.add_child(rh)
+	rh.add_child(tape("CARD RACK", 12)); rh.add_child(lbl("%d cards, all shown (scroll the sheet to see the last)" % cards.size(), 11, PENCIL, "sans"))
 	for c in cards: rack.add_child(_rack_card(c, sop))
 	# sequence
 	var seq := VBoxContainer.new(); seq.add_theme_constant_override("separation", 4); seq.size_flags_horizontal = Control.SIZE_EXPAND_FILL; seq.size_flags_stretch_ratio = 1.15; split.add_child(seq)
@@ -52,7 +53,7 @@ func _rack_card(c: Dictionary, sop: bool) -> Control:
 	b.add_theme_font_override("font", EqTheme.font("mono")); b.add_theme_font_size_override("font_size", EqTheme.fs(13))
 	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: b.add_theme_color_override(st, EqTheme.INK)
 	for st in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(st, _card_sb(Color("#F6EFD9") if st != "hover" else Color("#FFFAE8"), Color("#8A7A55") if st != "focus" else EqTheme.TEAL))
-	b.custom_minimum_size = Vector2(0, maxf(30.0, Ch9Board.tmin()))
+	b.custom_minimum_size = Vector2(0, maxf(26.0, Ch9Board.tmin()))
 	if sop and str(c.get("pre", "")) != "": b.tooltip_text = str(c.pre)
 	b.pressed.connect(func(): emit_act("add", [c.id]))
 	return b
@@ -84,7 +85,8 @@ func _summary() -> Control:
 	var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 16)
 	var mins := float(view.get("mins", 0.0))
 	if _is_sop():
-		h.add_child(lbl("MIN %s / ref %s" % [fnum(mins), fnum(view.get("refMins", 0))], 13, Color("#1E2A2E"), "mono_bold"))
+		h.add_child(lbl("MIN %s" % fnum(mins), 13, Color("#1E2A2E"), "mono_bold"))
+		h.add_child(lbl("reference to beat: %s min" % fnum(view.get("refMins", 0)), 12, PENCIL, "sans"))
 		h.add_child(lbl("LOSS %s / %s" % [usd(float(view.get("lossUSD", 0.0))), usd(float(view.get("budgetUSD", 0.0)))], 13, STAMP_RED if float(view.get("lossUSD", 0)) > float(view.get("budgetUSD", 1)) else PENCIL, "mono_bold"))
 		h.add_child(stamp("READY" if bool(view.get("ready", false)) else "NOT READY", OKGREEN if bool(view.get("ready", false)) else AMBER_INK))
 	else:
@@ -95,6 +97,11 @@ func _summary() -> Control:
 		h.add_child(stamp("BACK IN SERVICE" if bool(view.get("done", false)) else "OUT OF SERVICE", OKGREEN if bool(view.get("done", false)) else AMBER_INK))
 	h.add_child(stamp("SAFE" if bool(view.get("safe", false)) else "UNSAFE", OKGREEN if bool(view.get("safe", false)) else STAMP_RED))
 	if bool(view.get("halted", false)): h.add_child(stamp("HALTED", STAMP_RED))
+	var miss: Array = view.get("missing", [])
+	if _is_sop() and not bool(view.get("ready", false)) and miss.size() > 0:
+		var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 2); v.add_child(h)
+		var ml := lbl("NOT READY, missing: " + "; ".join(PackedStringArray(miss)), 12, AMBER_INK, "sans"); ml.name = "MissingList"; ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ml.custom_minimum_size = Vector2(240, 0); v.add_child(ml)
+		return v
 	return h
 
 func _gauges() -> Control:
