@@ -52,6 +52,17 @@ export function l24States(): { T: number; X: number; stable: boolean }[] {
 /** Adiabatic temperature rise of the whole charge reacting, K: the number of the printout equation (kJ/mol x mol/m3 / kJ/(m3 K)), a fact of the charge and not of this run. */
 export const l24DtadFull = (): number => (-K7_GAME.dH / 1000 * K7_GAME.CA0) / (K7_GAME.rhoCp / 1000);
 export const l24HotK = (): number => l24States()[2]!.T;
+/** The engine's steady states and ignition coolant for a charge of `frac` of the design feed (the reactor's concentrations scale with the feed, the flow Q is fixed). */
+export function l24AtFeed(frac: number): { states: { T: number; stable: boolean }[]; ignitionC: number } {
+  const g = k7Game(), inp = { ...g.inputs, C0: g.inputs.C0.map((c) => c * frac) };
+  return { states: cstrSteadyStates(g.model, inp).states.map((x) => ({ T: x.T, stable: x.stable })), ignitionC: C(cstrCritical(g.model, inp, 'Tc').find((x) => x.kind === 'ignition')!.Tc) };
+}
+/** Fraction of the design charge the recipe's full feed and its starved start-up feed carry. */
+export const l24FullFrac = (): number => L24_RECIPE.fullKmolH / toKmolH(L24_FEED_MOL_S);
+export const l24StartFrac = (): number => L24_RECIPE.feedKmolH / toKmolH(L24_FEED_MOL_S);
+/** THE steady-state temperature of the lit reactor (deg C): the productive state at the recipe's feed and 25 C coolant. Notebook, coach, intercom, debrief and the Semenov plot all read this. */
+export const l24RunC = (): number => C(l24AtFeed(l24FullFrac()).states.filter((x) => x.stable).slice(-1)[0]!.T);
+const r1 = (x: number): number => Math.round(x * 10) / 10;
 export function l24IgnitionC(): number {
   const g = k7Game();
   return C(cstrCritical(g.model, g.inputs, 'Tc').find((x) => x.kind === 'ignition')!.Tc);
@@ -84,7 +95,7 @@ export function runawayMeasures(s: S): Measures {
   const sh = s.shift;
   const v: Record<string, number> = {
     t: 0, len: L24_SHIFT_S, T_K: 0, peak_K: 0, branch: 0, pg_kmol: 0, prod_kg: 0, relief_n: 0, trips: 0, crit_s: 0, high_s: 0, ended: 0, lost: s.status === 'lost' && s.shift?.ended !== 'time' ? 1 : 0,
-    cw_trip: 0, setpoint_K: 0, orifice_mm2: 0, tc_K: 0, ignition_C: l24IgnitionC(), lit: 0, tier: 0, cost: 0, margin_K: 0, hot_K: l24HotK(), ilk_K: 0, dtad: 0,
+    cw_trip: 0, setpoint_K: 0, orifice_mm2: 0, tc_K: 0, ignition_C: l24IgnitionC(), lit: 0, tier: 0, cost: 0, margin_K: 0, hot_K: l24RunC() + K, ilk_K: 0, dtad: 0,
   };
   const rx = unitsOfType(s, 'cstr')[0], ilk = unitsOfType(s, 'interlock')[0], rv = unitsOfType(s, 'relief')[0];
   if (ilk) v.ilk_K = typeof ilk.params.setpoint === 'number' ? ilk.params.setpoint : 0;
@@ -123,7 +134,11 @@ export function runawayMeasures(s: S): Measures {
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 
 export const L24: LevelSpec = {
-  id: 'L24', firstRun: false, chapter: 6, index: 24, setter: 'safety', budgetUSD: L24_BUDGET, units: L24_UNITS, notes: 3, shiftLen: L24_SHIFT_S, maxTicks: L24_SHIFT_S + 600,
+  id: 'L24', firstRun: false, chapter: 6, index: 24, setter: 'safety', budgetUSD: L24_BUDGET, units: L24_UNITS, notes: 11, shiftLen: L24_SHIFT_S, maxTicks: L24_SHIFT_S + 600,
+  textVars: () => {
+    const run = l24RunC(), lo = l24AtFeed(l24FullFrac()).states[0]!.T, ig70 = l24AtFeed(l24StartFrac()).ignitionC;
+    return { run: Math.round(run), lazy: Math.round(C(lo)), ign70: r1(ig70), warm: L24_RECIPE.warmC, gap: r1(L24_RECIPE.warmC - ig70), trip: C(L24_TRIP_K), relief: C(CSTR_RELIEF_K), tripGap: Math.round(C(L24_TRIP_K) - run), slowPeak: L24_RECIPE.slowPeakC, slowGap: C(L24_TRIP_K) - L24_RECIPE.slowPeakC, late: L24_RECIPE.lateS };
+  },
   setup: (s) => { baseSetup(s, L24_SPECIES, L24_UNITS, PRESETS()); build(s); sealSetup(s); },
   measures: runawayMeasures,
   goals: (s, m) => {
@@ -167,7 +182,7 @@ export const L24: LevelSpec = {
   ] as CoachStep[],
   verdict: (s, m) => {
     if (!m.ok || m.v.ended !== 1) return { key: 'not_run', cause: null };
-    if (m.v.lost === 1) return { key: 'lost', cause: t('lv.L24.cause.lost', { peak: f(s, C(m.v.peak_K!)) }) };
+    if (m.v.lost === 1) return { key: 'lost', cause: t('lv.L24.cause.lost', { peak: f(s, C(m.v.peak_K!)), run: Math.round(l24RunC()) }) };
     if (m.v.pg_kmol! < L24_PG_TARGET_KMOL) {
       return m.v.lit === 0 && m.v.peak_K! < K + 80
         ? { key: 'lazy', cause: t('lv.L24.cause.lazy', { T: f(s, C(m.v.T_K!)), ign: f(s, m.v.ignition_C!), tc: f(s, C(m.v.tc_K!)) }) }
@@ -185,7 +200,7 @@ export const L24: LevelSpec = {
   lessonVars: (s, m) => {
     const over = m.ok && m.v.ended === 1, known = over || predictionOf(s, 'ignition_c') !== null;
     return {
-      ign: known ? f(s, m.v.ignition_C!) : t('lv.L24.hidden'), hot: f(s, C(m.v.hot_K!)), dtad: f(s, shown(l24DtadFull())),
+      ign: known ? f(s, m.v.ignition_C!) : t('lv.L24.hidden'), hot: f(s, Math.round(C(m.v.hot_K!))), ign70: f(s, r1(l24AtFeed(l24StartFrac()).ignitionC)), warm: L24_RECIPE.warmC, dtad: f(s, shown(l24DtadFull())),
       result: over ? t('lv.L24.result', { peak: f(s, C(m.v.peak_K!)), pg: f(s, m.v.pg_kmol!) }) : t('lv.L24.result_wait'),
     };
   },
@@ -195,7 +210,7 @@ export const L24: LevelSpec = {
     { key: 'trips', unit: '', value: m.v.trips! },
   ],
   histogram: { metric: 'pg_kmol', best: () => L24_PG_STAR * 1.03, spread: 0.5, lowerIsBetter: false },
-  card: (s, m): Record<string, string | number> => (m.ok ? { states_c: l24States().map((x) => Math.round(C(x.T) * 10) / 10).join(' / '), ignition_c: m.v.ignition_C! } : {}),
+  card: (s, m): Record<string, string | number> => (m.ok ? { states_c: l24AtFeed(l24FullFrac()).states.map((x) => Math.round(C(x.T) * 10) / 10).join(' / '), ignition_c: m.v.ignition_C! } : {}),
   beforeCommission: (s) => {
     const rx = unitsOfType(s, 'cstr')[0];
     if (rx && rx.params.Tc !== K7_GAME.Tc) rx.params.Tc = K7_GAME.Tc;
@@ -224,7 +239,7 @@ void none;
  *  f9b_l24.test.ts drives the level through nothing but these set points, a human reaction time after each chart reading, and requires a win with no trip.
  *  Step 2: feed to feedKmolH, coolant to warmC. Step 3: when the reactor chart passes coolAtC, coolant to holdC. Step 4: when it passes feedAtC, feed to fullKmolH.
  *  (Cooling at 70 C falls back to the lazy state at 70 % feed, so the chart must be past 80 C first. Full feed is 235 kmol/h (90 %), not the 260.6 design charge: the late feed surge then peaks near 115 C, 10 K under the 125 C trip, instead of 124 C.) */
-export const L24_RECIPE = { feedKmolH: 182, warmC: 66, coolAtC: 80, holdC: 25, feedAtC: 100, fullKmolH: 235, speed: '1x' };
+export const L24_RECIPE = { feedKmolH: 182, warmC: 64, coolAtC: 80, holdC: 25, feedAtC: 100, fullKmolH: 235, speed: '1x', lateS: 60, slowPeakC: 118 };
 export const L24_SOLVE = { rampStep: 0.025, rampEvery: 12, starve: 0.7, warmK: 72 + K, holdK: 25 + K, litC: 70, coldK: 280, tripFeed: 0.7 };
 
 function solver() {

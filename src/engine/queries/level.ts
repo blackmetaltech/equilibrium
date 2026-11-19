@@ -108,7 +108,7 @@ function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker:
     const u = s.flowsheet.units.find((x) => x.type === type);
     focus = u ? { unit: u.id, ...(knob ? { knob } : {}) } : { rack: type! };
   }
-  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`, { unit: focus?.unit ?? '' }), why: t(`lv.${spec.id}.coach.${c.id}.why`, { unit: focus?.unit ?? '' }), focus };
+  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`, { ...(spec.textVars ? spec.textVars(s) : {}), unit: focus?.unit ?? '' }), why: t(`lv.${spec.id}.coach.${c.id}.why`, { ...(spec.textVars ? spec.textVars(s) : {}), unit: focus?.unit ?? '' }), focus };
 }
 
 /** The offline "simulated engineers" sample of DESIGN 9.6, deterministic per (level, metric): 200 values around the reference, 12 bins. */
@@ -200,7 +200,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     id: spec.id, chapter: spec.chapter, index: spec.index, title: t(`lv.${spec.id}.title`), setter: cast,
     setterName: pack.strings[`cast.${cast}.name`] ?? '', setterTitle: pack.strings[`cast.${cast}.title`] ?? '',
     place: t(`lv.${spec.id}.place`),
-    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`) + (spec.callIt && i === spec.notes - 1 ? ' ' + t('lv.note.predict') : '')),
+    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`, spec.textVars ? spec.textVars(s) : {}) + (spec.callIt && i === spec.notes - 1 ? ' ' + t('lv.note.predict') : '')),
     /** The prediction rule of a call-it level, also on its own for the notebook's Call it box. */
     predictNote: spec.callIt ? t('lv.note.predict') : null,
     notice,
