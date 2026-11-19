@@ -16,8 +16,8 @@ export const SYN_KMOL_H = 1000, SYN_IN_C = 40, SYN_OUT_C = 420, SYN_TOL_C = 1;
 export const FLUE_KMOL_H = 380, FLUE_IN_C = 900;
 export const DT_MIN_K = 20, STACK_MIN_C = 120;
 export const RECOVER_MIN = 0.25;
-/** A one-hour shift: about four minutes of wall time at 16x (play-test round 4: the 8-hour shift was not finished after 16 minutes). */
-export const L08_LEN_S = 3600;
+/** A half-hour shift: under two minutes of wall time at 16x, five at 4x (it was one hour: four minutes at 16x, an hour at 1x; round 4 of play-testing: the 8-hour shift was not finished after 16 minutes). */
+export const L08_LEN_S = 1800;
 export const L08_UNITS: LevelSpec['units'] = {
   feed: { max: 2, price: 4000 }, hx: { max: 1, price: 30000 }, heater: { max: 1, price: 40000 }, stack: { max: 1, price: 8000 }, product: { max: 1, price: 5000 },
 };

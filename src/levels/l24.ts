@@ -24,11 +24,12 @@ const K = 273.15;
 const C = (x: number): number => x - K;
 /** 5 m3/h of charge at 52 114 mol/m3 (2114 of propylene oxide, 50 000 of water). */
 export const L24_FEED_MOL_S = (5 / 3600) * 52114;
-export const L24_SHIFT_S = 3600;
+/** 45 minutes of plant time: about 4.5 minutes of wall clock when the recipe runs at 4x until the reactor is lit and at 16x afterwards (see wallclock.ts). It was 3600 s (6+ min). */
+export const L24_SHIFT_S = 2700;
 /** Plant-seconds of a PG goal, GAME. The on-spec product is counted from the moment the reactor is lit. */
 export const L24_PG_TARGET_KMOL = 5;
 /** ★★★: the solver's best PG over the shift, divided by the 1.03 Chief-Engineer margin (GAME, UNVERIFIED; pinned by ch6.test.ts). */
-export const L24_PG_STAR = 7.8;
+export const L24_PG_STAR = 6.6;
 /** The safety margin of the star: peak temperature at least this far below the 140 C relief point (DESIGN: 15 K). */
 export const L24_MARGIN_K = 15;
 export const L24_ORIFICE = 'T';
@@ -237,9 +238,10 @@ void none;
  *  pump trip (U A x 0.3, upper state about 152 C) with a colder jacket and a feed trimmed to 70 %. */
 /** The player's start-up recipe, exactly as the notebook says it, in the dials' own units (feed knob in kmol/h, full charge 260.6; coolant in °C) at the 1x speed.
  *  f9b_l24.test.ts drives the level through nothing but these set points, a human reaction time after each chart reading, and requires a win with no trip.
- *  Step 2: feed to feedKmolH, coolant to warmC. Step 3: when the reactor chart passes coolAtC, coolant to holdC. Step 4: when it passes feedAtC, feed to fullKmolH.
+ *  Step 2: feed to feedKmolH, coolant to warmC. Step 3: when the reactor chart passes coolAtC, coolant to holdC and, at the same moment, feed to fullKmolH (one click pair, no second
+ *  chart watch: a hand up to lateWallS wall seconds = lateS plant seconds at 4x late peaks at slowPeakC at most). The speed is 4x from the start, 16x once step 3 is done.
  *  (Cooling at 70 C falls back to the lazy state at 70 % feed, so the chart must be past 80 C first. Full feed is 235 kmol/h (90 %), not the 260.6 design charge: the late feed surge then peaks near 115 C, 10 K under the 125 C trip, instead of 124 C.) */
-export const L24_RECIPE = { feedKmolH: 182, warmC: 64, coolAtC: 80, holdC: 25, feedAtC: 100, fullKmolH: 235, speed: '1x', lateS: 60, slowPeakC: 118 };
+export const L24_RECIPE = { feedKmolH: 182, warmC: 65, coolAtC: 80, holdC: 25, feedAtC: 100, fullKmolH: 235, speed: '4x', lateS: 240, lateWallS: 60, slowPeakC: 120 };
 export const L24_SOLVE = { rampStep: 0.025, rampEvery: 12, starve: 0.7, warmK: 72 + K, holdK: 25 + K, litC: 70, coldK: 280, tripFeed: 0.7 };
 
 function solver() {

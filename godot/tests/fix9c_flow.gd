@@ -81,3 +81,5 @@ func _career() -> void:
 	check(not t.contains("EtOH") and not t.contains("Distillery") and not t.contains("H2SO4 "), "one product name in the board text")
 	check(t.contains("emissions cap tightens") or t.contains("Regulator notice"), "cap tightening announced in the log")
 	check(t.contains("at the current gas price"), "heat saving says at the current gas price")
+	check(t.contains("ENDINGS") and t.contains("FLAGSHIP") and t.contains("SOLD") and t.contains("STEADY") and t.contains("SHUT"), "the endings strip lists the four endings")
+	check(t.contains("COURSE:") and t.contains("What would move"), "the year review announces the course and what would move the Works toward the other ending")

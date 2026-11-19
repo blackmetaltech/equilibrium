@@ -43,7 +43,7 @@ export const DEFS: Record<PlantId, PlantDef> = {
 export interface Plant { rate: number; cat: number; U: number; wear: number; insp: number; stock: number; down: number; ta: number; taCrane: number; taCrew: number; out: number; margin: number; risk: number }
 export interface Contract { id: number; p: PlantId; tpm: number; price: number; left: number; pen: number }
 export interface Offer { id: number; p: PlantId; tpm: number; price: number; term: number; pen: number; exp: number }
-export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; /** operating margin: net margin before investments (catalyst, inspections, programmes) */ opMargin: number; tonnes: number; /** plant-days of lost output */ downDays: number; /** mean catalyst activity and exchanger U over the year (0..1) */ catAvg: number; uAvg: number; contractRev: number; contractT: number; capT: number; capOldT: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number }
+export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; /** operating margin: net margin before investments (catalyst, inspections, programmes) */ opMargin: number; tonnes: number; /** plant-days of lost output */ downDays: number; /** mean catalyst activity and exchanger U over the year (0..1) */ catAvg: number; uAvg: number; contractRev: number; contractT: number; /** where the Works is heading after this review (see `outlook`) */ outlook?: Outlook; capT: number; capOldT: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number }
 export interface LogRow { m: number; kind: 'event' | 'notice' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty'; code: string; plant: string; n: number }
 export interface Hist { m: number; margin: number; cash: number; gas: number }
 export type Ending = '' | 'chief' | 'steady' | 'sold' | 'shut';
@@ -314,6 +314,7 @@ function yearEnd(c: Career): void {
   const mara = clamp(Math.round(100 - 250 * Math.max(0, effRatio - 1) - 100 * Math.max(0, 0.95 - uAvg) - 80 * Math.max(0, 0.9 - catAvg)), 0, 100);
   c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: yt.cost ?? 0, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: yt.margin, opMargin, tonnes: yt.tonnes, downDays: yt.down ?? 0, catAvg, uAvg, contractRev: yt.crev ?? 0, contractT: yt.ct ?? 0, capT: emCap(c), capOldT: EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y), criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
   c.lossYears = opMargin < 0 ? c.lossYears + 1 : 0;
+  c.years[c.years.length - 1]!.outlook = outlook(c);
   c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0, down: 0, cat: 0, U: 0, pn: 0, crev: 0, ct: 0 };
   if (c.ending === '' && c.m < MONTHS) c.log.push({ m: c.m, kind: 'notice', code: 'cap', plant: '', n: Math.round(emCap(c) / 1000) });
   if (c.lossYears >= 2 || c.cash < 0) finish(c, 'sold');
@@ -324,6 +325,40 @@ export function endingOf(c: Career): Ending {
   const avg = (k: 'victor' | 'noor' | 'mara'): number => c.years.reduce((a, y) => a + y[k], 0) / Math.max(1, c.years.length);
   const good = last !== undefined && avg('victor') >= 60 && avg('noor') >= 60 && avg('mara') >= 60;
   return c.total.margin >= CHIEF_MARGIN && c.criticals === 0 && c.strikes === 0 && good ? 'chief' : 'steady';
+}
+
+
+// ------------------------------------------------------------------------------------------------ the endings and the course towards them
+export const CHIEF_SCORE = 60;
+export const SOLD_FLOOR_USD = 1e7;
+export type EndId = 'sold' | 'shut' | 'steady' | 'chief';
+export interface EndNeed { key: string; have: number; need: number; met: boolean }
+export interface EndRow { id: EndId; state: 'achieved' | 'course' | 'open' | 'danger' | 'closed'; needs: EndNeed[] }
+export interface Outlook { course: EndId; rows: EndRow[]; /** five-year margin if the run so far continues, USD */ proj: number; /** Chief Engineer needs still unmet (keys of rows[chief].needs) */ gaps: string[]; /** true when a critical alarm or a strike has closed the flagship ending */ chiefClosed: boolean }
+/** Where this Works is heading and what each ending needs. Pure; read by the year review and the board strip. A score need is not judged before the first review (have = -1). */
+export function outlook(c: Career): Outlook {
+  const n = c.years.length, avg = (k: 'victor' | 'noor' | 'mara'): number => (n > 0 ? c.years.reduce((a, y) => a + y[k], 0) / n : -1);
+  const proj = c.m > 0 ? (c.total.margin * MONTHS) / c.m : 0;
+  const N = (key: string, have: number, need: number, met: boolean): EndNeed => ({ key, have, need, met });
+  const chiefNeeds = [
+    N('margin', proj, CHIEF_MARGIN, proj >= CHIEF_MARGIN), N('criticals', c.criticals, 0, c.criticals === 0), N('strikes', c.strikes, 0, c.strikes === 0),
+    ...(['victor', 'noor', 'mara'] as const).map((k) => N(k, avg(k), CHIEF_SCORE, n === 0 || avg(k) >= CHIEF_SCORE)),
+  ];
+  const steadyNeeds = [N('tenure', c.m, MONTHS, c.m >= MONTHS), N('cash', c.cash, 0, c.cash >= 0), N('strikes_max', c.strikes, STRIKES_MAX, c.strikes < STRIKES_MAX)];
+  const soldNeeds = [N('loss_years', c.lossYears, 2, c.lossYears >= 2), N('cash_floor', c.cash, LENDERS_FLOOR, c.cash < LENDERS_FLOOR)];
+  const shutNeeds = [N('strikes_max', c.strikes, STRIKES_MAX, c.strikes >= STRIKES_MAX)];
+  const chiefClosed = c.criticals > 0 || c.strikes > 0;
+  const gaps = chiefNeeds.filter((x) => !x.met).map((x) => x.key);
+  let course: EndId = gaps.length === 0 ? 'chief' : 'steady';
+  if (c.cash < SOLD_FLOOR_USD || c.lossYears >= 1) course = 'sold';
+  if (c.strikes >= STRIKES_MAX - 1 || c.criticals >= STRIKES_MAX - 1) course = 'shut';
+  if (c.ending !== '') course = c.ending;
+  const row = (id: EndId, needs: EndNeed[]): EndRow => {
+    const done = c.ending === id, over = c.ending !== '' && !done;
+    const state = done ? 'achieved' : over ? 'closed' : id === course ? (id === 'sold' || id === 'shut' ? 'danger' : 'course') : id === 'chief' && chiefClosed ? 'closed' : 'open';
+    return { id, state, needs };
+  };
+  return { course, rows: [row('sold', soldNeeds), row('shut', shutNeeds), row('steady', steadyNeeds), row('chief', chiefNeeds)], proj, gaps, chiefClosed };
 }
 
 /** Run months until the next year end (or the end of the career). `months` = the most to run. */

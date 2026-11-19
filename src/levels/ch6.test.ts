@@ -288,7 +288,7 @@ describe('L24 Runaway: the reactor the player flies', () => {
     const e = start('L24');
     const i0 = info(e);
     expect(allFinite(i0)).toBeNull();
-    expect(i0.shiftLen).toBe(3600);
+    expect(i0.shiftLen).toBe(2700);
     expect(i0.callIt.key).toBe('ignition_c');
     expect(i0.allowedUnits.map((u: any) => u.type).sort()).toEqual(['cstr', 'feed', 'interlock', 'product', 'relief', 'splitter']);
     const done = solve('L24');

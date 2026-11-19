@@ -30,6 +30,8 @@ func _build() -> void:
 	body.add_child(_advance_row(d))
 	if str(d.ending) != "": body.add_child(_ending(d))
 	body.add_child(_ledger(d))
+	body.add_child(head("ENDINGS", "where this Works is heading"))
+	body.add_child(_endings())
 	body.add_child(head("PLANT HEALTH", ""))
 	var g := GridContainer.new(); g.columns = 1 if narrow else 2; g.add_theme_constant_override("h_separation", 8); g.add_theme_constant_override("v_separation", 8); body.add_child(g)
 	for p in view.get("plants", []): var c := _plant_card(p, d); c.size_flags_horizontal = Control.SIZE_EXPAND_FILL; g.add_child(c)
@@ -81,6 +83,25 @@ func _ledger(d: Dictionary) -> Control:
 	pr.add_child(lbl("SPOT:", 11, PENCIL, "semi"))
 	for p in view.get("prices", []): pr.add_child(lbl("%s $%s/t" % [str(PLANT_TAG.get(str(p.plant), str(p.label))), fnum(float(p.spotUSDPerT))], 12, PLANT_COL.get(str(p.plant), PENCIL), "mono_bold"))
 	var sp := Spark.new(); sp.hist = view.get("history", []); sp.custom_minimum_size = Vector2(300, 46); v.add_child(sp)
+	return _paper(v)
+
+# ---- endings strip: Sold / Shut / Steady / Flagship, the state of each and what it needs ---------------------------------------------------------
+const END_STATE_COL := {"achieved": Color("#2E7D4F"), "course": Color("#2E7D4F"), "open": Color("#4A4A48"), "danger": Color("#C8323C"), "closed": Color("#9A9A94")}
+const END_STATE_TAG := {"achieved": "REACHED", "course": "ON COURSE", "open": "OPEN", "danger": "AT RISK", "closed": "CLOSED"}
+func _endings() -> Control:
+	var e: Dictionary = view.get("endings", {})
+	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 4)
+	if e.is_empty(): return _paper(lbl("The endings appear when the career starts.", 12, PENCIL))
+	var note := lbl(str(e.get("note", "")), 12, PENCIL, "sans"); note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(note)
+	var g := GridContainer.new(); g.columns = 1 if narrow else 2; g.add_theme_constant_override("h_separation", 8); g.add_theme_constant_override("v_separation", 6); v.add_child(g)
+	for r in e.get("rows", []):
+		var st := str(r.get("state", "open")); var col: Color = END_STATE_COL.get(st, PENCIL)
+		var c := VBoxContainer.new(); c.add_theme_constant_override("separation", 1); c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8)
+		h.add_child(lbl(str(r.label).to_upper(), 13, col, "mono_bold")); h.add_child(stamp(str(END_STATE_TAG.get(st, st)), col, 10)); c.add_child(h)
+		for n in r.get("needs", []):
+			var t := lbl(("%s  %s" % ["[x]" if bool(n.met) else "[ ]", str(n.text)]), 11, OKGREEN if bool(n.met) else PENCIL, "sans"); t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; c.add_child(t)
+		g.add_child(_paper(c, Color("#FBF8EC")))
 	return _paper(v)
 
 # ---- plant cards -----------------------------------------------------------------------------------------------------------------------------
@@ -199,6 +220,8 @@ func _reviews(d: Dictionary) -> void:
 			var dn := lbl("MARGIN DRIVERS: " + str(y.driverNote), 12, PENCIL, "sans"); dn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(dn)
 		if str(y.get("revenueNote", "")) != "":
 			var rn := lbl(str(y.revenueNote), 12, PENCIL, "sans"); rn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(rn)
+		if str(y.get("outlookNote", "")) != "":
+			var on := lbl(str(y.outlookNote), 12, EqTheme.INK, "sans"); on.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(on)
 		if str(y.get("capNote", "")) != "":
 			var cn := lbl(str(y.capNote), 12, AMBER_INK, "sans"); cn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(cn)
 		for r in lines:

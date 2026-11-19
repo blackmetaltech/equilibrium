@@ -27,21 +27,21 @@ function play(id: string, persona: PersonaFactory<EqState>, ticks: number, seed 
 }
 
 describe('L08 shift clock', () => {
-  it('the shift is one hour, winnable in about four minutes at 16x, and levelInfo carries the clock', () => {
-    expect(L08_LEN_S).toBe(3600);
+  it('the shift is half an hour, winnable in under two minutes at 16x, and levelInfo carries the clock', () => {
+    expect(L08_LEN_S).toBe(1800);
     const e = mk('L08', pinchBuild(990));
-    expect(info(e).shiftClock).toMatchObject({ t: 0, total: 3600, running: true, ended: false });
+    expect(info(e).shiftClock).toMatchObject({ t: 0, total: 1800, running: true, ended: false });
     act(e, 'setSpeed', 16);
-    expect(info(e).shiftClock.etaWallS).toBe(225);
-    act(e, 'tick', 1800);
-    expect(info(e).shiftClock).toMatchObject({ t: 1800, total: 3600 });
     expect(info(e).shiftClock.etaWallS).toBe(113);
+    act(e, 'tick', 900);
+    expect(info(e).shiftClock).toMatchObject({ t: 900, total: 1800 });
+    expect(info(e).shiftClock.etaWallS).toBe(57);
     act(e, 'setSpeed', 0);
     expect(info(e).shiftClock.etaWallS).toBeNull();
   });
   it('a level without a shift has no clock; before the shift starts the clock is idle', () => {
     expect(info(start('L03')).shiftClock).toBeNull();
-    expect(info(start('L08')).shiftClock).toMatchObject({ t: 0, total: 3600, running: false });
+    expect(info(start('L08')).shiftClock).toMatchObject({ t: 0, total: 1800, running: false });
   });
 });
 
