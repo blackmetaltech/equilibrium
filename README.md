@@ -1,12 +1,12 @@
 # ⚗️ EQUILIBRIUM — run a chemical plant where the chemistry is real
 
-**[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.3.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
+**[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.4.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
 
 **Build a chemical plant, then find out whether it works.** Place feed banks, heaters, exchangers, burners, reactors, columns and recycle loops, pipe them together, and commission the plant. Then real equilibrium, real kinetics and real heat balances decide what happens: the ammonia you can reach at 450 °C and 200 bar, the catalyst that falls asleep below 410 °C, the glycol reactor that crosses its Semenov point and runs away, the argon that builds up in a loop with no purge. The campaign climbs from std-9 stoichiometry to the work of a junior process engineer: PID tuning, interlocks, HAZOP, data reconciliation, and a five-year career running a whole Works.
 
 The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator windows, a chart recorder, Bakelite knobs, a DESIGN / COMMISSION / RUN key switch, a green-bar printout. Every rule (thermodynamics, equilibrium, kinetics, flowsheet solving, dynamics, economics) runs in a deterministic TypeScript engine on [cobanana-core](https://github.com/ixaxaar/cobanana-core) that Godot drives through a headless Node sidecar.
 
-> **Alpha (0.4 in progress).** Playable on desktop Linux; that is the only platform really supported so far. An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/ixaxaar/equilibrium/issues).
+> **Alpha (0.4.0).** Playable on desktop Linux; that is the only platform really supported so far. An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/ixaxaar/equilibrium/issues).
 
 ![Three adiabatic beds with interstage coolers in the contact plant, with molecule critters in the pipes and the X-T staircase top right](docs/readme/staircase.png)
 
@@ -105,7 +105,7 @@ docs/        DESIGN, DECISIONS, CRITIQUE-0.3, research
 
 ## Status and known gaps
 
-0.4 ("Employable") is in progress: every chapter, the Career and the instruments exist and play. The 0.3 [critique](docs/CRITIQUE-0.3.md) found that the chemistry holds up and the interface fought you; five play-test rounds and their fix rounds followed. In round 5, persona play-testers won at least one level in every chapter from the in-game guidance alone (L08, L11, L16, L18, L21, L22, L24, L27, L28, L29, L30, L33, L35, L37). Still open (`.work/backlog.md`):
+0.4 ("Employable") is tagged: every chapter, the Career and the instruments exist and play. The 0.3 [critique](docs/CRITIQUE-0.3.md) found that the chemistry holds up and the interface fought you; five play-test rounds and their fix rounds followed. In round 5, persona play-testers won at least one level in every chapter from the in-game guidance alone (L08, L11, L16, L18, L21, L22, L24, L27, L28, L29, L30, L33, L35, L37). Still open (`.work/backlog.md`):
 
 - **Build-heavy levels** (L23 Spirits, L25, L26) are hard to finish: big units are awkward to place on a crowded plot, and the first pipe is not obvious.
 - **A few numbers still disagree across screens** (for example the L24 steady-state temperature between the notebook, the debrief and the Semenov marker).
