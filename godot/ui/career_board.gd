@@ -11,6 +11,10 @@ const INV_NAME := {"heat": "HEAT RECOVERY", "abate": "EMISSIONS ABATEMENT", "saf
 var app_ref = null
 var _ta := {}                 ## plant -> {m, crane, crew}: the turnaround being drafted
 
+## The board is a column of cards: below 900 px the grids reflow to one or two columns so the contents never ask for more width than the panel has.
+func fit(w: float, h: float, p_narrow: bool) -> void:
+	super(w, h, p_narrow or w < 900.0)
+
 func board_sb() -> StyleBoxFlat:
 	var sb := EqTheme.porcelain_sb(4, 8.0); sb.bg_color = Color("#B79C78"); return sb
 

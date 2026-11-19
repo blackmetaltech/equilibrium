@@ -52,7 +52,7 @@ func _initialize() -> void:
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(8); CbSettings.persist = false
 	root.size = Vector2i(1280, 800); await frames(4)
-	await _score(); await _cards(); await _book_accept_heat(); await _busy(); await _end()
+	await _fit(); await _score(); await _cards(); await _book_accept_heat(); await _busy(); await _end()
 	print("FIX11-FLOW checks=%d" % checks)
 	print("FIX11-FLOW OK" if fails == 0 else "FIX11-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
@@ -169,3 +169,22 @@ func _end() -> void:
 		check(all_text(app.lvbay.panel).contains("OPERATING MARGIN, TOTAL"), "the ledger is showing")
 	else:
 		print("note: the scripted player ended %s, not won; Keep improving not exercised" % ending)
+
+## Every visible control of the Career board ends inside the viewport (at 1280x800, 1920x1080 and the phone layout 2424x1080).
+func _overflow(n: Node, vw: float, out: Array) -> void:
+	if n is Control and (n as Control).is_visible_in_tree():
+		var c := n as Control; var r := c.get_global_rect().end.x
+		if r > vw + 0.5 and c.get_global_rect().size.x > 0.0: out.append("%s %s right=%.0f" % [c.get_class(), c.name, r])
+	for k in n.get_children(): _overflow(k, vw, out)
+
+func _fit() -> void:
+	await level("CAREER")
+	for i in 6: play_month(i == 0)
+	for sz in [Vector2i(1280, 800), Vector2i(1920, 1080), Vector2i(2424, 1080)]:
+		root.size = sz; await frames(4); app.game_relayout(); app.lvbay.refresh(true); await frames(5)
+		var vw := float(sz.x); var out: Array = []
+		_overflow(app.lvbay.panel, vw, out)
+		check(out.is_empty(), "%dx%d: every Career board control ends inside the viewport (%d out: %s)" % [sz.x, sz.y, out.size(), str(out.slice(0, 6))])
+		var pr: Rect2 = (app.lvbay.panel as Control).get_global_rect()
+		check(pr.end.x <= vw + 0.5 and pr.position.x >= -0.5, "%dx%d: the panel itself fits (%s)" % [sz.x, sz.y, str(pr)])
+	root.size = Vector2i(1280, 800); await frames(4)
