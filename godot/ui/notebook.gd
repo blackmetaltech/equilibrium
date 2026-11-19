@@ -259,7 +259,7 @@ class Tab extends PanelContainer:
 	var btn: Button
 	func _init() -> void:
 		name = "NotebookTab"; add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-		btn = EqTheme.key_button("", false, 15); btn.custom_minimum_size = Vector2(0, 36); btn.pressed.connect(func(): Notebook.open(app)); add_child(btn)
+		btn = EqTheme.key_button("", false, 15); btn.custom_minimum_size = Vector2(0, 36); btn.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS; btn.pressed.connect(func(): Notebook.open(app)); add_child(btn)   # opens on the press: a click that drifts or loses focus before the release still counts
 		custom_minimum_size = Vector2(380, 36); btn.clip_text = true; btn.alignment = HORIZONTAL_ALIGNMENT_LEFT   # a fixed place and width: the title never moves the button
 		btn.add_theme_stylebox_override("normal", Notebook._tab_sb("normal")); btn.add_theme_stylebox_override("hover", Notebook._tab_sb("hover"))
 	func _process(_dt: float) -> void:

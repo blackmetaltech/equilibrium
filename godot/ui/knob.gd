@@ -32,6 +32,7 @@ var _burst_st := 0.0         ## a relative knob's wheel step is fixed for the wh
 var lock_reason := ""      ## shown when a locked knob is pressed
 var engine_steps := false     ## coarse / fine come from the engine's knob spec: the wheel and the +/- buttons move by exactly those (fine with Shift)
 var nudge := true            ## a - and a + button either side of the dial (touch and fine work)
+var nudge_fine := false      ## the - / + buttons move by the fine step (a temperature knob: 1 degC a click; Shift/Ctrl gives the coarse step); the wheel stays coarse
 
 func _init() -> void:
 	custom_minimum_size = Vector2(112, 132); focus_mode = Control.FOCUS_ALL; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -97,6 +98,7 @@ func _step(dir: int, fine_step: bool, nudge_btn := false) -> void:
 			if dir > 0: is_off = false; set_value(lo); changing.emit(value); _timer.start()
 			return
 		if dir < 0 and value <= lo + 1e-9: is_off = true; queue_redraw(); changing.emit(off_disp); _timer.start(); return
+	if nudge_btn and nudge_fine: fine_step = not fine_step   # the buttons are the fine control of a temperature knob; the modifier makes them coarse
 	var st := 1.0 if (integer or not choices.is_empty()) else (fine if fine_step else coarse)
 	if relative and not integer and choices.is_empty():
 		if _burst_st <= 0.0 or _timer.is_stopped(): _burst_st = rel_step(fine_step, nudge_btn)
