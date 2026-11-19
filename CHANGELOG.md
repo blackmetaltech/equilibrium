@@ -3,7 +3,7 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
-## [0.4.0] - unreleased · "Employable" (depth: control room, turnaround, career)
+## [0.4.0] - 2026-11-19 · "Employable" (depth: control room, turnaround, career; five play-test rounds)
 ### Added
 - **Chapter 8 The Control Room** (L29-L33): PID/FOPDT library with analytic oracles (step response, P-only offset, Ziegler-Nichols,
   IMC), Hold the Line (P vs PI offset), Tune It (bump test → fitted K/τ/θ → IMC), Ratio (H₂:N₂ station), Cascade (bed T on quench flow),
@@ -15,10 +15,24 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
 - **Career**: five seeded years running the Works: contracts, price walks, catalyst decay, fouling, wear, inspections, turnarounds,
   incidents, emissions caps, investments; annual review by Victor/Noor/Mara; four endings; replayable leaderboard margin.
 - Level-local engine hooks: `EqState.lv`, `levelAct`, per-level `tick`, `levelView`.
+- Career dashboard (Plant Manager's office): calendar, cash ledger with operating margin vs investments vs net, plant health,
+  contract inbox, investments with payback previews, annual review with revenue drivers (volume vs price) and margin drivers.
+- Works Map with every chapter and the Career node; stars from the engine's `progress`.
+- Phone layout (checked on desktop at 2424x1080): scrolling parts drawer, drag-scroll Works Map, touch camera pad and pinch, pinned
+  brief footer, docked inspector, 48 dp targets, keypad DEL, three-line intercom; Steam Deck (1280x800) layout.
+- Shift clock with ETA on the recorder; one-click "Delete all unconnected"; always-visible ports in DESIGN; nearest free tile and valid
+  anchors when placing big units; feed species tags; interlock RESET; Retry keeps the build, settings and seed; Back to design after a loss.
+### Changed
+- Play-test fix rounds F3-F10 (rounds 1-5, four personas plus a phone pass): knobs carry display units (bar(a), L), annunciators lit only
+  when true, predictions locked once answered and bounded, answers hidden until you call them, one notation per number, raw keys gone.
+- L24 start-up recipe rewritten so it wins as written with a human reaction time (tested 0-60 s); L27 relief on the API 520 gauge basis;
+  L33 per-scenario peak, lag and point of no return per final element; L37 χ² 7.81 → 5.99 with the dof rule; Career scores operating
+  performance, not money spent on recommended investments.
 ### Known gaps
-- Career dashboard front-end in progress; Ch9 boards need label polish on narrow screens.
+- Build-heavy levels (L23, L25, L26) are still hard to finish in a play-test; Career not yet won by a tester; L24 light-off takes ~9 min at 1x.
+- Phone layout not re-checked on a real phone since round 4. See docs/CRITIQUE-0.4.md.
 
-## [0.3.0] - unreleased · "The campaign" (chapters 2-7)
+## [0.3.0] - 2026-11-19 (shipped inside 0.4.0) · "The campaign" (chapters 2-7)
 ### Added
 - **Chapter 2 Fire** (L05-L09): waste-heat boiler shift, burner lining limit + dilution air, Hess's road, pay-once heat recovery,
   bomb vs flow calorimeter bridge.
@@ -39,7 +53,7 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
 - L26 Inside the Envelope and L28 Feed the World need the gauze burner and reformer units (in progress).
 - Two DESIGN numbers disagree with the engine and are documented in the tests (L15 rate ~12 % faster; L19 per-pass conversion ≈ 35 %, not 15 %).
 
-## [0.2.0] - unreleased · "Night shift" (chapter 1 + the control room)
+## [0.2.0] - 2026-11-11 (tag v0.2.0) · "Night shift" (chapter 1 + the control room)
 ### Added
 - L00 Night Shift cold open and Chapter 1 The Bench (L01-L04) with cylinder banks, ideal reactor, sulfur burner, unknown fuel, lab notebook.
 - The 1970s control-room interface: intercom (Mara/Tomas/Victor/Noor), ISA-18.2 annunciator, chart recorder, DESIGN/COMMISSION/RUN key
