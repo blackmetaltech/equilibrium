@@ -58,10 +58,10 @@ func _run() -> void:
 	for i in 40: T.append(500.0 + i * 12.0); X.append(clampf(1.0 - float(i) / 40.0, 0.0, 1.0))
 	ew.set_data({"window": {"T": T, "X": X, "ref": "N2"}, "point": {"T": 700.0, "X": 0.4, "TIn": 650.0}, "beam": {"out": 1.2, "in": 1.2}, "lightOffT": 653.0, "sinterT": 900.0, "reason": null}); await frames(3)
 	check(ew.has_reading(), "an Equilibrium Window with a curve has a reading")
-	for i in 40:
-		if is_equal_approx(ew._beam, ew._beam_to): break
-		await create_timer(0.1).timeout
-	check(is_equal_approx(ew._beam, ew._beam_to), "the beam eases to its engine value")
+	# wait on the condition (the ease stops within 0.002 of its target), with a wall-clock timeout, never a frame count
+	var t0 := Time.get_ticks_msec()
+	while absf(ew._beam - ew._beam_to) > 0.003 and Time.get_ticks_msec() - t0 < 8000: await process_frame
+	check(absf(ew._beam - ew._beam_to) <= 0.003, "the beam eases to its engine value")
 	ew.queue_free()
 	# --- L00: the converter's window and beam
 	await level("L00")
