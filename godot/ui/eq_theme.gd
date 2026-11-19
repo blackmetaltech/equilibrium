@@ -152,5 +152,6 @@ static func key_button(text: String, primary := false, size := 17) -> Button:
 	var fstyle := key_sb(primary, "hover"); fstyle.border_color = TEAL if not primary else INK; fstyle.set_border_width_all(3)
 	b.add_theme_stylebox_override("focus", fstyle)
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: b.add_theme_color_override(c, INK)
+	b.add_theme_color_override("font_disabled_color", INK.lerp(PORCELAIN if not primary else TEAL, 0.5))   # a disabled key keeps its label, greyed (never a blank box)
 	b.custom_minimum_size = Vector2(0, 44)
 	return b

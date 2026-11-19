@@ -55,13 +55,30 @@ static func eta_fmt(w) -> String:
 	var s := int(ceil(float(w)))
 	if s <= 0: return ""
 	return "~%ds" % s if s < 90 else "~%d min" % int(ceil(s / 60.0))
+## ETA smoothing: plant seconds advanced per wall second averaged over the last ETA_WINDOW_S seconds (the engine's figure is left / nominal speed and wobbles with the frame
+## rate). Falls back to the engine's number until the window holds two seconds of history.
+const ETA_WINDOW_S := 10.0
+var _eta_hist: Array = []     ## [[wall seconds, plant seconds]]
+func eta_smoothed(now_s: float = -1.0) -> Variant:
+	if now_s < 0.0: now_s = float(Time.get_ticks_msec()) / 1000.0
+	var t := float(shift_clock.get("t", 0.0)); var left := maxf(float(shift_clock.get("total", 0.0)) - t, 0.0)
+	var raw = shift_clock.get("etaWallS")
+	if not bool(shift_clock.get("running", false)) or raw == null: _eta_hist.clear(); return raw
+	if not _eta_hist.is_empty() and (t < float(_eta_hist.back()[1]) - 1e-6 or float(shift_clock.get("speed", 1.0)) != _eta_speed): _eta_hist.clear()
+	_eta_speed = float(shift_clock.get("speed", 1.0))
+	if _eta_hist.is_empty() or t > float(_eta_hist.back()[1]) + 1e-6 or now_s - float(_eta_hist.back()[0]) >= 0.25: _eta_hist.append([now_s, t])
+	while _eta_hist.size() > 2 and now_s - float(_eta_hist[0][0]) > ETA_WINDOW_S: _eta_hist.pop_front()
+	var dw := float(_eta_hist.back()[0]) - float(_eta_hist[0][0]); var dt := float(_eta_hist.back()[1]) - float(_eta_hist[0][1])
+	if dw < 2.0 or dt <= 1e-9: return raw
+	return left / (dt / dw)
+var _eta_speed := 1.0
 ## The shift clock line the recorder prints: plant time of the shift, and the wall time left at the chosen speed.
 func clock_text() -> String:
 	if shift_clock.is_empty(): return ""
 	var t := float(shift_clock.get("t", 0.0)); var tot := float(shift_clock.get("total", 0.0))
 	if bool(shift_clock.get("ended", false)): return EqStrings.T("CLK_ENDED") % clock_fmt(tot)
 	if not bool(shift_clock.get("running", false)): return EqStrings.T("CLK_IDLE") % clock_fmt(tot)
-	var eta := eta_fmt(shift_clock.get("etaWallS"))
+	var eta := eta_fmt(eta_smoothed())
 	return EqStrings.T("CLK_RUN") % [clock_fmt(t), clock_fmt(tot), ("  " + EqStrings.T("CLK_ETA") % eta) if eta != "" else ""]
 
 func _has(d: Dictionary, k: String) -> bool: return d.has(k) and (d[k] is float or d[k] is int) and is_finite(float(d[k]))
@@ -230,7 +247,7 @@ func _draw() -> void:
 	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero) + (" —" if bool(hero.get("pending", false)) else ""), EqTheme.PEN_BLUE, avail)   # pending: the reading is "—", never a made-up number
 	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec) + (" —" if bool(sec.get("pending", false)) else ""), EqTheme.PEN_RED, avail)
 	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail)
-	if not first_run.is_empty() and runs.size() <= 1 and first_run.get("madeKg") != null:   # (madeKg null: this level makes no product, so no counter) a rolling "made so far" counter while the first run plays
+	if not first_run.is_empty() and runs.size() <= 1 and first_run.get("madeKg") != null and _num(first_run.get("madeKg", 0.0)) > 0.0:   # (madeKg null: this level makes no product, so no counter) a rolling "made so far" counter while the first run plays
 		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 21.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 

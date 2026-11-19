@@ -60,7 +60,7 @@ const COACH: CoachStep[] = [
 ];
 
 export const L11: LevelSpec = {
-  id: 'L11', firstRun: true, chapter: 3, index: 11, setter: 'supervisor', budgetUSD: L11_BUDGET, units: L11_UNITS, notes: 2, shiftLen: 0,
+  id: 'L11', firstRun: true, chapter: 3, index: 11, setter: 'supervisor', budgetUSD: L11_BUDGET, units: L11_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => {
     baseSetup(s, L11_SPECIES, L11_UNITS, { ...NH3_PRESETS, eq_reactor: { ...NH3_PRESETS.eq_reactor, T: L11_T_K } });
     L11_CONTRACTS.forEach((c, i) => {

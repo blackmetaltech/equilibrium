@@ -20,7 +20,7 @@ func _extra_lines() -> Array:
 	if ex > 0.0: out.append("%s  %s %s" % [_lab("exchanger", "exchangers"), _fmt(ex), InstrPaper.T("INS_MW")])
 	for h in arr(data.get("heaters", [])):
 		if h is Dictionary and str(h.get("label", "")) != "": out.append(str(h.label))
-	return out.slice(0, 3)
+	return out.slice(0, 4)
 
 func _draw_body() -> void:
 	if not has_reading(): empty_note(); return
@@ -29,7 +29,14 @@ func _draw_body() -> void:
 	var mono := EqTheme.font("mono"); var fsz := EqTheme.fs(12 if not big else 14)
 	var row_h := float(fsz) + 9.0
 	var extra := _extra_lines()
-	var foot_h := row_h * 2.0 + 10.0 + row_h * float(extra.size())
+	var lfs := EqTheme.fs(11); var lh := float(lfs) + 4.0
+	var wrap_w := size.x - 10.0
+	var extra_h := 0.0
+	var extra_n: Array = []   # wrapped line count of each extra line: a long line wraps, it never clips mid-word
+	for ln in extra:
+		var n := maxi(int(ceil(mono.get_string_size(str(ln), HORIZONTAL_ALIGNMENT_LEFT, -1, lfs).x / maxf(wrap_w, 1.0))), 1)
+		extra_n.append(n); extra_h += lh * float(n) + 2.0
+	var foot_h := row_h + 34.0 + extra_h
 	var rows_fit := maxi(int((size.y - foot_h - 6.0) / row_h), 1)
 	var shown := mini(items.size(), rows_fit)
 	var more := items.size() - shown
@@ -57,20 +64,21 @@ func _draw_body() -> void:
 	var fy := size.y - foot_h
 	draw_line(Vector2(0, fy), Vector2(size.x, fy), Color("#6B7C76"), 1.0)
 	var tot := num(data.get("totalMW", 0.0))
-	var rx := bx
-	var rw := size.x - bx - 8.0
+	var rx := bx + 3.0
+	var rw := size.x - bx - 11.0
 	for it in items:
 		if str(it.kind) != "release" or tot <= 0.0: continue
 		var w := rw * num(it.MW) / tot
-		draw_rect(Rect2(rx, fy + 6.0, w, row_h - 4.0), _ink("release").lerp(Color("#E8A0A5"), 0.0 if int(rx) % 2 == 0 else 0.35))
-		draw_rect(Rect2(rx, fy + 6.0, w, row_h - 4.0), Color("#7A1F26"), false, 1.0)
-		if w > 40.0: draw_string(mono, Vector2(rx + 4.0, fy + row_h), str(it.tag), HORIZONTAL_ALIGNMENT_LEFT, w - 6.0, EqTheme.fs(11), EqTheme.PORCELAIN)
+		draw_rect(Rect2(rx, fy + 4.0, w, row_h - 5.0), _ink("release").lerp(Color("#E8A0A5"), 0.0 if int(rx) % 2 == 0 else 0.35))
+		draw_rect(Rect2(rx, fy + 4.0, w, row_h - 5.0), Color("#7A1F26"), false, 1.0)
+		if w > 40.0: draw_string(mono, Vector2(rx + 4.0, fy + row_h - 6.0), str(it.tag), HORIZONTAL_ALIGNMENT_LEFT, w - 6.0, EqTheme.fs(11), EqTheme.PORCELAIN)
 		rx += w
-	draw_string(mono, Vector2(5, fy + row_h), _lab("release", InstrPaper.T("INS_FROM")), HORIZONTAL_ALIGNMENT_LEFT, tag_w, EqTheme.fs(11), EqTheme.INK)
-	tape(Vector2(bx, fy + row_h + 8.0), "%s  %s %s" % [_lab("total", InstrPaper.T("INS_RELEASED")), _fmt(tot), InstrPaper.T("INS_MW")], EqTheme.PEN_RED, size.x - bx - 6.0, 12)
-	var ly := fy + row_h * 2.0 + 14.0
-	for ln in extra:
-		draw_string(mono, Vector2(5, ly), str(ln), HORIZONTAL_ALIGNMENT_LEFT, size.x - 10.0, EqTheme.fs(11), EqTheme.INK); ly += row_h
+	draw_string(mono, Vector2(5, fy + row_h - 6.0), _lab("release", InstrPaper.T("INS_FROM")), HORIZONTAL_ALIGNMENT_LEFT, tag_w - 2.0, EqTheme.fs(10), EqTheme.INK)
+	tape(Vector2(5.0, fy + row_h + 5.0), "%s  %s %s" % [_lab("total", InstrPaper.T("INS_RELEASED")), _fmt(tot), InstrPaper.T("INS_MW")], EqTheme.PEN_RED, size.x - 10.0, 12)
+	var ly := fy + row_h + 30.0 + float(lfs)
+	for i in extra.size():
+		draw_multiline_string(mono, Vector2(5, ly), str(extra[i]), HORIZONTAL_ALIGNMENT_LEFT, wrap_w, lfs, int(extra_n[i]) + 1, EqTheme.INK, TextServer.BREAK_WORD_BOUND | TextServer.BREAK_MANDATORY)
+		ly += lh * float(extra_n[i]) + 2.0
 	frame()
 
 func _prev_mw(unit_id: String) -> float:
