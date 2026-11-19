@@ -64,12 +64,17 @@ func _alerts(d: Dictionary) -> Control:
 		v.add_child(lbl("ALERTS: none. Every inspection, catalyst and exchanger is in order.", 12, OKGREEN, "mono_bold"))
 		var r0 := lbl(str(d.get("strikeRule", "")), 11, PENCIL, "sans"); r0.name = "StrikeRule"; r0.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; r0.custom_minimum_size = Vector2(200, 0); v.add_child(r0)
 		return _paper(v, Color("#EFF3E2"))
-	v.add_child(lbl("ALERTS: %d need%s you" % [al.size(), "" if al.size() != 1 else "s"], 12, STAMP_RED, "mono_bold"))
+	var by := {}; var order: Array = []   # one row per plant: all of its alerts, one JUMP TO PLANT key
 	for a in al:
+		var pid0 := str(a.plant)
+		if not by.has(pid0): by[pid0] = []; order.append(pid0)
+		(by[pid0] as Array).append(str(a.text).trim_prefix(str(a.label) + ": "))
+	v.add_child(lbl("ALERTS: %d plant%s need%s you" % [order.size(), "" if order.size() == 1 else "s", "s" if order.size() == 1 else ""], 12, STAMP_RED, "mono_bold"))
+	for pid in order:
 		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8)
-		var t := lbl(str(a.text), 12, AMBER_INK, "sans"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; t.custom_minimum_size = Vector2(160, 0); h.add_child(t)
-		var pid := str(a.plant)
-		var kj := key("JUMP TO PLANT", func(): jump_to(pid), false, 11); kj.name = "Jump_%s_%s" % [str(a.kind), pid]; h.add_child(kj)
+		var nm: String = str(PLANT_TAG.get(pid, pid))
+		var t := lbl("%s: %s" % [nm, "; ".join(PackedStringArray(by[pid]))], 12, AMBER_INK, "sans"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; t.custom_minimum_size = Vector2(160, 0); h.add_child(t)
+		var kj := key("JUMP TO PLANT", func(): jump_to(pid), false, 11); kj.name = "Jump_%s" % pid; kj.custom_minimum_size = Vector2(0, 28); h.add_child(kj)
 		v.add_child(h)
 	var rl := lbl(str(d.get("strikeRule", "")), 11, PENCIL, "sans"); rl.name = "StrikeRule"; rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.custom_minimum_size = Vector2(200, 0); v.add_child(rl)
 	return _paper(v, Color("#F8EBD0"))

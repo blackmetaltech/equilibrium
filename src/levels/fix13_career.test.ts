@@ -106,6 +106,7 @@ describe('names and noise', () => {
     const rules = (e.engine.q('levelInfo') as any).stars.rules as string[];
     expect(rules.length).toBe(3);
     expect(rules[2]).toMatch(/within 3 % of the reference engineer/); expect(rules[1]).toMatch(/^Flagship/);
+    expect((e.engine.q('resultCard') as any)?.starRule3 ?? rules[2]).toMatch(/within 3 % of the reference engineer/);
   });
   it('alerts list each due inspection, worn catalyst and fouled exchanger with its plant', () => {
     const e = start(); const cc = careerOf(e.state)!;

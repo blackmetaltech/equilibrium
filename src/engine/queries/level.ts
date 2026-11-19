@@ -272,7 +272,7 @@ const resultCard: QueryFn<EqState> = (s) => {
   const eq = m.ok || spec.shiftLen === 0 ? spec.equation(s, m) : null;
   return {
     won, verdictKey, verdictText, ...(cause !== null ? { cause } : {}), ...(eq !== null ? { equation: eq } : {}), metrics,
-    stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`, spec.textVars?.(s))) }, histogram: histOut,
+    stars: { have: st.have, earned: st.earned }, starRule3: t(`lv.${spec.id}.star.3`, spec.textVars?.(s)), histogram: histOut,
     goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met })),
     /** True when the run did not end in a win; `abortText` is a whole sentence for the banner (never a fragment to wrap in parentheses). */
     aborted: !won, ...(!won ? { abortText: t('lv.report.aborted', { cause: cause ?? verdictText }) } : {}),

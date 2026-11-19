@@ -61,7 +61,9 @@ func _office() -> void:
 	var al: Array = view().dashboard.alerts
 	check(al.size() >= 1, "after ten months an inspection is due: %d alerts" % al.size())
 	var jumps: Array = b.find_children("Jump_*", "Button", true, false)
-	check(jumps.size() == al.size() and jumps.size() >= 1, "each alert has a JUMP TO PLANT key (%d)" % jumps.size())
+	var plants_with := {}
+	for x in al: plants_with[str(x.plant)] = true
+	check(jumps.size() == plants_with.size() and jumps.size() >= 1, "each plant with an alert has a JUMP TO PLANT key (%d for %d plants)" % [jumps.size(), plants_with.size()])
 	b.scroll.scroll_vertical = 0; await frames(2)
 	var pid := str(al[0].plant)
 	(jumps[0] as Button).pressed.emit(); await frames(3)
