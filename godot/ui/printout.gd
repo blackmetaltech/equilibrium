@@ -108,6 +108,9 @@ static func open(app) -> bool:
 		var f := Notebook.Flask.new(); f.filled = bool(earned[i]) if i < earned.size() else false
 		if f.filled: n_stamped += 1; f.name = "Stamp_%d" % i
 		f.pivot_offset = Vector2(23, 23); f.rotation_degrees = [-9.0, 5.0, -3.0][i]; f.modulate = Color(1, 1, 1, 1.0 if f.filled else 0.45); fr.add_child(f)
+	var rules: Array = stars.get("rules", [])   # the slip says what the third flask asks, whether or not it is filled
+	if rules.size() >= 3 and str(rules[2]) != "":
+		_line(vb, "FLASK 3: %s" % str(rules[2]), INKC if (earned.size() > 2 and bool(earned[2])) else EqTheme.RED.darkened(0.15), 18, "FlaskRule3")
 	# metrics
 	_line(vb, "", INKC, 8)
 	_line(vb, PaperStrings.t("PR_METRICS"), INKC, 22)

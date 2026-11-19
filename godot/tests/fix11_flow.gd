@@ -76,17 +76,17 @@ func _score() -> void:
 func _cards() -> void:
 	var b := board()
 	var t := all_text(b)
-	check(t.contains("last inspected month") or t.contains("not inspected yet"), "plant cards carry last inspected / due month")
+	check(t.contains("last inspected month") or t.contains("not inspected yet") or t.contains("inspected month"), "plant cards carry last inspected / due month")
 	check(t.contains("due month"), "and the due month")
 	check(not t.contains("contracted 0 t"), "'contracted 0 t' is not printed")
 	# run to the warning window: every plant inspected at 6+ months resets, so age one plant by advancing without inspecting
 	await level("CAREER"); await refresh()
 	for i in 9: act("advance", [1])
 	await refresh()
-	check(not all_text(app.lvbay.panel).contains("INSPECTION DUE"), "no warning at nine months")
+	check(not all_text(app.lvbay.panel).contains("DUE in"), "no warning at nine months")
 	act("advance", [1]); await refresh()
 	var t2 := all_text(app.lvbay.panel)
-	check(t2.contains("INSPECTION DUE in 2 month"), "two months before the inspection is due the card says so")
+	check(t2.contains("DUE in 2 month"), "two months before the inspection is due the card says so")
 	check(t2.contains("+3 MONTHS stops here"), "and the +3 MONTHS key says it will stop here")
 	var m0 := int(view().dashboard.month)
 	act("advance", [3]); await refresh()
@@ -97,7 +97,7 @@ func _cards() -> void:
 	var guard := 0
 	while guard < 30 and int(view().dashboard.month) < 36:
 		var a: int = int(view().dashboard.month)
-		act("advance", [3])
+		act("ackWarning", []); act("advance", [3])
 		if int(view().dashboard.month) - a < 3: stops += 1
 		guard += 1
 	check(stops >= 1, "+3 MONTHS stopped early at least once before month 36 (%d stops)" % stops)

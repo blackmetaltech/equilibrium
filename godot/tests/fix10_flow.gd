@@ -225,7 +225,7 @@ func _career() -> void:
 	for b in books: if not (b as Button).disabled: all_off = false
 	check(all_off, "BOOK is disabled while no catalyst is in stock")
 	var whys: Array = p.find_children("BookWhy_*", "Label", true, false)
-	check(whys.size() == 4 and (whys[0] as Label).text.contains("no catalyst in stock") and (whys[0] as Label).text.contains("locked"), "each locked BOOK says why: %s" % (whys[0] as Label).text if not whys.is_empty() else "none")
+	check(whys.size() == 4 and (whys[0] as Label).text.contains("BUY CATALYST") and (whys[0] as Label).text.contains("locked"), "each locked BOOK says why: %s" % (whys[0] as Label).text if not whys.is_empty() else "none")
 	var t := all_text(p)
 	check(t.contains("HEAT RECOVERY") and t.contains("EMISSIONS ABATEMENT") and t.contains("SAFETY SYSTEMS") and t.contains("TURNAROUND CREWS") and t.contains("HIRE CREW"), "the four investment cards each carry a name and a key")
 	check(t.contains("Hired crews are the hands"), "the crew card says what it is for")
