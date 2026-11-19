@@ -81,7 +81,7 @@ describe('report', () => {
   it('a run that did not win says so in a whole sentence and lists goals', () => {
     const c = card(play('L03', SPEC_BY_ID.L03!.naive, 3));
     expect(c.aborted).toBe(true);
-    expect(c.abortText).toMatch(/^The run stopped before the goals were met\./);
+    expect(c.abortText).toMatch(c.notMet ? /^Not there yet: the job is still open/ : /^The run stopped before the goals were met\./);
     expect(c.goals.length).toBeGreaterThan(0);
   });
   it('an off-spec shift that runs to its end does not print the shift goal as met', () => {

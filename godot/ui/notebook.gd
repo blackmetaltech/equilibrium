@@ -5,6 +5,7 @@ extends RefCounted
 ## the teal "Start work" key. Everything comes from the `levelInfo` query. It folds into a tab at the top left.
 static var stub := {}          # a levelInfo-shaped dict for galleries/tests; used when the engine has none
 static var started := {}       # level id -> the job has been worked on (commissioned, or restarted with the build kept): the key says Back to work
+static var _named_pick := {}   # level id -> the species chip picked for a named call-it (L04 limiting reagent), sent with the number
 static var _seen := {}         # app instance id -> last level id the watcher opened for
 
 class Grid extends Control:
@@ -248,14 +249,24 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 		var cr := HBoxContainer.new(); cr.name = "CallIt" if cis.size() == 1 else "CallIt_" + ckey; cr.add_theme_constant_override("separation", 10); fvb.add_child(cr)
 		cr.add_child(EqTheme.dymo(PaperStrings.t("NB_CALLIT"), 13))
 		var pl := EqTheme.label(str(ci.prompt) + ":", 18, EqTheme.INK, "sans"); pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cr.add_child(pl)
-		var an := Answer.new(); an.name = "Answer"; an.unit = str(ci.unit)
 		var answered := bool(ci.get("answered", false)) and ci.get("value") != null
+		var opts: Array = ci.get("options", []) if ci.get("options") is Array else []
+		var lid := str(li.get("id", ""))
+		if not opts.is_empty():   # a named part of the call (L04: the limiting reagent): pick a chip first, the number then locks both
+			var nr := HBoxContainer.new(); nr.name = "NamedPick"; nr.add_theme_constant_override("separation", 6); cr.add_child(nr)
+			nr.add_child(EqTheme.label(PaperStrings.t("NB_NAMED"), 15, EqTheme.INK, "sans"))
+			var cur := str(ci.get("named", "")) if answered else str(_named_pick.get(lid, ""))
+			for o in opts:
+				var ob := EqTheme.key_button(EqStrings.formula(str(o)), cur == str(o), 15); ob.name = "Named_" + str(o); ob.custom_minimum_size = Vector2(56, 36); ob.disabled = answered
+				var ov := str(o)
+				ob.pressed.connect(func(): _named_pick[lid] = ov; _rebuild(app, host, vb)); nr.add_child(ob)
+		var an := Answer.new(); an.name = "Answer"; an.unit = str(ci.unit)
 		if answered: an.text = PaperStrings.num(float(ci.value))
 		cr.add_child(an)
 		cr.add_child(EqTheme.label(str(ci.unit), 18, EqTheme.INK, "mono"))
 		var cnote := EqTheme.label("", 15, EqTheme.RED, "semi"); cnote.name = "CallNote"; cnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cnote.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cnote.visible = false
 		if answered:   # the locked answer is written under the line, and stays there when the notebook is reopened
-			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "") + ((" · " + str(ci.tol)) if str(ci.get("tol", "")) != "" else "")
+			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "") + ((" · " + str(ci.tol)) if str(ci.get("tol", "")) != "" else "") + ((" · " + PaperStrings.t("NB_NAMED") + " " + str(ci.named) + (("  ✓" if ci.get("namedOk") == true else "  ✗ (" + str(ci.get("truthNamed", "")) + ")") if ci.get("namedOk") != null else "")) if str(ci.get("named", "")) != "" else "")
 			cnote.add_theme_color_override("font_color", EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK); cnote.label_settings = EqStrings.ls(15, EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK, "semi"); cnote.visible = true
 		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); fvb.remove_child(cr); cwrap.add_child(cr); cwrap.add_child(cnote); fvb.add_child(cwrap); fvb.move_child(cwrap, pi)
 		var lo_b := float(ci.get("min", 0.0)); var hi_b := float(ci.get("max", 1e9))   # the engine's bounds for this answer (a typed 7000 °C is refused before it is locked in)
@@ -265,7 +276,11 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 		an.tapped.connect(func():
 			if is_locked: return   # a locked call-it shows its answer and is never re-armed
 			Knob.keypad(app, str(ci.prompt), str(ci.unit), an.text, lo_b, hi_b, func(v: float) -> void:
-				var r: Dictionary = app.b.act("callIt", [v] if ckey == "" else [v, ckey])
+				if not opts.is_empty() and str(_named_pick.get(lid, "")) == "":   # both parts lock together: ask for the name first
+					an.text = PaperStrings.num(v); an.refused = true; an.queue_redraw()
+					cnote.text = PaperStrings.t("NB_NAMED_FIRST"); cnote.label_settings = EqStrings.ls(15, EqTheme.RED, "semi"); cnote.visible = true
+					return
+				var r: Dictionary = app.b.act("callIt", [v, str(_named_pick[lid])] if not opts.is_empty() else ([v] if ckey == "" else [v, ckey]))
 				if not bool(r.get("ok", false)):   # the engine's refusal is shown on the page itself, and the typed value stays on the line
 					an.text = PaperStrings.num(v); an.refused = true; an.queue_redraw()
 					cnote.text = PaperStrings.t("NB_REFUSED") % str(r.get("message", "")); cnote.add_theme_color_override("font_color", EqTheme.RED); cnote.label_settings = EqStrings.ls(15, EqTheme.RED, "semi"); cnote.visible = true

@@ -203,9 +203,9 @@ const levelInfo: QueryFn<EqState> = (s) => {
     id: spec.id, chapter: spec.chapter, index: spec.index, title: t(`lv.${spec.id}.title`), setter: cast,
     setterName: pack.strings[`cast.${cast}.name`] ?? '', setterTitle: pack.strings[`cast.${cast}.title`] ?? '',
     place: t(`lv.${spec.id}.place`),
-    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`, spec.textVars ? spec.textVars(s) : {}) + (spec.callIt && i === spec.notes - 1 ? ' ' + t('lv.note.predict') : '')),
+    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`, spec.textVars ? spec.textVars(s) : {}) + (spec.callIt && i === spec.notes - 1 ? ' ' + t(spec.callIt.lateOk ? 'lv.note.predict_late' : 'lv.note.predict') : '')),
     /** The prediction rule of a call-it level, also on its own for the notebook's Call it box. */
-    predictNote: spec.callIt ? t('lv.note.predict') : null,
+    predictNote: spec.callIt ? t(spec.callIt.lateOk ? 'lv.note.predict_late' : 'lv.note.predict') : null,
     notice,
     goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(lack !== null && g.value === undefined ? { readout: t('lv.goal.needs_unit', { unit: t(`label.unit.${lack}`) }) } : {}), ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
     budgetUSD: spec.budgetUSD, spentUSD: spent,
@@ -213,7 +213,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     callIt: call === null ? null : {
       key: call.key, prompt: t(`lv.${spec.id}.callit`), unit: call.unit, tol: tolText(call.tol), ...callBounds(call), answered: grade.answered, locked: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
       ...(grade.ok !== undefined && (s.solved !== null || s.status !== 'playing') ? { ok: grade.ok, truth: fin(grade.truth ?? 0) } : {}),
-      ...(call.named ? { named: grade.named ?? '', options: s.species.filter((x) => x === 'N2' || x === 'H2') } : {}),
+      ...(call.named ? { named: grade.named ?? '', options: s.species.filter((x) => x === 'N2' || x === 'H2'), ...(grade.namedOk !== undefined && (s.solved !== null || s.status !== 'playing') ? { namedOk: grade.namedOk, truthNamed: grade.truthNamed } : {}) } : {}),
       ...(call.lateOk ? { late: true } : {}),
     },
     /** Several predictions (L09, L18): one row each; `ok` and `truth` only once the run is over. Empty when the level has just the one `callIt`. */
@@ -269,13 +269,16 @@ const resultCard: QueryFn<EqState> = (s) => {
   const histMetric = metrics.find((x) => x.key === h?.metric);
   const histOut = histogram && histMetric ? { ...histogram, title: histMetric.label, unit: histMetric.unit, labels: edgeLabels(histogram.edges, s.region) } : histogram;
   const grade = gradeCallIt(s, spec, m);
+  const notMet = !won && s.status === 'playing' && verdictKey !== 'solve_fail';
   const eq = m.ok || spec.shiftLen === 0 ? spec.equation(s, m) : null;
   return {
     won, verdictKey, verdictText, ...(cause !== null ? { cause } : {}), ...(eq !== null ? { equation: eq } : {}), metrics,
     stars: { have: st.have, earned: st.earned }, starRule3: t(`lv.${spec.id}.star.3`, spec.textVars?.(s)), histogram: histOut,
     goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met })),
     /** True when the run did not end in a win; `abortText` is a whole sentence for the banner (never a fragment to wrap in parentheses). */
-    aborted: !won, ...(!won ? { abortText: t('lv.report.aborted', { cause: cause ?? verdictText }) } : {}),
+    aborted: !won, ...(!won ? { abortText: t(notMet ? 'lv.report.not_met' : 'lv.report.aborted', { cause: cause ?? verdictText }) } : {}),
+    /** A run that missed its goals while the job is still open (a test burn, a first try): the printout says GOALS NOT MET, not RUN ABORTED. */
+    notMet,
     ...(spec.callIt ? { callIt: grade } : {}),
     lesson: t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
     designCode: encodeSolution({ game: s.game, level: spec.id, ruleset: s.ruleset, seed: s.seed, mode: s.mode, actions: s.levelActions ?? [] }),

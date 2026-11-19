@@ -82,9 +82,10 @@ static func open(app) -> bool:
 	var runs = PaperStrings.q(app, "runs")
 	var run_n: int = (runs as Array).size() if runs is Array else 1
 	_line(vb, "%s · %s · %s" % [PaperStrings.t("PR_HEAD"), PaperStrings.t("PR_RUN") % run_n, lid], INKC, 26, "Header")
-	_line(vb, PaperStrings.t("PR_DONE") if won else PaperStrings.t("PR_ABORT"), EqTheme.PEN_GREEN if won else EqTheme.RED, 30, "Banner")
+	var not_met := not won and bool(rc.get("notMet", false))   # a test burn / first try that missed: the job is still open, not an abort
+	_line(vb, PaperStrings.t("PR_DONE") if won else (PaperStrings.t("PR_NOTMET") if not_met else PaperStrings.t("PR_ABORT")), EqTheme.PEN_GREEN if won else (EqTheme.INK if not_met else EqTheme.RED), 30, "Banner")
 	var abort_t := str(rc.get("abortText", "")) if bool(rc.get("aborted", not won)) and not won else ""
-	if abort_t != "": _line(vb, abort_t, EqTheme.RED.darkened(0.15), 22, "Verdict")   # the engine's whole sentence: never "lost: (...)" around a fragment
+	if abort_t != "": _line(vb, abort_t, INKC if not_met else EqTheme.RED.darkened(0.15), 22, "Verdict")   # the engine's whole sentence: never "lost: (...)" around a fragment
 	elif str(rc.get("verdictText", "")) != "": _line(vb, str(rc.verdictText), INKC, 22, "Verdict")
 	if not won:
 		if str(rc.get("cause", "")) != "" and abort_t == "":
