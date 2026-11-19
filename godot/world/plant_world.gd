@@ -493,7 +493,18 @@ func fit_view() -> void:
 	for id in _units:
 		var st: Array = _unit_state[id]
 		pts.append([Vector2i(int(st[1]), int(st[2])), footprint_of(st[0], st[3])])
+	if _units.size() < 3 and _big_build(): pts.append([Vector2i.ZERO, Vector2i(NX, NZ)])   # a big build starts nearly empty: frame the whole fenced plot, not the lone feed (L25 opened zoomed on its feed)
 	_fit_boxes(pts, _units.size() < 3)
+
+## The level asks for a big build (a build checklist, or six or more parts to place): the player needs the whole plot in view from the start.
+func _big_build() -> bool:
+	if app == null or app.b == null: return false
+	var li = PaperStrings.q(app, "levelInfo")
+	if not (li is Dictionary) or (li as Dictionary).is_empty(): return false
+	if li.get("buildGuide") is Array and not (li.buildGuide as Array).is_empty(): return true
+	var n := 0
+	for a in li.get("allowedUnits", []): n += int(a.get("max", 0)) if a.get("max") != null else 0
+	return n >= 6
 
 ## Frame tile boxes [[tile, footprint]]: every unit fully inside the space above the console, whatever the yaw (a pre-placed bank is never cropped).
 func _fit_boxes(boxes: Array, keep_plot := false) -> void:

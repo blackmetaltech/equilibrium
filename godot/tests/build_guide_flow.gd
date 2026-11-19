@@ -12,7 +12,9 @@ func check(c: bool, msg: String) -> void:
 	if not c: fails += 1; print("FAIL: ", msg)
 func frames(n := 3) -> void:
 	for i in n: await process_frame
+var emit: Array = []   ## CB_BG_EMIT=<file>: the clicks and keys as desk.sh commands, for replaying a run with xdotool
 func click_at(p: Vector2, gap := 2) -> void:
+	emit.append("click %d %d" % [int(p.x), int(p.y)])
 	var m := InputEventMouseMotion.new(); m.position = p; m.global_position = p; Input.parse_input_event(m); await frames(1)
 	var e := InputEventMouseButton.new(); e.button_index = MOUSE_BUTTON_LEFT; e.position = p; e.global_position = p; e.pressed = true; e.button_mask = MOUSE_BUTTON_MASK_LEFT; Input.parse_input_event(e)
 	await frames(1)
@@ -22,6 +24,7 @@ func key(code: int, uni := 0) -> void:
 	var e := InputEventKey.new(); e.keycode = code; e.physical_keycode = code; e.unicode = uni; e.pressed = true; Input.parse_input_event(e); await frames(1)
 	var r := InputEventKey.new(); r.keycode = code; r.physical_keycode = code; r.pressed = false; Input.parse_input_event(r); await frames(1)
 func type_number(s: String) -> void:
+	emit.append("type %s" % s); emit.append("key Return")
 	for ch in s:
 		if ch == ".": await key(KEY_PERIOD, 46)
 		else: await key(KEY_0 + int(ch), 48 + int(ch))
@@ -47,6 +50,8 @@ func _initialize() -> void:
 	var only := OS.get_environment("CB_BG_ONLY")
 	for id in ["L23", "L25", "L26"]:
 		if only == "" or only == id: await play(id)
+	var ef := OS.get_environment("CB_BG_EMIT")
+	if ef != "": var fh := FileAccess.open(ef, FileAccess.WRITE); fh.store_string("\n".join(emit)); fh.close()
 	print("BUILD-GUIDE-FLOW checks=%d" % checks)
 	print("BUILD-GUIDE-FLOW OK" if fails == 0 else "BUILD-GUIDE-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
@@ -66,7 +71,7 @@ func play(id: String) -> void:
 	check(bv != null and bv.get_child_count() == steps.size(), "%s: the notebook lists every line of the build order" % id)
 	await snap(id + "_notebook")
 	await call_it(id)
-	Notebook.close(app); await frames(3)
+	Notebook.close(app); await frames(3)   # (call_it already clicked "Start work"; this is the fall-back when there is no Call it box)
 	var p := panel()
 	check(p != null and p.visible, "%s: the checklist panel is on screen under the notebook tab" % id)
 	var total := steps.size()
@@ -89,7 +94,9 @@ func play(id: String) -> void:
 	check(left.is_empty(), "%s: every line of the checklist is ticked (open: %s)" % [id, str(left)])
 	await snap(id + "_built")
 	# commission with the key (Space) and let the plant run its first run
-	await key(KEY_SPACE); await frames(4)
+	var ks: Control = app.chrome.keys
+	await click_at(ks.get_global_rect().get_center(), 4)
+	if str(q("levelInfo").phase) == "design": await key(KEY_SPACE); await frames(4)
 	var g: Dictionary = app.b.g
 	check(str(q("levelInfo").phase) != "design", "%s: the key commissioned the plant (phase %s)" % [id, str(q("levelInfo").phase)])
 	for i in 40:
@@ -113,6 +120,8 @@ func call_it(id: String) -> void:
 	check(app.modal() != null and app.modal().name == "keypad", "%s: tapping the Call it line opens the keypad" % id)
 	await type_number(v)
 	check(bool(li().callIt.answered), "%s: the Call it answer is locked in from the notebook" % id)
+	var go: Control = nb.find_child("Start", true, false)
+	if go != null: await click_at(go.get_global_rect().get_center(), 3)
 
 # ---- steps ----------------------------------------------------------------------------------------------------------------------
 func row_of(sid: String) -> Control:
