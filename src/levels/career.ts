@@ -45,9 +45,10 @@ const sgn = (x: number, d = 1): string => `${x >= 0 ? '+' : '-'}${(Math.abs(x) /
 export function revenueNote(y: Career['years'][number], prev: Career['years'][number] | undefined): string {
   const kt = Math.round(y.tonnes / 1000), price = y.tonnes > 0 ? y.rev / y.tonnes : 0;
   const base = { rev: (y.rev / 1e6).toFixed(1), kt, price: Math.round(price), crev: M(y.contractRev), ct: Math.round(y.contractT / 1000), down: Math.round(y.downDays), cat: Math.round(y.catAvg * 100), u: Math.round(y.uAvg * 100) };
-  if (prev === undefined || prev.tonnes <= 0) return t('lv.CAREER.rev.first', base);
+  const contracts = t(y.contractT > 0 ? 'lv.CAREER.rev.contracts' : 'lv.CAREER.rev.nocontracts', base);
+  if (prev === undefined || prev.tonnes <= 0) return t('lv.CAREER.rev.first', { ...base, contracts });
   const p0 = prev.rev / prev.tonnes, vol = (y.tonnes - prev.tonnes) * p0, pr = (price - p0) * y.tonnes;
-  return t('lv.CAREER.rev.change', { ...base, dir: y.rev >= prev.rev ? t('lv.CAREER.rev.rose') : t('lv.CAREER.rev.fell'), rev0: (prev.rev / 1e6).toFixed(1), diff: sgn(y.rev - prev.rev), vol: sgn(vol), pr: sgn(pr), kt0: Math.round(prev.tonnes / 1000), p0: Math.round(p0), down0: Math.round(prev.downDays), cat0: Math.round(prev.catAvg * 100), u0: Math.round(prev.uAvg * 100) });
+  return t('lv.CAREER.rev.change', { ...base, contracts, dir: y.rev >= prev.rev ? t('lv.CAREER.rev.rose') : t('lv.CAREER.rev.fell'), rev0: (prev.rev / 1e6).toFixed(1), diff: sgn(y.rev - prev.rev), vol: sgn(vol), pr: sgn(pr), kt0: Math.round(prev.tonnes / 1000), p0: Math.round(p0), down0: Math.round(prev.downDays), cat0: Math.round(prev.catAvg * 100), u0: Math.round(prev.uAvg * 100) });
 }
 const victorText = (y: Career['years'][number]): string => t('lv.CAREER.victor', { op: (y.opMargin / 1e6).toFixed(1), inv: (y.inv / 1e6).toFixed(1), net: (y.margin / 1e6).toFixed(1), target: M(MARGIN_TARGET_YEAR), cash: (y.cash / 1e6).toFixed(1) });
 const maraText = (y: Career['years'][number]): string => {

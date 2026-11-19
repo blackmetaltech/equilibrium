@@ -26,7 +26,7 @@ describe('career review (F9c)', () => {
   });
   it('revenue note gives numbers: volume, price, outage, catalyst, U, contracts', () => {
     const y1 = c.years[1]!, note = revenueNote(y1, c.years[0]);
-    expect(note).toMatch(/Volume [+-]\d/); expect(note).toMatch(/Price [+-]\d/); expect(note).toMatch(/plant-days/); expect(note).toMatch(/catalyst activity/); expect(note).toMatch(/Contracts took/);
+    expect(note).toMatch(/Volume [+-]\d/); expect(note).toMatch(/Price [+-]\d/); expect(note).toMatch(/plant-days/); expect(note).toMatch(/catalyst activity/); expect(note).toMatch(/Contracts took|No contracts were running/);
     expect(revenueNote(c.years[0]!, undefined)).toMatch(/REVENUE: /);
     const p0 = c.years[0]!.rev / c.years[0]!.tonnes, vol = (y1.tonnes - c.years[0]!.tonnes) * p0, pr = (y1.rev / y1.tonnes - p0) * y1.tonnes;
     expect(vol + pr).toBeCloseTo(y1.rev - c.years[0]!.rev, 0);

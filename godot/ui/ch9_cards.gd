@@ -25,10 +25,10 @@ func _build() -> void:
 	body.add_child(_summary())
 	var split: BoxContainer = (VBoxContainer.new() if narrow else HBoxContainer.new()); split.add_theme_constant_override("separation", 10); body.add_child(split)
 	# rack
-	var rack := VBoxContainer.new(); rack.add_theme_constant_override("separation", 4); rack.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rack.size_flags_stretch_ratio = 0.9; split.add_child(rack)
+	var rack := VBoxContainer.new(); rack.add_theme_constant_override("separation", 2); rack.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rack.size_flags_stretch_ratio = 0.9; split.add_child(rack)
 	var cards: Array = view.get("cards", view.get("steps", []))
 	var rh := HBoxContainer.new(); rh.add_theme_constant_override("separation", 8); rack.add_child(rh)
-	rh.add_child(tape("CARD RACK", 12)); rh.add_child(lbl("%d cards, all shown (scroll the sheet to see the last)" % cards.size(), 11, PENCIL, "sans"))
+	rh.add_child(tape("CARD RACK", 12)); rh.add_child(lbl("%d cards (scroll the sheet if the last is below the fold)" % cards.size(), 11, PENCIL, "sans"))
 	for c in cards: rack.add_child(_rack_card(c, sop))
 	# sequence
 	var seq := VBoxContainer.new(); seq.add_theme_constant_override("separation", 4); seq.size_flags_horizontal = Control.SIZE_EXPAND_FILL; seq.size_flags_stretch_ratio = 1.15; split.add_child(seq)
@@ -50,10 +50,11 @@ func _card_sb(col: Color, edge: Color) -> StyleBoxFlat:
 func _rack_card(c: Dictionary, sop: bool) -> Control:
 	var b := Button.new(); b.focus_mode = Control.FOCUS_ALL; b.alignment = HORIZONTAL_ALIGNMENT_LEFT; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.text = "%s  (%d min)" % [str(c.label), int(c.mins)]; b.tooltip_text = str(c.label)
-	b.add_theme_font_override("font", EqTheme.font("mono")); b.add_theme_font_size_override("font_size", EqTheme.fs(13))
+	if b.text.length() <= 38: b.autowrap_mode = TextServer.AUTOWRAP_OFF   # a one-line card stays one line (an autowrap button reserves two), so the whole rack fits
+	b.add_theme_font_override("font", EqTheme.font("mono")); b.add_theme_font_size_override("font_size", EqTheme.fs(12))
 	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: b.add_theme_color_override(st, EqTheme.INK)
 	for st in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(st, _card_sb(Color("#F6EFD9") if st != "hover" else Color("#FFFAE8"), Color("#8A7A55") if st != "focus" else EqTheme.TEAL))
-	b.custom_minimum_size = Vector2(0, maxf(26.0, Ch9Board.tmin()))
+	b.custom_minimum_size = Vector2(0, maxf(24.0, Ch9Board.tmin()))
 	if sop and str(c.get("pre", "")) != "": b.tooltip_text = str(c.pre)
 	b.pressed.connect(func(): emit_act("add", [c.id]))
 	return b
