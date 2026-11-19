@@ -15,7 +15,7 @@ import { CSTR_RELIEF_K } from '../data/events';
 import { SPECIES } from '../data/species';
 import { ORIFICE_MM2 } from '../data/vle';
 import type { EqState } from '../state';
-import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, link, none, predictionOf, put, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
@@ -134,11 +134,33 @@ export function runawayMeasures(s: S): Measures {
 
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 
+// -------------------------------------------------------------------------------------------------------- the start-up checklist (levelInfo.buildGuide)
+/** The value a dial is heading for (a setpoint ramps at the actuator's rate): the ramp target while it moves, the knob otherwise. */
+const target = (s: S, id: string, key: string, now: number): number => s.shift?.ramps[`${id}.${key}`]?.to ?? now;
+const feedKmolH = (s: S): number => (s.shift ? toKmolH(target(s, ids.feed, 'flow', s.feeds[ids.feed]?.flow ?? 0)) : 0);
+const coolantC = (s: S): number => { const u = unitsOfType(s, 'cstr')[0]; return s.shift && u ? C(target(s, ids.cstr, 'Tc', typeof u.params.Tc === 'number' ? u.params.Tc : K7_GAME.Tc)) : -99; };
+/** The reactor has been lit: the chart has passed the cue at some time of the shift (the peak trend keeps the fact after the chart has come back down). */
+const litSeen = (s: S): boolean => s.shift !== null && Math.max(s.shift.dc[ids.cstr]?.T ?? 0, ...(s.trends.tmax_K ?? [])) > L24_RECIPE.coolAtC + K;
+/** The notebook's start-up as rows: each ticks from engine state (the dials' targets, the reactor chart), never from a click. A row stays ticked when a later setting overtakes it
+ *  (feed 235 counts as 'feed raised to 215'), so the two edits of step 3 and of step 4 may be made in either order. */
+export const L24_GUIDE: BuildStep[] = [
+  { id: 'ilk', kind: 'set', slot: { type: 'interlock' }, done: (s) => unitsOfType(s, 'interlock').some((u) => typeof u.params.setpoint === 'number' && Math.abs((u.params.setpoint as number) - L24_TRIP_K) < 0.6) },
+  { id: 'relief', kind: 'set', slot: { type: 'relief' }, done: (s) => unitsOfType(s, 'relief').some((u) => (ORIFICE_MM2[String(u.params.orifice ?? 'D')] ?? 0) >= (ORIFICE_MM2[L24_ORIFICE] ?? 0)) },
+  { id: 'start', kind: 'set', done: (s) => s.shift !== null },
+  { id: 'feed', kind: 'set', slot: { type: 'feed' }, done: (s) => s.shift !== null && (litSeen(s) || feedKmolH(s) >= L24_RECIPE.feedKmolH - 1) },
+  { id: 'warm', kind: 'set', slot: { type: 'cstr' }, done: (s) => s.shift !== null && (litSeen(s) || coolantC(s) >= L24_RECIPE.warmC - 0.5) },
+  { id: 'lit', kind: 'set', slot: { type: 'cstr' }, done: litSeen },
+  { id: 'ease_c', kind: 'set', slot: { type: 'cstr' }, done: (s) => litSeen(s) && coolantC(s) <= L24_RECIPE.easeC + 0.5 },
+  { id: 'ease_f', kind: 'set', slot: { type: 'feed' }, done: (s) => litSeen(s) && feedKmolH(s) >= L24_RECIPE.easeKmolH - 1 },
+  { id: 'cooled', kind: 'set', slot: { type: 'cstr' }, done: (s) => litSeen(s) && coolantC(s) <= L24_RECIPE.holdC + 0.5 },
+  { id: 'fed', kind: 'set', slot: { type: 'feed' }, done: (s) => litSeen(s) && feedKmolH(s) >= L24_RECIPE.fullKmolH - 1 },
+];
+
 export const L24: LevelSpec = {
-  id: 'L24', firstRun: false, chapter: 6, index: 24, setter: 'safety', budgetUSD: L24_BUDGET, units: L24_UNITS, notes: 11, shiftLen: L24_SHIFT_S, maxTicks: L24_SHIFT_S + 600,
+  id: 'L24', firstRun: false, chapter: 6, index: 24, setter: 'safety', budgetUSD: L24_BUDGET, units: L24_UNITS, notes: 8, shiftLen: L24_SHIFT_S, maxTicks: L24_SHIFT_S + 600,
   textVars: () => {
     const run = l24RunC(), lo = l24AtFeed(l24FullFrac()).states[0]!.T, ig70 = l24AtFeed(l24StartFrac()).ignitionC;
-    return { run: Math.round(run), lazy: Math.round(C(lo)), ign70: r1(ig70), warm: L24_RECIPE.warmC, gap: r1(L24_RECIPE.warmC - ig70), trip: C(L24_TRIP_K), relief: C(CSTR_RELIEF_K), tripGap: Math.round(C(L24_TRIP_K) - run), full: Math.round(C(l24HotK())), fullGap: Math.round(C(L24_TRIP_K) - C(l24HotK())), slowPeak: L24_RECIPE.slowPeakC, slowGap: C(L24_TRIP_K) - L24_RECIPE.slowPeakC, late: L24_RECIPE.lateS };
+    return { run: Math.round(run), lazy: Math.round(C(lo)), ign70: r1(ig70), warm: L24_RECIPE.warmC, gap: r1(L24_RECIPE.warmC - ig70), trip: C(L24_TRIP_K), relief: C(CSTR_RELIEF_K), tripGap: Math.round(C(L24_TRIP_K) - run), full: Math.round(C(l24HotK())), fullGap: Math.round(C(L24_TRIP_K) - C(l24HotK())), slowPeak: L24_RECIPE.slowPeakC, feedF: L24_RECIPE.feedKmolH, slowGap: C(L24_TRIP_K) - L24_RECIPE.slowPeakC, late: L24_RECIPE.lateS, ease: L24_RECIPE.easeC, easeF: L24_RECIPE.easeKmolH, gapS: L24_RECIPE.gapS, settle: L24_RECIPE.settleS, cue: L24_RECIPE.coolAtC, hold: L24_RECIPE.holdC, fullF: L24_RECIPE.fullKmolH };
   },
   setup: (s) => { baseSetup(s, L24_SPECIES, L24_UNITS, PRESETS()); build(s); sealSetup(s); },
   measures: runawayMeasures,
@@ -171,6 +193,7 @@ export const L24: LevelSpec = {
       { key: 'goal', legend: t('lv.L24.ann.goal'), state: m.ok && m.v.ended === 1 && g.every((x) => x.met) ? 'normal' : 'off' },
     ];
   },
+  buildGuide: L24_GUIDE,
   coach: [
     { id: 'set_ilk', role: 'safety', focus: 'interlock', done: (s) => unitsOfType(s, 'interlock').some((u) => (u.params.setpoint as number) > 0 && (u.params.setpoint as number) !== L24_TRIP_DEFAULT_K) },
     { id: 'size_relief', role: 'safety', focus: 'relief', done: (s) => unitsOfType(s, 'relief').some((u) => u.params.orifice !== 'D') },
@@ -179,7 +202,7 @@ export const L24: LevelSpec = {
     { id: 'reset_ilk', role: 'safety', focus: 'interlock', done: (s) => s.shift === null || s.shift.trips[ids.ilk] === undefined },
     { id: 'set_coolant', role: 'safety', focus: 'cstr', done: (s) => s.shift === null || (s.shift.dc[ids.cstr]?.T ?? 0) > L24_SOLVE.litC + K || (typeof unitsOfType(s, 'cstr')[0]?.params.Tc === 'number' && (unitsOfType(s, 'cstr')[0]!.params.Tc as number) >= L24_SOLVE.warmK - 0.5) },
     { id: 'ignite', role: 'safety', focus: 'cstr', done: (s) => (s.shift?.dc[ids.cstr]?.T ?? 0) > 80 + K || s.shift === null },
-    { id: 'cool_back', role: 'safety', focus: 'cstr', done: (s) => (s.shift?.t ?? 0) > 900 || s.shift === null },
+    { id: 'cool_back', role: 'safety', focus: 'cstr', done: (s) => s.shift === null || (litSeen(s) && coolantC(s) <= L24_RECIPE.easeC + 0.5 && feedKmolH(s) >= L24_RECIPE.easeKmolH - 1) },
   ] as CoachStep[],
   verdict: (s, m) => {
     if (!m.ok || m.v.ended !== 1) return { key: 'not_run', cause: null };
@@ -237,11 +260,13 @@ void none;
  *  unstable state is at 63 C): the peak stays at the 117 C upper state. Later it cancels a feed surge with the feed dial, and answers a cooling-water
  *  pump trip (U A x 0.3, upper state about 152 C) with a colder jacket and a feed trimmed to 70 %. */
 /** The player's start-up recipe, exactly as the notebook says it, in the dials' own units (feed knob in kmol/h, full charge 260.6; coolant in °C) at the 1x speed.
- *  f9b_l24.test.ts drives the level through nothing but these set points, a human reaction time after each chart reading, and requires a win with no trip.
- *  Step 2: feed to feedKmolH, coolant to warmC. Step 3: when the reactor chart passes coolAtC, coolant to holdC and, at the same moment, feed to fullKmolH (one click pair, no second
- *  chart watch: a hand up to lateWallS wall seconds = lateS plant seconds at 4x late peaks at slowPeakC at most). The speed is 4x from the start, 16x once step 3 is done.
- *  (Cooling at 70 C falls back to the lazy state at 70 % feed, so the chart must be past 80 C first. Full feed is 235 kmol/h (90 %), not the 260.6 design charge: the late feed surge then peaks near 115 C, 10 K under the 125 C trip, instead of 124 C.) */
-export const L24_RECIPE = { feedKmolH: 182, warmC: 65, coolAtC: 80, holdC: 25, feedAtC: 100, fullKmolH: 235, speed: '4x', lateS: 240, lateWallS: 60, slowPeakC: 120 };
+ *  f9b_l24.test.ts drives the level through nothing but these set points, a human reaction time after each chart reading, in BOTH orders and with delays between them.
+ *  Step 2: feed to feedKmolH, coolant to warmC (lights the starved charge). Step 3, when the chart passes coolAtC (near the ignition peak, so the climb is almost over): ease the
+ *  coolant to easeC and the feed up to easeKmolH, in either order, a hand up to lateS plant seconds (lateWallS wall seconds at 4x) late, a gap of up to gapS plant seconds between the
+ *  two clicks. Both corners are safe: (182 kmol/h, 52 C) keeps the upper state (the lazy state at 25 C needs 210+ kmol/h to have an upper state), (215 kmol/h, 65 C) runs at 115 C.
+ *  Step 4, once the chart has been steady for settleS: coolant to holdC (25 C) and feed to fullKmolH (235 kmol/h), again in either order, at 16x: (215, 25) is still bistable and lit,
+ *  (235, 52) runs at 118 C. The speed is 4x from the start, 16x once step 3 is done. */
+export const L24_RECIPE = { feedKmolH: 182, warmC: 65, coolAtC: 110, easeC: 52, easeKmolH: 215, holdC: 25, feedAtC: 100, fullKmolH: 235, speed: '4x', lateS: 240, gapS: 120, settleS: 120, lateWallS: 60, slowPeakC: 120 };
 export const L24_SOLVE = { rampStep: 0.025, rampEvery: 12, starve: 0.7, warmK: 72 + K, holdK: 25 + K, litC: 70, coldK: 280, tripFeed: 0.7 };
 
 function solver() {

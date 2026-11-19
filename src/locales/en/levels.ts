@@ -32,6 +32,7 @@ export const levels: Record<string, string> = {
   'lv.err.bank_kg': 'A bank delivers between 0 and 1000000 kg/h; {value} is not possible.',
 
   // ---- L00 Night Shift
+  'lv.call.tol': 'within ±{tol} %', 'lv.call.tol_exact': 'exactly',
   'lv.note.predict': 'Call it: predict before your first commission. The answer box locks when you commission; a right call earns a star.',
   'lv.L00.title': 'Night Shift', 'lv.L00.place': 'The ammonia loop, 02:40',
   'lv.L00.note.1': 'Last night shift. She is running sweet, but listen for the water.',

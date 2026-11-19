@@ -52,6 +52,7 @@ static func clock_fmt(sec: float) -> String:
 	return "%d:%02d:%02d" % [h, m, s % 60] if h > 0 else "%d:%02d" % [m, s % 60]
 static func eta_fmt(w) -> String:
 	if w == null: return ""
+	if not is_finite(float(w)) or float(w) > 6.0e5: return ""
 	var s := int(ceil(float(w)))
 	if s <= 0: return ""
 	return "~%ds" % s if s < 90 else "~%d min" % int(ceil(s / 60.0))
@@ -63,15 +64,32 @@ func eta_smoothed(now_s: float = -1.0) -> Variant:
 	if now_s < 0.0: now_s = float(Time.get_ticks_msec()) / 1000.0
 	var t := float(shift_clock.get("t", 0.0)); var left := maxf(float(shift_clock.get("total", 0.0)) - t, 0.0)
 	var raw = shift_clock.get("etaWallS")
-	if not bool(shift_clock.get("running", false)) or raw == null: _eta_hist.clear(); return raw
+	if not bool(shift_clock.get("running", false)) or raw == null: _eta_hist.clear(); return _clamp_eta(raw)
 	if not _eta_hist.is_empty() and (t < float(_eta_hist.back()[1]) - 1e-6 or float(shift_clock.get("speed", 1.0)) != _eta_speed): _eta_hist.clear()
 	_eta_speed = float(shift_clock.get("speed", 1.0))
 	if _eta_hist.is_empty() or t > float(_eta_hist.back()[1]) + 1e-6 or now_s - float(_eta_hist.back()[0]) >= 0.25: _eta_hist.append([now_s, t])
 	while _eta_hist.size() > 2 and now_s - float(_eta_hist[0][0]) > ETA_WINDOW_S: _eta_hist.pop_front()
-	var dw := float(_eta_hist.back()[0]) - float(_eta_hist[0][0]); var dt := float(_eta_hist.back()[1]) - float(_eta_hist[0][1])
-	if dw < 2.0 or dt <= 1e-9: return raw
-	return left / (dt / dw)
+	var rate := measured_rate()
+	if rate <= 1e-9: return _clamp_eta(raw)
+	return _clamp_eta(left / rate)
 var _eta_speed := 1.0
+## The ETA is never negative (a stale engine figure, a frame that ran backwards): clamped at zero.
+static func _clamp_eta(w) -> Variant:
+	if w == null: return null
+	var v := float(w)
+	return maxf(v, 0.0) if is_finite(v) else null
+## Plant seconds the sim really advances per real second, from the ETA window; -1.0 until the window holds two seconds of history. Under load this falls below the speed key.
+func measured_rate() -> float:
+	if _eta_hist.size() < 2: return -1.0
+	var dw := float(_eta_hist.back()[0]) - float(_eta_hist[0][0]); var dt := float(_eta_hist.back()[1]) - float(_eta_hist[0][1])
+	if dw < 2.0 or dt <= 1e-9: return -1.0
+	return dt / dw
+## The speed key's note: the actual rate when the machine cannot keep the chosen speed ("4x · 3.1x real"), else "".
+func rate_note() -> String:
+	if not bool(shift_clock.get("running", false)): return ""
+	var sp := float(shift_clock.get("speed", 1.0)); var r := measured_rate()
+	if sp <= 0.0 or r < 0.0 or r >= sp * 0.85: return ""
+	return "%s · %s real" % [EqStrings.T("SPEED_%d" % [[0, 1, 4, 16].find(int(sp))]), ("%.1f" % r).trim_suffix(".0") + "×"]
 ## The shift clock line the recorder prints: plant time of the shift, and the wall time left at the chosen speed.
 func clock_text() -> String:
 	if shift_clock.is_empty(): return ""

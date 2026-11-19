@@ -120,7 +120,9 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
     const r = cstrSteadyStates(cs.model, cs.inputs, 120);
     const live = sh?.dc[u.id]?.T;
     const opT = live !== undefined && Number.isFinite(live) ? live : fin(live0?.units[u.id]?.info.T);
-    return { T: r.semenov.T, G: r.semenov.G, R: r.semenov.R, states: r.states.map((x) => ({ T: x.T, stable: x.stable })), op: { T: opT } };
+    // the steady states belong to the inlet the reactor sees NOW: while the feed ramps they move, so the plot says which feed they are for
+    const feedKmolH = fin(st.n.reduce((a, b) => a + b, 0)) * 3.6;
+    return { T: r.semenov.T, G: r.semenov.G, R: r.semenov.R, states: r.states.map((x) => ({ T: x.T, stable: x.stable })), op: { T: opT }, feedKmolH };
   },
 
   /** Equilibrium Window of any reactor with a reaction set: X_eq(T) for the stage's inlet feed and pressure, the operating point (outlet T, key conversion) and the balance beam (log10 Q/K at the outlet and the inlet, clamped to +-3 by the unit). */

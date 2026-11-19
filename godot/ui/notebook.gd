@@ -255,7 +255,7 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 		cr.add_child(EqTheme.label(str(ci.unit), 18, EqTheme.INK, "mono"))
 		var cnote := EqTheme.label("", 15, EqTheme.RED, "semi"); cnote.name = "CallNote"; cnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cnote.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cnote.visible = false
 		if answered:   # the locked answer is written under the line, and stays there when the notebook is reopened
-			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "")
+			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "") + ((" · " + str(ci.tol)) if str(ci.get("tol", "")) != "" else "")
 			cnote.add_theme_color_override("font_color", EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK); cnote.label_settings = EqStrings.ls(15, EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK, "semi"); cnote.visible = true
 		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); fvb.remove_child(cr); cwrap.add_child(cr); cwrap.add_child(cnote); fvb.add_child(cwrap); fvb.move_child(cwrap, pi)
 		var lo_b := float(ci.get("min", 0.0)); var hi_b := float(ci.get("max", 1e9))   # the engine's bounds for this answer (a typed 7000 °C is refused before it is locked in)
@@ -299,7 +299,15 @@ class Tab extends PanelContainer:
 		var li := Notebook.info(app)
 		visible = app != null and app.started and not li.is_empty() and (app.modal() == null)
 		position = Vector2.ZERO
-		if visible: btn.text = "%s  %02d · %s  ▸" % [PaperStrings.t("NB_TAB"), int(li.get("index", 0)), str(li.get("title", ""))]
+		if visible: btn.text = fit_text("%s  %02d · " % [PaperStrings.t("NB_TAB"), int(li.get("index", 0))], str(li.get("title", "")), "  ▸")
+	## The tab keeps its fixed width: a long title is shortened with an ellipsis so the arrow at the end is never clipped.
+	func fit_text(head: String, title: String, tail: String) -> String:
+		var f := btn.get_theme_font("font"); var fs := btn.get_theme_font_size("font_size")
+		var room := custom_minimum_size.x - 40.0   # the tab style's side margins and the teal edge
+		var t := title; var cut := false
+		while t.length() > 1 and f.get_string_size(head + t + ("…" if cut else "") + tail, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > room:
+			t = t.left(t.length() - 1).strip_edges(); cut = true
+		return head + t + ("…" if cut else "") + tail
 
 static func _tab_sb(state: String) -> StyleBoxFlat:
 	var s := EqTheme.porcelain_sb(3, 10.0); s.border_width_left = 5; s.border_color = EqTheme.TEAL

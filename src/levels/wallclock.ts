@@ -11,8 +11,8 @@ import { L24_RECIPE, L24_SHIFT_S } from './l24';
 export const WALL_LIMIT_S = 300;
 export type SpeedPlan = [untilPlantS: number, speed: 1 | 4 | 16][];
 
-/** L24: 4x until the reactor is lit (about 440 plant seconds) and the player has clicked (a hand up to L24_RECIPE.lateS plant seconds late), 16x for the rest. */
-export const L24_LIGHT_OFF_S = 440 + L24_RECIPE.lateS;
+/** L24: 4x until the reactor is lit (the chart passes the 110 C cue at about 450 plant seconds) and the player has made the two step-3 edits (a hand up to L24_RECIPE.lateS plant seconds after the cue, the two clicks included), 16x for the rest. */
+export const L24_LIGHT_OFF_S = 450 + L24_RECIPE.lateS;
 export const SHIFT_PLAN: Readonly<Record<string, { len: number; plan: SpeedPlan }>> = {
   L00: { len: L00_DECIDED_S, plan: [[L00_DECIDED_S, 1]] },
   L05: { len: L05_LEN_S, plan: [[L05_LEN_S, 1]] },

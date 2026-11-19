@@ -349,7 +349,7 @@ func _sync_key() -> void:
 	keys.set_speed_enabled(phase == "shift" or phase == "firstrun")
 	if phase != "shift" and phase != "firstrun" and app.speed != 0 and str(app.b.g.get("status", "playing")) == "playing" and app.started: app.set_speed(0); keys.set_speed_pos(0)
 	# the note follows the real clock: "PAUSED" only while nothing runs (dial at the pause bars), never over a 4x / 16x shift
-	keys.set_speed_note(PaperStrings.t("CLOCK_PAUSED") if (phase == "design" or phase == "commissioned") and key_available() and app.speed == 0 and keys.speed_pos == 0 else "")
+	keys.set_speed_note(PaperStrings.t("CLOCK_PAUSED") if (phase == "design" or phase == "commissioned") and key_available() and app.speed == 0 and keys.speed_pos == 0 else (recorder.rate_note() if phase == "shift" else ""))
 	if (phase == "shift" or phase == "firstrun") and keys.speed_pos != app.speed: keys.set_speed_pos(app.speed)
 
 func _poll_coach(li: Dictionary) -> void:

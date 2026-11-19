@@ -1113,13 +1113,14 @@ func suggest_place(type: String, at: Vector2i) -> void:
 	ensure_footprints()
 	var fp := footprint_of(type)
 	if not can_place(type, at.x, at.y, 0): clear_suggest(); return
-	_suggest_fp = fp; _suggest_at = at
+	_suggest_fp = fp; _suggest_at = at; _suggest_type = type
 	if _suggest == null:
 		_suggest = MeshInstance3D.new(); _suggest.name = "SuggestFoot"; _suggest.mesh = BoxMesh.new(); _suggest.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var m := StandardMaterial3D.new(); m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.albedo_color = Color(0.22, 0.85, 0.42, 0.5); m.no_depth_test = true; m.render_priority = 4
 		_suggest.material_override = m; add_child(_suggest)
 	(_suggest.mesh as BoxMesh).size = Vector3(fp.x * GRID - 0.1, 0.08, fp.y * GRID - 0.1)
 	_suggest.position = tile_to_world(at, fp) + Vector3(0, 0.16, 0); _suggest.visible = true
+var _suggest_type := ""
 func clear_suggest() -> void:
 	_suggest_at = Vector2i(-1, -1)
 	if _suggest != null: _suggest.visible = false
@@ -1137,6 +1138,7 @@ func _coach_tick() -> void:
 			(n as Node3D).scale = Vector3.ONE * (1.0 + 0.4 * absf(sin(tg * 4.5)))
 			var gf := port_frame(str(n.get_meta("u")), str(n.get_meta("p")), bool(n.get_meta("i")))
 			if not gf.is_empty(): (n as Node3D).position = pip_world(gf)
+	if _suggest != null and _suggest.visible and _suggest_type != "" and not can_place(_suggest_type, _suggest_at.x, _suggest_at.y, 0): clear_suggest()   # the unit has been placed on the pad (or something else took the spot): the pad goes
 	if _suggest != null and _suggest.visible: (_suggest.material_override as StandardMaterial3D).albedo_color.a = 0.25 + 0.4 * absf(sin(Time.get_ticks_msec() * 0.004))
 	if not _pulse_nodes.is_empty():
 		if Time.get_ticks_msec() > _pulse_until: clear_pulse()

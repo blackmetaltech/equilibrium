@@ -61,7 +61,8 @@ func _draw_body() -> void:
 		now_txt = "%s %.0f °C" % [InstrPaper.T("INS_NOW"), kelvin_c(opT)]
 	var ly := tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), InstrPaper.T("INS_G") + " · " + InstrPaper.T("INS_KW"), EqTheme.PEN_RED, pl.size.x - 8.0, 11)
 	ly = tape(Vector2(pl.position.x + 4.0, ly), InstrPaper.T("INS_R"), EqTheme.PEN_BLUE, pl.size.x - 8.0, 11)
-	if now_txt != "": tape(Vector2(pl.position.x + 4.0, ly), now_txt, EqTheme.INK, pl.size.x - 8.0, 11)
+	if now_txt != "": ly = tape(Vector2(pl.position.x + 4.0, ly), now_txt, EqTheme.INK, pl.size.x - 8.0, 11)
+	if num(data.get("feedKmolH", 0.0)) > 0.0: tape(Vector2(pl.position.x + 4.0, ly), InstrPaper.T("INS_AT_FEED") % ("%.0f" % num(data.get("feedKmolH", 0.0))), EqTheme.INK, pl.size.x - 8.0, 11)
 	frame()
 
 func _interp(ts: Array, ys: Array, tk: float) -> float:
