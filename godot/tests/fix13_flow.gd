@@ -89,8 +89,7 @@ func _advance_lock() -> void:
 	var b := board()
 	var guard := 0
 	while guard < 30 and not bool(view().dashboard.needsAck) and str(view().dashboard.ending) == "":
-		await b.advance_months(3); guard += 1
-		if not bool(view().dashboard.needsAck): pass
+		b.advance_months(3); await frames(12); guard += 1   # not awaited to the end: the one-second dark period after a stop must still be running when we look
 	check(bool(view().dashboard.needsAck), "a +3 MONTHS stop at a warning leaves it unacknowledged (%d presses)" % guard)
 	b = board()
 	var k3 := b.find_child("Advance3", true, false) as Button
