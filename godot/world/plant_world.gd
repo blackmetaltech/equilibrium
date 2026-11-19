@@ -88,6 +88,7 @@ func input_ok() -> bool: return not blocked and visible and app != null and app.
 ## The engine's plant query. Its units (if any) are shown unless the gallery owns the plot.
 func set_state(p: Dictionary) -> void:
 	plant = p
+	ensure_footprints()
 	if not gallery:
 		set_units(p.get("units", []))
 		pipes.set_pipes(p.get("streams", []), _unit_state)
@@ -121,6 +122,18 @@ func fit_deco(id: String) -> void:
 func set_footprints(pal: Dictionary) -> void:
 	for c in pal.get("cats", []):
 		for it in c.get("items", []): fp_table[str(it.type)] = Vector2i(int(it.w), int(it.h))
+
+## The grid follows the ENGINE: every footprint the ghost, the free-spot search and the click test use is the one `placeUnit` checks (the models are drawn smaller or larger,
+## never the rule). Loaded once from the palette query; a model-sized guess is only the fallback before the engine has answered.
+var _fp_loaded := false
+func ensure_footprints() -> void:
+	if _fp_loaded or app == null or app.b == null: return
+	var pal = PaperStrings.q(app, "palette")
+	if pal is Dictionary and not (pal as Dictionary).is_empty() and (pal as Dictionary).has("cats"):
+		set_footprints(pal); _fp_loaded = true
+		for id in _units.keys():   # models built before the table existed are fitted to it now
+			var st: Array = _unit_state.get(id, [])
+			if not st.is_empty(): _fit(_units[id], str(st[0])); (_units[id] as UnitModel).position = tile_to_world(Vector2i(st[1], st[2]), footprint_of(st[0], st[3]))
 
 func footprint_of(type: String, rot := 0) -> Vector2i:
 	var t: Vector2i = fp_table.get(type, UnitModels.footprint(type, 0))
@@ -381,6 +394,46 @@ func place_problem_hint(type: String, x: int, y: int, rot := 0, ignore := "") ->
 	if f.x < 0: return why.replace("pick a free spot", "no free spot is left for this unit")
 	return why.replace("pick a free spot", "nearest free spot is the green tile at column %d, row %d" % [f.x, f.y])
 
+## Every anchor tile where this footprint stands inside the fence and clear of every other unit: the same test `placeUnit` applies.
+func valid_anchors(type: String, rot := 0, ignore := "") -> Array:
+	var fp := footprint_of(type, rot); var occ := _occupied(ignore); var out: Array = []
+	for y in range(0, NZ - fp.y + 1):
+		for x in range(0, NX - fp.x + 1):
+			var ok := true
+			for i in range(fp.x):
+				for j in range(fp.y):
+					if occ.has(Vector2i(x + i, y + j)): ok = false; break
+				if not ok: break
+			if ok: out.append(Vector2i(x, y))
+	return out
+
+## While a big unit (8+ tiles) is in hand every valid anchor is marked faintly at the centre of the footprint it would take, so the player sees where it fits at all.
+const ANCHOR_MIN_AREA := 8
+var _anchors: MultiMeshInstance3D
+var _anchor_sig := ""
+func anchor_count() -> int: return _anchors.multimesh.instance_count if _anchors != null and _anchors.visible else 0
+func _show_anchors(type: String, rot: int, ignore: String) -> void:
+	var fp := footprint_of(type, rot) if type != "" else Vector2i.ZERO
+	if type == "" or fp.x * fp.y < ANCHOR_MIN_AREA:
+		if _anchors != null: _anchors.visible = false
+		_anchor_sig = ""; return
+	var a := valid_anchors(type, rot, ignore)
+	var sig := "%s|%d|%d|%s" % [type, rot, a.size(), str(a.hash())]
+	if sig == _anchor_sig and _anchors != null: _anchors.visible = true; return
+	_anchor_sig = sig
+	if _anchors == null:
+		_anchors = MultiMeshInstance3D.new(); _anchors.name = "Anchors"; _anchors.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var bm := BoxMesh.new(); bm.size = Vector3(1.0, 0.05, 1.0)
+		var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.mesh = bm; _anchors.multimesh = mm
+		var m := StandardMaterial3D.new(); m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.albedo_color = Color(0.22, 0.85, 0.42, 0.2)
+		_anchors.material_override = m; add_child(_anchors)
+	var mm2: MultiMesh = _anchors.multimesh
+	mm2.instance_count = a.size()
+	for i in a.size():
+		var c := tile_to_world(a[i], fp)
+		mm2.set_instance_transform(i, Transform3D(Basis.IDENTITY, c + Vector3(0, 0.11, 0)))
+	_anchors.visible = a.size() > 0
+
 var _free_foot: MeshInstance3D
 func _show_free_foot(type: String, from: Vector2i, rot: int, ignore: String, on: bool) -> void:
 	if not on:
@@ -530,7 +583,7 @@ func _gallery_units() -> Array:
 # ---- placement --------------------------------------------------------------------------------------------------------------
 
 func begin_place(type: String, rot := 0) -> void:
-	cancel_place()
+	cancel_place(); ensure_footprints()
 	placing = type; place_rot = rot % 4
 	_ghost = UnitModels.create(type, "ghost"); _ghost.make_ghost(Color("#38D96B")); add_child(_ghost); _fit(_ghost, type)
 	_foot = MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(1, 0.06, 1); _foot.mesh = bm
@@ -549,7 +602,7 @@ func _clear_place_toast() -> void:
 func cancel_place() -> void:
 	placing = ""
 	_clear_place_toast()
-	_show_free_foot("", Vector2i.ZERO, 0, "", false)
+	_show_free_foot("", Vector2i.ZERO, 0, "", false); _show_anchors("", 0, "")
 	if _why_tag != null: _why_tag.visible = false
 	if _ghost != null: _ghost.queue_free(); _ghost = null
 	if _foot != null: _foot.queue_free(); _foot = null
@@ -561,7 +614,9 @@ func place_at(x: int, y: int) -> bool:
 	if placing == "": return false
 	var why := place_problem_hint(placing, x, y, place_rot, place_ignore)
 	if why != "":
-		if app != null and app.has_method("toast"): _place_toast = why; app.toast(why, "warn")
+		if app != null and app.has_method("toast"):
+			_clear_place_toast()   # a new refusal replaces the old one: the intercom never keeps a tile hint the banner no longer shows
+			_place_toast = why; app.toast(why, "warn")
 		return false
 	place_requested.emit(placing, x, y, place_rot); return true
 
@@ -571,27 +626,53 @@ func _update_ghost() -> void:
 	var t := Vector2i(clampi(_cursor.x, 0, NX - fp.x), clampi(_cursor.y, 0, NZ - fp.y))
 	var why := place_problem_hint(placing, t.x, t.y, place_rot, place_ignore)
 	_cursor_valid = why == ""
+	_show_anchors(placing, place_rot, place_ignore)
 	_show_free_foot(placing, t, place_rot, place_ignore, not _cursor_valid and why.begins_with("Occupied"))
-	if _cursor_valid: _clear_place_toast()
+	if _place_toast != "" and why != _place_toast: _clear_place_toast()   # a toast about another tile is withdrawn the moment the ghost moves on
 	var col := Color("#38D96B") if _cursor_valid else Color("#E63946")
-	_ghost_why(why, tile_to_world(t, fp) + Vector3(0, _ghost.height * _ghost.scale.y + 1.2, 0))
+	_ghost_why(why, t, fp)
 	_ghost.position = tile_to_world(t, fp); _ghost.rotation_degrees.y = -90.0 * place_rot; _ghost.tint_ghost(col)
 	_foot.position = _ghost.position + Vector3(0, 0.12, 0); (_foot.mesh as BoxMesh).size = Vector3(fp.x * GRID - 0.1, 0.06, fp.y * GRID - 0.1)
 	_foot_mat.albedo_color = Color(col.r, col.g, col.b, 0.38)
 	_cursor = t
 
-## The red ghost says why: a billboard tag over it ("Occupied by F-101").
-var _why_tag: Label3D
-func ghost_reason() -> String: return _why_tag.text if _why_tag != null and _why_tag.visible else ""
-func _ghost_why(why: String, at: Vector3) -> void:
+## The red ghost says why: a banner on the screen (never a tag in the 3D scene, which the screen edge cut and which sat on the plant being placed). It is a 2D panel
+## inside the plant area (clear of the drawer, the console and the top bar), at the top edge, and it hops to the bottom edge when the ghost would be under it.
+## It never takes the mouse, so a click through it still places.
+var _why_tag: PanelContainer
+var _why_lbl: Label
+func ghost_reason() -> String: return _why_lbl.text if _why_tag != null and _why_tag.visible else ""
+func _plant_area() -> Rect2:
+	var vr := get_viewport().get_visible_rect().size
+	var l := cover_left + 8.0; var r := vr.x - (cover + board_cover) - 8.0; var top := 64.0; var bot := vr.y - cover_bottom - 8.0
+	return Rect2(l, top, maxf(120.0, r - l), maxf(60.0, bot - top))
+func _ghost_screen_rect(t: Vector2i, fp: Vector2i) -> Rect2:
+	var lo := Vector2(INF, INF); var hi := Vector2(-INF, -INF)
+	for c in [Vector2i(0, 0), Vector2i(fp.x, 0), Vector2i(0, fp.y), Vector2i(fp.x, fp.y)]:
+		var w := Vector3(-PLOT.x * 0.5 + GRID * (t.x + c.x), 0.0, -PLOT.y * 0.5 + GRID * (t.y + c.y))
+		for h in [0.0, 5.0]:
+			var q := cam.unproject_position(w + Vector3(0, h, 0)); lo = lo.min(q); hi = hi.max(q)
+	return Rect2(lo, hi - lo)
+func _ghost_why(why: String, t: Vector2i, fp: Vector2i) -> void:
 	if why == "":
 		if _why_tag != null: _why_tag.visible = false
 		return
 	if _why_tag == null:
-		_why_tag = Label3D.new(); _why_tag.name = "GhostWhy"; _why_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED; _why_tag.no_depth_test = true; _why_tag.fixed_size = true
-		_why_tag.pixel_size = 0.0011; _why_tag.font_size = 38; _why_tag.outline_size = 12; _why_tag.outline_modulate = Color(0, 0, 0, 0.9); _why_tag.modulate = Color("#FF8A92")
-		_why_tag.font = EqTheme.font("semi"); _why_tag.render_priority = 8; _why_tag.outline_render_priority = 7; add_child(_why_tag)
-	_why_tag.text = why; _why_tag.position = at; _why_tag.visible = true
+		var cl := CanvasLayer.new(); cl.name = "PlaceBannerLayer"; cl.layer = 9; add_child(cl)
+		_why_tag = PanelContainer.new(); _why_tag.name = "GhostWhy"; _why_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxFlat.new(); sb.bg_color = Color("#2A1214E6"); sb.border_color = Color("#FF8A92"); sb.set_border_width_all(2); sb.set_corner_radius_all(4); sb.set_content_margin_all(8)
+		_why_tag.add_theme_stylebox_override("panel", sb)
+		_why_lbl = Label.new(); _why_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE; _why_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_why_lbl.label_settings = EqStrings.ls(16, Color("#FF8A92"), "semi"); _why_tag.add_child(_why_lbl); cl.add_child(_why_tag)
+	var area := _plant_area()
+	_why_lbl.text = why; _why_lbl.custom_minimum_size.x = clampf(area.size.x - 24.0, 120.0, 520.0); _why_lbl.size = Vector2(_why_lbl.custom_minimum_size.x, 0)
+	_why_tag.reset_size(); _why_tag.visible = true
+	var sz := _why_tag.get_combined_minimum_size()
+	var x := clampf(area.position.x + (area.size.x - sz.x) * 0.5, area.position.x, maxf(area.position.x, area.end.x - sz.x))
+	var top := Rect2(Vector2(x, area.position.y), sz); var bot := Rect2(Vector2(x, area.end.y - sz.y), sz)
+	var g := _ghost_screen_rect(t, fp)
+	var ot := top.intersection(g).get_area() if top.intersects(g) else 0.0; var ob := bot.intersection(g).get_area() if bot.intersects(g) else 0.0
+	_why_tag.position = top.position if ot <= ob else bot.position; _why_tag.size = sz
 
 func _ground_at(p: Vector2) -> Variant:
 	var o := cam.project_ray_origin(p); var n := cam.project_ray_normal(p)
