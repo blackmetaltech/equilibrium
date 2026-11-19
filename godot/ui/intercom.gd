@@ -21,6 +21,7 @@ var _tick: ColorRect
 var _why: Button
 var _got: Button
 var _log: Button
+var _act: Button           ## an action key on the newest line ("Delete all unconnected"): one press, then it is spent
 const CPS := 70.0
 
 func _init() -> void:
@@ -40,9 +41,26 @@ func _init() -> void:
 	var side := VBoxContainer.new(); side.alignment = BoxContainer.ALIGNMENT_END; side.mouse_filter = Control.MOUSE_FILTER_IGNORE; row.add_child(side)
 	_why = _link("Why", "IC_WHY", EqTheme.TEAL); _why.pressed.connect(func(): ask_why()); side.add_child(_why)
 	_got = _link("GotIt", "IC_GOT_IT", EqTheme.TEAL); _got.pressed.connect(func(): got_it.emit()); side.add_child(_got)
+	_act = _link("Act", "IC_LOG", EqTheme.AMBER); _act.pressed.connect(_do_act); _act.visible = false; side.add_child(_act)
 	_log = _link("Log", "IC_LOG", EqTheme.DIM); _log.pressed.connect(open_full); side.add_child(_log)
 	_why.visible = false; _got.visible = false
 	say("MARA", EqStrings.T("IC_IDLE"), "info")
+
+## A line with an action key beside it (Callable runs once on a press; the key then goes away).
+func say_action(who: String, text: String, kind: String, label: String, action: Callable) -> void:
+	say(who, text, kind)
+	var l := last()
+	if l.is_empty() or str(l.get("text", "")) != text: return
+	l["action_label"] = label; l["action"] = action
+	_show_last()
+
+func _do_act() -> void:
+	var l := last()
+	if l.is_empty() or not l.has("action"): return
+	var cb: Callable = l.action
+	l.erase("action"); l.erase("action_label")
+	_show_last()
+	if cb.is_valid(): cb.call()
 
 func _sb() -> StyleBoxFlat:
 	var s := EqTheme.enamel_sb(4, 6.0).duplicate() as StyleBoxFlat
@@ -117,6 +135,7 @@ func _show_last() -> void:
 	_tick.color = EqTheme.TEAL if live else Color(0, 0, 0, 0)
 	_why.visible = live and str(l.get("why", "")) != "" and not l.get("why_said", false)
 	_got.visible = live and bool(l.get("got_it", false))
+	_act.visible = l.has("action"); if _act.visible: _act.text = str(l.get("action_label", ""))
 	# a long line steps its type down (15 -> 12) until it fits the box, so no word is cut; only then does it scroll (the log has the whole text)
 	var col := _color(str(l.get("kind", "info")))
 	var full := str(l.get("text", "")) if not l.is_empty() else ""

@@ -372,7 +372,13 @@ func turn_key(skip_predict := false) -> Dictionary:
 		_ask_predict(); return {}
 	if phase == "design":
 		var r: Dictionary = app.b.act("commission")
-		if not r.get("ok", false): app.toast(str(r.get("message", "")), "warn"); keys.set_pos(0); _pulse_open_ports(str(r.get("message", ""))); return r
+		if not r.get("ok", false):
+			var strays = app.b.q("strayUnits") if _has_query("strayUnits") else []
+			if strays is Array and not (strays as Array).is_empty():   # unpiped spares (auto-allotted tanks, a mixer): one key deletes them all
+				intercom.say_action("TOMAS", str(r.get("message", "")), "warn", EqStrings.T("KEY_PRUNE"), prune_unconnected)
+				app.sfx("alarm")
+			else: app.toast(str(r.get("message", "")), "warn")
+			keys.set_pos(0); _pulse_open_ports(str(r.get("message", ""))); return r
 		if not r.get("commissioned", true):
 			_last_fail_msg = str(r.get("message", "")) if str(r.get("message", "")) != "" else EqStrings.T("KEY_SOLVE_FAIL")
 			_failure()   # names the failed tag (a no-op when the changed signal already did)
@@ -434,6 +440,14 @@ func goto_pos(i: int) -> void:
 		phase = engine_phase(); cur = 0 if phase == "design" else (1 if phase == "commissioned" else 2)
 
 ## RUN -> DESIGN: the engine has no stop action, so the level restarts with the player's build and Call it answers put back (ui/build_keeper.gd).
+## Delete every unit that has no pipe (the engine's pruneUnconnected, one undo step).
+func prune_unconnected() -> Dictionary:
+	if app == null or not app.started: return {}
+	var r: Dictionary = app.b.act("pruneUnconnected")
+	if r.get("ok", false): app.game_on_changed(); intercom.say("MARA", str(r.get("message", "")), "info")
+	else: app.toast(str(r.get("message", "")), "warn")
+	return r
+
 ## A commission refused for pipework: the unit the message names (else every unit with an open port) pulses its open ports (the engine's openPorts).
 func _pulse_open_ports(message: String) -> void:
 	if app == null or app.world == null or not app.world.has_method("pulse_ports") or not _has_query("openPorts"): return

@@ -27,7 +27,14 @@ func _initialize() -> void:
 			await frames(8); await snap(tag)
 		"l11":
 			await level("L11"); await frames(4)
-			app.chrome.turn_key(true); await frames(8); await snap(tag)
+			print(app.b.act("placeUnit", ["product", 20, 0, 0])); print(app.b.act("placeUnit", ["mixer", 12, 6, 0])); app.game_on_changed(); await frames(3)
+			var us: Array = app.b.q("plant").units
+			print("L11 units ", us.map(func(u): return str(u.id) + ":" + str(u.type)))
+			var tk := ""
+			for u in us: if str(u.type) in ["tank", "product"]: tk = str(u.id)
+			print("connect ", app.b.act("connect", ["F-101", "out", tk, "in"]))
+			app.game_on_changed(); await frames(3)
+			app.chrome.turn_key(true); await frames(8); await create_timer(2.5).timeout; await snap(tag)
 		"inspector":
 			await level("L01")
 			for a in [["feed", 0, 0, 0], ["feed", 0, 4, 0], ["mixer", 4, 2, 0], ["stoich_reactor", 8, 0, 0], ["product", 18, 0, 0]]: app.b.act("placeUnit", a)

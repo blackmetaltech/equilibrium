@@ -74,6 +74,12 @@ class Tile extends Control:
 			for i in range(n):
 				var c := Vector2(size.x - 8.0 - (n - 1 - i) * 9.0, size.y - 13.0)
 				draw_circle(c, 3.5, EqTheme.AMBER if i < count else EqTheme.ENAMEL_LO); draw_arc(c, 3.5, 0, TAU, 12, EqTheme.DIM, 1.0)
+		if not available and limit != null and count >= int(limit):   # every allowed one is on the sheet (a pre-placed unit too): greyed, and it says so
+			var cap := PaperStrings.t("RACK_ONSITE") if int(limit) == 1 else PaperStrings.t("RACK_LIMIT") % int(limit)
+			var cs := EqTheme.fs(11)
+			while cs > 7 and mf.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, cs).x > size.x - 12.0: cs -= 1
+			draw_rect(Rect2(3, size.y * 0.34, size.x - 6, 17), Color(0, 0, 0, 0.62))
+			draw_string(mf, Vector2(3, size.y * 0.34 + 13.0), cap, HORIZONTAL_ALIGNMENT_CENTER, size.x - 6.0, cs, EqTheme.TEXT.darkened(0.15))
 		if hint != "":
 			draw_string(mf, Vector2(5, 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(13), EqTheme.TEXT.darkened(0.2))
 
@@ -155,7 +161,7 @@ func refresh() -> void:
 func pick(type: String) -> void:
 	for t in tiles:
 		if (t as Tile).type == type:
-			if not (t as Tile).available: app.toast(PaperStrings.t("RACK_LIMIT1") if int((t as Tile).limit) == 1 else PaperStrings.t("RACK_LIMIT") % int((t as Tile).limit), "warn"); return
+			if not (t as Tile).available: app.toast(PaperStrings.t("RACK_LIMIT1") if int((t as Tile).limit) == 1 else PaperStrings.t("RACK_LIMIT") % int((t as Tile).limit), "info"); return
 	if app.world == null: return
 	if app.world.placing == type: app.world.cancel_place(); return
 	app.world.begin_place(type)

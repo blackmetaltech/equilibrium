@@ -52,7 +52,7 @@ export const errors: Record<string, string> = {
   'err.predict.quantity': 'Name what you are calling with lowercase words joined by underscores, like conversion or power_kw.',
   'err.predict.value': 'A call is a number: {value} is not.',
   'err.commission.empty': 'There is nothing to commission. Place a feed, connect it through your units to a product tank or the stack, then commission.',
-  'err.commission.stray': 'These units are not piped to anything: {unit}. Pipe them into the plant or delete them (select and press Delete, or use Delete all unconnected), then commission again.',
+  'err.commission.stray': 'These units are not piped to anything: {unit}. Pipe them in or delete them, then commission again.',
   'err.prune.none': 'Every unit on the sheet is piped to something, so there is nothing to delete.',
   'log.pruned': 'Deleted the unconnected units: {units}.',
   'err.commission.open_port': 'Stream from {unit} outlet goes nowhere. Every outlet must end in a unit, a product tank or the stack.',

@@ -878,7 +878,15 @@ class Hub extends Node:
 		for id in [app.world.selected_id, hover_id]:
 			if str(id) == "" or seen.has(str(id)) or not app.world.unit_ids().has(str(id)) or not _alive(str(id)): continue
 			seen[str(id)] = true; marks.append_array(_free_ports(str(id)))
+		if _designing():   # DESIGN: every unit's free ports are always on show, small and quiet (no captions) until the unit is selected or hovered
+			for id in app.world.unit_ids():
+				if seen.has(str(id)) or not _alive(str(id)): continue
+				for m in _free_ports(str(id)): m["subtle"] = true; m["label"] = ""; marks.append(m)
 		app.world.show_ports(marks)
+
+	func _designing() -> bool:
+		var ch = app.get("chrome")
+		return ch == null or not ch.has_method("engine_phase") or str(ch.engine_phase()) == "design"
 
 	## The engine still has this unit (the world may be a frame behind a deletion).
 	func _alive(id: String) -> bool:

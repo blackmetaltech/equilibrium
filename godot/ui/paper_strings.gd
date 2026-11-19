@@ -3,7 +3,7 @@ extends RefCounted
 ## Player-facing text of the paper layer (parts rack, faceplates, tags, notebook, printout) and a few shared helpers. One dict, keys UPPER_SNAKE.
 ## Numbers never live here: they come from the engine (unitCard, stream, levelInfo, resultCard).
 const S := {
-	"RACK_TITLE": "PARTS", "RACK_LOCKED": "Not on this job", "RACK_LIMIT": "All %d placed", "RACK_LIMIT1": "Already placed: this job allows one", "NB_PENDING": "pending", "RACK_PRICE": "$%s",
+	"RACK_TITLE": "PARTS", "RACK_LOCKED": "Not on this job", "RACK_LIMIT": "All %d placed", "RACK_LIMIT1": "Already on site: this job allows one", "RACK_ONSITE": "already on site", "NB_PENDING": "pending", "RACK_PRICE": "$%s",
 	"FP_WHY": "Why?", "FP_CATALYST": "Catalyst", "FP_LIGHTOFF": "light-off", "FP_PRICE": "price", "FP_LENS": "Lens", "FP_WINDOW": "Window", "FP_PIN": "Pin", "FP_UNPIN": "Unpin", "FP_CLOSE": "Close",
 	"FP_PV": "PV", "FP_SP": "SP", "FP_NOSOLVE": "Commission to read the meters", "FP_FLOW": "FLOW", "FP_MASS": "MASS", "FP_DUTY": "DUTY", "FP_WORK": "SHAFT",
 	"FP_OUT": "OUT", "FP_BANK_KG": "Bank flow", "FP_MASKED": "FUEL · unknown", "FP_KMOLH": "kmol/h", "FP_KGH": "kg/h", "FP_FAILED": "FAILED",

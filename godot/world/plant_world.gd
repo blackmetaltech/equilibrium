@@ -209,16 +209,18 @@ func show_ports(list: Array) -> void:
 	_mark_nodes.clear(); _hot_port = -1; _marks = list; _caps.clear()
 	var per_unit := {}   # unit -> marks seen so far (stagger index) and total (crowded = captions only on hover)
 	var total := {}
-	for it in list: total[str(it.unit)] = int(total.get(str(it.unit), 0)) + 1
+	for it in list: if not bool(it.get("subtle", false)): total[str(it.unit)] = int(total.get(str(it.unit), 0)) + 1
 	for it in list:
 		var f := port_frame(str(it.unit), str(it.port), bool(it.inlet))
 		if f.is_empty(): continue
 		var mi := MeshInstance3D.new(); var hot: bool = bool(it.get("hot", false))
-		var r := 0.42 if hot else 0.3
+		var sub: bool = bool(it.get("subtle", false))   # a resting pip of an unselected unit in DESIGN: smaller, dimmer, no caption
+		var r := 0.42 if hot else (0.2 if sub else 0.3)
 		if bool(it.inlet): var bm := BoxMesh.new(); bm.size = Vector3(r, r, r) * 1.7; mi.mesh = bm
 		else: var sm := SphereMesh.new(); sm.radius = r; sm.height = r * 2.0; mi.mesh = sm
 		var col := Color("#FFB703") if bool(it.inlet) else TEAL
-		var m := StandardMaterial3D.new(); m.albedo_color = col; m.emission_enabled = true; m.emission = col; m.emission_energy_multiplier = 2.5 if hot else 1.1
+		if sub: col.a = 0.6
+		var m := StandardMaterial3D.new(); m.albedo_color = col; m.emission_enabled = true; m.emission = col; m.emission_energy_multiplier = 2.5 if hot else (0.5 if sub else 1.1)
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 10
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA   # drawn in the transparent pass after the unit and its (translucent) alarm-beacon bars: nothing sits over a port pip
 		# the pip rides toward the camera (and a little up) so a port on the far side of a tank is not buried in its body
