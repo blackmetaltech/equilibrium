@@ -1,6 +1,6 @@
 // Career reference policies (tests and the level personas): the engineer who maintains the Works, and the novice who accepts everything and never maintains.
 // A policy maps the Career state to a list of decisions [name, ...args]; the persona then adds `advance`. Pure.
-import { MONTHS, PLANTS, contracted, DEFS, previewInvest, type Career, type PlantId } from './model';
+import { CareerError, MONTHS, PLANTS, advance, contracted, decide, DEFS, initCareer, previewInvest, type Career, type PlantId } from './model';
 
 export type Decision = [string, ...unknown[]];
 
@@ -78,4 +78,22 @@ export function recklessDecisions(c: Career): Decision[] {
   if (c.m === 0) for (const p of PLANTS) d.push(['setRate', p, 1.0]);
   for (const o of c.offers) if (c.contracts.length < 12) d.push(['accept', o.id]);
   return d;
+}
+
+/** Cautious player: the careful player's habits at 80 % of nameplate. Safe and solvent, but the margin stays under the board target: the Steady ending. */
+export function cautiousDecisions(c: Career): Decision[] {
+  return carefulDecisions(c).map((d): Decision => (d[0] === 'setRate' ? ['setRate', d[1], 0.8] : d));
+}
+
+/** Idle player: opens the Works and never decides anything. */
+export const idleDecisions = (): Decision[] => [];
+
+/** Play a whole career with a policy (decisions refused by the model are skipped, as a player's refused clicks are). */
+export function playCareer(seed: number, pol: (c: Career) => Decision[], mode = 'engineer'): Career {
+  const c = initCareer(seed, mode);
+  while (c.ending === '') {
+    for (const d of pol(c)) { try { decide(c, d[0], ...d.slice(1)); } catch (e) { if (!(e instanceof CareerError)) throw e; } }
+    advance(c, 1);
+  }
+  return c;
 }

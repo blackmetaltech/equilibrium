@@ -8,7 +8,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import {
   CHIEF_MARGIN, MARGIN_TARGET_YEAR, CREW_BASE, DEFS, EM_CAP_STEP, INSPECT_EVERY, INVEST_PRICE, MONTHS, PLANTS, RATE_MAX, RATE_MIN, STRIKES_MAX, START_CASH, TA_CRANE_HIRE_USD, TA_CREW_HIRE_USD,
-  CareerError, advance, contracted, crewLimit, decide, emCap, gasMul, initCareer, investCost, outputOf, overdue, previewInvest, riskOf, taDays, year, type Career, type LogRow,
+  CareerError, advance, contracted, crewLimit, decide, emCap, gasMul, initCareer, investCost, outlook, outputOf, overdue, previewInvest, riskOf, taDays, year, type Career, type EndNeed, type LogRow, type Outlook,
 } from '../sim/career/model';
 import { naiveDecisions, solverDecisions, type Decision } from '../sim/career/policy';
 import type { EqState } from '../state';
@@ -49,6 +49,30 @@ export function revenueNote(y: Career['years'][number], prev: Career['years'][nu
   if (prev === undefined || prev.tonnes <= 0) return t('lv.CAREER.rev.first', { ...base, contracts });
   const p0 = prev.rev / prev.tonnes, vol = (y.tonnes - prev.tonnes) * p0, pr = (price - p0) * y.tonnes;
   return t('lv.CAREER.rev.change', { ...base, contracts, dir: y.rev >= prev.rev ? t('lv.CAREER.rev.rose') : t('lv.CAREER.rev.fell'), rev0: (prev.rev / 1e6).toFixed(1), diff: sgn(y.rev - prev.rev), vol: sgn(vol), pr: sgn(pr), kt0: Math.round(prev.tonnes / 1000), p0: Math.round(p0), down0: Math.round(prev.downDays), cat0: Math.round(prev.catAvg * 100), u0: Math.round(prev.uAvg * 100) });
+}
+
+/** One need of an ending as a sentence with the player's number (MUSD for money, points for scores). */
+function needText(n: EndNeed): string {
+  const money = n.key === 'margin' || n.key === 'cash' || n.key === 'cash_floor';
+  const v = (x: number): string | number => (money ? Math.round(x / 1e6) : Math.round(x));
+  return t(`lv.CAREER.end.need.${n.key}`, { have: n.have < 0 && !money ? '-' : v(n.have), need: v(n.need) });
+}
+/** The year-review announcement: where the Works is heading, and what would move it toward the other ending. */
+export function outlookNote(o: Outlook): string {
+  const chief = o.rows.find((r) => r.id === 'chief')!;
+  const open = chief.needs.filter((x) => !x.met).map(needText).join('; ');
+  const vars = { proj: Math.round(o.proj / 1e6), target: M(chief.needs[0]!.need), gaps: open };
+  switch (o.course) {
+    case 'chief': return `${t('lv.CAREER.outlook.chief', vars)} ${t('lv.CAREER.outlook.chief_slide', vars)}`;
+    case 'steady': return `${t('lv.CAREER.outlook.steady', vars)} ${t(o.chiefClosed ? 'lv.CAREER.outlook.steady_closed' : 'lv.CAREER.outlook.steady_toward', vars)}`;
+    case 'sold': return `${t('lv.CAREER.outlook.sold', vars)} ${t('lv.CAREER.outlook.sold_back', vars)}`;
+    default: return `${t('lv.CAREER.outlook.shut', vars)} ${t('lv.CAREER.outlook.shut_back', vars)}`;
+  }
+}
+/** The strip on the board: the four endings with their state and what each needs (text ready to draw). */
+export function endingsView(c: Career): { course: string; note: string; rows: { id: string; label: string; state: string; needs: { text: string; met: boolean }[] }[] } {
+  const o = outlook(c);
+  return { course: o.course, note: outlookNote(o), rows: o.rows.map((r) => ({ id: r.id, label: t(`lv.CAREER.end.label.${r.id}`), state: r.state, needs: r.needs.map((n) => ({ text: needText(n), met: n.met })) })) };
 }
 const victorText = (y: Career['years'][number]): string => t('lv.CAREER.victor', { op: (y.opMargin / 1e6).toFixed(1), inv: (y.inv / 1e6).toFixed(1), net: (y.margin / 1e6).toFixed(1), target: M(MARGIN_TARGET_YEAR), cash: (y.cash / 1e6).toFixed(1) });
 const maraText = (y: Career['years'][number]): string => {
@@ -176,7 +200,8 @@ export const CAREER: LevelSpec = {
       offers: c.offers.map((o) => ({ id: o.id, plant: o.p, tpm: o.tpm, priceUSD: o.price, term: o.term, penaltyUSDPerT: o.pen, spotUSD: spot(o.p), premium: o.price / spot(o.p) - 1, shareOfCap: o.tpm / DEFS[o.p].cap, shareOfNominal: o.tpm / outputOf(c, o.p), nominalT: Math.round(outputOf(c, o.p)) })),
       calendar: PLANTS.map((p) => ({ plant: p, inspectionDueMonth: c.m + Math.max(0, INSPECT_EVERY - c.plants[p].insp), turnaroundMonth: c.plants[p].ta })),
       options: { invest: Object.fromEntries(Object.entries(INVEST_PRICE).map(([k, v]) => [k, { level: c.invest[k as 'heat'], max: 3, nextUSD: investCost(c, k as 'heat'), prices: v.slice(), preview: investText(c, k as 'heat') }])), crews: { hired: c.crews, max: 3, limit: crewLimit(c), base: CREW_BASE }, craneHireUSD: TA_CRANE_HIRE_USD, crewHireUSD: TA_CREW_HIRE_USD },
-      review: c.years.map((y, i) => ({ ...y, opMarginUSD: y.opMargin, investmentsUSD: y.inv, netUSD: y.margin, victorNote: victorText(y), noorNote: y.noor, maraNote: maraText(y), driverNote: driverNote(y), revenueNote: revenueNote(y, c.years[i - 1]), capNote: capText(y) })),
+      review: c.years.map((y, i) => ({ ...y, opMarginUSD: y.opMargin, investmentsUSD: y.inv, netUSD: y.margin, victorNote: victorText(y), noorNote: y.noor, maraNote: maraText(y), driverNote: driverNote(y), revenueNote: revenueNote(y, c.years[i - 1]), capNote: capText(y), outlookNote: y.outlook !== undefined ? outlookNote(y.outlook) : '' })),
+      endings: endingsView(c),
       history: c.hist.map((h) => ({ m: h.m, marginUSD: h.margin, cashUSD: h.cash, gas: h.gas })),
       log: c.log.slice(-40).map((l) => ({ ...l, t: l.m, stamp: `Y${Math.floor(l.m / 12) + 1} M${String((l.m % 12) + 1).padStart(2, '0')}`, label: logLabel(l) })),
     };
