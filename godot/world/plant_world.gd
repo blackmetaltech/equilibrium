@@ -1061,9 +1061,70 @@ func pulse_ports(list: Array) -> void:
 func clear_pulse() -> void:
 	for n in _pulse_nodes: if is_instance_valid(n): (n as Node).queue_free()
 	_pulse_nodes.clear()
+## Build checklist guidance (ui/build_checklist.gd): the two ports of the pipe the notebook wants next pulse until the pipe is made or the guide moves on
+## (teal ball = OUT, amber square = IN, larger than a port pip and drawn over it), and the tile a part is suggested on pulses as a green footprint.
+var _guide_nodes: Array = []
+var _guide_key := ""
+func guide_ports(list: Array) -> void:   ## [{unit, port, inlet}]; the same list again changes nothing
+	var key := JSON.stringify(list)
+	if key == _guide_key and not _guide_nodes.is_empty(): return
+	clear_guide_ports(); _guide_key = key
+	for it in list:
+		var inlet := bool(it.get("inlet", false))
+		var f := port_frame(str(it.unit), str(it.port), inlet)
+		if f.is_empty(): continue
+		var mi := MeshInstance3D.new()
+		if inlet: var bm := BoxMesh.new(); bm.size = Vector3(1, 1, 1) * 1.1; mi.mesh = bm
+		else: var sm := SphereMesh.new(); sm.radius = 0.62; sm.height = 1.24; mi.mesh = sm
+		var col := Color("#FFB703") if inlet else Color("#2EC4B6")
+		var m := StandardMaterial3D.new(); m.albedo_color = Color(col, 0.55); m.emission_enabled = true; m.emission = col; m.emission_energy_multiplier = 3.0
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.no_depth_test = true; m.render_priority = 12; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mi.material_override = m; mi.position = pip_world(f); mi.name = "Guide_%s_%s" % [str(it.unit), str(it.port)]
+		mi.set_meta("u", str(it.unit)); mi.set_meta("p", str(it.port)); mi.set_meta("i", inlet)
+		add_child(mi); _guide_nodes.append(mi)
+func clear_guide_ports() -> void:
+	for n in _guide_nodes: if is_instance_valid(n): (n as Node).queue_free()
+	_guide_nodes.clear(); _guide_key = ""
+func guiding() -> Array: return _guide_nodes.filter(func(n): return is_instance_valid(n)).map(func(n): return str(n.name))
+## Where a port's pip sits in the world (the pip rides toward the camera, a little up) and where it is on the screen: what a player clicks.
+func pip_world(f: Dictionary) -> Vector3: return f.pos + f.dir * 0.3 + cam.global_transform.basis.z.normalized() * 1.2 + Vector3(0, 0.25, 0)
+func port_screen(id: String, port: String, inlet: bool) -> Vector2:
+	var f := port_frame(id, port, inlet)
+	return Vector2(-9999.0, -9999.0) if f.is_empty() else world_to_screen(pip_world(f))
+
+var _suggest: MeshInstance3D
+var _suggest_fp := Vector2i.ZERO
+var _suggest_at := Vector2i(-1, -1)
+## The suggested anchor of the part in hand (or the next part of the build order): a pulsing green footprint. A tile that is not free hides it.
+func suggest_place(type: String, at: Vector2i) -> void:
+	ensure_footprints()
+	var fp := footprint_of(type)
+	if not can_place(type, at.x, at.y, 0): clear_suggest(); return
+	_suggest_fp = fp; _suggest_at = at
+	if _suggest == null:
+		_suggest = MeshInstance3D.new(); _suggest.name = "SuggestFoot"; _suggest.mesh = BoxMesh.new(); _suggest.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var m := StandardMaterial3D.new(); m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.albedo_color = Color(0.22, 0.85, 0.42, 0.5); m.no_depth_test = true; m.render_priority = 4
+		_suggest.material_override = m; add_child(_suggest)
+	(_suggest.mesh as BoxMesh).size = Vector3(fp.x * GRID - 0.1, 0.08, fp.y * GRID - 0.1)
+	_suggest.position = tile_to_world(at, fp) + Vector3(0, 0.16, 0); _suggest.visible = true
+func clear_suggest() -> void:
+	_suggest_at = Vector2i(-1, -1)
+	if _suggest != null: _suggest.visible = false
+func suggested() -> Vector2i: return _suggest_at if _suggest != null and _suggest.visible else Vector2i(-1, -1)
+## The tile a click lands on to put the suggested footprint there: the cursor is the centre of the footprint.
+func suggest_click_tile() -> Vector2i: return _suggest_at + _suggest_fp / 2
+
 func pulsing() -> Array: return _pulse_nodes.filter(func(n): return is_instance_valid(n)).map(func(n): return str(n.name))
 
 func _coach_tick() -> void:
+	if not _guide_nodes.is_empty():
+		var tg := Time.get_ticks_msec() * 0.001
+		for n in _guide_nodes:
+			if not is_instance_valid(n): continue
+			(n as Node3D).scale = Vector3.ONE * (1.0 + 0.4 * absf(sin(tg * 4.5)))
+			var gf := port_frame(str(n.get_meta("u")), str(n.get_meta("p")), bool(n.get_meta("i")))
+			if not gf.is_empty(): (n as Node3D).position = pip_world(gf)
+	if _suggest != null and _suggest.visible: (_suggest.material_override as StandardMaterial3D).albedo_color.a = 0.25 + 0.4 * absf(sin(Time.get_ticks_msec() * 0.004))
 	if not _pulse_nodes.is_empty():
 		if Time.get_ticks_msec() > _pulse_until: clear_pulse()
 		else:

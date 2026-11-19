@@ -24,6 +24,7 @@ class Tile extends Control:
 	var selected := false
 	var focused := false
 	var coach := false      ## the coach points here: a pulsing teal ring
+	var guide := false      ## the build checklist wants this part next: a pulsing amber ring
 	var need := false       ## the level cannot be read without this part (levelInfo.notice NEEDS_UNIT): an amber chevron bobs on the tile
 	var _hover := false
 	func _init() -> void: custom_minimum_size = PartsRack.TILE; mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND; focus_mode = Control.FOCUS_ALL
@@ -51,6 +52,10 @@ class Tile extends Control:
 		if coach:
 			var a := 0.45 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
 			draw_rect(r.grow(2), Color(EqTheme.TEAL, a), false, 4.0)
+			queue_redraw()
+		if guide:
+			var ga := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.007)
+			draw_rect(r.grow(1), Color(EqTheme.AMBER, 0.35 + 0.6 * ga), false, 5.0)
 			queue_redraw()
 		if need:
 			var bob := 3.0 * sin(Time.get_ticks_msec() * 0.008); var cx := size.x * 0.5
@@ -87,6 +92,7 @@ static func build(app) -> Control:
 	var rack := PartsRack.new(); rack.app = app
 	Faceplate.attach(app)
 	Notebook.attach(app)
+	BuildChecklist.attach(app)
 	return rack
 
 func _init() -> void:
@@ -236,6 +242,13 @@ func set_need(type: String) -> void:
 		if t is Tile:
 			var on: bool = type != "" and (t as Tile).type == type
 			if (t as Tile).need != on: (t as Tile).need = on; (t as Tile).queue_redraw()
+
+## The build checklist points at a part: its tile wears a pulsing amber ring ("" clears).
+func set_guide(type: String) -> void:
+	for t in tiles:
+		if t is Tile:
+			var on: bool = type != "" and (t as Tile).type == type
+			if (t as Tile).guide != on: (t as Tile).guide = on; (t as Tile).queue_redraw()
 
 ## The coach points at a part: its tile pulses until the coach moves on ("" clears).
 func set_coach(type: String) -> void:

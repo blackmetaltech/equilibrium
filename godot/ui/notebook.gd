@@ -203,6 +203,18 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 			row.add_child(EqTheme.label(vt, 16, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.25), "mono"))
 		gv.add_child(row)
 		var rule := ColorRect.new(); rule.color = Color(EqTheme.INK, 0.28); rule.custom_minimum_size = Vector2(0, 1); gv.add_child(rule)
+	# the build checklist: the same lines as the panel under the tab (a click puts the notebook away and points at the line)
+	var bg = li.get("buildGuide")
+	if bg is Array and not (bg as Array).is_empty():
+		var ndone := 0
+		for bl in bg: if bool(bl.get("done", false)): ndone += 1
+		vb.add_child(EqTheme.dymo("%s  %d / %d" % [PaperStrings.t("BC_TITLE"), ndone, (bg as Array).size()], 13))
+		var bv := VBoxContainer.new(); bv.name = "BuildGuide"; bv.add_theme_constant_override("separation", 1); vb.add_child(bv)
+		BuildChecklist.fill_rows(app, bv, bg, func(sid: String) -> void:
+			host.queue_free()
+			(func() -> void:
+				var bp := BuildChecklist.panel(app)
+				if bp != null: bp.activate(sid)).call_deferred(), 16)
 	# budget
 	var bud := HBoxContainer.new(); bud.add_theme_constant_override("separation", 12); vb.add_child(bud)
 	bud.add_child(EqTheme.dymo(PaperStrings.t("NB_BUDGET"), 13))
