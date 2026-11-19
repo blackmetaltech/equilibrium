@@ -35,7 +35,7 @@ describe('career review (F9c)', () => {
     const worn = initCareer(3, 'engineer'), fresh = initCareer(3, 'engineer');
     for (const p of ['nh3', 'acid', 'meoh', 'etoh'] as const) { worn.plants[p].U = 0.7; worn.plants[p].cat = 0.74; }
     decide(worn, 'invest', 'heat'); decide(worn, 'invest', 'heat'); decide(worn, 'invest', 'heat');
-    advance(worn, 12); advance(fresh, 12);
+    for (let i = 0; i < 12; i++) { advance(worn, 1); advance(fresh, 1); }   // one month at a time: a multi-month advance now stops at attention flags
     expect(worn.years[0]!.mara).toBeLessThan(fresh.years[0]!.mara);
     expect(worn.years[0]!.mara).toBeLessThan(90);
   });

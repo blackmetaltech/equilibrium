@@ -9,7 +9,7 @@ import { levelsCareer } from '../locales/en/levels_career';
 import { SPEC_BY_ID, SPECS, levelOf } from './registry';
 import { CAREER, careerOf, referenceCareer, starMargin } from './career';
 import { cpm, schedule } from '../sim/ops/turnaround';
-import { PLANTS, MONTHS, CHIEF_MARGIN, advance, decide, initCareer, riskOf, taJobs, taDays, CareerError } from '../sim/career/model';
+import { PLANTS, MONTHS, CHIEF_MARGIN, score, advance, decide, initCareer, riskOf, taJobs, taDays, CareerError } from '../sim/career/model';
 import { naiveDecisions, solverDecisions } from '../sim/career/policy';
 import type { EqState } from '../state';
 
@@ -102,8 +102,8 @@ describe('the level', () => {
       expect(c.ending, mode).toBe('chief');
       expect(c.criticals).toBe(0);
       expect(info(e).stars.have).toBe(3);
-      expect(c.total.margin).toBeGreaterThanOrEqual(starMargin(1003, mode));
-      expect(c.total.margin).toBeGreaterThanOrEqual(CHIEF_MARGIN);
+      expect(score(c)).toBeGreaterThanOrEqual(starMargin(1003, mode));
+      expect(score(c)).toBeGreaterThanOrEqual(CHIEF_MARGIN);
     }
   });
   it('the solver wins on several seeds (steady at the very least)', () => {

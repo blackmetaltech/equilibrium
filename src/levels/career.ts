@@ -8,7 +8,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import {
   CHIEF_MARGIN, MARGIN_TARGET_YEAR, CREW_BASE, DEFS, EM_CAP_STEP, INSPECT_EVERY, INVEST_PRICE, MONTHS, PLANTS, RATE_MAX, RATE_MIN, STRIKES_MAX, START_CASH, TA_CRANE_HIRE_USD, TA_CREW_HIRE_USD,
-  CareerError, advance, contracted, crewLimit, decide, emCap, gasMul, initCareer, investCost, outlook, outputOf, overdue, previewInvest, riskOf, taDays, year, type Career, type EndNeed, type LogRow, type Outlook,
+  CareerError, INSPECT_WARN, advance, attention, contracted, crewLimit, decide, emCap, exposure, gasMul, initCareer, investCost, outlook, outputOf, overdue, pace, previewInvest, riskOf, score, taDays, taShort, year, type Career, type EndNeed, type Lever, type LogRow, type Outlook,
 } from '../sim/career/model';
 import { naiveDecisions, solverDecisions, type Decision } from '../sim/career/policy';
 import type { EqState } from '../state';
@@ -18,7 +18,7 @@ import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
 type S = Readonly<EqState>;
 export const CAREER_ID = 'CAREER';
 const END_CODE = { '': 0, chief: 1, steady: 2, sold: 3, shut: 4 } as const;
-const KEYS = ['months', 'year', 'margin', 'cash', 'gas', 'criticals', 'strikes', 'end', 'emRatio', 'minCat', 'minU', 'overdue', 'contracts', 'revenue', 'cost', 'penalty', 'ref'];
+const KEYS = ['months', 'year', 'margin', 'cash', 'gas', 'criticals', 'strikes', 'end', 'emRatio', 'minCat', 'minU', 'overdue', 'contracts', 'revenue', 'cost', 'penalty', 'ref', 'inspWarn'];
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const M = (x: number): number => Math.round(x / 1e6);
 /** The plain product name for sentences and logs (the formula in brackets appears once, on the plant card). */
@@ -57,22 +57,28 @@ function needText(n: EndNeed): string {
   const v = (x: number): string | number => (money ? Math.round(x / 1e6) : Math.round(x));
   return t(`lv.CAREER.end.need.${n.key}`, { have: n.have < 0 && !money ? '-' : v(n.have), need: v(n.need) });
 }
+/** One lever as a sentence with its number. */
+export function leverText(l: Lever): string {
+  const v = { ...l.vars, plant: typeof l.vars.plant === 'string' ? plantLabel(l.vars.plant).toLowerCase() : '' };
+  return t(`lv.CAREER.lever.${l.key}`, v);
+}
 /** The year-review announcement: where the Works is heading, and what would move it toward the other ending. */
 export function outlookNote(o: Outlook): string {
   const chief = o.rows.find((r) => r.id === 'chief')!;
   const open = chief.needs.filter((x) => !x.met).map(needText).join('; ');
   const vars = { proj: Math.round(o.proj / 1e6), target: M(chief.needs[0]!.need), gaps: open };
+  const lv = o.levers.length > 0 ? ` ${t('lv.CAREER.outlook.levers', { list: o.levers.map(leverText).join('; ') })}.` : '';
   switch (o.course) {
-    case 'chief': return `${t('lv.CAREER.outlook.chief', vars)} ${t('lv.CAREER.outlook.chief_slide', vars)}`;
-    case 'steady': return `${t('lv.CAREER.outlook.steady', vars)} ${t(o.chiefClosed ? 'lv.CAREER.outlook.steady_closed' : 'lv.CAREER.outlook.steady_toward', vars)}`;
-    case 'sold': return `${t('lv.CAREER.outlook.sold', vars)} ${t('lv.CAREER.outlook.sold_back', vars)}`;
-    default: return `${t('lv.CAREER.outlook.shut', vars)} ${t('lv.CAREER.outlook.shut_back', vars)}`;
+    case 'chief': return `${t('lv.CAREER.outlook.chief', vars)} ${t('lv.CAREER.outlook.chief_slide', vars)}${lv}`;
+    case 'steady': return `${t('lv.CAREER.outlook.steady', vars)} ${t(o.chiefClosed ? 'lv.CAREER.outlook.steady_closed' : 'lv.CAREER.outlook.steady_toward', vars)}${lv}`;
+    case 'sold': return `${t('lv.CAREER.outlook.sold', vars)} ${t('lv.CAREER.outlook.sold_back', vars)}${lv}`;
+    default: return `${t('lv.CAREER.outlook.shut', vars)} ${t('lv.CAREER.outlook.shut_back', vars)}${lv}`;
   }
 }
 /** The strip on the board: the four endings with their state and what each needs (text ready to draw). */
-export function endingsView(c: Career): { course: string; note: string; rows: { id: string; label: string; state: string; needs: { text: string; met: boolean }[] }[] } {
+export function endingsView(c: Career): { course: string; note: string; levers: string[]; rows: { id: string; label: string; state: string; needs: { text: string; met: boolean }[] }[] } {
   const o = outlook(c);
-  return { course: o.course, note: outlookNote(o), rows: o.rows.map((r) => ({ id: r.id, label: t(`lv.CAREER.end.label.${r.id}`), state: r.state, needs: r.needs.map((n) => ({ text: needText(n), met: n.met })) })) };
+  return { course: o.course, note: outlookNote(o), levers: o.levers.map(leverText), rows: o.rows.map((r) => ({ id: r.id, label: t(`lv.CAREER.end.label.${r.id}`), state: r.state, needs: r.needs.map((n) => ({ text: needText(n), met: n.met })) })) };
 }
 const victorText = (y: Career['years'][number]): string => t('lv.CAREER.victor', { op: (y.opMargin / 1e6).toFixed(1), inv: (y.inv / 1e6).toFixed(1), net: (y.margin / 1e6).toFixed(1), target: M(MARGIN_TARGET_YEAR), cash: (y.cash / 1e6).toFixed(1) });
 const maraText = (y: Career['years'][number]): string => {
@@ -88,6 +94,23 @@ const investText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
   return t(`lv.CAREER.invest.${k}`, { gas: Math.round(c.gas * 100) / 100, save: Math.round(pv.saveUSDPerMonth / 1e4) / 100, months: Math.round(pv.paybackMonths), gj: Math.round(pv.effect), pts: pv.effect });
 };
 
+const inspNote = (c: Career, p: (typeof PLANTS)[number]): string => {
+  const x = c.plants[p], due = c.m + Math.max(0, INSPECT_EVERY - x.insp) + 1;
+  if (x.insp > INSPECT_EVERY) return t('lv.CAREER.card.insp_over', { n: x.insp - INSPECT_EVERY, due: c.m - (x.insp - INSPECT_EVERY) + 1 });
+  if (x.insp >= INSPECT_EVERY - INSPECT_WARN) return t('lv.CAREER.card.insp_warn', { n: INSPECT_EVERY - x.insp, due });
+  return x.insp >= c.m ? t('lv.CAREER.card.insp_never', { due }) : t('lv.CAREER.card.insp_last', { last: c.m - x.insp + 1, due });
+};
+const exposureNote = (c: Career, o: Career['offers'][number]): string => {
+  const e = exposure(c, o.p, o.tpm, o.pen), v = { nom: Math.round(e.nominalT), have: Math.round(e.contractedT), after: Math.round(e.afterT), pct: Math.round((100 * e.afterT) / Math.max(1, e.nominalT)), short: Math.round(e.shortT), usd: (e.penaltyUSD / 1e6).toFixed(2) };
+  return t(e.shortT > 0 ? 'lv.CAREER.warn.exposure_short' : 'lv.CAREER.warn.exposure', v);
+};
+/** What the levels already bought are saving today (heat recovery only; empty before the first purchase). Shown apart from the next level's line. */
+const realisedText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
+  if (k !== 'heat' || c.invest.heat <= 0) return '';
+  const pv = previewInvest(c, 'heat');
+  return t('lv.CAREER.invest.heat_have', { lvl: c.invest.heat, save: Math.round(pv.realisedUSDPerMonth / 1e4) / 100, gj: Math.round(pv.realisedGJ) });
+};
+
 export const careerOf = (s: S): Career | null => { const c = s.lv.c as Career | undefined; return c !== undefined && c.v === 1 ? c : null; };
 const good = (c: Career): boolean => c.ending === 'chief' || c.ending === 'steady';
 
@@ -101,7 +124,7 @@ export function referenceCareer(seed: number, mode: string): Career {
   return c;
 }
 /** UNVERIFIED (GAME): the three-star threshold is the solver's 5-year margin less 3 %. */
-export const starMargin = (seed: number, mode: string): number => referenceCareer(seed, mode).total.margin / 1.03;
+export const starMargin = (seed: number, mode: string): number => score(referenceCareer(seed, mode)) / 1.03;
 
 function measures(s: S): Measures {
   const c = careerOf(s);
@@ -110,9 +133,9 @@ function measures(s: S): Measures {
   return {
     ok: true,
     v: {
-      months: c.m, year: Math.min(5, year(c) + 1), margin: c.total.margin, cash: c.cash, gas: c.gas, criticals: c.criticals, strikes: c.strikes, end: END_CODE[c.ending], emRatio,
+      months: c.m, year: Math.min(5, year(c) + 1), margin: score(c), cash: c.cash, gas: c.gas, criticals: c.criticals, strikes: c.strikes, end: END_CODE[c.ending], emRatio,
       minCat: Math.min(...PLANTS.map((p) => c.plants[p].cat)), minU: Math.min(...PLANTS.map((p) => c.plants[p].U)), overdue: Math.max(...PLANTS.map((p) => overdue(c, p))),
-      contracts: c.contracts.length, revenue: c.total.revenue, cost: c.total.cost, penalty: c.total.penalty, ref: 0,
+      contracts: c.contracts.length, revenue: c.total.revenue, cost: c.total.cost, penalty: c.total.penalty, ref: 0, inspWarn: Math.max(...PLANTS.map((p) => c.plants[p].insp)) >= INSPECT_EVERY - INSPECT_WARN ? 1 : 0,
     },
   };
 }
@@ -143,14 +166,14 @@ export const CAREER: LevelSpec = {
   extraStars: (s, m) => {
     const c = careerOf(s);
     if (c === null || !good(c)) return [false, false];
-    return [c.ending === 'chief', c.criticals === 0 && c.total.margin >= starMargin(s.seed, s.mode)];
+    return [c.ending === 'chief', c.criticals === 0 && score(c) >= starMargin(s.seed, s.mode)];
   },
   callIt: null,
   hero: (_s, m) => ({ key: 'margin', unit: 'MUSD', value: (m.v.margin ?? 0) / 1e6, lo: 0, hi: (CHIEF_MARGIN / 1e6) * 1.5 }),
   secondary: (_s, m) => ({ key: 'strikes', unit: '', value: m.v.strikes ?? 0, limit: STRIKES_MAX }),
   annunciators: (_s, m, g): Annunciator[] => [
     { key: 'critical', legend: t('lv.CAREER.ann.critical'), state: lit(m.ok, m.v.criticals === 0, 'critical') },
-    { key: 'inspection', legend: t('lv.CAREER.ann.inspection'), state: !m.ok ? 'off' : m.v.overdue! > 6 ? 'critical' : m.v.overdue! > 0 ? 'high' : 'normal' },
+    { key: 'inspection', legend: t('lv.CAREER.ann.inspection'), state: !m.ok ? 'off' : m.v.overdue! > 6 ? 'critical' : m.v.overdue! > 0 || m.v.inspWarn! > 0 ? 'high' : 'normal' },
     { key: 'catalyst', legend: t('lv.CAREER.ann.catalyst'), state: lit(m.ok, m.v.minCat! >= 0.7) },
     { key: 'fouling', legend: t('lv.CAREER.ann.fouling'), state: lit(m.ok, m.v.minU! >= 0.75) },
     { key: 'emissions', legend: t('lv.CAREER.ann.emissions'), state: lit(m.ok, m.v.emRatio! <= 1) },
@@ -167,11 +190,12 @@ export const CAREER: LevelSpec = {
     const c = careerOf(s);
     if (c === null || c.ending === '') return { key: 'not_run', cause: null };
     if (good(c)) return { key: c.ending, cause: null };
-    return { key: c.ending, cause: t(`lv.CAREER.cause.${c.ending}`, { months: c.m, strikes: c.strikes, criticals: c.criticals, cash: f(s, M(c.cash)), margin: f(s, M(c.total.margin)) }) };
+    return { key: c.ending, cause: t(`lv.CAREER.cause.${c.ending}`, { months: c.m, strikes: c.strikes, criticals: c.criticals, cash: f(s, M(c.cash)), margin: f(s, M(score(c))) }) };
   },
   equation: (s, m) => {
-    const r = M(m.v.revenue ?? 0), co = M(m.v.cost ?? 0), p = M(m.v.penalty ?? 0);
-    return `${f(s, r)} − ${f(s, co)} − ${f(s, p)} = ${f(s, r - co - p)} MUSD of margin`;
+    // operating margin = revenue less operating cost (all cost but investments, fines included) and penalties: the same figure as the ledger, the strip and the histogram
+    const r = M(m.v.revenue ?? 0), p = M(m.v.penalty ?? 0), op = M(m.v.margin ?? 0), co = r - p - op;
+    return `${f(s, r)} − ${f(s, co)} − ${f(s, p)} = ${f(s, op)} MUSD of operating margin`;
   },
   lessonVars: (s, m) => ({ margin: f(s, M(m.v.margin ?? 0)), criticals: f(s, m.v.criticals ?? 0), strikes: f(s, m.v.strikes ?? 0), months: f(s, m.v.months ?? 0), cash: f(s, M(m.v.cash ?? 0)), inspect: INSPECT_EVERY }),
   metrics: (_s, m) => [
@@ -190,16 +214,16 @@ export const CAREER: LevelSpec = {
     const spot = (p: (typeof PLANTS)[number]): number => c.prices[p];
     return {
       kind: 'career',
-      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: c.total.margin + (c.total.inv ?? 0), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
+      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), attention: attention(c), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
       prices: PLANTS.map((p) => ({ plant: p, label: t(`lv.CAREER.plant.${p}`), spotUSDPerT: spot(p) })),
       plants: PLANTS.map((p) => {
         const x = c.plants[p];
-        return { id: p, label: t(`lv.CAREER.plant.${p}`), capT: DEFS[p].cap, rate: x.rate, rateMin: RATE_MIN, rateMax: RATE_MAX, catalyst: x.cat, exchangerU: x.U, compressorWear: x.wear, monthsSinceInspection: x.insp, inspectionOverdue: overdue(c, p), catalystStock: x.stock, downDays: x.down, turnaroundMonth: x.ta, turnaroundCrane: x.taCrane, turnaroundCrew: x.taCrew, outputT: x.out > 0 ? x.out : outputOf(c, p), nominalT: outputOf(c, p), outputNote: x.out > outputOf(c, p) * 1.001 ? t('lv.CAREER.out.above') : '', risk: riskOf(c, p), gasFactor: gasMul(c, p), contractedT: contracted(c, p), lastMarginUSD: x.margin, catalystPriceUSD: DEFS[p].catUSD, taDaysWithCatalyst: taDays(true, x.taCrane, x.taCrew), taDaysWithout: taDays(false, x.taCrane, x.taCrew) };
+        return { id: p, label: t(`lv.CAREER.plant.${p}`), capT: DEFS[p].cap, rate: x.rate, rateMin: RATE_MIN, rateMax: RATE_MAX, catalyst: x.cat, exchangerU: x.U, compressorWear: x.wear, monthsSinceInspection: x.insp, inspectionOverdue: overdue(c, p), lastInspectionMonth: x.insp >= c.m ? 0 : c.m - x.insp + 1, inspectionDueMonth: c.m + Math.max(0, INSPECT_EVERY - x.insp) + 1, inspectionDueIn: INSPECT_EVERY - x.insp, inspectionWarn: x.insp >= INSPECT_EVERY - INSPECT_WARN, inspectionNote: inspNote(c, p), downNote: x.down > 0 ? t('lv.CAREER.down.explain', { d: Math.round(x.down) }) : '', taShort: Array.from({ length: MONTHS }, (_, i) => (i < c.m ? { days: 0, shortT: 0, penaltyUSD: 0 } : taShort(c, p, i, x.taCrane, x.taCrew))).map((r) => ({ days: r.days, shortT: Math.round(r.shortT), penaltyUSD: Math.round(r.penaltyUSD) })), taShortNote: Array.from({ length: MONTHS }, (_, i) => { if (i < c.m) return ''; const r = taShort(c, p, i, x.taCrane, x.taCrew); return r.shortT > 1 ? t('lv.CAREER.warn.short', { days: r.days, t: Math.round(r.shortT), usd: (r.penaltyUSD / 1e6).toFixed(2) }) : ''; }), catalystStock: x.stock, downDays: x.down, turnaroundMonth: x.ta, turnaroundCrane: x.taCrane, turnaroundCrew: x.taCrew, outputT: x.out > 0 ? x.out : outputOf(c, p), nominalT: outputOf(c, p), outputNote: x.out > outputOf(c, p) * 1.001 ? t('lv.CAREER.out.above') : '', risk: riskOf(c, p), gasFactor: gasMul(c, p), contractedT: contracted(c, p), lastMarginUSD: x.margin, catalystPriceUSD: DEFS[p].catUSD, taDaysWithCatalyst: taDays(true, x.taCrane, x.taCrew), taDaysWithout: taDays(false, x.taCrane, x.taCrew) };
       }),
       contracts: c.contracts.map((k) => ({ id: k.id, plant: k.p, tpm: k.tpm, priceUSD: k.price, monthsLeft: k.left, penaltyUSDPerT: k.pen, spotUSD: spot(k.p) })),
-      offers: c.offers.map((o) => ({ id: o.id, plant: o.p, tpm: o.tpm, priceUSD: o.price, term: o.term, penaltyUSDPerT: o.pen, spotUSD: spot(o.p), premium: o.price / spot(o.p) - 1, shareOfCap: o.tpm / DEFS[o.p].cap, shareOfNominal: o.tpm / outputOf(c, o.p), nominalT: Math.round(outputOf(c, o.p)) })),
+      offers: c.offers.map((o) => ({ id: o.id, plant: o.p, tpm: o.tpm, priceUSD: o.price, term: o.term, penaltyUSDPerT: o.pen, spotUSD: spot(o.p), premium: o.price / spot(o.p) - 1, shareOfCap: o.tpm / DEFS[o.p].cap, shareOfNominal: o.tpm / outputOf(c, o.p), nominalT: Math.round(outputOf(c, o.p)), exposureNote: exposureNote(c, o), overCapacity: exposure(c, o.p, o.tpm, o.pen).shortT > 0 })),
       calendar: PLANTS.map((p) => ({ plant: p, inspectionDueMonth: c.m + Math.max(0, INSPECT_EVERY - c.plants[p].insp), turnaroundMonth: c.plants[p].ta })),
-      options: { invest: Object.fromEntries(Object.entries(INVEST_PRICE).map(([k, v]) => [k, { level: c.invest[k as 'heat'], max: 3, nextUSD: investCost(c, k as 'heat'), prices: v.slice(), preview: investText(c, k as 'heat') }])), crews: { hired: c.crews, max: 3, limit: crewLimit(c), base: CREW_BASE }, craneHireUSD: TA_CRANE_HIRE_USD, crewHireUSD: TA_CREW_HIRE_USD },
+      options: { invest: Object.fromEntries(Object.entries(INVEST_PRICE).map(([k, v]) => [k, { level: c.invest[k as 'heat'], max: 3, nextUSD: investCost(c, k as 'heat'), prices: v.slice(), preview: investText(c, k as 'heat'), realised: realisedText(c, k as 'heat') }])), crews: { hired: c.crews, max: 3, limit: crewLimit(c), base: CREW_BASE }, craneHireUSD: TA_CRANE_HIRE_USD, crewHireUSD: TA_CREW_HIRE_USD },
       review: c.years.map((y, i) => ({ ...y, opMarginUSD: y.opMargin, investmentsUSD: y.inv, netUSD: y.margin, victorNote: victorText(y), noorNote: y.noor, maraNote: maraText(y), driverNote: driverNote(y), revenueNote: revenueNote(y, c.years[i - 1]), capNote: capText(y), outlookNote: y.outlook !== undefined ? outlookNote(y.outlook) : '' })),
       endings: endingsView(c),
       history: c.hist.map((h) => ({ m: h.m, marginUSD: h.margin, cashUSD: h.cash, gas: h.gas })),

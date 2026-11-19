@@ -306,13 +306,13 @@ function yearEnd(c: Career): void {
   if (PLANTS.some((p) => overdue(c, p) > 6)) { strike++; c.log.push({ m: c.m, kind: 'fine', code: 'inspection', plant: '', n: 0 }); }
   c.strikes += strike;
   // Victor judges operating performance: margin before investments. The return on a programme (less gas, fewer fines) is already inside it, its price is not charged to the score.
-  const opMargin = yt.margin + (yt.inv ?? 0);
+  const opMargin = yt.margin + (yt.inv ?? 0) - fine, net = yt.margin - fine;
   const victor = clamp(Math.round((opMargin / MARGIN_TARGET_YEAR) * 100), 0, 100);
   const pn = Math.max(1, yt.pn ?? 0), catAvg = (yt.cat ?? 0) / pn, uAvg = (yt.U ?? 0) / pn;
   const noor = clamp(Math.round(100 - 45 * yt.criticals - 100 * Math.max(0, emRatio - 0.9) - 25 * strike), 0, 100);
   // Mara also reads the equipment: a fouled exchanger and a tired catalyst cost points even when a heat-recovery programme hides them in the gas figure.
   const mara = clamp(Math.round(100 - 250 * Math.max(0, effRatio - 1) - 100 * Math.max(0, 0.95 - uAvg) - 80 * Math.max(0, 0.9 - catAvg)), 0, 100);
-  c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: yt.cost ?? 0, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: yt.margin, opMargin, tonnes: yt.tonnes, downDays: yt.down ?? 0, catAvg, uAvg, contractRev: yt.crev ?? 0, contractT: yt.ct ?? 0, capT: emCap(c), capOldT: EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y), criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
+  c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: yt.cost ?? 0, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: net, opMargin, tonnes: yt.tonnes, downDays: yt.down ?? 0, catAvg, uAvg, contractRev: yt.crev ?? 0, contractT: yt.ct ?? 0, capT: emCap(c), capOldT: EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y), criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
   c.lossYears = opMargin < 0 ? c.lossYears + 1 : 0;
   c.years[c.years.length - 1]!.outlook = outlook(c);
   c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0, down: 0, cat: 0, U: 0, pn: 0, crev: 0, ct: 0 };
@@ -320,11 +320,19 @@ function yearEnd(c: Career): void {
   if (c.lossYears >= 2 || c.cash < 0) finish(c, 'sold');
   else if (c.strikes >= STRIKES_MAX) finish(c, 'shut');
 }
+/** THE five-year score everywhere (ledger, ENDINGS, course line, Flagship test, end card, histogram): operating margin = revenue less operating cost, penalties and fines. Investments (catalyst, inspections, programmes) are not charged to it; they are judged by their payback. */
+export const score = (c: Career): number => c.total.margin + (c.total.inv ?? 0);
+/** The score the five years end at if the last 12 months (all of them before a year is done) repeat for the months still to run. */
+export function pace(c: Career): number {
+  if (c.m <= 0) return 0;
+  const h = c.hist.slice(-12);
+  return score(c) + (MONTHS - c.m) * (h.reduce((a, r) => a + r.margin, 0) / Math.max(1, h.length));
+}
 export function endingOf(c: Career): Ending {
   const last = c.years[c.years.length - 1];
   const avg = (k: 'victor' | 'noor' | 'mara'): number => c.years.reduce((a, y) => a + y[k], 0) / Math.max(1, c.years.length);
   const good = last !== undefined && avg('victor') >= 60 && avg('noor') >= 60 && avg('mara') >= 60;
-  return c.total.margin >= CHIEF_MARGIN && c.criticals === 0 && c.strikes === 0 && good ? 'chief' : 'steady';
+  return score(c) >= CHIEF_MARGIN && c.criticals === 0 && c.strikes === 0 && good ? 'chief' : 'steady';
 }
 
 
@@ -334,11 +342,56 @@ export const SOLD_FLOOR_USD = 1e7;
 export type EndId = 'sold' | 'shut' | 'steady' | 'chief';
 export interface EndNeed { key: string; have: number; need: number; met: boolean }
 export interface EndRow { id: EndId; state: 'achieved' | 'course' | 'open' | 'danger' | 'closed'; needs: EndNeed[] }
-export interface Outlook { course: EndId; rows: EndRow[]; /** five-year margin if the run so far continues, USD */ proj: number; /** Chief Engineer needs still unmet (keys of rows[chief].needs) */ gaps: string[]; /** true when a critical alarm or a strike has closed the flagship ending */ chiefClosed: boolean }
+export interface Outlook { course: EndId; rows: EndRow[]; /** five-year operating margin if the last twelve months repeat, USD */ proj: number; /** concrete levers with numbers (see `levers`) */ levers: Lever[]; /** Chief Engineer needs still unmet (keys of rows[chief].needs) */ gaps: string[]; /** true when a critical alarm or a strike has closed the flagship ending */ chiefClosed: boolean }
+/** What an extra contract of `tpm` t/month does to the plant's capacity position: the plant's nominal output now, what is already contracted, the total with this one and the tonnes short when it is over. */
+export interface Exposure { nominalT: number; contractedT: number; afterT: number; shortT: number; /** USD a month of penalty if the plant ran exactly at its nominal output */ penaltyUSD: number }
+export function exposure(c: Career, p: PlantId, tpm: number, pen: number): Exposure {
+  const nominalT = outputOf(c, p), contractedT = contracted(c, p), afterT = contractedT + tpm, shortT = Math.max(0, afterT - nominalT);
+  return { nominalT, contractedT, afterT, shortT, penaltyUSD: shortT * pen };
+}
+/** What a turnaround of this plant in `month` costs the contracts: the plant is out `days` of that month, so it can ship only the rest; the tonnes short against the contracts still running, and their penalty. */
+export function taShort(c: Career, p: PlantId, month: number, crane = 1, extraCrew = 0): { days: number; shortT: number; penaltyUSD: number } {
+  const x = c.plants[p], days = Math.min(30, taDays(x.stock === 1, crane, extraCrew)), ks = c.contracts.filter((k) => k.p === p && k.left > month - c.m);
+  const need_ = ks.reduce((a, k) => a + k.tpm, 0), can = outputOf(c, p) * (1 - days / 30), deliver = Math.min(can, need_);
+  let pen = 0;
+  for (const k of ks) pen += Math.max(0, k.tpm - (need_ > 0 ? (k.tpm / need_) * deliver : 0)) * k.pen;
+  return { days, shortT: Math.max(0, need_ - can), penaltyUSD: pen };
+}
+export interface Lever { key: 'gap' | 'turnaround' | 'contract' | 'inspect'; vars: Record<string, number | string> }
+const unitMargin = (c: Career, p: PlantId): number => c.prices[p] - DEFS[p].varUSD - DEFS[p].gasGJ * gasMul(c, p) * c.gas;
+/** USD a year a turnaround would add to this plant, net of its outage: catalyst and exchanger back to new, with the catalyst taken at `catAt` if it is still above it. */
+export function renewalGain(c: Career, p: PlantId, catAt = 1): number {
+  const x = c.plants[p], d = DEFS[p], cat = Math.min(x.cat, catAt), keep = 1 - 0.15 * x.wear;
+  const dOut = d.cap * x.rate * 0.6 * (1 - cat) * keep, out = outputOf(c, p);
+  const um = unitMargin(c, p), mulNow = ((1 + 0.5 * (1 - x.U)) / (0.6 + 0.4 * cat)) * (1 - 0.07 * c.invest.heat), mulNew = 1 - 0.07 * c.invest.heat;
+  const gas = out * d.gasGJ * (mulNow - mulNew) * c.gas;
+  const outage = (taDays(true, 1, 0) / 30) * out * Math.max(0, um);
+  return 12 * dOut * Math.max(0, um) + 12 * Math.max(0, gas) - outage;
+}
+/** Where the capacity of a plant stands against what is contracted: tonnes a month the plant can make at its present state and rate, and the exposure with an extra contract of `extra` t/month. */
+export const capacityT = (c: Career, p: PlantId): number => outputOf(c, p);
+/** Concrete levers toward the flagship, each with its number. Pure. */
+export function levers(c: Career, proj: number): Lever[] {
+  const out: Lever[] = [];
+  const left = Math.max(1, MONTHS - c.m);
+  if (c.m > 0 && proj < CHIEF_MARGIN) out.push({ key: 'gap', vars: { gap: Math.round((CHIEF_MARGIN - proj) / 1e5) / 10, perYear: Math.round(((CHIEF_MARGIN - proj) / left) * 12 / 1e5) / 10, left } });
+  let best: { p: PlantId; g: number } | null = null;
+  for (const p of PLANTS) if (c.plants[p].ta < 0) { const g = renewalGain(c, p, 0.8); if (g > 2e5 && (best === null || g > best.g)) best = { p, g }; }
+  if (best !== null && c.m < MONTHS - 8) out.push({ key: 'turnaround', vars: { plant: best.p, cat: Math.round(c.plants[best.p].cat * 100), gain: Math.round(best.g / 1e5) / 10 } });
+  let bo: { id: number; p: PlantId; g: number; prem: number; tpm: number } | null = null;
+  for (const o of c.offers) {
+    const prem = o.price / c.prices[o.p] - 1, g = (o.price - c.prices[o.p]) * o.tpm * 12;
+    if (prem > 0.03 && contracted(c, o.p) + o.tpm <= capacityT(c, o.p) && (bo === null || g > bo.g)) bo = { id: o.id, p: o.p, g, prem, tpm: o.tpm };
+  }
+  if (bo !== null) out.push({ key: 'contract', vars: { plant: bo.p, tpm: Math.round(bo.tpm / 100) / 10, prem: Math.round(bo.prem * 100), gain: Math.round(bo.g / 1e5) / 10 } });
+  const due = PLANTS.filter((p) => c.plants[p].insp >= INSPECT_EVERY - INSPECT_WARN && c.plants[p].ta !== c.m);
+  if (due.length > 0) out.push({ key: 'inspect', vars: { plant: due[0]!, left: Math.max(0, INSPECT_EVERY - c.plants[due[0]!].insp) } });
+  return out;
+}
 /** Where this Works is heading and what each ending needs. Pure; read by the year review and the board strip. A score need is not judged before the first review (have = -1). */
 export function outlook(c: Career): Outlook {
   const n = c.years.length, avg = (k: 'victor' | 'noor' | 'mara'): number => (n > 0 ? c.years.reduce((a, y) => a + y[k], 0) / n : -1);
-  const proj = c.m > 0 ? (c.total.margin * MONTHS) / c.m : 0;
+  const proj = pace(c);
   const N = (key: string, have: number, need: number, met: boolean): EndNeed => ({ key, have, need, met });
   const chiefNeeds = [
     N('margin', proj, CHIEF_MARGIN, proj >= CHIEF_MARGIN), N('criticals', c.criticals, 0, c.criticals === 0), N('strikes', c.strikes, 0, c.strikes === 0),
@@ -358,15 +411,34 @@ export function outlook(c: Career): Outlook {
     const state = done ? 'achieved' : over ? 'closed' : id === course ? (id === 'sold' || id === 'shut' ? 'danger' : 'course') : id === 'chief' && chiefClosed ? 'closed' : 'open';
     return { id, state, needs };
   };
-  return { course, rows: [row('sold', soldNeeds), row('shut', shutNeeds), row('steady', steadyNeeds), row('chief', chiefNeeds)], proj, gaps, chiefClosed };
+  return { course, rows: [row('sold', soldNeeds), row('shut', shutNeeds), row('steady', steadyNeeds), row('chief', chiefNeeds)], proj, levers: levers(c, proj), gaps, chiefClosed };
 }
 
-/** Run months until the next year end (or the end of the career). `months` = the most to run. */
+/** Things that need the player's attention, as flags (the board lights them; a multi-month `advance` stops when a new one appears). */
+export const INSPECT_WARN = 2;
+export const CAT_WORN = 0.7;
+export const U_FOULED = 0.75;
+export function attention(c: Career): string[] {
+  const out: string[] = [];
+  for (const p of PLANTS) {
+    const x = c.plants[p];
+    if (x.insp >= INSPECT_EVERY - INSPECT_WARN) out.push(`insp:${p}`);
+    if (x.cat < CAT_WORN) out.push(`cat:${p}`);
+    if (x.U < U_FOULED) out.push(`foul:${p}`);
+  }
+  return out;
+}
+/** Run up to `months` months. A multi-month run stops after the month in which an inspection comes within two months of due, a catalyst wears under 70 %, an exchanger fouls under 75 %, or the year ends (always at least one month). */
 export function advance(c: Career, months: unknown = 1): number {
   alive(c);
   need(typeof months === 'number' && Number.isInteger(months) && months >= 1 && months <= 12, 'months');
   let n = 0;
-  while (n < (months as number) && c.ending === '') { stepMonth(c); n++; if (c.m % 12 === 0) break; }
+  const before = new Set(attention(c));
+  while (n < (months as number) && c.ending === '') {
+    stepMonth(c); n++;
+    if (c.m % 12 === 0) break;
+    if ((months as number) > 1 && attention(c).some((k) => !before.has(k))) break;
+  }
   return n;
 }
 
@@ -388,25 +460,26 @@ export function decide(c: Career, name: string, ...a: unknown[]): void {
 }
 
 // ------------------------------------------------------------------------------------------------ investment payback preview (read by the view)
-export interface InvestPreview { /** USD a month the next level saves at today's plant state (0 when its value is not cash). */ saveUSDPerMonth: number; /** Months to pay the price back from that saving; 0 when there is no cash payback. */ paybackMonths: number; /** heat: GJ a month saved; abate: tonnes of CO2 a year cut; safety: points of incident risk removed per plant. */ effect: number }
+export interface InvestPreview { /** USD a month the next level saves at today's plant state (0 when its value is not cash). */ saveUSDPerMonth: number; /** Months to pay the price back from that saving; 0 when there is no cash payback. */ paybackMonths: number; /** heat: GJ a month saved; abate: tonnes of CO2 a year cut; safety: points of incident risk removed per plant. */ effect: number; /** heat only: USD a month the levels already bought are saving at today's plant state, and GJ a month */ realisedUSDPerMonth: number; realisedGJ: number }
 export function previewInvest(c: Career, kind: 'heat' | 'abate' | 'safety'): InvestPreview {
   const price = investCost(c, kind), lvl = c.invest[kind];
   if (kind === 'heat') {
     let gasGJ = 0;
     for (const p of PLANTS) gasGJ += outputOf(c, p) * DEFS[p].gasGJ * gasMul(c, p);
     const keep = (1 - 0.07 * (lvl + 1)) / (1 - 0.07 * lvl), gj = gasGJ * (1 - keep), usd = gj * c.gas;
-    return { saveUSDPerMonth: usd, paybackMonths: usd > 0 ? price / usd : 0, effect: gj };
+    const realGJ = lvl > 0 ? gasGJ * (1 / (1 - 0.07 * lvl) - 1) : 0;
+    return { saveUSDPerMonth: usd, paybackMonths: usd > 0 ? price / usd : 0, effect: gj, realisedUSDPerMonth: realGJ * c.gas, realisedGJ: realGJ };
   }
   if (kind === 'abate') {
     let em = 0;
     for (const p of PLANTS) em += outputOf(c, p) * DEFS[p].gasGJ * gasMul(c, p) * GJ_CO2 + outputOf(c, p) * DEFS[p].proc;
     const keep = (1 - 0.12 * (lvl + 1)) / (1 - 0.12 * lvl);
-    return { saveUSDPerMonth: 0, paybackMonths: 0, effect: em * 12 * (1 - keep) };
+    return { saveUSDPerMonth: 0, paybackMonths: 0, effect: em * 12 * (1 - keep), realisedUSDPerMonth: 0, realisedGJ: 0 };
   }
   let exp = 0;
   for (const p of PLANTS) {
     const r = riskOf(c, p), pr = (x: number): number => clamp((x - 0.35) * 0.6, 0, 0.9);
     exp += (pr(r) - pr(r - 0.08)) * (0.4 * CRIT_FINE_USD + 0.6 * MINOR_FINE_USD);
   }
-  return { saveUSDPerMonth: exp, paybackMonths: exp > 0 ? price / exp : 0, effect: 8 };
+  return { saveUSDPerMonth: exp, paybackMonths: exp > 0 ? price / exp : 0, effect: 8, realisedUSDPerMonth: 0, realisedGJ: 0 };
 }
