@@ -5,7 +5,7 @@ extends Ch9Board
 ## Pure view of levelView(): every edit leaves as act(name, args) (accept, decline, setRate, inspect, buyCatalyst, turnaround, cancelTurnaround, hireCrew, invest, advance).
 const MON := ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
 const PLANT_COL := {"nh3": Color("#2D5DA8"), "acid": Color("#C8793C"), "meoh": Color("#2E8B57"), "etoh": Color("#8A5BA8")}
-const PLANT_TAG := {"nh3": "NH3", "acid": "H2SO4", "meoh": "MeOH", "etoh": "EtOH"}
+const PLANT_TAG := {"nh3": "Ammonia", "acid": "Sulfuric acid", "meoh": "Methanol", "etoh": "Ethanol"}   ## one name per product; the formula appears once, on the plant card
 const END_NAME := {"chief": "CHIEF ENGINEER", "steady": "STEADY", "sold": "SOLD", "shut": "SHUT DOWN"}
 const INV_NAME := {"heat": "HEAT RECOVERY", "abate": "EMISSIONS ABATEMENT", "safety": "SAFETY SYSTEMS"}
 var app_ref = null
@@ -43,7 +43,7 @@ func _build() -> void:
 	body.add_child(head("SITE LOG", ""))
 	var lg: Array = view.get("log", [])
 	for i in range(lg.size() - 1, maxi(-1, lg.size() - 9), -1):
-		var r: Dictionary = lg[i]; var sev := str(r.kind) in ["critical", "fine", "strike", "penalty"]
+		var r: Dictionary = lg[i]; var sev := str(r.kind) in ["critical", "fine", "strike", "penalty", "notice"]
 		body.add_child(lbl("%s  %s" % [str(r.get("stamp", "m%02d" % int(r.m))), str(r.label)], 12, STAMP_RED if sev else PENCIL))
 
 # ---- calendar -------------------------------------------------------------------------------------------------------------------------------
@@ -72,14 +72,14 @@ func _ledger(d: Dictionary) -> Control:
 	v.add_child(lbl("CASH LEDGER", 12, PENCIL, "semi"))
 	var g := GridContainer.new(); g.columns = 4 if not narrow else 2; g.add_theme_constant_override("h_separation", 18); v.add_child(g)
 	var cash := float(d.cashUSD)
-	for r in [["CASH", _m(cash), STAMP_RED if cash < 0 else (AMBER_INK if cash < 1e7 else OKGREEN)], ["MARGIN TOTAL", _m(float(d.marginTotalUSD)), PENCIL], ["MARGIN THIS YEAR", _m(float(d.marginYtdUSD)), PENCIL], ["GAS", "$%.2f / GJ" % float(d.gasUSDPerGJ), PENCIL],
+	for r in [["CASH", _m(cash), STAMP_RED if cash < 0 else (AMBER_INK if cash < 1e7 else OKGREEN)], ["OPERATING MARGIN, TOTAL", _m(float(d.get("opMarginTotalUSD", d.marginTotalUSD))), PENCIL], ["OPERATING MARGIN, THIS YEAR", _m(float(d.get("opMarginYtdUSD", d.marginYtdUSD))), PENCIL], ["INVESTMENTS, THIS YEAR", _m(float(d.get("investmentsYtdUSD", 0.0))), PENCIL], ["INVESTMENTS, TOTAL", _m(float(d.get("investmentsTotalUSD", 0.0))), PENCIL], ["NET, TOTAL", _m(float(d.marginTotalUSD)), PENCIL], ["NET, THIS YEAR", _m(float(d.marginYtdUSD)), PENCIL], ["GAS", "$%.2f / GJ" % float(d.gasUSDPerGJ), PENCIL],
 			["REGULATOR STRIKES", "%d / %d" % [int(d.strikes), int(d.strikesMax)], STAMP_RED if int(d.strikes) > 0 else PENCIL], ["CRITICAL ALARMS", str(int(d.criticals)), STAMP_RED if int(d.criticals) > 0 else PENCIL],
 			["EMISSIONS YTD", "%.0f / %.0f kt" % [float(d.emissionsYtdT) / 1000.0, float(d.emissionsCapT) / 1000.0], PENCIL], ["CHIEF TARGET", _m(float(d.chiefMarginUSD)), PENCIL]]:
 		var cell := VBoxContainer.new(); cell.add_theme_constant_override("separation", 0); g.add_child(cell)
 		cell.add_child(lbl(r[0], 10, PENCIL, "semi")); cell.add_child(lbl(r[1], 14, r[2], "mono_bold"))
 	var pr := HFlowContainer.new(); pr.add_theme_constant_override("h_separation", 14); v.add_child(pr)
 	pr.add_child(lbl("SPOT:", 11, PENCIL, "semi"))
-	for p in view.get("prices", []): pr.add_child(lbl("%s $%s/t" % [str(p.label), fnum(float(p.spotUSDPerT))], 12, PLANT_COL.get(str(p.plant), PENCIL), "mono_bold"))
+	for p in view.get("prices", []): pr.add_child(lbl("%s $%s/t" % [str(PLANT_TAG.get(str(p.plant), str(p.label))), fnum(float(p.spotUSDPerT))], 12, PLANT_COL.get(str(p.plant), PENCIL), "mono_bold"))
 	var sp := Spark.new(); sp.hist = view.get("history", []); sp.custom_minimum_size = Vector2(300, 46); v.add_child(sp)
 	return _paper(v)
 
@@ -185,12 +185,16 @@ func _reviews(d: Dictionary) -> void:
 		v.add_child(lbl("TO: Plant manager     CC: Board", 11, PENCIL))
 		v.add_child(HSeparator.new())
 		var lines := [
-			["VICTOR (finance)", int(y.victor), "Margin %s this year against the board's yearly target. Cash at year end %s." % [_m(float(y.margin)), _m(float(y.cash))]],
+			["VICTOR (finance)", int(y.victor), str(y.get("victorNote", "Margin %s." % _m(float(y.margin))))],
 			["NOOR (safety, environment)", int(y.noor), "%d critical alarm%s. Emissions at %.0f%% of the cap.%s" % [int(y.criticals), "" if int(y.criticals) == 1 else "s", float(y.emRatio) * 100.0, "  The regulator issued %d strike%s." % [int(y.strike), "" if int(y.strike) == 1 else "s"] if int(y.strike) > 0 else ""]],
-			["MARA (operations)", int(y.mara), "Energy at %.0f%% of design, from fouling, catalyst age and wear." % (float(y.effRatio) * 100.0)],
+			["MARA (operations)", int(y.mara), str(y.get("maraNote", "Energy at %.0f%% of design." % (float(y.effRatio) * 100.0)))],
 		]
 		if str(y.get("driverNote", "")) != "":
 			var dn := lbl("MARGIN DRIVERS: " + str(y.driverNote), 12, PENCIL, "sans"); dn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(dn)
+		if str(y.get("revenueNote", "")) != "":
+			var rn := lbl(str(y.revenueNote), 12, PENCIL, "sans"); rn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(rn)
+		if str(y.get("capNote", "")) != "":
+			var cn := lbl(str(y.capNote), 12, AMBER_INK, "sans"); cn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(cn)
 		for r in lines:
 			var sc := int(r[1]); var col := OKGREEN if sc >= 80 else (AMBER_INK if sc >= 50 else STAMP_RED)
 			var t := lbl("%s: score %d/100.  %s" % [r[0], sc, r[2]], 12, col, "sans"); t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(t)
@@ -215,7 +219,7 @@ class Cal extends Control:
 				var k := ["nh3", "acid", "meoh", "etoh"].find(str(c.plant))
 				if int(c.turnaroundMonth) == mo: draw_rect(Rect2(r.position.x + w - 14, r.position.y + 2 + k * 8, 10, 7), pc); draw_string(f, Vector2(r.position.x + w - 12, r.position.y + 9 + k * 8), "T", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(8), Color.WHITE)
 				if int(c.inspectionDueMonth) == mo: draw_circle(Vector2(r.position.x + w - 20, r.position.y + 6 + k * 8), 3.0, pc)
-		draw_string(EqTheme.font("sans"), Vector2(2, 54), "dot = inspection due   T = turnaround booked   (colours: NH3 blue, acid orange, MeOH green, EtOH purple)", HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(10), Color("#4A4A48"))
+		draw_string(EqTheme.font("sans"), Vector2(2, 54), "dot = inspection due   T = turnaround booked   (colours: ammonia blue, sulfuric acid orange, methanol green, ethanol purple)", HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(10), Color("#4A4A48"))
 
 class Bar extends Control:
 	var cap := ""

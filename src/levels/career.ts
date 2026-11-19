@@ -7,7 +7,7 @@ import type { Action, PersonaFactory } from '@core/kit';
 import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import {
-  CHIEF_MARGIN, CREW_BASE, DEFS, EM_CAP_STEP, INSPECT_EVERY, INVEST_PRICE, MONTHS, PLANTS, RATE_MAX, RATE_MIN, STRIKES_MAX, START_CASH, TA_CRANE_HIRE_USD, TA_CREW_HIRE_USD,
+  CHIEF_MARGIN, MARGIN_TARGET_YEAR, CREW_BASE, DEFS, EM_CAP_STEP, INSPECT_EVERY, INVEST_PRICE, MONTHS, PLANTS, RATE_MAX, RATE_MIN, STRIKES_MAX, START_CASH, TA_CRANE_HIRE_USD, TA_CREW_HIRE_USD,
   CareerError, advance, contracted, crewLimit, decide, emCap, gasMul, initCareer, investCost, outputOf, overdue, previewInvest, riskOf, taDays, year, type Career, type LogRow,
 } from '../sim/career/model';
 import { naiveDecisions, solverDecisions, type Decision } from '../sim/career/policy';
@@ -21,7 +21,8 @@ const END_CODE = { '': 0, chief: 1, steady: 2, sold: 3, shut: 4 } as const;
 const KEYS = ['months', 'year', 'margin', 'cash', 'gas', 'criticals', 'strikes', 'end', 'emRatio', 'minCat', 'minU', 'overdue', 'contracts', 'revenue', 'cost', 'penalty', 'ref'];
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const M = (x: number): number => Math.round(x / 1e6);
-const plantLabel = (p: string): string => ((PLANTS as readonly string[]).includes(p) ? t(`lv.CAREER.plant.${p}`) : '');
+/** The plain product name for sentences and logs (the formula in brackets appears once, on the plant card). */
+const plantLabel = (p: string): string => ((PLANTS as readonly string[]).includes(p) ? t(`lv.CAREER.plant.${p}`).replace(/ \(.*\)$/, '') : '');
 /** A log row as a sentence: events by their title, findings and endings by a readable name, never a raw key. */
 export function logLabel(l: LogRow): string {
   const plant = plantLabel(l.plant);
@@ -32,18 +33,34 @@ export function logLabel(l: LogRow): string {
     default: return t(`lv.CAREER.log.${l.kind}`, { plant, n: l.n });
   }
 }
-/** Why a year ended as it did: revenue less operating cost, penalties and spending, and the biggest drag. */
+/** Why a year ended as it did: revenue less operating cost and penalties = operating margin; investments apart; net; and the biggest drag. */
 function driverNote(y: Career['years'][number]): string {
+  const op = y.rev - y.cost - y.pen;
   const drag = Math.max(y.cost, y.pen, y.inv, y.fine);
   const key = y.margin >= 0 ? 'ok' : drag === y.inv ? 'inv' : drag === y.pen ? 'pen' : drag === y.fine ? 'fine' : 'cost';
-  return t(`lv.CAREER.driver.${key}`, { rev: M(y.rev), cost: M(y.cost), pen: M(y.pen), inv: M(y.inv), fine: M(y.fine), margin: M(y.margin) });
+  return t(`lv.CAREER.driver.${key}`, { rev: M(y.rev), cost: M(y.cost), pen: M(y.pen), inv: M(y.inv), fine: M(y.fine), margin: M(y.margin), op: M(op) });
 }
+const sgn = (x: number, d = 1): string => `${x >= 0 ? '+' : '-'}${(Math.abs(x) / 1e6).toFixed(d)}`;
+/** Why revenue moved: volume (tonnes at last year's average price) and price (the price change on this year's tonnes), with the plant state and the contract share behind the volume. */
+export function revenueNote(y: Career['years'][number], prev: Career['years'][number] | undefined): string {
+  const kt = Math.round(y.tonnes / 1000), price = y.tonnes > 0 ? y.rev / y.tonnes : 0;
+  const base = { rev: (y.rev / 1e6).toFixed(1), kt, price: Math.round(price), crev: M(y.contractRev), ct: Math.round(y.contractT / 1000), down: Math.round(y.downDays), cat: Math.round(y.catAvg * 100), u: Math.round(y.uAvg * 100) };
+  if (prev === undefined || prev.tonnes <= 0) return t('lv.CAREER.rev.first', base);
+  const p0 = prev.rev / prev.tonnes, vol = (y.tonnes - prev.tonnes) * p0, pr = (price - p0) * y.tonnes;
+  return t('lv.CAREER.rev.change', { ...base, dir: y.rev >= prev.rev ? t('lv.CAREER.rev.rose') : t('lv.CAREER.rev.fell'), rev0: (prev.rev / 1e6).toFixed(1), diff: sgn(y.rev - prev.rev), vol: sgn(vol), pr: sgn(pr), kt0: Math.round(prev.tonnes / 1000), p0: Math.round(p0), down0: Math.round(prev.downDays), cat0: Math.round(prev.catAvg * 100), u0: Math.round(prev.uAvg * 100) });
+}
+const victorText = (y: Career['years'][number]): string => t('lv.CAREER.victor', { op: (y.opMargin / 1e6).toFixed(1), inv: (y.inv / 1e6).toFixed(1), net: (y.margin / 1e6).toFixed(1), target: M(MARGIN_TARGET_YEAR), cash: (y.cash / 1e6).toFixed(1) });
+const maraText = (y: Career['years'][number]): string => {
+  const pts = Math.round(100 * Math.max(0, 0.95 - y.uAvg) + 80 * Math.max(0, 0.9 - y.catAvg));
+  return t(pts > 0 ? 'lv.CAREER.mara_worn' : 'lv.CAREER.mara', { eff: Math.round(y.effRatio * 100), u: Math.round(y.uAvg * 100), cat: Math.round(y.catAvg * 100), pts });
+};
+const capText = (y: Career['years'][number]): string => y.capOldT > 0 && y.capT > 0 ? t('lv.CAREER.capnote', { old: Math.round(y.capOldT / 1000), now: Math.round(y.capT / 1000) }) : '';
 const investText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
   const pv = previewInvest(c, k), price = investCost(c, k);
   if (price <= 0) return '';
   if (k === 'abate') return t('lv.CAREER.invest.abate', { t: Math.round(pv.effect / 1000) });
   if (pv.paybackMonths <= 0) return t(`lv.CAREER.invest.${k}_none`, {});
-  return t(`lv.CAREER.invest.${k}`, { save: Math.round(pv.saveUSDPerMonth / 1e4) / 100, months: Math.round(pv.paybackMonths), gj: Math.round(pv.effect), pts: pv.effect });
+  return t(`lv.CAREER.invest.${k}`, { gas: Math.round(c.gas * 100) / 100, save: Math.round(pv.saveUSDPerMonth / 1e4) / 100, months: Math.round(pv.paybackMonths), gj: Math.round(pv.effect), pts: pv.effect });
 };
 
 export const careerOf = (s: S): Career | null => { const c = s.lv.c as Career | undefined; return c !== undefined && c.v === 1 ? c : null; };
@@ -148,7 +165,7 @@ export const CAREER: LevelSpec = {
     const spot = (p: (typeof PLANTS)[number]): number => c.prices[p];
     return {
       kind: 'career',
-      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
+      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: c.total.margin + (c.total.inv ?? 0), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
       prices: PLANTS.map((p) => ({ plant: p, label: t(`lv.CAREER.plant.${p}`), spotUSDPerT: spot(p) })),
       plants: PLANTS.map((p) => {
         const x = c.plants[p];
@@ -158,7 +175,7 @@ export const CAREER: LevelSpec = {
       offers: c.offers.map((o) => ({ id: o.id, plant: o.p, tpm: o.tpm, priceUSD: o.price, term: o.term, penaltyUSDPerT: o.pen, spotUSD: spot(o.p), premium: o.price / spot(o.p) - 1, shareOfCap: o.tpm / DEFS[o.p].cap, shareOfNominal: o.tpm / outputOf(c, o.p), nominalT: Math.round(outputOf(c, o.p)) })),
       calendar: PLANTS.map((p) => ({ plant: p, inspectionDueMonth: c.m + Math.max(0, INSPECT_EVERY - c.plants[p].insp), turnaroundMonth: c.plants[p].ta })),
       options: { invest: Object.fromEntries(Object.entries(INVEST_PRICE).map(([k, v]) => [k, { level: c.invest[k as 'heat'], max: 3, nextUSD: investCost(c, k as 'heat'), prices: v.slice(), preview: investText(c, k as 'heat') }])), crews: { hired: c.crews, max: 3, limit: crewLimit(c), base: CREW_BASE }, craneHireUSD: TA_CRANE_HIRE_USD, crewHireUSD: TA_CREW_HIRE_USD },
-      review: c.years.map((y) => ({ ...y, victorNote: y.victor, noorNote: y.noor, maraNote: y.mara, driverNote: driverNote(y) })),
+      review: c.years.map((y, i) => ({ ...y, opMarginUSD: y.opMargin, investmentsUSD: y.inv, netUSD: y.margin, victorNote: victorText(y), noorNote: y.noor, maraNote: maraText(y), driverNote: driverNote(y), revenueNote: revenueNote(y, c.years[i - 1]), capNote: capText(y) })),
       history: c.hist.map((h) => ({ m: h.m, marginUSD: h.margin, cashUSD: h.cash, gas: h.gas })),
       log: c.log.slice(-40).map((l) => ({ ...l, t: l.m, stamp: `Y${Math.floor(l.m / 12) + 1} M${String((l.m % 12) + 1).padStart(2, '0')}`, label: logLabel(l) })),
     };

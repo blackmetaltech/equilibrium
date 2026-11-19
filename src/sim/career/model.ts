@@ -43,15 +43,15 @@ export const DEFS: Record<PlantId, PlantDef> = {
 export interface Plant { rate: number; cat: number; U: number; wear: number; insp: number; stock: number; down: number; ta: number; taCrane: number; taCrew: number; out: number; margin: number; risk: number }
 export interface Contract { id: number; p: PlantId; tpm: number; price: number; left: number; pen: number }
 export interface Offer { id: number; p: PlantId; tpm: number; price: number; term: number; pen: number; exp: number }
-export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number }
-export interface LogRow { m: number; kind: 'event' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty'; code: string; plant: string; n: number }
+export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; /** operating margin: net margin before investments (catalyst, inspections, programmes) */ opMargin: number; tonnes: number; /** plant-days of lost output */ downDays: number; /** mean catalyst activity and exchanger U over the year (0..1) */ catAvg: number; uAvg: number; contractRev: number; contractT: number; capT: number; capOldT: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number }
+export interface LogRow { m: number; kind: 'event' | 'notice' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty'; code: string; plant: string; n: number }
 export interface Hist { m: number; margin: number; cash: number; gas: number }
 export type Ending = '' | 'chief' | 'steady' | 'sold' | 'shut';
 export interface Career {
   v: 1; seed: number; mode: string; m: number; cash: number; gas: number; prices: Record<PlantId, number>; plants: Record<PlantId, Plant>;
   contracts: Contract[]; offers: Offer[]; nextId: number; crews: number; invest: { heat: number; abate: number; safety: number };
-  strikes: number; criticals: number; ytd: { margin: number; em: number; gasGJ: number; tonnes: number; criticals: number; eff: number; effN: number; rev: number; cost: number; pen: number; inv: number };
-  years: Review[]; hist: Hist[]; log: LogRow[]; total: { revenue: number; cost: number; penalty: number; margin: number };
+  strikes: number; criticals: number; ytd: { margin: number; em: number; gasGJ: number; tonnes: number; criticals: number; eff: number; effN: number; rev: number; cost: number; pen: number; inv: number; down: number; cat: number; U: number; pn: number; crev: number; ct: number };
+  years: Review[]; hist: Hist[]; log: LogRow[]; total: { revenue: number; cost: number; penalty: number; margin: number; inv: number };
   last: { margin: number; revenue: number; cost: number; penalty: number; ev: string; evPlant: string };
   ending: Ending; lossYears: number;
 }
@@ -89,7 +89,7 @@ export function initCareer(seed: number, mode: string): Career {
     prices: { nh3: DEFS.nh3.price0, acid: DEFS.acid.price0, meoh: DEFS.meoh.price0, etoh: DEFS.etoh.price0 },
     plants: { nh3: newPlant(), acid: newPlant(), meoh: newPlant(), etoh: newPlant() },
     contracts: [], offers: [], nextId: 1, crews: 0, invest: { heat: 0, abate: 0, safety: 0 }, strikes: 0, criticals: 0,
-    ytd: { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0 }, years: [], hist: [], log: [], total: { revenue: 0, cost: 0, penalty: 0, margin: 0 },
+    ytd: { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0, down: 0, cat: 0, U: 0, pn: 0, crev: 0, ct: 0 }, years: [], hist: [], log: [], total: { revenue: 0, cost: 0, penalty: 0, margin: 0, inv: 0 },
     last: { margin: 0, revenue: 0, cost: 0, penalty: 0, ev: '', evPlant: '' }, ending: '', lossYears: 0,
   };
   makeOffers(c);
@@ -127,7 +127,7 @@ export class CareerError extends Error {}
 const need = (ok: boolean, code: string): void => { if (!ok) throw new CareerError(code); };
 const alive = (c: Career): void => need(c.ending === '', 'over');
 const plantOf = (p: unknown): PlantId => { need(typeof p === 'string' && (PLANTS as readonly string[]).includes(p), 'plant'); return p as PlantId; };
-const spend = (c: Career, usd: number): void => { c.cash -= usd; c.ytd.margin -= usd; c.ytd.inv = (c.ytd.inv ?? 0) + usd; c.total.cost += usd; c.total.margin -= usd; };
+const spend = (c: Career, usd: number): void => { c.cash -= usd; c.ytd.margin -= usd; c.ytd.inv = (c.ytd.inv ?? 0) + usd; c.total.cost += usd; c.total.margin -= usd; c.total.inv = (c.total.inv ?? 0) + usd; };
 
 export function accept(c: Career, id: unknown): void {
   alive(c);
@@ -228,12 +228,13 @@ export function stepMonth(c: Career): void {
   const spot: Record<string, number> = {};
   for (const p of PLANTS) {
     const x = c.plants[p], d = DEFS[p];
-    const days = Math.min(30, x.down); x.down -= days;
+    const days = Math.min(30, x.down); x.down -= days; c.ytd.down = (c.ytd.down ?? 0) + days; c.ytd.cat = (c.ytd.cat ?? 0) + x.cat; c.ytd.U = (c.ytd.U ?? 0) + x.U; c.ytd.pn = (c.ytd.pn ?? 0) + 1;
     const o = outputOf(c, p) * mods.out[p] * (1 - days / 30);
     out[p] = o; x.out = o; tonnes += o;
     const need_ = contracted(c, p), deliver = Math.min(o, need_), short = Math.max(0, need_ - o);
     let rev = 0, pen = 0;
-    for (const k of c.contracts) if (k.p === p) { const share = need_ > 0 ? (k.tpm / need_) * deliver : 0; rev += share * k.price; pen += Math.max(0, k.tpm - share) * k.pen; }
+    c.ytd.ct = (c.ytd.ct ?? 0) + deliver;
+    for (const k of c.contracts) if (k.p === p) { const share = need_ > 0 ? (k.tpm / need_) * deliver : 0; rev += share * k.price; c.ytd.crev = (c.ytd.crev ?? 0) + share * k.price; pen += Math.max(0, k.tpm - share) * k.pen; }
     const spotQty = Math.max(0, o - deliver);
     spot[p] = c.prices[p] * mods.spot[p] * (1 - 0.15 * (spotQty / d.cap));
     rev += spotQty * spot[p]!;
@@ -304,12 +305,17 @@ function yearEnd(c: Career): void {
   if (emRatio > 1) { fine = EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; strike++; c.cash -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.total.margin -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.log.push({ m: c.m, kind: 'fine', code: 'emissions', plant: '', n: Math.round((emRatio - 1) * 1000) }); }
   if (PLANTS.some((p) => overdue(c, p) > 6)) { strike++; c.log.push({ m: c.m, kind: 'fine', code: 'inspection', plant: '', n: 0 }); }
   c.strikes += strike;
-  const victor = clamp(Math.round((yt.margin / MARGIN_TARGET_YEAR) * 100), 0, 100);
+  // Victor judges operating performance: margin before investments. The return on a programme (less gas, fewer fines) is already inside it, its price is not charged to the score.
+  const opMargin = yt.margin + (yt.inv ?? 0);
+  const victor = clamp(Math.round((opMargin / MARGIN_TARGET_YEAR) * 100), 0, 100);
+  const pn = Math.max(1, yt.pn ?? 0), catAvg = (yt.cat ?? 0) / pn, uAvg = (yt.U ?? 0) / pn;
   const noor = clamp(Math.round(100 - 45 * yt.criticals - 100 * Math.max(0, emRatio - 0.9) - 25 * strike), 0, 100);
-  const mara = clamp(Math.round(100 - 250 * Math.max(0, effRatio - 1)), 0, 100);
-  c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: yt.cost ?? 0, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: yt.margin, criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
-  c.lossYears = yt.margin < 0 ? c.lossYears + 1 : 0;
-  c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0 };
+  // Mara also reads the equipment: a fouled exchanger and a tired catalyst cost points even when a heat-recovery programme hides them in the gas figure.
+  const mara = clamp(Math.round(100 - 250 * Math.max(0, effRatio - 1) - 100 * Math.max(0, 0.95 - uAvg) - 80 * Math.max(0, 0.9 - catAvg)), 0, 100);
+  c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: yt.cost ?? 0, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: yt.margin, opMargin, tonnes: yt.tonnes, downDays: yt.down ?? 0, catAvg, uAvg, contractRev: yt.crev ?? 0, contractT: yt.ct ?? 0, capT: emCap(c), capOldT: EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y), criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
+  c.lossYears = opMargin < 0 ? c.lossYears + 1 : 0;
+  c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0, down: 0, cat: 0, U: 0, pn: 0, crev: 0, ct: 0 };
+  if (c.ending === '' && c.m < MONTHS) c.log.push({ m: c.m, kind: 'notice', code: 'cap', plant: '', n: Math.round(emCap(c) / 1000) });
   if (c.lossYears >= 2 || c.cash < 0) finish(c, 'sold');
   else if (c.strikes >= STRIKES_MAX) finish(c, 'shut');
 }
