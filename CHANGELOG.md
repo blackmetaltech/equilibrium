@@ -3,6 +3,13 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [Unreleased] - 0.5 lane 0.5a
+- **Wall clock.** No level with a shift needs more than 300 s of waiting at its recommended speed (`src/levels/wallclock.ts`, tested). L24: shift 3600 -> 2700 s, recipe at 4x until lit then 16x,
+  warm coolant 64 -> 65 C (lit at ~430 s instead of ~530 s), coolant and feed set together at lighting (peak <= 120 C, no trip for 0-60 wall-s hand delays at 4x), PG star 7.8 -> 6.6 kmol.
+  L08: shift 3600 -> 1800 s.
+- **Career endings.** Sold / Shut / Steady / Flagship strip on the board; every year review announces the course and what would move the Works toward the other ending. Careful (payback
+  advice, turnarounds on health, contracts above spot, scheduled inspections) ends Flagship, the same player at 80 % rate ends Steady, idle and reckless are sold or shut (6 seeds each). No economics changed.
+
 ## [0.4.0] - 2026-11-19 · "Employable" (depth: control room, turnaround, career; five play-test rounds)
 ### Added
 - **Chapter 8 The Control Room** (L29-L33): PID/FOPDT library with analytic oracles (step response, P-only offset, Ziegler-Nichols,
