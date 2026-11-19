@@ -35,10 +35,10 @@ export const LOOP_TAGS = ['FI-101', 'FI-102', 'FI-103', 'FI-104', 'FI-105'];
 
 /** Gross-error isolation by signature, computable from the shown node imbalances: the meter whose balance-matrix column (the nodes it sits on, with signs) lines up best with the imbalance vector (largest |cosine|). */
 export function signatureMeter(A: number[][], resid: number[]): number {
-  const nr = Math.hypot(...resid) || 1;
+  const nr = Math.sqrt(resid.reduce((a, v) => a + v * v, 0)) || 1;
   let best = 0, bv = -1;
   for (let k = 0; k < A[0]!.length; k++) {
-    const col = A.map((row) => row[k]!), nc = Math.hypot(...col) || 1, c = Math.abs(col.reduce((a, v, i) => a + v * resid[i]!, 0)) / (nc * nr);
+    const col = A.map((row) => row[k]!), nc = Math.sqrt(col.reduce((a, v) => a + v * v, 0)) || 1, c = Math.abs(col.reduce((a, v, i) => a + v * resid[i]!, 0)) / (nc * nr);
     if (c > bv + 1e-12) { bv = c; best = k; }
   }
   return best;
