@@ -103,6 +103,7 @@ export const L23_GUIDE: BuildStep[] = [
 
 export const L23: LevelSpec = {
   id: 'L23', firstRun: true, chapter: 5, index: 23, setter: 'safety', budgetUSD: L23_BUDGET, units: L23_UNITS, notes: 2, shiftLen: 0,
+  textVars: (s) => ({ costMax: f(s, Math.round(L23_COST_MAX * 100) / 100) }),
   setup: (s) => { baseSetup(s, L23_SPECIES, L23_UNITS, PRESETS); buildDistillery(s); },
   measures: spiritsMeasures,
   goals: (s, m) => {

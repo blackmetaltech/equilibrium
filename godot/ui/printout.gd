@@ -136,6 +136,8 @@ static func open(app) -> bool:
 		var cok := bool(ci.get("ok", false))
 		var ct := "%s: %s %s" % [PaperStrings.t("PR_CALLIT"), PaperStrings.num(float(ci.get("value", 0))), str(ci.get("unit", ""))]
 		if ci.has("answer"): ct += "   ENGINE %s" % PaperStrings.num(float(ci.answer))
+		elif ci.get("truth") != null: ct += "   ENGINE %s" % PaperStrings.num(float(ci.truth))
+		if str(ci.get("tol", "")) != "": ct += "  (%s)" % str(ci.tol)   # every call result line states its tolerance: "within ±2 %"
 		_line(vb, ct + "   " + (PaperStrings.t("PR_PASS") if cok else PaperStrings.t("PR_FAIL")), INKC if cok else EqTheme.RED.darkened(0.15), 21, "CallIt")
 	# Mara's note in blue pen, at the margin
 	if str(rc.get("lesson", "")) != "":

@@ -232,6 +232,8 @@ func _rebuild() -> void:
 	# readouts, two cells per row (kmol/h beside kg/h)
 	var grid := GridContainer.new(); grid.columns = 2; grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 2); _body.add_child(grid)
 	for key in ["flow", "mass", "T", "P", "duty"]: _cell(grid, key)
+	if str(card.type) == "cstr" and str(app.b.g.get("level", "")) == "L24":   # L24: the reactor flow lags the feed by its hold-up: say so right under the readout
+		var lag := EqTheme.label(PaperStrings.t("FP_LAG"), 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "mono"); lag.name = "LagNote"; lag.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; lag.custom_minimum_size = Vector2(190, 0); _body.add_child(lag)
 	_rc_grid = GridContainer.new(); _rc_grid.name = "ResultsC"; _rc_grid.columns = 2; _rc_grid.add_theme_constant_override("h_separation", 12); _rc_grid.add_theme_constant_override("v_separation", 0); _body.add_child(_rc_grid)   # the unit's own temperatures, in °C
 	_last = EqTheme.label("", 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "dymo"); _last.name = "LastRun"; _body.add_child(_last)   # readings of the last run while the dials are being edited
 	# fixed slots: error text never moves the fields above it (a heater also has a loud 0 kW warning slot)

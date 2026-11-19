@@ -21,7 +21,9 @@ type S = Readonly<EqState>;
 const fin = (x: number): number => (Number.isFinite(x) ? x : 0);
 
 // ------------------------------------------------------------------------------------------------ grading
-export interface CallItGrade { answered: boolean; value?: number; truth?: number; ok?: boolean; named?: string; namedOk?: boolean; truthNamed?: string }
+export interface CallItGrade { answered: boolean; value?: number; truth?: number; ok?: boolean; named?: string; namedOk?: boolean; truthNamed?: string; tol?: string }
+/** The tolerance of a call as the player reads it: "within ±2 %" (relative, as graded) or "exactly". */
+export const tolText = (tol: number): string => (tol === 0 ? t('lv.call.tol_exact') : t('lv.call.tol', { tol: String(Math.round(tol * 1e4) / 100) }));
 
 /** The answer made for `key` (before the first commission): the last `callIt(value[, key])` / `predict(key, value)` in the solution log, else the stored prediction. Several answers per level do not overwrite each other. */
 export function answerOf(s: S, spec: LevelSpec, key: string): Prediction | null {
@@ -44,7 +46,7 @@ export function gradeCallIt(s: S, spec: LevelSpec, m: Measures): CallItGrade {
   if (!c) return { answered: false };
   const p = answerOf(s, spec, c.key);
   if (p === null) return { answered: false };
-  const g: CallItGrade = { answered: true, value: p.value };
+  const g: CallItGrade = { answered: true, value: p.value, tol: tolText(c.tol) };
   const truth = c.truth(s, m);
   if (truth !== null) { g.truth = truth; g.ok = c.tol === 0 ? p.value === truth : relErr(p.value, truth) <= c.tol; }
   if (c.named) {
@@ -207,9 +209,9 @@ const levelInfo: QueryFn<EqState> = (s) => {
     notice,
     goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(lack !== null && g.value === undefined ? { readout: t('lv.goal.needs_unit', { unit: t(`label.unit.${lack}`) }) } : {}), ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
     budgetUSD: spec.budgetUSD, spentUSD: spent,
-    stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`)) },
+    stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`, spec.textVars?.(s))) },
     callIt: call === null ? null : {
-      key: call.key, prompt: t(`lv.${spec.id}.callit`), unit: call.unit, ...callBounds(call), answered: grade.answered, locked: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
+      key: call.key, prompt: t(`lv.${spec.id}.callit`), unit: call.unit, tol: tolText(call.tol), ...callBounds(call), answered: grade.answered, locked: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
       ...(grade.ok !== undefined && (s.solved !== null || s.status !== 'playing') ? { ok: grade.ok, truth: fin(grade.truth ?? 0) } : {}),
       ...(call.named ? { named: grade.named ?? '', options: s.species.filter((x) => x === 'N2' || x === 'H2') } : {}),
       ...(call.lateOk ? { late: true } : {}),
@@ -218,7 +220,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     callIts: (spec.callIts ?? []).map((c) => {
       const a = answerOf(s, spec, c.key), tr = c.truth(s, m), over = s.solved !== null || s.status !== 'playing';
       const ok = a !== null && tr !== null ? (c.tol === 0 ? a.value === tr : relErr(a.value, tr) <= c.tol) : undefined;
-      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`), unit: c.unit, ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
+      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`), unit: c.unit, tol: tolText(c.tol), ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
     }),
     allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
     hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },

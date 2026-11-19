@@ -9,6 +9,7 @@ import { t } from '../i18n';
 import { REGIONS } from '../regions';
 import type { EqRegionData } from '../regions/data';
 import { SPECIES } from '../data/species';
+import { nh3Envelope } from '../sim/units/nitric';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
@@ -19,7 +20,9 @@ export const L26_SPECIES = ['NH3', 'O2', 'N2', 'NO', 'NO2', 'N2O', 'H2O', 'HNO3(
 export const L26_P = 4e5, L26_NH3_KMOL_H = 70;
 export const L26_YIELD_MIN = 95, L26_NH3_MAX_PCT = 11, L26_N2O_MAX = 2.5, L26_HNO3_MIN_T_H = 3.8;
 /** Calibrated reference (GAME, UNVERIFIED, re-derived in ch6.test.ts): air flow (kmol/h), preheat (K), abater fraction, gauze exit (deg C), cost. */
-export const L26_REF = { air: 630, preheat: 473.15, X: 0.95, t_c: 860.46, cost: 63.83 };
+export const L26_REF = { air: 630, preheat: 473.15, X: 0.95, t_c: 860.46, cost: 63.83, mix_c: 178.44 };
+/** The flammable envelope of NH3 in air at the temperature the gauze feed really has at the recipe (the 70 kmol/h of 27 C ammonia cools the 200 C air to about 178 C): the engine's own function, pinned against the solved plant by f12_l26.test.ts. */
+export const l26RefEnvelope = (): { lfl: number; ufl: number } => nh3Envelope(L26_REF.mix_c);
 export const L26_COST_MAX = L26_REF.cost * 1.03;
 /** Bench prices (GAME, UNVERIFIED). One rule for the money: the pre-built line (230 000) is already paid for (markPrebuilt) and is not counted as spent; the Engineer budget is what the player adds, the gauze burner (70 000) and the abater (40 000), with head-room. */
 export const L26_UNITS: LevelSpec['units'] = {
@@ -100,6 +103,7 @@ export const L26_GUIDE: BuildStep[] = [
 
 export const L26: LevelSpec = {
   id: 'L26', firstRun: true, chapter: 6, index: 26, setter: 'safety', budgetUSD: L26_BUDGET, units: L26_UNITS, notes: 3, shiftLen: 0,
+  textVars: (s) => { const e = l26RefEnvelope(); return { costMax: f(s, Math.round(L26_COST_MAX * 100) / 100), lfl: Math.round(e.lfl * 10) / 10, ufl: Math.round(e.ufl * 10) / 10, mixc: Math.round(L26_REF.mix_c), gap: Math.round((e.lfl - (L26_NH3_KMOL_H / (L26_NH3_KMOL_H + L26_REF.air)) * 100) * 10) / 10 }; },
   setup: (s) => { baseSetup(s, L26_SPECIES, L26_UNITS, PRESETS); buildNitric(s); },
   measures: nitricMeasures,
   goals: (s, m) => {
