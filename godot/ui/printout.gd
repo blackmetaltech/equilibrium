@@ -112,7 +112,7 @@ static func open(app) -> bool:
 	_line(vb, "", INKC, 8)
 	_line(vb, PaperStrings.t("PR_METRICS"), INKC, 22)
 	for m in rc.get("metrics", []):
-		var vtxt := PaperStrings.num(float(m.value)) + " " + str(m.unit)
+		var vtxt := metric_text(float(m.value), str(m.unit))
 		_line(vb, _pad(str(m.label), 22) + vtxt, INKC, 21, "Metric_" + str(m.key))
 	# histogram: only on a finished plant
 	var hg = rc.get("histogram")
@@ -160,6 +160,14 @@ static func open(app) -> bool:
 	_fit.call_deferred(app, pn, sc, vb, max_h)
 	app.focus_dialog()
 	return true
+
+## A metric value with its unit. Money units (USD, USD/h, USD/t, USD/yr, $) read the way the rest of the game writes money: "$84,200", "$14.90 /t".
+static func metric_text(v: float, unit: String) -> String:
+	var u := unit.strip_edges()
+	if u == "$" or u.to_upper() == "USD": return "$" + PaperStrings.num(v)
+	if u.to_upper().begins_with("USD/"): return "$" + PaperStrings.num(v) + " /" + u.substr(4)
+	if u.begins_with("$/"): return "$" + PaperStrings.num(v) + " /" + u.substr(2)
+	return PaperStrings.num(v) + " " + unit
 
 ## Retry keeps the design (units, pipes, knob values, answers) and says so: edit it, then commission again.
 static func _retry(app, host: Control) -> void:

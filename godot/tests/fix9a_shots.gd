@@ -20,7 +20,7 @@ func _initialize() -> void:
 	var tag := "%s_%dx%d" % [which, w, h]
 	match which:
 		"l16":
-			app.start_level("L16", true); await frames(10); await snap(tag + "_ticket")
+			app.start_level("L16", true); await frames(10); Notebook.open(app); await frames(10); await snap(tag + "_ticket")
 		"ledger":
 			await level("L08"); app.bay.pin("ledger"); await frames(6); app.bay.refresh(true); await frames(4)
 			app.bay.view.set_data({"items": [{"unitId": "R-1", "tag": "R-105", "MW": 2.66, "kind": "release"}, {"unitId": "R-2", "tag": "B-107", "MW": 1.9, "kind": "release"}, {"unitId": "C-3", "tag": "H-108", "MW": 0.8, "kind": "recovered"}, {"unitId": "C-4", "tag": "Z-109", "MW": 0.4, "kind": "lost"}], "totalMW": 4.56, "exchangerMW": 0.8, "heaters": [{"label": "H-108: 2.66 MW of duty from 3.3 MW of fuel, 80 % efficient (the rest goes up the stack)"}], "labels": {"release": "released", "total": "total released"}})

@@ -46,7 +46,7 @@ export const levelsCh4: Record<string, string> = {
   'lv.L16.goal.tmax': 'Hottest catalyst at most {target} °C',
   'lv.L16.goal.load': 'Bed catalyst as supplied ({target} kg): leave it alone',
   'lv.L16.star.1': 'At least 60 % converted with the bed under 620 °C',
-  'lv.L16.star.2': 'The start-up heater only trims: at most 10 kW of fuel. Its duty is heating the cold feed up to the bed inlet; let the hot bed effluent do that instead, with a larger feed-effluent exchanger (area about 50 m²).',
+  'lv.L16.star.2': 'Heater only trims: at most 10 kW of fuel. Let the hot bed effluent warm the cold feed: a bigger feed-effluent exchanger (about 50 m²).',
   'lv.L16.star.3': 'Cost per tonne at or under the calibrated figure',
   'lv.L16.hero': 'SO₂ converted in bed one', 'lv.L16.sec': 'Hottest catalyst',
   'lv.L16.ann.light': 'BELOW LIGHTOFF', 'lv.L16.ann.asleep': 'BED ASLEEP', 'lv.L16.ann.bedhi': 'BED T HI', 'lv.L16.ann.fire': 'HEATER FIRING', 'lv.L16.ann.load': 'LOAD CHANGED',

@@ -39,8 +39,7 @@ export const levelsCh3: Record<string, string> = {
   // ---- L11 The Gas You Were Sold
   'lv.L11.title': 'The Gas You Were Sold', 'lv.L11.place': 'The gas yard, three contracts',
   'lv.L11.note.1': 'Three suppliers. The cheap one comes with argon and methane in it. Pick, and make your tonnage.',
-  'lv.L11.note.2': 'A is pure one-to-three, B has 5 % inerts, C has 10 %. Each feed is a contract: set the flows, 1000 kmol/h in all, converter at 450 °C.',
-  'lv.L11.note.3': 'Two percentages, two yardsticks: the Equilibrium Window plots conversion of the limiting reactant (for example 35 %), while the ticket and the outlet reading give NH₃ as a mole fraction of the outlet gas (for example 21 %). Both describe the same converter.',
+  'lv.L11.note.2': 'A is pure one-to-three, B has 5 % inerts, C has 10 %. Each feed is a contract: set the flows, 1000 kmol/h in all, converter at 450 °C. Two percentages: the Equilibrium Window plots conversion of the limiting reactant (say 35 %), the ticket reads NH₃ as a mole fraction of the outlet gas (say 21 %).',
   'lv.L11.goal.nh3': 'At least {target} kmol/h of NH₃ formed in one pass',
   'lv.L11.goal.gas': 'Buy {target} kmol/h of gas in all, within 1 %',
   'lv.L11.goal.temp': 'Converter at {target} °C, within 1 °C',

@@ -895,7 +895,7 @@ class Hub extends Node:
 
 	func _on_changed() -> void:
 		if from_unit != "": _light_targets()
-		else: _refresh_ports()
+		else: _refresh_ports.call_deferred()   # after the world has synced its units (a unit placed this tick has a body to hang its pips on)
 
 	func _free_ports(id: String) -> Array:
 		var out: Array = []
