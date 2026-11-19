@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { EVENT_TABLES } from '../data/events';
 import { SPECS } from './registry';
-import { FIRSTRUN_WALL_S, SHIFT_PLAN, WALL_LIMIT_S, wallSeconds } from './wallclock';
+import { FIRSTRUN_WALL_S, LATENCY_S, SHIFT_PLAN, WALL_LIMIT_S, wallSeconds, wallWithLatency } from './wallclock';
 
 describe('wall-clock budget', () => {
   const shiftLevels = SPECS.filter((s) => s.shiftLen > 0);
@@ -16,13 +16,13 @@ describe('wall-clock budget', () => {
     }
   });
   for (const s of shiftLevels) {
-    it(`${s.id}: the shift takes at most ${WALL_LIMIT_S} s of wall clock at the recommended speed`, () => {
-      const w = wallSeconds(SHIFT_PLAN[s.id]!.plan);
+    it(`${s.id}: the shift takes at most ${WALL_LIMIT_S} s of wall clock at the recommended speed, with ${LATENCY_S} s of human latency per step`, () => {
+      const w = wallWithLatency(s.id);
       expect(w, `${s.id} ${Math.round(w)} s`).toBeLessThanOrEqual(WALL_LIMIT_S);
     });
   }
   it('no shift is entered at the speed it would need to be unplayable: even at 1x the short ones stay within the limit, the long ones need 4x or 16x', () => {
-    expect(SHIFT_PLAN.L24!.plan[0]![1]).toBe(4);
+    expect(SHIFT_PLAN.L24!.plan.every((x) => x[1] === 16)).toBe(true); expect(SHIFT_PLAN.L24!.steps).toBe(4);
     expect(SHIFT_PLAN.L08!.plan[0]![1]).toBe(16);
   });
   it('the first run after a win (30 plant seconds at 1x) is far under the limit', () => { expect(FIRSTRUN_WALL_S).toBeLessThan(60); });

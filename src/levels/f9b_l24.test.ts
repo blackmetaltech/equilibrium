@@ -1,7 +1,7 @@
 // F9b L24: the notebook's start-up recipe, followed LITERALLY through the player's own controls, wins with no trip. The script below sends only what a player can do from the
 // text: setpoint values in the dials' units (feed knob kmol/h, coolant °C), at the 1x speed (one tick = one shift second), and reacting to the reactor chart a human reaction
 // time after it passes the stated temperature. No solver persona, no sub-second timing. Step 3 (ease the coolant and raise the feed) and step 4 (final coolant and feed) are each
-// two edits; the test makes them in BOTH orders, with a gap of up to 30 s of wall time at 4x (120 plant s) between them and a hand up to 60 wall s (240 plant s) late.
+// two edits; the test makes them in BOTH orders, with a gap of up to 8 wall s at 16x (128 plant s) between them and a hand up to 30 wall s (480 plant s) late.
 import { describe, expect, it } from 'vitest';
 import { Env } from '@core/kit';
 import { GAME } from '../game';
@@ -43,15 +43,15 @@ function follow(p: Plan, rows?: string[][]): { e: Env<EqState>; litAt: number; p
   }
   return { e, litAt, peak };
 }
-const WALL = 4; // the recipe runs at 4x: a human who needs w wall seconds loses 4 w plant seconds
+const WALL = 16; // the recipe runs at 16x: a human who needs w wall seconds loses 4 w plant seconds
 
 describe('L24 recipe, literally', () => {
   it('the notebook text carries the recipe numbers, in the dials units and with the speed, and is short', () => {
     const e = mk(), notes = (info(e).note as string[]);
     const text = notes.join(' ');
-    for (const frag of [`${R.feedKmolH} kmol/h`, `${R.warmC} °C`, `${R.coolAtC} °C`, `${R.easeC} °C`, `${R.easeKmolH} kmol/h`, `${R.holdC} °C`, `${R.fullKmolH} kmol/h`, `${R.gapS} plant seconds`, `${R.settleS} plant seconds`, 'speed key to 16x', 'speed key on 4x', '260.6 kmol/h', 'Reset', '125 °C']) expect(text, frag).toContain(frag);
+    for (const frag of [`${R.feedKmolH} kmol/h`, `${R.warmC} °C`, `${R.coolAtC} °C`, `${R.easeC} °C`, `${R.easeKmolH} kmol/h`, `${R.holdC} °C`, `${R.fullKmolH} kmol/h`, `${R.gapS} plant seconds`, `${R.settleS} plant seconds`, '16x speed key', '260.6 kmol/h', 'Reset', '125 °C']) expect(text, frag).toContain(frag);
     expect(Math.round(260.57 * 0.7)).toBe(R.feedKmolH);
-    expect(R.speed).toBe('4x');
+    expect(R.speed).toBe('16x');
     expect(notes.length).toBeLessThanOrEqual(8);
     expect(text.length).toBeLessThan(3300);
     const rows = (info(e).buildGuide as { id: string; text: string }[]).map((r) => r.id);
@@ -60,7 +60,7 @@ describe('L24 recipe, literally', () => {
   });
   // step 3: both orders x late x gap; step 4: both orders x gap, cycled across the runs (each run goes through the whole recipe, so step 4 is exercised in all of them)
   let i = 0;
-  for (const first3 of ['coolant', 'feed'] as Order[]) for (const wall of [0, 30, 60]) for (const gapWall of [0, 15, 30]) {
+  for (const first3 of ['coolant', 'feed'] as Order[]) for (const wall of [0, 15, 30]) for (const gapWall of [0, 4, 8]) {
     const k = i++, late3 = wall * WALL, gap3 = gapWall * WALL;
     const first4: Order = k % 2 === 0 ? 'coolant' : 'feed', gap4 = [0, 60, 120][k % 3]!;
     it(`wins with no trip: ${first3} first, ${wall} wall s late, ${gapWall} wall s between the two edits; step 4 ${first4} first, ${gap4} plant s apart`, () => {
@@ -75,7 +75,7 @@ describe('L24 recipe, literally', () => {
       expect(info(e).stars.have).toBeGreaterThanOrEqual(1);
     });
   }
-  it('a hand 2 wall minutes late and a gap of a wall minute still wins (a wider window than the notebook promises)', () => {
+  it('a hand 30 wall s (480 plant s) late and a gap of 240 plant s still wins', () => {
     const { e, peak } = follow({ first3: 'feed', late3: 480, gap3: 240, first4: 'coolant', gap4: 240, settle: 240 });
     expect(e.state.status).toBe('won'); expect(e.state.shift!.stat.tripN).toBe(0); expect(peak).toBeLessThanOrEqual(120);
   });
