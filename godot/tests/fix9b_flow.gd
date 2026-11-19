@@ -157,7 +157,7 @@ func _texts() -> void:
 	await level("L24")
 	var li: Dictionary = app.b.q("levelInfo")
 	var notes := " ".join(PackedStringArray(li.note))
-	for frag in ["182 kmol/h", "66 °C", "80 °C", "100 °C", "235 kmol/h", "260.6 kmol/h", "1x", "16x"]:
+	for frag in ["182 kmol/h", "64 °C", "80 °C", "100 °C", "235 kmol/h", "260.6 kmol/h", "1x", "16x"]:
 		check(notes.contains(frag), "the L24 notebook has " + frag)
 	check(Printout.metric_text(2.0, "") == "2", "a count metric is an integer, never 2.00: " + Printout.metric_text(2.0, ""))
 	check(Printout.metric_text(2.5, "") != "2", "a non-count keeps its decimals")
