@@ -97,6 +97,30 @@ describe('stray units', () => {
   });
 });
 
+describe('pruneUnconnected', () => {
+  it('commission lists every unpiped unit at once and pruneUnconnected deletes them in one undo step', () => {
+    const e = start('L05');
+    for (const a of [['placeUnit', 'compressor', 4, 4, 0], ['placeUnit', 'mixer', 10, 2, 0], ['placeUnit', 'burner', 14, 0, 0], ['placeUnit', 'boiler', 18, 0, 0], ['placeUnit', 'stack', 22, 2, 0]] as const) act(e, a[0], ...a.slice(1));
+    for (const [a, ap, b, bp] of [['F-102', 'out', 'K-103', 'in'], ['K-103', 'out', 'M-104', 'in2'], ['F-101', 'out', 'M-104', 'in1'], ['M-104', 'out', 'R-105', 'in'], ['R-105', 'out', 'B-106', 'in'], ['B-106', 'out', 'Z-107', 'in']]) act(e, 'connect', a, ap, b, bp);
+    expect(act(e, 'pruneUnconnected').ok).toBe(false);
+    e.engine.state.limits.stack = 3; e.engine.state.limits.mixer = 3;
+    expect(act(e, 'placeUnit', 'stack', 22, 8, 0).ok).toBe(true);
+    expect(act(e, 'placeUnit', 'mixer', 10, 10, 0).ok).toBe(true);
+    const strays = e.engine.q('strayUnits') as string[];
+    expect(strays).toHaveLength(2);
+    const c = act(e, 'commission');
+    expect(c.ok).toBe(false);
+    for (const id of strays) expect(c.message).toContain(id);
+    const n = e.state.flowsheet.units.length;
+    const r = act(e, 'pruneUnconnected');
+    expect(r.ok).toBe(true); for (const id of strays) expect(r.message).toContain(id);
+    expect(e.state.flowsheet.units.length).toBe(n - 2);
+    expect(e.engine.q('strayUnits')).toEqual([]);
+    expect(act(e, 'undo').ok).toBe(true);
+    expect(e.state.flowsheet.units.length).toBe(n);
+  });
+});
+
 describe('chapter 8 / 9 rules', () => {
   it('L32 defaults are sluggish: with the cascade on they still fail, the reference tuning passes', () => {
     const e = start('L32');

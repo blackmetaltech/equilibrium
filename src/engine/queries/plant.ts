@@ -18,6 +18,13 @@ export function openPortsOf(s: Readonly<EqState>): { unit: string; port: string;
   return out;
 }
 
+/** Units with no pipe at all that would leave a port open (an instrument or a port-less unit is not a stray), while the plant has pipework. Ids in unit order. */
+export function strayUnitsOf(s: Readonly<EqState>): string[] {
+  if (s.flowsheet.streams.length === 0) return [];
+  const ids = new Set(openPortsOf(s).filter((o) => o.stray).map((o) => o.unit));
+  return s.flowsheet.units.filter((u) => ids.has(u.id)).map((u) => u.id);
+}
+
 export const plantQueries: Record<string, QueryFn<EqState>> = {
   /** The plant as the Plant screen draws it: placed units, pipes, phase, the active species, plot, undo depth and the last KPIs. */
   plant: (s) => ({
@@ -30,5 +37,7 @@ export const plantQueries: Record<string, QueryFn<EqState>> = {
   /** The campaign progress the Works Map reads: { stars: { levelId: 0-3 } } (recorded when a level is won; claimStars keeps the best). */
   progress: (s) => ({ stars: { ...s.progress.stars } }),
   openPorts: (s) => openPortsOf(s),
+  /** Ids of the units with no pipe at all (what commission refuses and `pruneUnconnected` deletes). */
+  strayUnits: (s) => strayUnitsOf(s),
   ledger: (s) => ledgerOf(s),
 };

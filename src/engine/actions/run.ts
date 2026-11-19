@@ -9,6 +9,7 @@ import type { Diag, UnitInst } from '../../sim/types';
 import { t } from '../../i18n';
 import { THERMO_DETAILS, type DiagRec, type EqState, type RunRecord, type SolveResult, type UnitResult } from '../../state';
 import { entersFirstRun, specOf } from '../../levels/registry';
+import { strayUnitsOf } from '../queries/plant';
 import { bindRegistry, phaseHook } from '../registry';
 import { ctxOf, economics, messageOf, syncFeed } from '../solved';
 import { invalidate, needEditable } from './design';
@@ -55,11 +56,11 @@ const commission: Fn = (s) => {
   specOf(s)?.beforeCommission?.(s);
   const registry = bindRegistry(s.species);
   const units = unitsForSolve(s);
+  const strays = strayUnitsOf(s);
+  if (strays.length > 0) fail(t('err.commission.stray', { unit: strays.join(', ') }));
   const bad = validateTopology(units, s.flowsheet.streams, registry, phaseHook);
   if (bad) {
     if (bad.code === 'TOPOLOGY_OPEN_PORT') {
-      const stray = s.flowsheet.streams.length > 0 && !s.flowsheet.streams.some((p) => p.from.unit === bad.unitId || p.to.unit === bad.unitId);
-      if (stray) fail(t('err.commission.stray', { unit: bad.unitId ?? '' }));
       if (bad.data.inlet === 0) fail(t('err.commission.open_port', { unit: bad.unitId ?? '' }));
       fail(t('err.commission.open_inlet', { unit: bad.unitId ?? '', port: String(bad.data.port) }));
     }

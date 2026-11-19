@@ -15,6 +15,7 @@ import {
   ALWAYS_AVAILABLE, defOf, defaultParams, footprint, hasUnitType, knobOf, metaOf, phaseClash, portPhaseIn, portPhaseOut, type KnobSpec,
 } from '../registry';
 import { fmtDisplay, syncFeed } from '../solved';
+import { strayUnitsOf } from '../queries/plant';
 import { flowSnap, recordDiff, redoStep, undoStep } from '../undo';
 
 type Fn = ActionFn<EqState>;
@@ -113,6 +114,18 @@ const deleteUnit: Fn = (s, id: unknown) => {
     s.flowsheet.streams = s.flowsheet.streams.filter((p) => p.from.unit !== u.id && p.to.unit !== u.id);
     delete s.feeds[u.id];
   });
+};
+
+/** Delete every unit that has no pipe at all (the spare tanks and mixers a level allots), one undo step. Refused when there is none. */
+const pruneUnconnected: Fn = (s) => {
+  needEditable(s);
+  const ids = strayUnitsOf(s);
+  need(ids.length > 0, t('err.prune.none'));
+  edit(s, () => {
+    s.flowsheet.units = s.flowsheet.units.filter((x) => !ids.includes(x.id));
+    for (const id of ids) delete s.feeds[id];
+  });
+  return ok(t('log.pruned', { units: ids.join(', ') }), { removed: ids });
 };
 
 export interface Problem { key: string; vars: Record<string, string | number> }
@@ -248,5 +261,5 @@ const undo: Fn = (s) => { needEditable(s); need(s.undo.past.length > 0, t('err.u
 const redo: Fn = (s) => { needEditable(s); need(s.undo.future.length > 0, t('err.redo.empty')); redoStep(s); invalidate(s); };
 
 export const designActions: Record<string, Fn> = {
-  placeUnit, moveUnit, rotateUnit, deleteUnit, connect, disconnect, setParam, setFeed, setCatalyst, setSpecies, undo, redo,
+  placeUnit, moveUnit, rotateUnit, deleteUnit, pruneUnconnected, connect, disconnect, setParam, setFeed, setCatalyst, setSpecies, undo, redo,
 };
