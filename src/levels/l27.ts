@@ -9,7 +9,7 @@ import { ORIFICE_LETTERS, ORIFICE_MM2 } from '../data/vle';
 import { t } from '../i18n';
 import { cpFlow, makeMixture, massFlow, molarMass as mixM } from '../sim/thermo';
 import { R_GAS } from '../sim/thermo/shomate';
-import { reliefArea, selectOrifice } from '../sim/units/relief';
+import { reliefArea, relievingKPa, selectOrifice } from '../sim/units/relief';
 import type { EqState } from '../state';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, fromKgH, link, put, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
@@ -28,8 +28,8 @@ export const L27_CALL_TOL = 0.03;
 export const L27_ACCUM = 1.1;
 /** Containment is lost beyond 1.5 x design (DESIGN 5.5): an undersized valve is shown climbing to there at most. */
 const L27_LOSS_PA = 1.5 * L27_DESIGN_PA;
-/** 110 % of the design pressure, bar(g) (absolute pressures scaled, as the API accumulation is). */
-export const L27_ALLOW_BARG = (L27_DESIGN_PA * 1.1 - ATM) / BAR;
+/** 110 % of the design pressure on the GAUGE scale, as API 520 states accumulation: 33.0 bar(g) (34.01 bar(a)). */
+export const L27_ALLOW_BARG = L27_DESIGN_BARG * L27_ACCUM;
 export const L27_UNITS: LevelSpec['units'] = {
   feed: { max: 1, price: 4000 }, flash: { max: 1, price: 30000 }, splitter: { max: 1, price: 2000 }, relief: { max: 1, price: 9000 }, vent: { max: 1, price: 1500 }, product: { max: 1, price: 4000 },
 };
@@ -42,7 +42,7 @@ const feedState = () => ({ n: [fromKgH(L27_LOAD_T_H * 1000, 'CH4')], T: L27_T_K,
 export function l27Required(Pset: number, overpressure = 0.1): number {
   const st = feedState(), mx = makeMixture(L27_SPECIES), tot = st.n[0]!;
   const M = mixM(mx, st.n) * 1000, cp = cpFlow(mx, st.n, st.T) / tot, k = cp / (cp - R_GAS), W = massFlow(mx, st.n) * 3600;
-  return reliefArea(W, (Pset * (1 + overpressure)) / 1000, st.T, 1, M, k);
+  return reliefArea(W, relievingKPa(Pset, overpressure), st.T, 1, M, k);
 }
 export const l27SmallestLetter = (Pset: number): string => selectOrifice(l27Required(Pset)) ?? '-';
 
@@ -59,7 +59,7 @@ export function reliefMeasures(s: S): Measures {
     v.pset_barg = (ps - ATM) / BAR;
     v.area_mm2 = ORIFICE_MM2[String(rv.params.orifice ?? 'D')] ?? 0;
     v.letter_idx = ORIFICE_LETTERS.indexOf(String(rv.params.orifice ?? 'D'));
-    v.pset_ok = ps <= L27_DESIGN_PA + 1 && ps >= L27_OPER_PA * 1.1 - 1 ? 1 : 0;
+    v.pset_ok = ps <= L27_DESIGN_PA + 1 && ps >= ATM + (L27_OPER_PA - ATM) * L27_ACCUM - 1 ? 1 : 0;
     v.req_mm2 = l27Required(ps);
     const sm = selectOrifice(v.req_mm2);
     v.smallest_idx = sm === null ? -1 : ORIFICE_LETTERS.indexOf(sm);
@@ -73,7 +73,7 @@ export function reliefMeasures(s: S): Measures {
   v.letter_ok = v.cap_kg_h >= v.load_kg_h ? 1 : 0;
   // pressure the drum climbs to with this valve: capacity short of the load leaves the surplus to build pressure (ideal gas, V = 60 s hold-up): the relieving
   // pressure is Pset x 1.1 when the valve passes the load, and runs past it as the area falls short (capacity is linear in the absolute pressure).
-  const pRel = v.letter_ok === 1 ? (rv.params.Pset as number) * 1.1 : Math.min(L27_LOSS_PA, ((rv.params.Pset as number) * 1.1) / Math.max(v.ratio, 0.05));
+  const pRel = v.letter_ok === 1 ? relievingKPa(rv.params.Pset as number) * 1000 : Math.min(L27_LOSS_PA, (relievingKPa(rv.params.Pset as number) * 1000) / Math.max(v.ratio, 0.05));
   v.peak_barg = (pRel - ATM) / BAR;
   return { ok: true, v };
 }

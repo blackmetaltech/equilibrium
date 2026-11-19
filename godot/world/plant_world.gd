@@ -356,6 +356,48 @@ func place_problem(type: String, x: int, y: int, rot := 0, ignore := "") -> Stri
 		for j in range(fp.y): if occ.has(Vector2i(x + i, y + j)): return "Occupied by %s: pick a free spot" % str(occ[Vector2i(x + i, y + j)])
 	return ""
 
+## The free spot nearest to tile (x, y) for this footprint (Manhattan rings outward), or (-1, -1) when the plot has none.
+func nearest_free(type: String, x: int, y: int, rot := 0, ignore := "") -> Vector2i:
+	var fp := footprint_of(type, rot)
+	var occ := _occupied(ignore)
+	for r in range(0, maxi(NX, NZ)):
+		for dx in range(-r, r + 1):
+			for dy in [-(r - absi(dx)), r - absi(dx)]:
+				var tx: int = x + dx; var ty: int = y + dy
+				if tx < 0 or ty < 0 or tx + fp.x > NX or ty + fp.y > NZ: continue
+				var ok := true
+				for i in range(fp.x):
+					for j in range(fp.y):
+						if occ.has(Vector2i(tx + i, ty + j)): ok = false; break
+					if not ok: break
+				if ok: return Vector2i(tx, ty)
+	return Vector2i(-1, -1)
+
+## "Occupied by F-101: pick a free spot" with a concrete one: the nearest free tile for the ghost's footprint, drawn green on the plot.
+func place_problem_hint(type: String, x: int, y: int, rot := 0, ignore := "") -> String:
+	var why := place_problem(type, x, y, rot, ignore)
+	if why == "" or not why.begins_with("Occupied"): return why
+	var f := nearest_free(type, x, y, rot, ignore)
+	if f.x < 0: return why.replace("pick a free spot", "no free spot is left for this unit")
+	return why.replace("pick a free spot", "nearest free spot is the green tile at column %d, row %d" % [f.x, f.y])
+
+var _free_foot: MeshInstance3D
+func _show_free_foot(type: String, from: Vector2i, rot: int, ignore: String, on: bool) -> void:
+	if not on:
+		if _free_foot != null: _free_foot.visible = false
+		return
+	var f := nearest_free(type, from.x, from.y, rot, ignore)
+	if f.x < 0:
+		if _free_foot != null: _free_foot.visible = false
+		return
+	var fp := footprint_of(type, rot)
+	if _free_foot == null:
+		_free_foot = MeshInstance3D.new(); _free_foot.name = "FreeFoot"; _free_foot.mesh = BoxMesh.new(); _free_foot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var m := StandardMaterial3D.new(); m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.albedo_color = Color(0.22, 0.85, 0.42, 0.45); m.no_depth_test = true
+		_free_foot.material_override = m; add_child(_free_foot)
+	(_free_foot.mesh as BoxMesh).size = Vector3(fp.x * GRID - 0.1, 0.06, fp.y * GRID - 0.1)
+	_free_foot.position = tile_to_world(f, fp) + Vector3(0, 0.14, 0); _free_foot.visible = true
+
 # ---- units ------------------------------------------------------------------------------------------------------------------
 
 func set_units(arr: Array) -> void:
@@ -507,6 +549,7 @@ func _clear_place_toast() -> void:
 func cancel_place() -> void:
 	placing = ""
 	_clear_place_toast()
+	_show_free_foot("", Vector2i.ZERO, 0, "", false)
 	if _why_tag != null: _why_tag.visible = false
 	if _ghost != null: _ghost.queue_free(); _ghost = null
 	if _foot != null: _foot.queue_free(); _foot = null
@@ -516,7 +559,7 @@ func rotate_ghost() -> void:
 
 func place_at(x: int, y: int) -> bool:
 	if placing == "": return false
-	var why := place_problem(placing, x, y, place_rot, place_ignore)
+	var why := place_problem_hint(placing, x, y, place_rot, place_ignore)
 	if why != "":
 		if app != null and app.has_method("toast"): _place_toast = why; app.toast(why, "warn")
 		return false
@@ -526,8 +569,9 @@ func _update_ghost() -> void:
 	if _ghost == null: return
 	var fp := footprint_of(placing, place_rot)
 	var t := Vector2i(clampi(_cursor.x, 0, NX - fp.x), clampi(_cursor.y, 0, NZ - fp.y))
-	var why := place_problem(placing, t.x, t.y, place_rot, place_ignore)
+	var why := place_problem_hint(placing, t.x, t.y, place_rot, place_ignore)
 	_cursor_valid = why == ""
+	_show_free_foot(placing, t, place_rot, place_ignore, not _cursor_valid and why.begins_with("Occupied"))
 	if _cursor_valid: _clear_place_toast()
 	var col := Color("#38D96B") if _cursor_valid else Color("#E63946")
 	_ghost_why(why, tile_to_world(t, fp) + Vector3(0, _ghost.height * _ghost.scale.y + 1.2, 0))

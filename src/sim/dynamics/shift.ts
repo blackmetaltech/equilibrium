@@ -25,7 +25,7 @@ import { R_GAS } from '../thermo/shomate';
 import type { Flowsheet, StreamState, UnitInst } from '../types';
 import { cstrStep, type CstrInputs, type CstrModel, type CstrState } from './reactorODE';
 import { K7_GAME, lawRate } from '../units/rx_cstr';
-import { reliefCapacity } from '../units/relief';
+import { reliefCapacity, relievingKPa } from '../units/relief';
 import { has, num, str, UTIL } from '../units/utilities';
 import { ackMon, alarmBits, criticalOpen, makeMon, scaleOf, stepMon, type Mon } from './alarms';
 import { stepRamps, type Ramp } from './actuators';
@@ -362,7 +362,7 @@ function retarget(s: EqState, sh: ShiftState, opex: Record<string, number>, firs
       const M = molarMass(mx, outS.n) * 1000, cp = cpFlow(mx, outS.n, outS.T) / tot, k = cp / (cp - R_GAS);
       const Pset = has(relU!, 'Pset') ? num(relU!, 'Pset') : designPressure(v.Pss);
       v.Pset = Pset; v.M = M / 1000;
-      v.capKgS = reliefCapacity(A, (Pset * (1 + num(relU!, 'overpressure', 0.1))) / 1000, outS.T, num(relU!, 'Z', 1), M, k) / 3600;
+      v.capKgS = reliefCapacity(A, relievingKPa(Pset, num(relU!, 'overpressure', 0.1)), outS.T, num(relU!, 'Z', 1), M, k) / 3600;
     }
   }
   const k = sol.kpis;

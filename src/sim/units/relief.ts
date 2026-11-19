@@ -35,6 +35,9 @@ export function selectOrifice(A_mm2: number): string | null {
 }
 
 export const OVERPRESSURE_DEFAULT = 0.1;
+/** Relieving pressure P1, kPa abs, of a valve set at `Pset` Pa abs. API 520 accumulation is a share of the GAUGE set pressure: P1 = Pset + overpressure x (Pset - atm),
+ *  so a 30 bar(g) set point relieves at 33.0 bar(g) (34.01 bar(a)), not at 1.1 x 31.01 bar(a). */
+export const relievingKPa = (Pset: number, overpressure = OVERPRESSURE_DEFAULT): number => (Pset + overpressure * (Pset - 101325)) / 1000;
 
 export const relief: UnitOp = (inlets, u, ctx) => {
   const g = guardInlets<never>(inlets, u); if (g) return g;
@@ -44,7 +47,7 @@ export const relief: UnitOp = (inlets, u, ctx) => {
   if (!Object.prototype.hasOwnProperty.call(ORIFICE_MM2, letter)) return failResult('SPEC_RANGE', { orifice: letter }, { unitId: u.id });
   const Pset = num(u, 'Pset', s.P);
   if (!(Pset > 0)) return failResult('SPEC_RANGE', { Pset }, { unitId: u.id });
-  const P1 = Pset * (1 + num(u, 'overpressure', OVERPRESSURE_DEFAULT)) / 1000, A = ORIFICE_MM2[letter]!, Z = num(u, 'Z', 1);
+  const P1 = relievingKPa(Pset, num(u, 'overpressure', OVERPRESSURE_DEFAULT)), A = ORIFICE_MM2[letter]!, Z = num(u, 'Z', 1);
   const tot = totalFlow(s.n);
   const info: Record<string, number> = { area_mm2: A, P1_kPa: P1, Pset };
   const diag: Diag[] = [];

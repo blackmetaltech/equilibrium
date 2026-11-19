@@ -13,6 +13,7 @@ export const errors: Record<string, string> = {
   'err.place.limit': 'This level allows {limit} of {type}, and they are all placed. Delete one first or reuse it with a recycle.',
   'err.place.full': 'The plot is full: at most {max} units fit on one plant. Remove one before adding another.',
   'err.place.bounds': 'That unit would stick out of the fenced plot ({pw} by {ph} tiles). Move it inside the fence.',
+  'err.place.free_hint': ' Nearest free spot for this unit: column {x}, row {y}.',
   'err.place.occupied': 'That spot is taken by {other}. Units cannot overlap: pick a free tile.',
   'err.connect.self': 'A pipe cannot start and end on the same unit. To recycle, route the stream through another unit first.',
   'err.connect.no_port': '{unit} has no port called {port}. Its ports are: {ports}.',

@@ -63,8 +63,23 @@ function checkSpot(s: EqState, type: string, x: number, y: number, rot: number, 
   need(r.x >= 0 && r.y >= 0 && r.x + r.w <= s.plot.w && r.y + r.h <= s.plot.h, t('err.place.bounds', { pw: s.plot.w, ph: s.plot.h }));
   for (const o of s.flowsheet.units) {
     if (o.id === selfId) continue;
-    need(!overlap(r, rectOf(o.type, o.pos.x, o.pos.y, o.rot)), t('err.place.occupied', { other: o.id }));
+    need(!overlap(r, rectOf(o.type, o.pos.x, o.pos.y, o.rot)), t('err.place.occupied', { other: o.id }) + freeSpotHint(s, type, x, y, rot, selfId));
   }
+}
+
+/** " Nearest free spot for this unit: column X, row Y." (rings outward from the refused tile), or "" when the plot has none. */
+function freeSpotHint(s: EqState, type: string, x: number, y: number, rot: number, selfId?: string): string {
+  const fp = footprint(type, rot), others = s.flowsheet.units.filter((o) => o.id !== selfId).map((o) => rectOf(o.type, o.pos.x, o.pos.y, o.rot));
+  for (let r = 1; r < s.plot.w + s.plot.h; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (const dy of [-(r - Math.abs(dx)), r - Math.abs(dx)]) {
+        const c = { x: x + dx, y: y + dy, w: fp.w, h: fp.h };
+        if (c.x < 0 || c.y < 0 || c.x + c.w > s.plot.w || c.y + c.h > s.plot.h) continue;
+        if (!others.some((o) => overlap(c, o))) return t('err.place.free_hint', { x: c.x, y: c.y });
+      }
+    }
+  }
+  return '';
 }
 
 export function defaultFeed(s: EqState): FeedSpec {

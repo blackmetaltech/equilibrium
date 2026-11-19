@@ -4,7 +4,7 @@ import { Env, Rng, TICK } from '@core/kit';
 import { GAME } from '../game';
 import { SPEC_BY_ID } from './registry';
 import type { EqState } from '../state';
-import { L24_SOLVE } from './l24';
+import { L24_RECIPE } from './l24';
 
 const K = 273.15;
 const mk = (level: string, mode = 'learner'): Env<EqState> => { const e = new Env(GAME); e.reset({ seed: 1003, level, mode }); return e; };
@@ -13,10 +13,10 @@ const card = (e: Env<EqState>, id: string): any => e.engine.q('unitCard', [id]);
 const run = (e: Env<EqState>, acts: { name: string; args?: unknown[] }[]): void => { for (const a of acts) e.step(a as any); };
 
 describe('L24 start-up recipe and cold commissioning', () => {
-  it('the recipe in the notebook carries the numbers of the scripted start-up, and following it wins (>= 1 star, no trip)', () => {
+  it('the expert persona scripted start-up wins (>= 1 star, no trip)', () => {
     const e = mk('L24');
     const notes = (info(e).note as string[]).join(' ');
-    for (const frag of [`${L24_SOLVE.warmK - K} °C`, `${L24_SOLVE.starve * 100} %`, `${L24_SOLVE.litC} °C`, `${L24_SOLVE.holdK - K} °C`, `${Math.round(L24_SOLVE.rampStep * 1000) / 10} %`, `${L24_SOLVE.rampEvery} seconds`, 'Reset']) expect(notes, frag).toContain(frag);
+    expect(notes).toContain('Reset'); // the literal player recipe is f9b_l24.test.ts; this one is the expert persona (faster, ramped) and must win too
     const coachTexts: string[] = [];
     const base = SPEC_BY_ID.L24!.solver(1003), rng = new Rng(1003);
     for (let t = 0; t < 4300 && e.state.status === 'playing'; t++) {
@@ -24,7 +24,7 @@ describe('L24 start-up recipe and cold commissioning', () => {
       const c = info(e).coach; if (c && !coachTexts.includes(c.text)) coachTexts.push(c.text);
       if (e.state.status === 'playing') e.step(TICK);
     }
-    expect(coachTexts.join(' ')).toContain('72 °C');
+    expect(coachTexts.join(' ')).toContain(`${L24_RECIPE.warmC} °C`);
     expect(e.state.status).toBe('won'); expect(e.state.shift!.stat.tripN).toBe(0);
     expect(info(e).stars.have).toBeGreaterThanOrEqual(1);
     const lesson = (e.engine.q('resultCard') as any).lesson as string;
