@@ -125,10 +125,24 @@ func _process(dt: float) -> void:
 		paper = move_toward(paper, _target, maxf(40.0, absf(_target - paper) * 4.0) * dt) if not CbSettings.reduced_motion else _target
 	if _running() or absf(paper - _target) > 0.05 or src != null: queue_redraw()
 
+## The recorder opens on a deliberate click: pressed AND released on the paper itself (not in the 10 px gutter it shares with the intercom and the annunciator), so a stray
+## click or a drag that ends on it from beside the intercom never opens the big chart.
+var _press_ok := false
+func _on_paper(p: Vector2) -> bool: return Rect2(Vector2(10, 6), size - Vector2(20, 12)).has_point(p)
 func _gui_input(e: InputEvent) -> void:
 	if big: return
-	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: clicked.emit(); accept_event()
-	elif e is InputEventScreenTouch and e.pressed: clicked.emit(); accept_event()
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		if e.pressed: _press_ok = _on_paper(e.position)
+		else:
+			var go := _press_ok and _on_paper(e.position); _press_ok = false
+			if go: clicked.emit()
+		accept_event()
+	elif e is InputEventScreenTouch:
+		if e.pressed: _press_ok = _on_paper(e.position)
+		else:
+			var go2 := _press_ok and _on_paper(e.position); _press_ok = false
+			if go2: clicked.emit()
+		accept_event()
 
 # ---- drawing -------------------------------------------------------------------------------------------------------------------------------------
 func _plot() -> Rect2:

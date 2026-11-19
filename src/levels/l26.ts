@@ -85,7 +85,7 @@ const COACH: CoachStep[] = [
 ];
 
 export const L26: LevelSpec = {
-  id: 'L26', firstRun: true, chapter: 6, index: 26, setter: 'safety', budgetUSD: L26_BUDGET, units: L26_UNITS, notes: 2, shiftLen: 0,
+  id: 'L26', firstRun: true, chapter: 6, index: 26, setter: 'safety', budgetUSD: L26_BUDGET, units: L26_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => { baseSetup(s, L26_SPECIES, L26_UNITS, PRESETS); buildNitric(s); },
   measures: nitricMeasures,
   goals: (s, m) => {

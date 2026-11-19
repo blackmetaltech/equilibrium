@@ -311,6 +311,7 @@ func _add_knob(k: Dictionary) -> void:
 		else: kn.relative = true   # the wheel moves ~2 % of the value (0.2 % with Shift) in 1/2/5 steps: fine enough to land a narrow window
 		var ulab := str(dp.unit) if has_dp else str(k.get("unitLabel", unit))
 		kn.setup(lab, PaperStrings.usym(ulab), lo, hi, coarse, fine, float(dp.value) if has_dp else EqFmt.to_disp(float(k.value), unit), bool(k.get("int", false)))
+	kn.nudge_fine = kn.engine_steps and kn.unit == "°C"   # an interlock set point and a coolant move 1 degC per - / + click, not the 5 degC wheel notch
 	kn.name = "Knob_" + str(k.key); kn.set_meta("key", str(k.key)); kn.set_meta("spec", k)
 	kn.committed.connect(func(v: float) -> void: _commit(k, v))
 	_knob_box.add_child(kn); knobs[str(k.key)] = kn

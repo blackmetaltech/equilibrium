@@ -167,6 +167,7 @@ static func metric_text(v: float, unit: String) -> String:
 	if u == "$" or u.to_upper() == "USD": return "$" + PaperStrings.num(v)
 	if u.to_upper().begins_with("USD/"): return "$" + PaperStrings.num(v) + " /" + u.substr(4)
 	if u.begins_with("$/"): return "$" + PaperStrings.num(v) + " /" + u.substr(2)
+	if u == "" and is_equal_approx(v, roundf(v)): return PaperStrings.num(v, true)   # a count (trips, lifts) is a whole number, never "2.00"
 	return PaperStrings.num(v) + " " + unit
 
 ## Retry keeps the design (units, pipes, knob values, answers) and says so: edit it, then commission again.

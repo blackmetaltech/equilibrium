@@ -344,7 +344,7 @@ func _engine_addendum() -> void:
 	if kn != null:
 		kn.set_value(130.0)
 		var e := InputEventMouseButton.new(); e.button_index = MOUSE_BUTTON_LEFT; e.pressed = true; e.position = kn._nudge_rect(-1).get_center(); kn._gui_input(e); e.pressed = false; kn._gui_input(e)
-		check(absf(kn.value - (130.0 - kn.coarse)) < 1e-6, "one - click steps by the engine's coarse step: %f" % kn.value)
+		check(absf(kn.value - (130.0 - kn.fine)) < 1e-6, "one - click on a temperature knob steps 1 degC (the engine's fine step): %f" % kn.value)
 		var e2 := InputEventMouseButton.new(); e2.button_index = MOUSE_BUTTON_WHEEL_DOWN; e2.pressed = true; kn.set_value(130.0); kn._gui_input(e2)
 		check(absf(kn.value - (130.0 - kn.coarse)) < 1e-6, "one wheel notch steps by the engine's coarse step: %f" % kn.value)
 	await level("L18"); Faceplate.attach(app)
