@@ -50,6 +50,11 @@ static func build(app: CbApp, root: Control) -> bool:
 		EqSettings.set_cute(app, not EqSettings.cute)
 		cute.set_label(T("CUTE_ON") if EqSettings.cute else T("CUTE_OFF")))
 	vb.add_child(cute)
+	if CbLayout.phone:   # 62 px strips do not stack under the logo in 540 px: the plate takes the right-hand side, the logo keeps the left
+		box.remove_child(plate); root.add_child(plate)
+		var place := func() -> void:
+			if is_instance_valid(plate): plate.reset_size(); plate.position = Vector2(vw - plate.size.x - 44.0, maxf(6.0, (vh - plate.size.y) * 0.5))
+		place.call_deferred(); root.get_tree().process_frame.connect(place, CONNECT_ONE_SHOT)
 	var foot := EqTheme.label(T("TITLE_FOOT"), 15, EqTheme.DIM, "sans"); foot.name = "Foot"
 	foot.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT); foot.grow_horizontal = Control.GROW_DIRECTION_BEGIN; foot.grow_vertical = Control.GROW_DIRECTION_BEGIN; foot.offset_right = -20.0; foot.offset_bottom = -12.0
 	root.add_child(foot)

@@ -4,6 +4,7 @@ extends SceneTree
 ## scenes: title drawer map brief inspector result keypad intercom ledger
 var app: CbApp
 var OUT := ""
+var tag := ""
 func frames(n := 3) -> void:
 	for i in n: await process_frame
 func snap(name: String) -> void:
@@ -16,7 +17,7 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args(); OUT = str(args[0]); var which := str(args[1])
 	var kind := str(args[2]) if args.size() > 2 else "phone"
 	var wh := str(args[3]).split("x") if args.size() > 3 else PackedStringArray(["2424", "1080"])
-	var tag := "" if kind == "phone" else "_" + kind
+	tag = "" if kind == "phone" else "_" + kind
 	DirAccess.make_dir_recursive_absolute(OUT)
 	OS.set_environment("CB_NOAUTOSAVE", "1"); OS.set_environment("CB_NOCOACH", "1")
 	CbLayout.forced = kind
