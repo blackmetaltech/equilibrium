@@ -160,7 +160,12 @@ var _overflow := false
 var _back := 0               ## lines the wheel has scrolled back from the newest end of a long line
 ## Typewriter: reveal `chars` of the n-character line. A line taller than the box (it scrolls like a teleprinter) shows whole at once, so no word is ever hidden.
 func _reveal(n: int) -> void:
-	_text.visible_characters = -1 if (chars >= n or _overflow) else int(chars)
+	if chars >= n or _overflow: _text.visible_characters = -1; return
+	# the typewriter reveals whole words: a half-typed word (or a screenshot taken mid-line) never shows a cut word
+	var k := int(chars); var txt := _text.text
+	if k > 0 and k < txt.length() and txt[k - 1] != " " and txt[k - 1] != "\n" and txt[k] != " ":
+		var e := txt.find(" ", k); k = txt.length() if e < 0 else e
+	_text.visible_characters = k
 
 var _fit_seen := -1
 func _process(dt: float) -> void:

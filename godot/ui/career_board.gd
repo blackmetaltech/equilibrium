@@ -127,9 +127,13 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 	var up := key("▶", func(): dr.m = mini(59, int(dr.m) + 1); _render(), false, 11); up.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(26.0, Ch9Board.tmin())); h.add_child(up)
 	var kc := key("CRANE %d" % int(dr.crane), func(): dr.crane = 2 if int(dr.crane) == 1 else 1; _render(), false, 11); kc.tooltip_text = "Second crane: faster, extra hire cost."; h.add_child(kc)
 	var kw := key("+4 CREW" if int(dr.crew) == 0 else "NO EXTRA CREW", func(): dr.crew = 4 if int(dr.crew) == 0 else 0; _render(), false, 11); h.add_child(kw)
-	var kb := key("BOOK", func(): emit_act("turnaround", [id, int(dr.m), int(dr.crane), int(dr.crew)]), true, 11); kb.disabled = over; h.add_child(kb)
-	var days := float(p.taDaysWithCatalyst) if int(p.catalystStock) > 0 else float(p.taDaysWithout)
-	h.add_child(lbl("%s d %s" % [fnum(days), "with catalyst" if int(p.catalystStock) > 0 else "(no catalyst in stock)"], 11, PENCIL, "sans"))
+	var stock := int(p.catalystStock) > 0
+	var kb := key("BOOK", func(): emit_act("turnaround", [id, int(dr.m), int(dr.crane), int(dr.crew)]), true, 11); kb.name = "Book_" + id; kb.disabled = over or not stock; h.add_child(kb)
+	var days := float(p.taDaysWithCatalyst) if stock else float(p.taDaysWithout)
+	if stock: h.add_child(lbl("%s d with catalyst" % fnum(days), 11, PENCIL, "sans"))
+	else:   # a turnaround without a catalyst charge changes nothing the plant needs: BOOK stays locked and says why
+		kb.tooltip_text = "BOOK is locked: there is no catalyst charge in stock to fit. Buy one first (CATALYST key)."
+		var wl := lbl("BOOK locked: no catalyst in stock. Buy a charge first (the outage would take %s d)." % fnum(days), 11, AMBER_INK, "sans"); wl.name = "BookWhy_" + id; wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl.custom_minimum_size = Vector2(180, 0); h.add_child(wl)
 	return h
 
 # ---- inbox --------------------------------------------------------------------------------------------------------------------------------
@@ -172,7 +176,9 @@ func _invest() -> void:
 	var h2 := HBoxContainer.new(); h2.add_theme_constant_override("separation", 6)
 	var nm2 := lbl("TURNAROUND CREWS  %d of %d hired (limit %d people)" % [int(cr.get("hired", 0)), int(cr.get("max", 3)), int(cr.get("limit", 0))], 12, EqTheme.INK, "mono_bold"); nm2.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm2.clip_text = true; h2.add_child(nm2)
 	var kh := key("HIRE CREW", func(): emit_act("hireCrew"), false, 12); kh.disabled = over or int(cr.get("hired", 0)) >= int(cr.get("max", 3)); h2.add_child(kh)
-	g.add_child(_paper(h2))
+	var cv := VBoxContainer.new(); cv.add_theme_constant_override("separation", 1); cv.add_child(h2)
+	var cl := lbl("Hired crews are the hands a turnaround can draw on: the +4 CREW key on a plant card adds four of them to its outage.", 11, PENCIL, "sans"); cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cl.custom_minimum_size = Vector2(200, 0); cv.add_child(cl)
+	g.add_child(_paper(cv))
 
 # ---- annual review ---------------------------------------------------------------------------------------------------------------------------
 func _reviews(d: Dictionary) -> void:

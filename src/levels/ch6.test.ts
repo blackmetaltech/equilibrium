@@ -15,7 +15,7 @@ import { cpFlow, makeMixture, molarMass as mixM } from '../sim/thermo';
 import { R_GAS } from '../sim/thermo/shomate';
 import { SPEC_BY_ID } from './registry';
 import { CH6_SPECS } from './ch6';
-import { L24_FEED_MOL_S, L24_MARGIN_K, L24_PG_STAR, L24_PG_TARGET_KMOL, L24_SOLVE, l24HotK, l24IgnitionC, l24States } from './l24';
+import { L24_FEED_MOL_S, L24_MARGIN_K, L24_PG_STAR, L24_PG_TARGET_KMOL, L24_SOLVE, l24HotK, l24IgnitionC, l24RunC, l24States } from './l24';
 import { L25_CONV_CALL, L25_COST_STAR, so2PerTonne } from './l25';
 import { L26_N2O_MAX, L26_REF, L26_COST_MAX, L26_YIELD_MIN, nitricScript } from './l26';
 import { BENCH_GJ, L28_NH3_MIN_T_D, L28_REF, L28_STAR3_GJ, worksScript } from './l28';
@@ -298,7 +298,7 @@ describe('L24 Runaway: the reactor the player flies', () => {
     for (const a of i1.annunciators) { expect(a.legend).toMatch(/^[A-Z0-9 ]{3,14}$/); expect(['off', 'normal', 'high', 'critical']).toContain(a.state); }
     expect(i1.annunciators.some((a: any) => a.key === 'goal' && a.state === 'normal')).toBe(true);
     expect(i1.hero.label.length).toBeGreaterThan(3);
-    expect(c.lesson).toContain(String(Math.round(l24IgnitionC() * 10) / 10)); expect(c.lesson).toContain('117');
+    expect(c.lesson).toContain(String(Math.round(l24IgnitionC() * 10) / 10)); expect(c.lesson).toContain(String(Math.round(l24RunC())));
     expect(c.equation).toContain('148.8'.slice(0, 3)); expect(equationHolds(c.equation)).toBe(true);
     expect(c.metrics).toHaveLength(3);
   });

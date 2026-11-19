@@ -175,7 +175,7 @@ func _unhandled_key_input(e: InputEvent) -> void:
 	if not (e is InputEventKey) or not e.pressed or e.echo or not is_visible_in_tree(): return
 	if app == null or app.modal() != null or not app.started: return
 	var f := get_viewport().gui_get_focus_owner()
-	if f is LineEdit or f is TextEdit or f is SpinBox or f is Knob or f is OptionButton: return   # digits belong to a field or knob that has focus
+	if f is LineEdit or f is TextEdit or f is SpinBox or f is OptionButton: return   # digits belong to a field that has focus (a Knob takes focus on a click but never reads a digit: a number key after a knob tweak must still pick the tile)
 	if app.root.get_node_or_null("keypad") != null: return
 	if e.keycode >= KEY_1 and e.keycode <= KEY_9 and not (e.ctrl_pressed or e.alt_pressed):
 		pick_index(e.keycode - KEY_1); get_viewport().set_input_as_handled()

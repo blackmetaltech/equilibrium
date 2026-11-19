@@ -75,7 +75,7 @@ const fnv = (str: string): number => { let h = 0x811c9dc5; for (let i = 0; i < s
 function goalText(s: S, spec: LevelSpec, g: GoalEval): string {
   const vars: Record<string, string | number> = {
     target: g.target !== undefined ? fmt(s, g.target) : '-', value: g.value !== undefined ? fmt(s, g.value) : t('lv.goal.pending'),
-    budget: g.target !== undefined ? money(s, g.target) : '-', spent: money(s, g.value ?? 0),   // nothing bought yet reads as 0, the same as the notebook's "spent"
+    budget: g.target !== undefined ? money(s, g.target) : '-', spent: money(s, g.key === 'budget' ? spentOf(s, spec.units) : g.value ?? 0),   // one rule: the goal text and the notebook both say what the player has bought (the goal's value stays hidden until a solve)
   };
   const pendingKey = `lv.${spec.id}.goal.${g.key}.pending`;
   if (g.value === undefined && pendingKey in en) return t(pendingKey, vars);
@@ -108,7 +108,7 @@ function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker:
     const u = s.flowsheet.units.find((x) => x.type === type);
     focus = u ? { unit: u.id, ...(knob ? { knob } : {}) } : { rack: type! };
   }
-  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`, { unit: focus?.unit ?? '' }), why: t(`lv.${spec.id}.coach.${c.id}.why`, { unit: focus?.unit ?? '' }), focus };
+  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`, { ...(spec.textVars ? spec.textVars(s) : {}), unit: focus?.unit ?? '' }), why: t(`lv.${spec.id}.coach.${c.id}.why`, { ...(spec.textVars ? spec.textVars(s) : {}), unit: focus?.unit ?? '' }), focus };
 }
 
 /** The offline "simulated engineers" sample of DESIGN 9.6, deterministic per (level, metric): 200 values around the reference, 12 bins. */
@@ -200,7 +200,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     id: spec.id, chapter: spec.chapter, index: spec.index, title: t(`lv.${spec.id}.title`), setter: cast,
     setterName: pack.strings[`cast.${cast}.name`] ?? '', setterTitle: pack.strings[`cast.${cast}.title`] ?? '',
     place: t(`lv.${spec.id}.place`),
-    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`) + (spec.callIt && i === spec.notes - 1 ? ' ' + t('lv.note.predict') : '')),
+    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`, spec.textVars ? spec.textVars(s) : {}) + (spec.callIt && i === spec.notes - 1 ? ' ' + t('lv.note.predict') : '')),
     /** The prediction rule of a call-it level, also on its own for the notebook's Call it box. */
     predictNote: spec.callIt ? t('lv.note.predict') : null,
     notice,

@@ -88,6 +88,8 @@ export interface LevelSpec {
   verdict: (s: Readonly<EqState>, m: Measures, g: GoalEval[]) => { key: string; cause: string | null };
   /** The one equation of the level with the player's numbers: `left = right` (numbers, × ÷ + − and parentheses; units are decoration). */
   equation: (s: Readonly<EqState>, m: Measures) => string | null;
+  /** Engine-derived numbers every setter note and coach line of the level may quote ({run}, {warm} ...): one source for the text. */
+  textVars?: (s: Readonly<EqState>) => Record<string, string | number>;
   /** Variables of `lv.<ID>.lesson`, with the player's numbers. */
   lessonVars: (s: Readonly<EqState>, m: Measures) => Record<string, string | number>;
   /** Three printout metrics (first = primary) and the histogram of the first. `best` is the reference value the offline sample is built around. */
