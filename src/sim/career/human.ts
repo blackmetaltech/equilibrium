@@ -1,5 +1,5 @@
 // The human careful player: what a tester did on the real board (+3 MONTHS key, card defaults), as a pure policy for tests.
-import { CareerError, MONTHS, PLANTS, advance, decide, exposure, initCareer, previewInvest, type Career } from './model';
+import { CareerError, MONTHS, PLANTS, ackWarning, advance, decide, exposure, initCareer, previewInvest, type Career } from './model';
 import type { Decision } from './policy';
 
 /** Follows the payback advice and maxes heat recovery, takes the contracts above spot that the card says the plant can fill, books turnarounds with the card's defaults (two months ahead, one crane, no extra
@@ -41,6 +41,7 @@ export function playCareerSteps(seed: number, pol: (c: Career) => Decision[], st
   const c = initCareer(seed, mode);
   while (c.ending === '') {
     for (const d of pol(c)) { try { decide(c, d[0], ...d.slice(1)); } catch (e) { if (!(e instanceof CareerError)) throw e; } }
+    if ((c.stopped ?? []).length > 0) ackWarning(c); // the human read the stop and pressed CONTINUE ANYWAY (the decisions above are the ones the stop asked for)
     advance(c, step);
   }
   return c;

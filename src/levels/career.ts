@@ -8,7 +8,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import {
   CHIEF_MARGIN, MARGIN_TARGET_YEAR, CREW_BASE, DEFS, EM_CAP_STEP, INSPECT_EVERY, INVEST_PRICE, MONTHS, PLANTS, RATE_MAX, RATE_MIN, STRIKES_MAX, START_CASH, TA_CRANE_HIRE_USD, TA_CREW_HIRE_USD,
-  CareerError, INSPECT_WARN, advance, attention, contracted, crewLimit, decide, emCap, exposure, gasMul, initCareer, investCost, outlook, outputOf, overdue, pace, previewInvest, riskOf, score, taDays, taShort, year, type Career, type EndNeed, type Lever, type LogRow, type Outlook,
+  CareerError, INSPECT_STRIKE_OVER, INSPECT_WARN, advance, alerts, attention, inspState, taWeigh, contracted, crewLimit, decide, emCap, exposure, gasMul, initCareer, investCost, outlook, outputOf, overdue, pace, previewInvest, riskOf, score, taDays, taShort, year, type Career, type EndNeed, type Lever, type LogRow, type Outlook,
 } from '../sim/career/model';
 import { naiveDecisions, solverDecisions, type Decision } from '../sim/career/policy';
 import type { EqState } from '../state';
@@ -94,16 +94,25 @@ const investText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
   return t(`lv.CAREER.invest.${k}`, { gas: Math.round(c.gas * 100) / 100, save: Math.round(pv.saveUSDPerMonth / 1e4) / 100, months: Math.round(pv.paybackMonths), gj: Math.round(pv.effect), pts: pv.effect });
 };
 
+/** One attention flag (`insp:nh3`, `cat:acid`, `foul:meoh`) as a sentence. */
+const attentionNote = (c: Career, k: string): string => {
+  const [kind, p] = k.split(':') as [string, (typeof PLANTS)[number]], x = c.plants[p];
+  return t(`lv.CAREER.attn.${kind}`, { plant: plantLabel(p), n: Math.max(0, INSPECT_EVERY - x.insp), pct: Math.round((kind === 'cat' ? x.cat : x.U) * 100) });
+};
 /** Why a +3 MONTHS advance would stop now: the flags lit at this moment, as sentences. */
-const attentionNotes = (c: Career): string[] => attention(c).map((k) => {
-  const [kind, p] = k.split(':') as [string, (typeof PLANTS)[number]], x = c.plants[p], plant = plantLabel(p);
-  return t(`lv.CAREER.attn.${kind}`, { plant, n: Math.max(0, INSPECT_EVERY - x.insp), pct: Math.round((kind === 'cat' ? x.cat : x.U) * 100) });
-});
+const attentionNotes = (c: Career): string[] => attention(c).map((k) => attentionNote(c, k));
+/** ONE inspection state per plant card: locked, ok, due in N, or overdue (and when an overdue plant becomes a regulator strike). */
 const inspNote = (c: Career, p: (typeof PLANTS)[number]): string => {
-  const x = c.plants[p], due = c.m + Math.max(0, INSPECT_EVERY - x.insp) + 1;
-  if (x.insp > INSPECT_EVERY) return t('lv.CAREER.card.insp_over', { n: x.insp - INSPECT_EVERY, due: c.m - (x.insp - INSPECT_EVERY) + 1 });
-  if (x.insp >= INSPECT_EVERY - INSPECT_WARN) return t('lv.CAREER.card.insp_warn', { n: INSPECT_EVERY - x.insp, due });
-  return x.insp >= c.m ? t('lv.CAREER.card.insp_never', { due }) : t('lv.CAREER.card.insp_last', { last: c.m - x.insp + 1, due });
+  const x = c.plants[p], st = inspState(c, p), v = { n: st.n, due: st.dueMonth, over: INSPECT_STRIKE_OVER, strike: st.strikeIn, last: c.m - x.insp + 1 };
+  if (st.kind === 'overdue') return t(st.strikeIn > 0 ? 'lv.CAREER.card.insp_over' : 'lv.CAREER.card.insp_over_now', v);
+  if (st.kind === 'due') return t('lv.CAREER.card.insp_warn', v);
+  if (st.kind === 'locked') return t(x.insp >= c.m ? 'lv.CAREER.card.insp_locked_new' : 'lv.CAREER.card.insp_locked', v);
+  return t(x.insp >= c.m ? 'lv.CAREER.card.insp_never' : 'lv.CAREER.card.insp_last', v);
+};
+/** The BOOK line: what booking in month `m` costs against what not booking is expected to cost over the next twelve months. */
+const weighNote = (c: Career, p: (typeof PLANTS)[number], m: number): string => {
+  const x = c.plants[p], w = taWeigh(c, p, m, x.taCrane, x.taCrew), u = (v: number): string => (v / 1e6).toFixed(2);
+  return t(w.netUSD >= 0 ? 'lv.CAREER.warn.weigh_book' : 'lv.CAREER.warn.weigh_wait', { book: u(w.bookUSD), outage: u(w.outageUSD), pen: u(w.penaltyUSD), hire: u(w.hireUSD), skip: u(w.skipUSD), after: u(w.afterUSD), save: u(w.saveUSD), net: u(Math.abs(w.netUSD)) });
 };
 const exposureNote = (c: Career, o: Career['offers'][number]): string => {
   const e = exposure(c, o.p, o.tpm, o.pen), v = { nom: Math.round(e.nominalT), have: Math.round(e.contractedT), after: Math.round(e.afterT), pct: Math.round((100 * e.afterT) / Math.max(1, e.nominalT)), short: Math.round(e.shortT), usd: (e.penaltyUSD / 1e6).toFixed(2) };
@@ -210,7 +219,7 @@ export const CAREER: LevelSpec = {
   ],
   histogram: { metric: 'margin', best: (s) => starMargin(s.seed, s.mode) * 1.03 / 1e6, spread: 0.6, lowerIsBetter: false },
   actions: {
-    accept: byName('accept'), decline: byName('decline'), setRate: byName('setRate'), inspect: byName('inspect'), buyCatalyst: byName('buyCatalyst'),
+    accept: byName('accept'), decline: byName('decline'), setRate: byName('setRate'), inspect: byName('inspect'), buyCatalyst: byName('buyCatalyst'), ackWarning: byName('ackWarning'),
     turnaround: byName('turnaround'), cancelTurnaround: byName('cancelTurnaround'), hireCrew: byName('hireCrew'), invest: byName('invest'), advance: byName('advance'),
   },
   view: (s) => {
@@ -219,11 +228,11 @@ export const CAREER: LevelSpec = {
     const spot = (p: (typeof PLANTS)[number]): number => c.prices[p];
     return {
       kind: 'career',
-      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), attentionNotes: attentionNotes(c), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
+      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), attentionNotes: attentionNotes(c), alerts: alerts(c).map((a) => ({ ...a, label: plantLabel(a.plant), text: attentionNote(c, `${a.kind}:${a.plant}`) })), strikeRule: t('lv.CAREER.rule.strike', { over: INSPECT_STRIKE_OVER }), needsAck: (c.stopped ?? []).some((k) => attention(c).includes(k)), stoppedNotes: (c.stopped ?? []).filter((k) => attention(c).includes(k)).map((k) => attentionNote(c, k)), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
       prices: PLANTS.map((p) => ({ plant: p, label: t(`lv.CAREER.plant.${p}`), spotUSDPerT: spot(p) })),
       plants: PLANTS.map((p) => {
         const x = c.plants[p];
-        return { id: p, label: t(`lv.CAREER.plant.${p}`), capT: DEFS[p].cap, rate: x.rate, rateMin: RATE_MIN, rateMax: RATE_MAX, catalyst: x.cat, exchangerU: x.U, compressorWear: x.wear, monthsSinceInspection: x.insp, inspectionOverdue: overdue(c, p), lastInspectionMonth: x.insp >= c.m ? 0 : c.m - x.insp + 1, inspectionDueMonth: c.m + Math.max(0, INSPECT_EVERY - x.insp) + 1, inspectionDueIn: INSPECT_EVERY - x.insp, inspectionWarn: x.insp >= INSPECT_EVERY - INSPECT_WARN, inspectionNote: inspNote(c, p), downNote: x.down > 0 ? t('lv.CAREER.down.explain', { d: Math.round(x.down) }) : '', taShort: Array.from({ length: MONTHS }, (_, i) => (i < c.m ? { days: 0, shortT: 0, penaltyUSD: 0 } : taShort(c, p, i, x.taCrane, x.taCrew))).map((r) => ({ days: r.days, shortT: Math.round(r.shortT), penaltyUSD: Math.round(r.penaltyUSD) })), taShortNote: Array.from({ length: MONTHS }, (_, i) => { if (i < c.m) return ''; const r = taShort(c, p, i, x.taCrane, x.taCrew); return r.shortT > 1 ? t('lv.CAREER.warn.short', { days: r.days, t: Math.round(r.shortT), usd: (r.penaltyUSD / 1e6).toFixed(2) }) : ''; }), catalystStock: x.stock, downDays: x.down, turnaroundMonth: x.ta, turnaroundCrane: x.taCrane, turnaroundCrew: x.taCrew, outputT: x.out > 0 ? x.out : outputOf(c, p), nominalT: outputOf(c, p), outputNote: x.out > outputOf(c, p) * 1.001 ? t('lv.CAREER.out.above') : '', risk: riskOf(c, p), gasFactor: gasMul(c, p), contractedT: contracted(c, p), lastMarginUSD: x.margin, catalystPriceUSD: DEFS[p].catUSD, taDaysWithCatalyst: taDays(true, x.taCrane, x.taCrew), taDaysWithout: taDays(false, x.taCrane, x.taCrew) };
+        return { id: p, label: t(`lv.CAREER.plant.${p}`), capT: DEFS[p].cap, rate: x.rate, rateMin: RATE_MIN, rateMax: RATE_MAX, catalyst: x.cat, exchangerU: x.U, compressorWear: x.wear, monthsSinceInspection: x.insp, inspectionOverdue: overdue(c, p), lastInspectionMonth: x.insp >= c.m ? 0 : c.m - x.insp + 1, inspectionDueMonth: c.m + Math.max(0, INSPECT_EVERY - x.insp) + 1, inspectionDueIn: INSPECT_EVERY - x.insp, inspectionWarn: x.insp >= INSPECT_EVERY - INSPECT_WARN, inspectionNote: inspNote(c, p), inspectionState: inspState(c, p).kind, inspectionStrikeIn: inspState(c, p).strikeIn, taWeighNote: Array.from({ length: MONTHS }, (_, i) => (i < c.m ? '' : weighNote(c, p, i))), downNote: x.down > 0 ? t('lv.CAREER.down.explain', { d: Math.round(x.down) }) : '', taShort: Array.from({ length: MONTHS }, (_, i) => (i < c.m ? { days: 0, shortT: 0, penaltyUSD: 0 } : taShort(c, p, i, x.taCrane, x.taCrew))).map((r) => ({ days: r.days, shortT: Math.round(r.shortT), penaltyUSD: Math.round(r.penaltyUSD) })), taShortNote: Array.from({ length: MONTHS }, (_, i) => { if (i < c.m) return ''; const r = taShort(c, p, i, x.taCrane, x.taCrew); return r.shortT > 1 ? t('lv.CAREER.warn.short', { days: r.days, t: Math.round(r.shortT), usd: (r.penaltyUSD / 1e6).toFixed(2) }) : ''; }), catalystStock: x.stock, downDays: x.down, turnaroundMonth: x.ta, turnaroundCrane: x.taCrane, turnaroundCrew: x.taCrew, outputT: x.out > 0 ? x.out : outputOf(c, p), nominalT: outputOf(c, p), risk: riskOf(c, p), gasFactor: gasMul(c, p), contractedT: contracted(c, p), lastMarginUSD: x.margin, catalystPriceUSD: DEFS[p].catUSD, taDaysWithCatalyst: taDays(true, x.taCrane, x.taCrew), taDaysWithout: taDays(false, x.taCrane, x.taCrew) };
       }),
       contracts: c.contracts.map((k) => ({ id: k.id, plant: k.p, tpm: k.tpm, priceUSD: k.price, monthsLeft: k.left, penaltyUSDPerT: k.pen, spotUSD: spot(k.p) })),
       offers: c.offers.map((o) => ({ id: o.id, plant: o.p, tpm: o.tpm, priceUSD: o.price, term: o.term, penaltyUSDPerT: o.pen, spotUSD: spot(o.p), premium: o.price / spot(o.p) - 1, shareOfCap: o.tpm / DEFS[o.p].cap, shareOfNominal: o.tpm / outputOf(c, o.p), nominalT: Math.round(outputOf(c, o.p)), exposureNote: exposureNote(c, o), overCapacity: exposure(c, o.p, o.tpm, o.pen).shortT > 0 })),

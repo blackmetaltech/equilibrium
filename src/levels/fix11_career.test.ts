@@ -93,13 +93,13 @@ describe('plant cards, +3 MONTHS, BOOK and ACCEPT', () => {
     for (const p of v.plants) { expect(p.inspectionNote).toMatch(/due month 13|due month/); expect(p.inspectionWarn).toBe(false); }
     const c = careerOf(e.state)!; while (c.m < 10) advance(c, 1);
     v = view(e);
-    for (const p of v.plants) { if (c.plants[p.id as 'nh3'].insp >= INSPECT_EVERY - 2) { expect(p.inspectionWarn).toBe(true); expect(p.inspectionNote).toMatch(/INSPECTION DUE in/); } }
+    for (const p of v.plants) { if (c.plants[p.id as 'nh3'].insp >= INSPECT_EVERY - 2) { expect(p.inspectionWarn).toBe(true); expect(p.inspectionNote).toMatch(/^DUE in/); } }
     expect(v.dashboard.attentionNotes.some((t: string) => /inspection due within/.test(t))).toBe(true);
   });
   it('+3 MONTHS stops after the month an inspection comes within two months of due, a catalyst wears under 70 % or an exchanger fouls under 75 %, and at the year end; one month always runs', () => {
     const c = initCareer(1, 'engineer');
     let stoppedEarly = 0;
-    while (c.ending === '' && c.m < 36) { const n = advance(c, 3); expect(n).toBeGreaterThanOrEqual(1); if (n < 3 && c.m % 12 !== 0) { stoppedEarly++; expect(attention(c).length).toBeGreaterThan(0); } }
+    while (c.ending === '' && c.m < 36) { c.stopped = []; const n = advance(c, 3); expect(n).toBeGreaterThanOrEqual(1); if (n < 3 && c.m % 12 !== 0) { stoppedEarly++; expect(attention(c).length).toBeGreaterThan(0); } }
     expect(stoppedEarly).toBeGreaterThan(0);
     const d = initCareer(1, 'engineer'); while (d.m < 11) advance(d, 1); expect(advance(d, 3)).toBe(1);   // month 12: the annual review
     expect(d.years.length).toBe(1);

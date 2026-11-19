@@ -13,6 +13,10 @@ export const LENDERS_FLOOR = -20e6;
 export const OVERHEAD_USD = 6e6;
 export const CREW_USD_PER_MONTH = 8e4;
 export const INSPECT_EVERY = 12;
+/** The regulator's year-end check: a plant more than this many months past its inspection due date is a strike. */
+export const INSPECT_STRIKE_OVER = 6;
+/** INSPECT is locked until this many months have passed since the last inspection or turnaround. */
+export const INSPECT_MIN_GAP = 6;
 export const INSPECT_USD = 1.5e5;
 export const STRIKES_MAX = 3;
 export const GAS0 = 6;
@@ -54,6 +58,8 @@ export interface Career {
   years: Review[]; hist: Hist[]; log: LogRow[]; total: { revenue: number; cost: number; penalty: number; margin: number; inv: number };
   last: { margin: number; revenue: number; cost: number; penalty: number; ev: string; evPlant: string };
   ending: Ending; lossYears: number;
+  /** The attention flags that stopped the last multi-month advance and have not been acknowledged yet (absent in older saves). */
+  stopped?: string[];
 }
 
 // ------------------------------------------------------------------------------------------------ seeded draws
@@ -115,10 +121,10 @@ export const overdue = (c: Career, p: PlantId): number => Math.max(0, c.plants[p
 export const emCap = (c: Career): number => EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * year(c));
 export const gasMul = (c: Career, p: PlantId): number => { const x = c.plants[p]; return ((1 + 0.5 * (1 - x.U)) / (0.6 + 0.4 * x.cat)) * (1 - 0.07 * c.invest.heat); };
 export const outputOf = (c: Career, p: PlantId): number => { const x = c.plants[p]; return DEFS[p].cap * x.rate * (0.4 + 0.6 * x.cat) * (1 - 0.15 * x.wear); };
-export function riskOf(c: Career, p: PlantId): number {
-  const x = c.plants[p];
-  return clamp(0.45 * x.wear + 0.4 * Math.min(1, overdue(c, p) / 6) + Math.max(0, x.rate - 0.95) * 4 + 0.3 * (1 - x.U) - 0.08 * c.invest.safety, 0, 1);
-}
+/** Incident risk of a plant in a given state (wear, exchanger U, months since inspection, rate). */
+const riskAt = (c: Career, x: { wear: number; U: number; insp: number; rate: number }): number =>
+  clamp(0.45 * x.wear + 0.4 * Math.min(1, Math.max(0, x.insp - INSPECT_EVERY) / 6) + Math.max(0, x.rate - 0.95) * 4 + 0.3 * (1 - x.U) - 0.08 * c.invest.safety, 0, 1);
+export const riskOf = (c: Career, p: PlantId): number => riskAt(c, c.plants[p]);
 export const investCost = (c: Career, kind: 'heat' | 'abate' | 'safety'): number => INVEST_PRICE[kind]![c.invest[kind]] ?? 0;
 export const crewLimit = (c: Career): number => CREW_BASE + c.crews * CREW_STEP;
 
@@ -148,7 +154,7 @@ export function setRate(c: Career, p: unknown, rate: unknown): void {
 export function inspect(c: Career, p: unknown): void {
   alive(c);
   const id = plantOf(p), x = c.plants[id];
-  need(x.insp >= 6, 'early');
+  need(x.insp >= INSPECT_MIN_GAP, 'early');
   spend(c, INSPECT_USD); x.insp = 0; x.down += 1;
 }
 export function buyCatalyst(c: Career, p: unknown): void {
@@ -303,7 +309,7 @@ function yearEnd(c: Career): void {
   const effRatio = yt.effN > 0 ? yt.eff / yt.effN : 1;
   let strike = 0, fine = 0;
   if (emRatio > 1) { fine = EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; strike++; c.cash -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.total.margin -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.log.push({ m: c.m, kind: 'fine', code: 'emissions', plant: '', n: Math.round((emRatio - 1) * 1000) }); }
-  if (PLANTS.some((p) => overdue(c, p) > 6)) { strike++; c.log.push({ m: c.m, kind: 'fine', code: 'inspection', plant: '', n: 0 }); }
+  if (PLANTS.some((p) => overdue(c, p) > INSPECT_STRIKE_OVER)) { strike++; c.log.push({ m: c.m, kind: 'fine', code: 'inspection', plant: '', n: 0 }); }
   c.strikes += strike;
   // Victor judges operating performance: margin before investments. The return on a programme (less gas, fewer fines) is already inside it, its price is not charged to the score.
   const opMargin = yt.margin + (yt.inv ?? 0) - fine, net = yt.margin - fine;
@@ -432,15 +438,23 @@ export function attention(c: Career): string[] {
 export function advance(c: Career, months: unknown = 1): number {
   alive(c);
   need(typeof months === 'number' && Number.isInteger(months) && months >= 1 && months <= 12, 'months');
+  // after a stop at a warning, the next multi-month run needs the warning acknowledged (ackWarning, the board's CONTINUE ANYWAY key); one month at a time always goes
+  const lit = new Set(attention(c));
+  c.stopped = (c.stopped ?? []).filter((k) => lit.has(k));
+  need((months as number) === 1 || c.stopped.length === 0, 'ack');
+  c.stopped = [];
   let n = 0;
   const before = new Set(attention(c));
   while (n < (months as number) && c.ending === '') {
     stepMonth(c); n++;
     if (c.m % 12 === 0) break;
-    if ((months as number) > 1 && attention(c).some((k) => !before.has(k))) break;
+    const fresh = attention(c).filter((k) => !before.has(k));
+    if ((months as number) > 1 && fresh.length > 0) { c.stopped = fresh; break; }
   }
   return n;
 }
+/** Acknowledge the warning that stopped the last multi-month advance: the next +3 MONTHS may run. */
+export function ackWarning(c: Career): void { alive(c); c.stopped = []; }
 
 /** One decision by name (the level actions call this); unknown names and refused decisions throw CareerError. */
 export function decide(c: Career, name: string, ...a: unknown[]): void {
@@ -454,6 +468,7 @@ export function decide(c: Career, name: string, ...a: unknown[]): void {
     case 'cancelTurnaround': return cancelTurnaround(c, a[0]);
     case 'hireCrew': return hireCrew(c);
     case 'invest': return doInvest(c, a[0]);
+    case 'ackWarning': return ackWarning(c);
     case 'advance': advance(c, a[0]); return;
     default: throw new CareerError('action');
   }
@@ -482,4 +497,41 @@ export function previewInvest(c: Career, kind: 'heat' | 'abate' | 'safety'): Inv
     exp += (pr(r) - pr(r - 0.08)) * (0.4 * CRIT_FINE_USD + 0.6 * MINOR_FINE_USD);
   }
   return { saveUSDPerMonth: exp, paybackMonths: exp > 0 ? price / exp : 0, effect: 8, realisedUSDPerMonth: 0, realisedGJ: 0 };
+}
+
+
+// ------------------------------------------------------------------------------------------------ one inspection state per plant, the alerts, and the cost of booking against the cost of waiting
+export type InspState = { kind: 'locked' | 'ok' | 'due' | 'overdue'; /** months of the state: locked: months still locked; due: months to the due date; overdue: months past it */ n: number; /** month number (1-based) the inspection is or was due */ dueMonth: number; /** months until the overdue count passes INSPECT_STRIKE_OVER (a strike at the year end); 0 when already past */ strikeIn: number };
+/** THE inspection state of a plant, a single one: locked (inspected under six months ago), ok, due (within two months), or overdue. Overdue by more than INSPECT_STRIKE_OVER months at a year end is a regulator strike. */
+export function inspState(c: Career, p: PlantId): InspState {
+  const x = c.plants[p], dueMonth = c.m + Math.max(0, INSPECT_EVERY - x.insp) + 1, od = overdue(c, p);
+  if (od > 0) return { kind: 'overdue', n: od, dueMonth: c.m - od + 1, strikeIn: Math.max(0, INSPECT_STRIKE_OVER - od + 1) };
+  if (x.insp >= INSPECT_EVERY - INSPECT_WARN) return { kind: 'due', n: INSPECT_EVERY - x.insp, dueMonth, strikeIn: 0 };
+  if (x.insp < INSPECT_MIN_GAP) return { kind: 'locked', n: INSPECT_MIN_GAP - x.insp, dueMonth, strikeIn: 0 };
+  return { kind: 'ok', n: INSPECT_EVERY - x.insp, dueMonth, strikeIn: 0 };
+}
+/** Expected cost of the incidents of one month at risk `r`: the chance of an incident times (a fine plus the outage days at `perDayUSD`), critical 40 % and minor 60 % of them. */
+const incidentUSD = (r: number, perDayUSD: number): number => clamp((r - 0.35) * 0.6, 0, 0.9) * (0.4 * (CRIT_FINE_USD + CRIT_DOWN_D * perDayUSD) + 0.6 * (MINOR_FINE_USD + MINOR_DOWN_D * perDayUSD));
+export const TA_HORIZON = 12;
+export interface TaWeigh { /** cost of booking: outage lost contribution + contract penalty + crane and crew hire */ bookUSD: number; outageUSD: number; penaltyUSD: number; hireUSD: number; /** expected incident cost over the horizon if the plant is not renewed / if it is */ skipUSD: number; afterUSD: number; saveUSD: number; netUSD: number }
+/** Booking a turnaround in `month` against not booking: what it costs now (outage, penalty, hire) and the expected incident cost it removes over the next TA_HORIZON months (risk grows with wear and fouling). */
+export function taWeigh(c: Career, p: PlantId, month: number, crane = 1, extraCrew = 0): TaWeigh {
+  const x = c.plants[p], d = DEFS[p], sh = taShort(c, p, month, crane, extraCrew);
+  const perDay = (outputOf(c, p) * Math.max(0, unitMargin(c, p))) / 30;
+  const outageUSD = sh.days * perDay, hireUSD = (extraCrew > 0 ? TA_CREW_HIRE_USD : 0) + (crane > 1 ? TA_CRANE_HIRE_USD : 0), penaltyUSD = sh.penaltyUSD;
+  const age = (j: number, from: { wear: number; U: number; insp: number }): { wear: number; U: number; insp: number; rate: number } =>
+    ({ wear: Math.min(1, from.wear + d.wear * x.rate * x.rate * j), U: Math.max(0.5, from.U - d.foul * x.rate * j), insp: from.insp + j, rate: x.rate });
+  const t = clamp(month - c.m, 0, TA_HORIZON - 1);
+  let skipUSD = 0, afterUSD = 0;
+  for (let j = 0; j < TA_HORIZON; j++) {
+    skipUSD += incidentUSD(riskAt(c, age(j, x)), perDay);
+    afterUSD += incidentUSD(riskAt(c, j < t ? age(j, x) : age(j - t, { wear: 0, U: 1, insp: 0 })), perDay);
+  }
+  const bookUSD = outageUSD + penaltyUSD + hireUSD, saveUSD = skipUSD - afterUSD;
+  return { bookUSD, outageUSD, penaltyUSD, hireUSD, skipUSD, afterUSD, saveUSD, netUSD: saveUSD - bookUSD };
+}
+/** Alerts the office shows at the top: an inspection due or overdue, a worn catalyst, a fouled exchanger. Each names its plant (the board jumps to its card). */
+export interface Alert { kind: 'insp' | 'cat' | 'foul'; plant: PlantId }
+export function alerts(c: Career): Alert[] {
+  return attention(c).map((k) => { const [kind, plant] = k.split(':') as [Alert['kind'], PlantId]; return { kind, plant }; });
 }

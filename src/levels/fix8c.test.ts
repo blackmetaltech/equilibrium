@@ -132,10 +132,10 @@ describe('Career: readable labels and the money story', () => {
     expect(c().m).toBeGreaterThan(20);
     for (const o of v.offers) { const p = v.plants.find((x: any) => x.id === o.plant); expect(o.nominalT).toBe(Math.round(p.nominalT)); expect(o.shareOfNominal).toBeCloseTo(o.tpm / p.nominalT, 9); }
   });
-  it('output above nominal is labelled; investments carry a payback preview; the year review explains the margin', () => {
+  it('the output line carries no above-nominal note; investments carry a payback preview; the year review explains the margin', () => {
     const e = start(CAREER_ID);
     let labelled = 0;
-    for (let i = 0; i < 36; i++) { e.step({ name: 'levelAct', args: ['advance', 1] }); for (const p of view(e).plants) if (p.outputT > p.nominalT * 1.001) { expect(p.outputNote).toMatch(/above nominal/); labelled++; } else expect(p.outputNote).toBe(''); }
+    for (let i = 0; i < 36; i++) { e.step({ name: 'levelAct', args: ['advance', 1] }); for (const p of view(e).plants) expect(p.outputNote).toBeUndefined(); } // no 'above nominal' noise: the card shows output against nominal only
     expect(labelled).toBeGreaterThanOrEqual(0);
     const v = view(e);
     for (const k of ['heat', 'abate', 'safety']) { expect(typeof v.options.invest[k].preview).toBe('string'); }
