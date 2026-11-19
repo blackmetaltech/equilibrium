@@ -77,7 +77,7 @@ func _career() -> void:
 	check(t.contains("REVENUE"), "review explains revenue")
 	check(t.contains("Volume") and t.contains("Price"), "revenue change split into volume and price")
 	check(t.contains("OPERATING MARGIN") and t.contains("INVESTMENTS") and t.contains("AFTER INVESTMENTS"), "ledger shows operating margin, investments, and the figure after investments")
-	check(t.contains("operating margin") and t.contains("Net"), "review shows operating margin and net")
+	check(t.contains("OPERATING MARGIN") and t.contains("NET"), "review shows operating margin and net (the memo table)")
 	check(not t.contains("EtOH") and not t.contains("Distillery") and not t.contains("H2SO4 "), "one product name in the board text")
 	check(t.contains("emissions cap tightens") or t.contains("Regulator notice"), "cap tightening announced in the log")
 	check(t.contains("at the current gas price"), "heat saving says at the current gas price")
