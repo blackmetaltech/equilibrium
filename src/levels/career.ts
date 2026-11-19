@@ -63,11 +63,11 @@ export function leverText(l: Lever): string {
   return t(`lv.CAREER.lever.${l.key}`, v);
 }
 /** The year-review announcement: where the Works is heading, and what would move it toward the other ending. */
-export function outlookNote(o: Outlook): string {
+export function outlookNote(o: Outlook, withLevers = true): string {
   const chief = o.rows.find((r) => r.id === 'chief')!;
   const open = chief.needs.filter((x) => !x.met).map(needText).join('; ');
   const vars = { proj: Math.round(o.proj / 1e6), target: M(chief.needs[0]!.need), gaps: open };
-  const lv = o.levers.length > 0 ? ` ${t('lv.CAREER.outlook.levers', { list: o.levers.map(leverText).join('; ') })}.` : '';
+  const lv = withLevers && o.levers.length > 0 ? ` ${t('lv.CAREER.outlook.levers', { list: o.levers.map(leverText).join('; ') })}.` : '';
   switch (o.course) {
     case 'chief': return `${t('lv.CAREER.outlook.chief', vars)} ${t('lv.CAREER.outlook.chief_slide', vars)}${lv}`;
     case 'steady': return `${t('lv.CAREER.outlook.steady', vars)} ${t(o.chiefClosed ? 'lv.CAREER.outlook.steady_closed' : 'lv.CAREER.outlook.steady_toward', vars)}${lv}`;
@@ -78,7 +78,7 @@ export function outlookNote(o: Outlook): string {
 /** The strip on the board: the four endings with their state and what each needs (text ready to draw). */
 export function endingsView(c: Career): { course: string; note: string; levers: string[]; rows: { id: string; label: string; state: string; needs: { text: string; met: boolean }[] }[] } {
   const o = outlook(c);
-  return { course: o.course, note: outlookNote(o), levers: o.levers.map(leverText), rows: o.rows.map((r) => ({ id: r.id, label: t(`lv.CAREER.end.label.${r.id}`), state: r.state, needs: r.needs.map((n) => ({ text: needText(n), met: n.met })) })) };
+  return { course: o.course, note: outlookNote(o, false), levers: o.levers.map(leverText), rows: o.rows.map((r) => ({ id: r.id, label: t(`lv.CAREER.end.label.${r.id}`), state: r.state, needs: r.needs.map((n) => ({ text: needText(n), met: n.met })) })) };
 }
 const victorText = (y: Career['years'][number]): string => t('lv.CAREER.victor', { op: (y.opMargin / 1e6).toFixed(1), inv: (y.inv / 1e6).toFixed(1), net: (y.margin / 1e6).toFixed(1), target: M(MARGIN_TARGET_YEAR), cash: (y.cash / 1e6).toFixed(1) });
 const maraText = (y: Career['years'][number]): string => {
@@ -94,6 +94,11 @@ const investText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
   return t(`lv.CAREER.invest.${k}`, { gas: Math.round(c.gas * 100) / 100, save: Math.round(pv.saveUSDPerMonth / 1e4) / 100, months: Math.round(pv.paybackMonths), gj: Math.round(pv.effect), pts: pv.effect });
 };
 
+/** Why a +3 MONTHS advance would stop now: the flags lit at this moment, as sentences. */
+const attentionNotes = (c: Career): string[] => attention(c).map((k) => {
+  const [kind, p] = k.split(':') as [string, (typeof PLANTS)[number]], x = c.plants[p], plant = plantLabel(p);
+  return t(`lv.CAREER.attn.${kind}`, { plant, n: Math.max(0, INSPECT_EVERY - x.insp), pct: Math.round((kind === 'cat' ? x.cat : x.U) * 100) });
+});
 const inspNote = (c: Career, p: (typeof PLANTS)[number]): string => {
   const x = c.plants[p], due = c.m + Math.max(0, INSPECT_EVERY - x.insp) + 1;
   if (x.insp > INSPECT_EVERY) return t('lv.CAREER.card.insp_over', { n: x.insp - INSPECT_EVERY, due: c.m - (x.insp - INSPECT_EVERY) + 1 });
@@ -214,7 +219,7 @@ export const CAREER: LevelSpec = {
     const spot = (p: (typeof PLANTS)[number]): number => c.prices[p];
     return {
       kind: 'career',
-      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), attention: attention(c), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
+      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), attentionNotes: attentionNotes(c), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
       prices: PLANTS.map((p) => ({ plant: p, label: t(`lv.CAREER.plant.${p}`), spotUSDPerT: spot(p) })),
       plants: PLANTS.map((p) => {
         const x = c.plants[p];

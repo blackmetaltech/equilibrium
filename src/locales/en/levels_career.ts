@@ -78,5 +78,7 @@ export const levelsCareer: Record<string, string> = {
   'lv.CAREER.warn.exposure_short': 'Capacity: this plant makes about {nom} t/mo now; {have} t/mo already contracted, {after} t/mo with this one: {short} t/mo short, about {usd} MUSD a month of penalty.',
   'lv.CAREER.invest.heat_have': 'Level {lvl} is saving about {save} MUSD a month in gas today ({gj} GJ a month).',
   'lv.CAREER.down.explain': 'The plant is out for {d} more days of production (turnaround, trip or incident); the days run off month by month.',
+  'lv.CAREER.attn.insp': '{plant}: inspection due within {n} month(s)', 'lv.CAREER.attn.cat': '{plant}: catalyst at {pct} %, worn under 70 %', 'lv.CAREER.attn.foul': '{plant}: exchanger U at {pct} %, fouled under 75 %',
+  'lv.CAREER.advance.stops': '+3 MONTHS stops early at an inspection coming due, a worn catalyst, a fouled exchanger and the annual review.',
   'lv.CAREER.log.contract': 'Contract signed for {plant}: {n} t a month.', 'lv.CAREER.log.penalty': 'Short of contract at {plant} by {n} t.',
 };

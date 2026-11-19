@@ -150,7 +150,12 @@ static func open(app) -> bool:
 	retry.pressed.connect(func(): _retry(app, host)); row.add_child(retry)
 	if won:   # keep the build and chase the remaining flasks: a fresh attempt on the same plant (stars only ever go up)
 		var kp := EqTheme.key_button(PaperStrings.t("PR_KEEP"), false, 18); kp.name = "KeepImproving"
-		kp.pressed.connect(func(): host.queue_free(); app.end_ui = null; await app.get_tree().process_frame; BuildKeeper.restart(app, true)); row.add_child(kp)
+		kp.pressed.connect(func():
+			host.queue_free(); app.end_ui = null
+			if str(app.b.g.get("level", "")) == "CAREER":   # the Career is one five-year run: "Keep improving" goes back to the ledger and the reviews, it does not wipe the run
+				if app.lvbay != null: app.lvbay.refresh(true)
+				return
+			await app.get_tree().process_frame; BuildKeeper.restart(app, true)); row.add_child(kp)
 	var nxt := str(ed.get("next_level", ""))
 	if won and nxt != "":
 		var nb := EqTheme.key_button(PaperStrings.t("PR_NEXT"), true, 18); nb.name = "Next"; nb.pressed.connect(func(): host.queue_free(); app.end_ui = null; app.start_level(nxt, true)); row.add_child(nb)

@@ -182,6 +182,7 @@ func _begin() -> void:
 	if chrome != null: chrome.reset_shift_seen(); chrome.level_begun()
 	super()
 func game_end_screen() -> bool:
+	if CareerBoard.review_first(self): return true   # CAREER: the last annual review is read before the result card
 	sfx("printer")
 	return Printout.open(self)
 

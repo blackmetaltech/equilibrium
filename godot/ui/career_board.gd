@@ -52,15 +52,39 @@ func _build() -> void:
 func _calendar(d: Dictionary) -> Control:
 	var c := Cal.new(); c.view = view; c.custom_minimum_size = Vector2(300, 64); return c
 
+var _busy := false            ## a month advance is running: input is ignored (never queued and replayed later)
+func emit_act(name: String, args: Array = []) -> void:
+	if _busy and name != "advance": return
+	super(name, args)
+
+## One advance: show WORKING, let it draw, run the months, then keep ignoring input for a few frames so keys pressed during a long advance are dropped, not replayed.
+func advance_months(n: int) -> void:
+	if _busy: return
+	_busy = true; _render()
+	await get_tree().process_frame; await get_tree().process_frame
+	Input.flush_buffered_events()
+	act.emit("advance", [n])
+	Input.flush_buffered_events()
+	for i in 4: await get_tree().process_frame
+	_busy = false; _render()
+
 func _advance_row(d: Dictionary) -> Control:
-	var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8)
+	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 3)
+	var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
 	var over := bool(d.over)
-	var k1 := key("ADVANCE 1 MONTH", func(): emit_act("advance", [1]), true, 15); k1.disabled = over; h.add_child(k1)
+	var k1 := key("ADVANCE 1 MONTH", func(): advance_months(1), true, 15); k1.name = "Advance1"; k1.disabled = over or _busy; h.add_child(k1)
 	var gap := Control.new(); gap.custom_minimum_size = Vector2(28, 1); h.add_child(gap)   # keeps +3 a thumb away from ADVANCE
-	var k3 := key("+3 MONTHS", func(): emit_act("advance", [3]), false, 13); k3.disabled = over; h.add_child(k3)
+	var k3 := key("+3 MONTHS", func(): advance_months(3), false, 13); k3.name = "Advance3"; k3.disabled = over or _busy
+	k3.tooltip_text = "Stops early at an inspection coming due, a worn catalyst, a fouled exchanger and the annual review."; h.add_child(k3)
+	if _busy:
+		var w := lbl("WORKING... running the months, input is paused", 13, AMBER_INK, "mono_bold"); w.name = "Working"; h.add_child(w)
 	var ev := str(d.get("lastEvent", ""))
-	h.add_child(lbl("last month %s%s" % [_m(float(d.lastMonthUSD)), ("  ·  %s at %s" % [str(d.get("lastEventLabel", "")), str(d.get("lastEventPlantLabel", ""))]) if ev != "" else ""], 12, PENCIL))
-	return h
+	var st := lbl("last month %s%s" % [_m(float(d.lastMonthUSD)), ("  ·  %s at %s" % [str(d.get("lastEventLabel", "")), str(d.get("lastEventPlantLabel", ""))]) if ev != "" else ""], 12, PENCIL)
+	st.name = "LastMonth"; st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; st.size_flags_horizontal = Control.SIZE_EXPAND_FILL; st.custom_minimum_size = Vector2(200, 0); v.add_child(st)   # a long event wraps here and never pushes the keys around
+	var an: Array = d.get("attentionNotes", [])
+	if not an.is_empty() and not over:
+		var al := lbl("+3 MONTHS stops here: " + "; ".join(PackedStringArray(an)), 11, AMBER_INK, "sans"); al.name = "Attention"; al.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; al.custom_minimum_size = Vector2(200, 0); v.add_child(al)
+	return v
 
 func _ending(d: Dictionary) -> Control:
 	var e := str(d.ending); var good := e == "chief" or e == "steady"
@@ -74,15 +98,15 @@ func _ledger(d: Dictionary) -> Control:
 	v.add_child(lbl("CASH LEDGER", 12, PENCIL, "semi"))
 	var g := GridContainer.new(); g.columns = 4 if not narrow else 2; g.add_theme_constant_override("h_separation", 18); v.add_child(g)
 	var cash := float(d.cashUSD)
-	for r in [["CASH", _m(cash), STAMP_RED if cash < 0 else (AMBER_INK if cash < 1e7 else OKGREEN)], ["OPERATING MARGIN, TOTAL", _m(float(d.get("opMarginTotalUSD", d.marginTotalUSD))), PENCIL], ["OPERATING MARGIN, THIS YEAR", _m(float(d.get("opMarginYtdUSD", d.marginYtdUSD))), PENCIL], ["INVESTMENTS, THIS YEAR", _m(float(d.get("investmentsYtdUSD", 0.0))), PENCIL], ["INVESTMENTS, TOTAL", _m(float(d.get("investmentsTotalUSD", 0.0))), PENCIL], ["NET, TOTAL", _m(float(d.marginTotalUSD)), PENCIL], ["NET, THIS YEAR", _m(float(d.marginYtdUSD)), PENCIL], ["GAS", "$%.2f / GJ" % float(d.gasUSDPerGJ), PENCIL],
+	for r in [["CASH", _m(cash), STAMP_RED if cash < 0 else (AMBER_INK if cash < 1e7 else OKGREEN)], ["OPERATING MARGIN, TOTAL (the score)", _m(float(d.get("opMarginTotalUSD", d.marginTotalUSD))), PENCIL], ["OPERATING MARGIN, THIS YEAR", _m(float(d.get("opMarginYtdUSD", d.marginYtdUSD))), PENCIL], ["ON THIS PACE, FIVE YEARS", _m(float(d.get("paceUSD", 0.0))), PENCIL], ["FLAGSHIP NEEDS (operating margin)", _m(float(d.chiefMarginUSD)), PENCIL], ["INVESTMENTS, THIS YEAR", _m(float(d.get("investmentsYtdUSD", 0.0))), PENCIL], ["INVESTMENTS, TOTAL", _m(float(d.get("investmentsTotalUSD", 0.0))), PENCIL], ["AFTER INVESTMENTS, TOTAL", _m(float(d.marginTotalUSD)), PENCIL], ["AFTER INVESTMENTS, THIS YEAR", _m(float(d.marginYtdUSD)), PENCIL], ["GAS", "$%.2f / GJ" % float(d.gasUSDPerGJ), PENCIL],
 			["REGULATOR STRIKES", "%d / %d" % [int(d.strikes), int(d.strikesMax)], STAMP_RED if int(d.strikes) > 0 else PENCIL], ["CRITICAL ALARMS", str(int(d.criticals)), STAMP_RED if int(d.criticals) > 0 else PENCIL],
-			["EMISSIONS YTD", "%.0f / %.0f kt" % [float(d.emissionsYtdT) / 1000.0, float(d.emissionsCapT) / 1000.0], PENCIL], ["CHIEF TARGET", _m(float(d.chiefMarginUSD)), PENCIL]]:
+			["EMISSIONS YTD", "%.0f / %.0f kt" % [float(d.emissionsYtdT) / 1000.0, float(d.emissionsCapT) / 1000.0], PENCIL]]:
 		var cell := VBoxContainer.new(); cell.add_theme_constant_override("separation", 0); g.add_child(cell)
 		cell.add_child(lbl(r[0], 10, PENCIL, "semi")); cell.add_child(lbl(r[1], 14, r[2], "mono_bold"))
 	var pr := HFlowContainer.new(); pr.add_theme_constant_override("h_separation", 14); v.add_child(pr)
 	pr.add_child(lbl("SPOT:", 11, PENCIL, "semi"))
 	for p in view.get("prices", []): pr.add_child(lbl("%s $%s/t" % [str(PLANT_TAG.get(str(p.plant), str(p.label))), fnum(float(p.spotUSDPerT))], 12, PLANT_COL.get(str(p.plant), PENCIL), "mono_bold"))
-	var sp := Spark.new(); sp.hist = view.get("history", []); sp.custom_minimum_size = Vector2(300, 46); v.add_child(sp)
+	var sp := Spark.new(); sp.hist = view.get("history", []); sp.custom_minimum_size = Vector2(300, 70); v.add_child(sp)
 	return _paper(v)
 
 # ---- endings strip: Sold / Shut / Steady / Flagship, the state of each and what it needs ---------------------------------------------------------
@@ -93,6 +117,10 @@ func _endings() -> Control:
 	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 4)
 	if e.is_empty(): return _paper(lbl("The endings appear when the career starts.", 12, PENCIL))
 	var note := lbl(str(e.get("note", "")), 12, PENCIL, "sans"); note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(note)
+	var lv: Array = e.get("levers", [])
+	if not lv.is_empty():
+		v.add_child(lbl("WHAT WOULD MOVE YOU", 11, PENCIL, "semi"))
+		for x in lv: var ll := lbl("•  " + str(x), 12, EqTheme.INK, "sans"); ll.name = "Lever"; ll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ll.custom_minimum_size = Vector2(200, 0); v.add_child(ll)
 	var g := GridContainer.new(); g.columns = 1 if narrow else 2; g.add_theme_constant_override("h_separation", 8); g.add_theme_constant_override("v_separation", 6); v.add_child(g)
 	for r in e.get("rows", []):
 		var st := str(r.get("state", "open")); var col: Color = END_STATE_COL.get(st, PENCIL)
@@ -110,7 +138,9 @@ func _plant_card(p: Dictionary, d: Dictionary) -> Control:
 	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 3)
 	var hh := HBoxContainer.new(); v.add_child(hh)
 	var tg := lbl("%s" % str(p.label).to_upper(), 14, col, "mono_bold"); tg.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hh.add_child(tg)
-	if int(p.downDays) > 0: hh.add_child(stamp("DOWN %dd" % int(p.downDays), STAMP_RED, 11))
+	if int(p.downDays) > 0:
+		var db := stamp("DOWN %dd" % int(p.downDays), STAMP_RED, 11); db.tooltip_text = str(p.get("downNote", "")); db.mouse_filter = Control.MOUSE_FILTER_PASS; hh.add_child(db)
+		var dl := lbl(str(p.get("downNote", "")), 11, STAMP_RED, "sans"); dl.name = "DownNote"; dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; dl.custom_minimum_size = Vector2(160, 0); v.add_child(dl)
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 6); v.add_child(top)
 	var bars := VBoxContainer.new(); bars.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bars.add_theme_constant_override("separation", 2); top.add_child(bars)
 	for r in [["CATALYST ACTIVITY", float(p.catalyst), 0.7, true], ["EXCHANGER U", float(p.exchangerU), 0.75, true], ["COMPRESSOR WEAR", float(p.compressorWear), 0.5, false]]:
@@ -118,9 +148,10 @@ func _plant_card(p: Dictionary, d: Dictionary) -> Control:
 	var kn := Knob.new(); kn.app = app_ref; kn.setup("RATE", "×", float(p.rateMin), float(p.rateMax), 0.05, 0.05, float(p.rate)); kn.tooltip_text = "Run rate against capacity. Higher output wears the plant faster."
 	kn.committed.connect(func(x: float): emit_act("setRate", [id, x])); kn.editable = not over; kn.custom_minimum_size = Vector2(92, 128); top.add_child(kn)
 	var od := int(p.inspectionOverdue)
-	v.add_child(lbl("INSPECTION: %d mo since%s" % [int(p.monthsSinceInspection), ("  (%d OVERDUE)" % od) if od > 0 else ""], 12, STAMP_RED if od > 0 else PENCIL, "mono_bold"))
+	var il := lbl("INSPECTION: %s" % str(p.get("inspectionNote", "%d mo since" % int(p.monthsSinceInspection))), 12, STAMP_RED if od > 0 else (AMBER_INK if bool(p.get("inspectionWarn", false)) else PENCIL), "mono_bold")
+	il.name = "InspNote_" + id; il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; il.custom_minimum_size = Vector2(160, 0); v.add_child(il)
 	var on := str(p.get("outputNote", ""))
-	var ol := lbl("output %s t/mo of %s nominal%s · contracted %s t · risk %s%%" % [fnum(float(p.outputT)), fnum(float(p.nominalT)), (" (" + on + ")") if on != "" else "", fnum(float(p.contractedT)), fnum(float(p.risk) * 100.0, 1)], 11, AMBER_INK if on != "" else PENCIL, "sans"); ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(ol)
+	var ol := lbl("output %s t/mo of %s nominal%s%s · risk %s%%" % [fnum(float(p.outputT)), fnum(float(p.nominalT)), (" (" + on + ")") if on != "" else "", (" · contracted %s t" % fnum(float(p.contractedT))) if float(p.contractedT) > 0.0 else "", fnum(float(p.risk) * 100.0, 1)], 11, AMBER_INK if on != "" else PENCIL, "sans"); ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(ol)
 	var keys := HFlowContainer.new(); keys.add_theme_constant_override("h_separation", 6); keys.add_theme_constant_override("v_separation", 4); v.add_child(keys)
 	var ki := key("INSPECT $150k", func(): emit_act("inspect", [id]), false, 11); ki.disabled = over or int(p.monthsSinceInspection) < 6; ki.tooltip_text = "Needs six months since the last one. The plant is down a day."; keys.add_child(ki)
 	var why := ""
@@ -151,11 +182,24 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 	var stock := int(p.catalystStock) > 0
 	var kb := key("BOOK", func(): emit_act("turnaround", [id, int(dr.m), int(dr.crane), int(dr.crew)]), true, 11); kb.name = "Book_" + id; kb.disabled = over or not stock; h.add_child(kb)
 	var days := float(p.taDaysWithCatalyst) if stock else float(p.taDaysWithout)
+	for w in _book_warnings(id, int(dr.m)):
+		var wl2 := lbl(w, 11, STAMP_RED, "sans"); wl2.name = "BookWarn_" + id; wl2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl2.custom_minimum_size = Vector2(220, 0); h.add_child(wl2)
 	if stock: h.add_child(lbl("%s d with catalyst" % fnum(days), 11, PENCIL, "sans"))
 	else:   # a turnaround without a catalyst charge changes nothing the plant needs: BOOK stays locked and says why
 		kb.tooltip_text = "BOOK is locked: there is no catalyst charge in stock to fit. Buy one first (CATALYST key)."
 		var wl := lbl("BOOK locked: no catalyst in stock. Buy a charge first (the outage would take %s d)." % fnum(days), 11, AMBER_INK, "sans"); wl.name = "BookWhy_" + id; wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl.custom_minimum_size = Vector2(180, 0); h.add_child(wl)
 	return h
+
+## What the BOOK key would do to the Works in month `m`: two plants out at once, and the contract tonnes the outage would leave short.
+func _book_warnings(id: String, m: int) -> Array:
+	var out: Array = []
+	for q in view.get("plants", []):
+		if str(q.id) != id and int(q.turnaroundMonth) == m: out.append("Overlaps the %s turnaround in month %d: two plants out at once." % [str(PLANT_TAG.get(str(q.id), str(q.id))).to_lower(), m + 1])
+	for q in view.get("plants", []):
+		if str(q.id) == id:
+			var notes: Array = q.get("taShortNote", [])
+			if m >= 0 and m < notes.size() and str(notes[m]) != "": out.append(str(notes[m]))
+	return out
 
 # ---- inbox --------------------------------------------------------------------------------------------------------------------------------
 func _offers() -> void:
@@ -169,6 +213,8 @@ func _offers() -> void:
 		var ka := key("ACCEPT", func(): emit_act("accept", [o.id]), true, 12); ka.disabled = over; h.add_child(ka)
 		h.add_child(key("DECLINE", func(): emit_act("decline", [o.id]), false, 12))
 		v.add_child(lbl("%+.0f%% vs spot ($%s)  ·  %d months  ·  %s of this plant's nominal output (%s t/mo)  ·  penalty $%s/t short" % [prem * 100.0, fnum(float(o.spotUSD)), int(o.term), fnum(float(o.get("shareOfNominal", o.shareOfCap)) * 100.0) + "%", fnum(float(o.get("nominalT", 0))), fnum(float(o.penaltyUSDPerT))], 11, OKGREEN if prem > 0 else STAMP_RED, "sans"))
+		var ex := lbl(str(o.get("exposureNote", "")), 11, STAMP_RED if bool(o.get("overCapacity", false)) else PENCIL, "sans"); ex.name = "Exposure"; ex.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ex.custom_minimum_size = Vector2(220, 0); v.add_child(ex)
+		ka.tooltip_text = str(o.get("exposureNote", ""))
 		body.add_child(_paper(v))
 
 func _contracts() -> void:
@@ -190,6 +236,8 @@ func _invest() -> void:
 		h.add_child(lbl("LEVEL %d/%d" % [lvl, mx], 12, OKGREEN, "mono_bold"))
 		var kb := key("MAXED" if lvl >= mx else "BUY " + _m(float(o.get("nextUSD", 0))), func(): emit_act("invest", [k]), false, 12); kb.disabled = over or lvl >= mx; h.add_child(kb)
 		var iv := VBoxContainer.new(); iv.add_theme_constant_override("separation", 1); iv.add_child(h)
+		var rl := str(o.get("realised", ""))
+		if rl != "": var rll := lbl(rl, 11, OKGREEN, "sans"); rll.name = "Realised_" + str(k); rll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rll.custom_minimum_size = Vector2(200, 0); iv.add_child(rll)
 		var pv := str(o.get("preview", ""))
 		if pv != "" and lvl < mx: var pl := lbl(pv, 11, PENCIL, "sans"); pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; pl.custom_minimum_size = Vector2(200, 0); iv.add_child(pl)
 		g.add_child(_paper(iv))
@@ -205,29 +253,52 @@ func _invest() -> void:
 func _reviews(d: Dictionary) -> void:
 	var ys: Array = view.get("review", [])
 	if ys.is_empty(): body.add_child(_paper(lbl("The first review is at the end of month 12.", 13, PENCIL))); return
-	for i in range(ys.size() - 1, -1, -1):
-		var y: Dictionary = ys[i]
-		var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 3)
-		v.add_child(lbl("MEMO · ANNUAL REVIEW · YEAR %d" % int(y.year), 13, EqTheme.INK, "mono_bold"))
-		v.add_child(lbl("TO: Plant manager     CC: Board", 11, PENCIL))
-		v.add_child(HSeparator.new())
-		var lines := [
-			["VICTOR (finance)", int(y.victor), str(y.get("victorNote", "Margin %s." % _m(float(y.margin))))],
-			["NOOR (safety, environment)", int(y.noor), "%d critical alarm%s. Emissions at %.0f%% of the cap.%s" % [int(y.criticals), "" if int(y.criticals) == 1 else "s", float(y.emRatio) * 100.0, "  The regulator issued %d strike%s." % [int(y.strike), "" if int(y.strike) == 1 else "s"] if int(y.strike) > 0 else ""]],
-			["MARA (operations)", int(y.mara), str(y.get("maraNote", "Energy at %.0f%% of design." % (float(y.effRatio) * 100.0)))],
-		]
-		if str(y.get("driverNote", "")) != "":
-			var dn := lbl("MARGIN DRIVERS: " + str(y.driverNote), 12, PENCIL, "sans"); dn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(dn)
-		if str(y.get("revenueNote", "")) != "":
-			var rn := lbl(str(y.revenueNote), 12, PENCIL, "sans"); rn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(rn)
-		if str(y.get("outlookNote", "")) != "":
-			var on := lbl(str(y.outlookNote), 12, EqTheme.INK, "sans"); on.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(on)
-		if str(y.get("capNote", "")) != "":
-			var cn := lbl(str(y.capNote), 12, AMBER_INK, "sans"); cn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(cn)
-		for r in lines:
-			var sc := int(r[1]); var col := OKGREEN if sc >= 80 else (AMBER_INK if sc >= 50 else STAMP_RED)
-			var t := lbl("%s: score %d/100.  %s" % [r[0], sc, r[2]], 12, col, "sans"); t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(t)
-		body.add_child(_paper(v, Color("#FBF8EC")))
+	for i in range(ys.size() - 1, -1, -1): body.add_child(_memo(ys[i], "MEMO · ANNUAL REVIEW · YEAR %d" % int(ys[i].year)))
+
+func _memo(y: Dictionary, title: String) -> Control:
+	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 3)
+	v.add_child(lbl(title, 13, EqTheme.INK, "mono_bold"))
+	v.add_child(lbl("TO: Plant manager     CC: Board", 11, PENCIL))
+	v.add_child(HSeparator.new())
+	var lines := [
+		["VICTOR (finance)", int(y.victor), str(y.get("victorNote", "Operating margin %s." % _m(float(y.get("opMarginUSD", y.margin)))))],
+		["NOOR (safety, environment)", int(y.noor), "%d critical alarm%s. Emissions at %.0f%% of the cap.%s" % [int(y.criticals), "" if int(y.criticals) == 1 else "s", float(y.emRatio) * 100.0, "  The regulator issued %d strike%s." % [int(y.strike), "" if int(y.strike) == 1 else "s"] if int(y.strike) > 0 else ""]],
+		["MARA (operations)", int(y.mara), str(y.get("maraNote", "Energy at %.0f%% of design." % (float(y.effRatio) * 100.0)))],
+	]
+	if str(y.get("driverNote", "")) != "":
+		var dn := lbl("MARGIN DRIVERS: " + str(y.driverNote), 12, PENCIL, "sans"); dn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(dn)
+	if str(y.get("revenueNote", "")) != "":
+		var rn := lbl(str(y.revenueNote), 12, PENCIL, "sans"); rn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(rn)
+	if str(y.get("outlookNote", "")) != "":
+		var on := lbl(str(y.outlookNote), 12, EqTheme.INK, "sans"); on.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(on)
+	if str(y.get("capNote", "")) != "":
+		var cn := lbl(str(y.capNote), 12, AMBER_INK, "sans"); cn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(cn)
+	for r in lines:
+		var sc := int(r[1]); var col := OKGREEN if sc >= 80 else (AMBER_INK if sc >= 50 else STAMP_RED)
+		var t := lbl("%s: score %d/100.  %s" % [r[0], sc, r[2]], 12, col, "sans"); t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(t)
+	return _paper(v, Color("#FBF8EC"))
+
+## The last annual review (year 5 when the career ran its course) is shown BEFORE the end card. Returns true when it opened (the shell then waits); CONTINUE opens the printout.
+static func review_first(app) -> bool:
+	if app == null or app.b == null or str(app.b.g.get("level", "")) != "CAREER": return false
+	var lv = app.b.q("levelView")
+	if not (lv is Dictionary): return false
+	var ys: Array = (lv as Dictionary).get("review", [])
+	if ys.is_empty(): return false
+	var old = app.get_meta("career_review_host") if app.has_meta("career_review_host") else null
+	if old != null and is_instance_valid(old) and (old as Node).is_inside_tree(): return true   # already up
+	var y: Dictionary = ys[ys.size() - 1]
+	var tmp := CareerBoard.new()
+	var d: Dictionary = app.dialog("career_review", 760.0, 0.0, EqTheme.PEN_GREEN, 0.6)
+	var host: Control = d.host; var vb: VBoxContainer = d.vb
+	app.end_ui = host; app.set_meta("career_review_host", host)
+	var ed := str((lv as Dictionary).get("dashboard", {}).get("ending", ""))
+	var title := "YEAR %d REVIEW · THE LAST ONE BEFORE THE RESULT" % int(y.year) if ed == "chief" or ed == "steady" else "LAST ANNUAL REVIEW · YEAR %d" % int(y.year)
+	var memo := tmp._memo(y, title); memo.name = "Year5Review"; vb.add_child(memo)
+	var go := EqTheme.key_button("CONTINUE TO THE RESULT", true, 16); go.name = "ReviewContinue"
+	go.pressed.connect(func(): host.queue_free(); app.end_ui = null; Printout.open(app))
+	vb.add_child(go); go.grab_focus.call_deferred()
+	return true
 
 # ---- widgets ------------------------------------------------------------------------------------------------------------------------------
 class Cal extends Control:
@@ -267,14 +338,20 @@ class Bar extends Control:
 class Spark extends Control:
 	var hist: Array = []
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE
+	static func _mu(x: float) -> String:
+		var r := int(round(x / 1e6)); return "%d" % (0 if r == 0 else r)   # never "-0"
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color("#FBF8EC")); draw_rect(Rect2(Vector2.ZERO, size), Color("#B8A888"), false, 1.0)
 		if hist.size() < 2: draw_string(EqTheme.font("sans"), Vector2(6, 28), "Cash and margin history builds as the months pass.", HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(11), Color("#6A6A60")); return
-		for k in [["cashUSD", Color("#2D5DA8")], ["marginUSD", Color("#C8793C")]]:
+		var f := EqTheme.font("mono"); var fs := EqTheme.fs(9); var lw := 34.0; var top := 16.0   # axis labels live in side gutters and a title band: nothing is drawn over the lines
+		for k in [["cashUSD", Color("#2D5DA8"), true], ["marginUSD", Color("#C8793C"), false]]:
 			var lo := INF; var hi := -INF
 			for h in hist: lo = minf(lo, float(h[k[0]])); hi = maxf(hi, float(h[k[0]]))
 			if hi - lo < 1.0: hi = lo + 1.0
-			var pts := PackedVector2Array()
-			for i in hist.size(): pts.append(Vector2(4 + (size.x - 8) * i / float(hist.size() - 1), size.y - 4 - (size.y - 8) * (float(hist[i][k[0]]) - lo) / (hi - lo)))
+			var pts := PackedVector2Array(); var x0 := lw; var x1 := size.x - lw; var y0 := top; var y1 := size.y - 4.0
+			for i in hist.size(): pts.append(Vector2(x0 + (x1 - x0) * i / float(hist.size() - 1), y1 - (y1 - y0) * (float(hist[i][k[0]]) - lo) / (hi - lo)))
 			draw_polyline(pts, k[1], 1.8, true)
-		draw_string(EqTheme.font("mono"), Vector2(6, 11), "cash (blue)   cumulative margin (orange)", HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(10), Color("#4A4A48"))
+			var left: bool = k[2]
+			var tx := 2.0 if left else size.x - lw + 2.0
+			draw_string(f, Vector2(tx, y0 + 8.0), _mu(hi), HORIZONTAL_ALIGNMENT_LEFT, lw - 4.0, fs, k[1]); draw_string(f, Vector2(tx, y1), _mu(lo), HORIZONTAL_ALIGNMENT_LEFT, lw - 4.0, fs, k[1])
+		draw_string(EqTheme.font("mono"), Vector2(lw, 11), "cash (blue, left axis)   operating margin per month (orange, right axis), MUSD", HORIZONTAL_ALIGNMENT_LEFT, size.x - 2.0 * lw, EqTheme.fs(10), Color("#4A4A48"))
