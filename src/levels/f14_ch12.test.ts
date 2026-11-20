@@ -34,3 +34,13 @@ describe('F14 chapter 1-2', () => {
     expect(info(mk('L03')).predictNote).toMatch(/after a test burn/);
   });
 });
+
+describe('F14 L24 checklist', () => {
+  it('the feed row does not tick at the full 260.6 kmol/h charge, only at 182', () => {
+    const e = mk('L24');
+    e.step({ name: 'commission', args: [] } as any);
+    e.step({ name: 'startShift', args: ['shift'] } as any);
+    const row = (): any => (info(e).buildGuide as any[]).find((r) => r.id === 'feed');
+    expect(row().done).toBe(false);
+  });
+});

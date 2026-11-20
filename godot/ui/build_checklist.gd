@@ -53,7 +53,10 @@ func _ready() -> void:
 func _process(_dt: float) -> void:
 	if app == null: return
 	var li := Notebook.info(app)
-	var want: bool = app.started and not lines.is_empty() and app.modal() == null and str(li.get("phase", "design")) == "design" and str(li.get("id", "")) == _level
+	var ph := str(li.get("phase", "design"))
+	var open_rows := lines.any(func(l): return not bool(l.get("done", false)))
+	# F14: the checklist stays up while the plant runs (L24's start-up rows tick during the shift); it goes once every row is done or at the report
+	var want: bool = app.started and not lines.is_empty() and app.modal() == null and (ph == "design" or (ph in ["commissioned", "shift"] and open_rows)) and str(li.get("id", "")) == _level
 	if want != visible: visible = want; refresh()   # the notebook put away / a run over: the guide points again
 	if not visible: return
 	var vp: Vector2 = get_viewport().get_visible_rect().size

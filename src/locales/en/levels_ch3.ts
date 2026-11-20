@@ -26,7 +26,7 @@ export const levelsCh3: Record<string, string> = {
   'lv.L10.coach.pin_window.why': 'Why: the curve falls with temperature and rises with pressure; your point rides on it.',
   'lv.L10.coach.why.text': 'Ask Why? and read the K numbers.',
   'lv.L10.coach.why.why': 'Why: it uses your own temperature and pressure.',
-  'lv.L10.verdict.pass': 'Twenty percent, and the compressor is as small as it can be.',
+  'lv.L10.verdict.pass': 'At least twenty percent at the outlet: the goal is met. The cheapest compression that still makes it is the last flask.',
   'lv.L10.verdict.wall': 'You are standing at the wall: too hot.', 'lv.L10.verdict.low_p': 'Not enough pressure.', 'lv.L10.verdict.asleep': 'The catalyst is asleep.',
   'lv.L10.verdict.relief': 'The relief valve lifted.', 'lv.L10.verdict.not_run': 'Not run yet.',
   'lv.L10.cause.wall': 'At {T} °C the equilibrium constant is {K} × 10⁻⁵ bar⁻² against {K380} × 10⁻⁵ at 380 °C. Heat is a product of this reaction, so heat pushes it back: only {y} % NH₃ at {P} bar. The target is {want} %.',

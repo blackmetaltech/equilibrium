@@ -183,6 +183,7 @@ func _unhandled_key_input(e: InputEvent) -> void:
 	var f := get_viewport().gui_get_focus_owner()
 	if f is LineEdit or f is TextEdit or f is SpinBox or f is OptionButton: return   # digits belong to a field that has focus (a Knob takes focus on a click but never reads a digit: a number key after a knob tweak must still pick the tile)
 	if app.root.get_node_or_null("keypad") != null: return
+	if str(Notebook.info(app).get("phase", "design")) != "design": return   # F14: while the plant runs, digits do not pick parts (round 7: "3" placed a tool mid-shift)
 	if e.keycode >= KEY_1 and e.keycode <= KEY_9 and not (e.ctrl_pressed or e.alt_pressed):
 		pick_index(e.keycode - KEY_1); get_viewport().set_input_as_handled()
 

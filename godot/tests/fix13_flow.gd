@@ -46,7 +46,7 @@ func _l24() -> void:
 	for r in rows: if str(r.id) == "ilk": ilk = str(r.text)
 	check(ilk.contains("from 130 down to 125"), "the interlock row says 'from 130 down to 125' (%s)" % ilk)
 	var nb := " ".join(PackedStringArray(li.get("note", [])))
-	check(nb.contains("from its default 130 °C down to 125 °C"), "and the notebook says the same")
+	check(nb.contains("125 °C, down from 130"), "and the notebook says the same (F14: one why paragraph)")
 	var start := ""
 	for r in rows: if str(r.id) == "start": start = str(r.text)
 	check(start.contains("16x") and not nb.contains("4x until"), "the start row and the notebook speak 16x (%s)" % start)

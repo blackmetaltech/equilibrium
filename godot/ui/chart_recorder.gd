@@ -55,7 +55,7 @@ static func eta_fmt(w) -> String:
 	if not is_finite(float(w)) or float(w) > 6.0e5: return ""
 	var s := int(ceil(float(w)))
 	if s <= 0: return ""
-	return "~%ds" % s if s < 90 else "~%d min" % int(ceil(s / 60.0))
+	return "%ds" % s if s < 90 else "%d min" % int(ceil(s / 60.0))   # no "~": in the console font it read as a minus ("ETA -48 min", round 7)
 ## ETA smoothing: plant seconds advanced per wall second averaged over the last ETA_WINDOW_S seconds (the engine's figure is left / nominal speed and wobbles with the frame
 ## rate). Falls back to the engine's number until the window holds two seconds of history.
 const ETA_WINDOW_S := 10.0

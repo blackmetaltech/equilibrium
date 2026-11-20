@@ -391,7 +391,7 @@ func _engine() -> void:
 	check(li is Dictionary and li.get("shiftClock") is Dictionary, "L08 levelInfo carries shiftClock")
 	check(rec.shift_clock.has("total") and rec.clock_text().begins_with("SHIFT"), "the run line shows the shift clock before the run ('%s')" % rec.clock_text())
 	rec.shift_clock = {"t": 750.0, "total": 3600.0, "speed": 16, "etaWallS": 178, "running": true, "ended": false}
-	check(rec.clock_text() == "SHIFT 12:30 / 1:00:00  ETA ~3 min", "a running shift prints plant time, total and the wall ETA ('%s')" % rec.clock_text())
+	check(rec.clock_text() == "SHIFT 12:30 / 1:00:00  ETA 3 min", "a running shift prints plant time, total and the wall ETA ('%s')" % rec.clock_text())
 	rec.shift_clock = {"t": 3600.0, "total": 3600.0, "speed": 16, "etaWallS": 0, "running": false, "ended": true}
 	check(rec.clock_text().begins_with("SHIFT OVER"), "an ended shift says so ('%s')" % rec.clock_text())
 	# call-it bounds and locked

@@ -84,7 +84,8 @@ export function ammoniaMeasures(s: S, gasUsdH: (s: S) => number = () => 0): Meas
   v.shaft_kw = shaft; v.comp_mw = shaft / 1000;
   const prod = unitsOfType(s, 'product')[0];
   const pin = prod !== undefined && plumbing(s).inPipe(prod.id, 'in') !== undefined ? s.solved.streams[plumbing(s).inPipe(prod.id, 'in')!] : undefined;
-  v.nh3_t_h = pin !== undefined ? (flowOf(s, pin, 'NH3') * 17.031 * 3.6) / 1000 : 0;
+  // the tank's NH3, or (no tank piped) what the converter makes: a plant with no tank must not divide its cost by zero tonnes ($1,000,000,000/t on the slip, round 7)
+  v.nh3_t_h = pin !== undefined ? (flowOf(s, pin, 'NH3') * 17.031 * 3.6) / 1000 : (v.nh3_formed * 17.031) / 1000;
   const compCbm = shaft > 0 ? (() => { const c = capexItem({ type: 'compressor', size: shaft, pBarg: barg }); return c.ok ? c.value.cbm : 0; })() : 0;
   const volM3 = (tot * 8.314 * out.T) / out.P * 60;
   const vesselCbm = v.class > 0 ? (() => { const c = capexItem({ type: 'converter', size: volM3, pBarg: barg }); return c.ok ? c.value.cbm : 0; })() : 0;
