@@ -56,7 +56,7 @@ export const errors: Record<string, string> = {
   'err.commission.stray': 'These units are not piped to anything: {unit}. Pipe them in or delete them, then commission again.',
   'err.prune.none': 'Every unit on the sheet is piped to something, so there is nothing to delete.',
   'log.pruned': 'Deleted the unconnected units: {units}.',
-  'err.commission.open_port': 'Stream from {unit} outlet goes nowhere. Every outlet must end in a unit, a product tank or the stack.',
+  'err.commission.open_port': 'Stream from {unit} {port} goes nowhere \u2014 pipe it to the next unit\'s IN, a product tank or the stack. Every outlet must end somewhere.',
   'err.commission.open_inlet': 'Nothing arrives at the {port} inlet of {unit}. Every inlet needs a pipe from a feed or an upstream unit.',
   'err.commission.topology': 'The pipework of {unit} is inconsistent ({code}). Delete and redraw its pipes.',
   // --- meta actions ---

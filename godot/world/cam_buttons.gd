@@ -2,7 +2,7 @@ class_name CamButtons
 extends Control
 ## The on-screen camera buttons for touch layouts: zoom + / - and rotate left / right. Drawn here (no font glyphs).
 signal pressed(which: String)
-const KINDS := ["zoom_in", "zoom_out", "rot_l", "rot_r"]
+const KINDS := ["zoom_in", "zoom_out", "rot_l", "rot_r", "frame"]
 var size_px := 52.0
 var cols := 1            ## phone: a 2x2 pad so the buttons stay short and clear of the instrument window
 var _hot := ""
@@ -18,7 +18,7 @@ func relayout() -> void:
 	var s := maxf(size_px, 46.0); var gap := 8.0
 	for i in range(KINDS.size()):
 		var c: Control = get_node(KINDS[i]); c.position = Vector2((i % cols) * (s + gap), (i / cols) * (s + gap)); c.size = Vector2(s, s); c.queue_redraw()
-	var rows := int(ceil(4.0 / cols))
+	var rows := int(ceil(float(KINDS.size()) / cols))
 	custom_minimum_size = Vector2(cols * s + (cols - 1) * gap, rows * s + (rows - 1) * gap); size = custom_minimum_size
 
 func _input_btn(e: InputEvent, which: String, c: Control) -> void:
@@ -37,6 +37,11 @@ func _draw_btn(c: Control, which: String) -> void:
 			c.draw_line(ctr - Vector2(r, 0), ctr + Vector2(r, 0), ink, 3.0); c.draw_line(ctr - Vector2(0, r), ctr + Vector2(0, r), ink, 3.0)
 		"zoom_out":
 			c.draw_line(ctr - Vector2(r, 0), ctr + Vector2(r, 0), ink, 3.0)
+		"frame":   # four corner brackets: frame the plot
+			for sx in [-1.0, 1.0]:
+				for sy in [-1.0, 1.0]:
+					var q := ctr + Vector2(sx, sy) * r * 1.1
+					c.draw_line(q, q - Vector2(sx, 0) * r * 0.7, ink, 3.0); c.draw_line(q, q - Vector2(0, sy) * r * 0.7, ink, 3.0)
 		_:
 			var dir := -1.0 if which == "rot_l" else 1.0
 			var a0 := -PI * 0.5 - dir * 2.3; var a1 := -PI * 0.5 + dir * 0.9

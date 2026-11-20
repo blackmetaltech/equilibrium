@@ -363,6 +363,6 @@ describe('strings', () => {
   it('every key used by the engine files exists in en (no sentence literals needed)', () => {
     expect(t('err.connect.occupied')).toBe('That inlet already has a pipe. Mix two streams with a Mixer first.');
     expect(t('err.split.range')).toBe('A split fraction is a share of the stream: it must be between 0 and 1.');
-    expect(t('err.commission.open_port', { unit: 'E-101' })).toBe('Stream from E-101 outlet goes nowhere. Every outlet must end in a unit, a product tank or the stack.');
+    expect(t('err.commission.open_port', { unit: 'E-101', port: 'OUT' })).toBe('Stream from E-101 OUT goes nowhere \u2014 pipe it to the next unit\'s IN, a product tank or the stack. Every outlet must end somewhere.');
   });
 });

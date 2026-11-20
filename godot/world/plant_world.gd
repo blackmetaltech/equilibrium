@@ -258,10 +258,13 @@ func _hover_caps() -> void:
 		var n: Node3D = c[1]
 		(c[0] as Label3D).visible = not cam.is_position_behind(n.global_position) and cam.unproject_position(n.global_position).distance_to(mp) < 60.0
 
+const PIPE_START_PX := 14.0       ## a pipe starts only from a press this close to a resting pip: a click on a unit body selects it
+const PIPE_START_TOUCH := 24.0
 var _hot_port := -1
 static var port_hint_shown := false
 ## The port under the pointer swells and the cursor turns to a hand: a press there starts a pipe and never selects a unit. The first time, a hint says how piping works.
 func _hover_port(p: Vector2) -> void:
+	if pipe_ghost_active(): return   # a pipe in hand: the snap target (nearest legal port) is the one that swells
 	var best := -1; var bd := (30.0 if CbLayout.touch else 20.0)
 	for i in range(_mark_nodes.size()):
 		var n: Node3D = _mark_nodes[i]
@@ -281,7 +284,7 @@ func _hover_port(p: Vector2) -> void:
 ## A press close to a port of any unit makes that unit "hovered" at once, so its free-port pips exist for the pick (no hover motion needed first).
 func _probe_ports(p: Vector2) -> void:
 	if not _pick_port(p).is_empty() or placing != "" or pipe_ghost_active(): return
-	var bd := 30.0 if CbLayout.touch else 22.0
+	var bd := PIPE_START_TOUCH if CbLayout.touch else PIPE_START_PX   # a press near a pip, never one on the unit's body, makes the unit "hovered"
 	var toward := cam.global_transform.basis.z.normalized(); var hit := ""
 	for id in _units:
 		var m: UnitModel = _units[id]
@@ -295,12 +298,47 @@ func _probe_ports(p: Vector2) -> void:
 
 func _pick_port(p: Vector2) -> Dictionary:
 	var best := {}; var bd := (30.0 if CbLayout.touch else 20.0)
-	for i in range(_mark_nodes.size()):
+	for i in range(mini(_mark_nodes.size(), _marks.size())):
 		var n: Node3D = _mark_nodes[i]
-		if cam.is_position_behind(n.global_position): continue
+		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue
 		var d := cam.unproject_position(n.global_position).distance_to(p)
-		if d < bd: bd = d; best = _marks[i]
+		var lim := (PIPE_START_TOUCH if CbLayout.touch else PIPE_START_PX) if bool(_marks[i].get("subtle", false)) and not pipe_ghost_active() else bd
+		if d < bd and d <= lim: bd = d; best = _marks[i]
 	return best
+
+## How far from a port a click or drop still counts, in screen pixels: generous, and wider the further the camera is out (ports are ~10 px there).
+func snap_radius() -> float:
+	return (48.0 if CbLayout.touch else 36.0) * clampf(cam_rig._size / 56.0, 1.0, 1.7)
+
+## The legal port nearest to `p` with a pipe in hand: {mark, d, idx}; limited to the snap radius unless `anywhere`. Empty when none.
+func snap_legal(p: Vector2, anywhere := false) -> Dictionary:
+	if _ghost_from.is_empty(): return {}
+	var best := {}; var bd := INF if anywhere else snap_radius()
+	for i in range(mini(_mark_nodes.size(), _marks.size())):
+		var m: Dictionary = _marks[i]
+		if not bool(m.get("hot", false)) or bool(m.inlet) == bool(_ghost_from.inlet): continue
+		if str(m.unit) == str(_ghost_from.unit) and str(m.port) == str(_ghost_from.port): continue
+		var n: Node3D = _mark_nodes[i]
+		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue
+		var d := cam.unproject_position(n.global_position).distance_to(p)
+		if d < bd: bd = d; best = {"mark": m, "d": d, "idx": i}
+	return best
+
+var last_pipe_msg := ""
+## A click or drop with a pipe in hand that reached no legal port: say so, name the nearest one, keep the pipe in hand (Esc drops it).
+func pipe_missed(p: Vector2) -> void:
+	var near := snap_legal(p, true)
+	var kind := PaperStrings.t("PIPE_KIND_OUT") if bool(_ghost_from.get("inlet", false)) else PaperStrings.t("PIPE_KIND_IN")
+	if near.is_empty(): last_pipe_msg = PaperStrings.t("PIPE_MISS_NONE")
+	else: last_pipe_msg = PaperStrings.t("PIPE_MISS") % [kind, str(near.mark.unit), str(near.mark.get("label", near.mark.port))]
+	if app != null and app.has_method("toast"): app.toast(last_pipe_msg, "warn")
+
+## Drop what a drag leaves behind: the hovered pipe's tag and unit, and any native tooltip.
+func drop_hover() -> void:
+	if _hover_pipe != "": _hover_pipe = ""; pipe_hover.emit("", Vector2.ZERO)
+	if _hover_unit != "": _hover_unit = ""; unit_hover.emit("")
+	var vp := get_viewport()
+	if vp != null and vp.has_method("gui_cancel_tooltip"): vp.call("gui_cancel_tooltip")
 ## Read-only helpers for the paper UI (faceplates, tags, rack). Screen positions are in the viewport's logical pixels, the same space as Control positions.
 func world_to_screen(p: Vector3) -> Vector2: return cam.unproject_position(p) if not cam.is_position_behind(p) else Vector2(-9999.0, -9999.0)
 func pick(screen_pos: Vector2) -> String: return _pick_unit(screen_pos)
@@ -779,8 +817,12 @@ func _click_at(p: Vector2) -> void:
 		# a pipe already half made: this press finishes it (click, click) and its release must do nothing; else this press starts a pipe and the release may finish it (drag)
 		if not pipe_ghost_active(): _press_port = pk; _press_at = p
 		port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
+	if pipe_ghost_active():   # a pipe in hand: the nearest legal port within the snap radius takes the click
+		var sn := snap_legal(p)
+		if not sn.is_empty(): port_clicked.emit(str(sn.mark.unit), str(sn.mark.port), bool(sn.mark.inlet)); return
 	var id := _pick_unit(p)
 	if CbLayout.touch or CbLayout.phone: id = _touch_pick(p, id)
+	if pipe_ghost_active() and id == "" and pipes.pick(p, cam, 12.0) == "": pipe_missed(p); return
 	var pid := pipes.pick(p, cam, 12.0 if id == "" else 6.0)   # over a unit only a click right on the pipe's line picks the pipe: ports, then units, then loose pipes
 	if pid != "": select(""); pipes.select(pid); pipe_clicked.emit(pid); return
 	pipes.select(""); select(id); unit_clicked.emit(id)
@@ -809,6 +851,9 @@ func release_target(p: Vector2, from: Dictionary) -> Dictionary:
 		if sc < bs: bs = sc; best = m
 	if best.is_empty() and ru != "" and ru != str(from.unit) and not body.is_empty():
 		body.sort_custom(func(a, b): return a[0] < b[0]); best = body[0][1]
+	if best.is_empty() and (ru == "" or ru == str(from.unit)):
+		var sn := snap_legal(p)   # a drop a little way off any port: the nearest legal one within the snap radius
+		if not sn.is_empty(): best = sn.mark
 	return best
 
 var _press_at := Vector2.ZERO
@@ -819,10 +864,14 @@ func _unhandled_input(e: InputEvent) -> void:
 		var from := _press_port; _press_port = {}
 		if e.position.distance_to(_press_at) < 10.0: return   # a click, not a drag: the pipe stays in hand for the second click (a port that sits over another unit's body must not connect to that unit)
 		var rel := release_target(e.position, from)
+		drop_hover()
 		if not rel.is_empty(): port_clicked.emit(str(rel.unit), str(rel.port), bool(rel.inlet))
+		elif pipe_ghost_active(): pipe_missed(e.position)
 		return
-	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION: _hover_port(e.position)
-	if e is InputEventMouseMotion and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION:
+	if e is InputEventMouseMotion and e.button_mask != 0 and e.device != InputEvent.DEVICE_ID_EMULATION: drop_hover()   # mid-drag (a pan, a pipe): no tooltip or tag lingers under it
+	elif e is InputEventMouseButton and not e.pressed and e.button_index != MOUSE_BUTTON_LEFT and e.device != InputEvent.DEVICE_ID_EMULATION: drop_hover()
+	if e is InputEventMouseMotion and e.button_mask == 0 and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION: _hover_port(e.position)
+	if e is InputEventMouseMotion and e.button_mask == 0 and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION:
 		var h := pipes.pick(e.position, cam)
 		if h != _hover_pipe or h != "": _hover_pipe = h; pipe_hover.emit(h, e.position)
 		var hu := _pick_unit(e.position)
@@ -834,6 +883,7 @@ func _unhandled_input(e: InputEvent) -> void:
 	elif e is InputEventMouseButton and e.pressed and e.device != InputEvent.DEVICE_ID_EMULATION:
 		if e.button_index == MOUSE_BUTTON_LEFT: _click_at(e.position)
 		elif e.button_index == MOUSE_BUTTON_RIGHT and placing != "": cancel_place()
+	elif e is InputEventKey and e.pressed and not e.echo and (e.keycode == KEY_F or e.keycode == KEY_HOME) and not (e.ctrl_pressed or e.alt_pressed or e.meta_pressed) and not _focus_typing(): frame_plot()
 	elif e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_R and not (e.ctrl_pressed or e.alt_pressed) and not _focus_typing(): rotate_ghost()
 	elif e is InputEventJoypadButton and e.pressed and CbPad.enabled and placing != "":
 		match e.button_index:
@@ -859,8 +909,13 @@ func pad_move(left: Vector2, right: Vector2, _trigger: float, dt: float) -> void
 	else:
 		cam_rig.pad_move(left, right, dt)
 
+## Frame the plot: the whole fenced plot in view, whatever the pan and zoom were.
+func frame_plot() -> void:
+	_fit_boxes([[Vector2i.ZERO, Vector2i(NX, NZ)]]); cam_rig._instant = false
+
 func _on_btn(which: String) -> void:
 	match which:
+		"frame": frame_plot()
 		"zoom_in": cam_rig.zoom_by(1.0 / 1.3)
 		"zoom_out": cam_rig.zoom_by(1.3)
 		"rot_l": cam_rig.rotate_view(-1)
@@ -885,8 +940,10 @@ func _tick_ghost() -> void:
 	var mp := get_viewport().get_mouse_position()
 	var a: Vector3 = f.pos + Vector3(0, 0.4, 0)
 	var b := a
-	var snap := _pick_port(mp)
-	if not snap.is_empty() and (str(snap.unit) != str(_ghost_from.unit) or str(snap.port) != str(_ghost_from.port)):
+	var sn := snap_legal(mp)
+	_pulse_hot(sn.get("idx", -1))
+	if not sn.is_empty():
+		var snap: Dictionary = sn.mark
 		var sf := port_frame(str(snap.unit), str(snap.port), bool(snap.inlet))
 		if not sf.is_empty(): b = sf.pos + Vector3(0, 0.4, 0)
 	else:
@@ -900,6 +957,18 @@ func _tick_ghost() -> void:
 		_ghost_im.surface_add_vertex(a + d * (float(i) / maxf(n, 1))); _ghost_im.surface_add_vertex(a + d * (minf(float(i + 1), maxf(n, 1)) / maxf(n, 1)))
 	_ghost_im.surface_end()
 	_ghost_line.visible = true
+
+## With a pipe in hand every legal port pulses (bigger the further out the camera is) and the one a click would take swells.
+var _snap_idx := -1
+func snap_index() -> int: return _snap_idx
+func _pulse_hot(snap: int) -> void:
+	_snap_idx = snap
+	var far := clampf(cam_rig._size / 40.0, 1.0, 2.2)
+	var beat := 1.0 + 0.14 * sin(Time.get_ticks_msec() * 0.008)
+	for i in range(mini(_mark_nodes.size(), _marks.size())):
+		var n: Node3D = _mark_nodes[i]
+		if not is_instance_valid(n) or not bool(_marks[i].get("hot", false)): continue
+		n.scale = Vector3.ONE * far * (beat if i != snap else 1.9)
 
 func _process(dt: float) -> void:
 	_coach_tick(); _tick_ghost(); _hover_caps()

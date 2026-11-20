@@ -787,6 +787,10 @@ class Hub extends Node:
 
 	func _unhandled_key_input(e: InputEvent) -> void:
 		if not (e is InputEventKey) or not e.pressed or e.echo or app == null or not app.started or app.modal() != null: return
+		if (e.ctrl_pressed or e.meta_pressed) and (e.keycode == KEY_Z or e.keycode == KEY_Y) and not e.alt_pressed:
+			var fo = get_viewport().gui_get_focus_owner()
+			if fo is LineEdit or fo is TextEdit or fo is SpinBox: return
+			get_viewport().set_input_as_handled(); undo_redo(e.keycode == KEY_Y or e.shift_pressed); return
 		if e.keycode != KEY_DELETE and e.keycode != KEY_BACKSPACE: return
 		var f = get_viewport().gui_get_focus_owner()
 		if f is LineEdit or f is TextEdit: return
@@ -866,6 +870,18 @@ class Hub extends Node:
 		pn.position = Vector2(clampf((vr.x - pn.size.x) * 0.5, 4.0, maxf(4.0, vr.x - pn.size.x - 4.0)), clampf(bottom - pn.size.y, 4.0, maxf(4.0, vr.y - pn.size.y - 4.0)))
 		pn.move_to_front(); no.grab_focus()   # in front of every plate; focus on Keep, so Enter never deletes by accident
 
+	## ctrl+z / ctrl+y (ctrl+shift+z): the engine's undo / redo in DESIGN, with a toast. A refusal (nothing to undo, plant running) is the engine's own text.
+	func undo_redo(redo: bool) -> Dictionary:
+		if not _designing(): app.toast("Stop the run and go back to DESIGN to undo.", "info"); return {}
+		var r: Dictionary = app.b.act("redo" if redo else "undo")
+		if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "info"); return r
+		clear_pipe(); _drop_confirm(); hover_id = ""
+		for pid in Faceplate.plates.keys():
+			if not _alive(str(pid)) and is_instance_valid(Faceplate.plates[pid]): (Faceplate.plates[pid] as Faceplate).close()
+		if app.world.selected_id != "" and not _alive(str(app.world.selected_id)): app.world.select("")
+		app.toast(PaperStrings.t("REDO_DONE") if redo else PaperStrings.t("UNDO_DONE"), "info")
+		_refresh_ports(); return r
+
 	func _on_place(type: String, x: int, y: int, rot: int) -> void:
 		var r: Dictionary = app.b.act("placeUnit", [type, x, y, rot])
 		if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn"); return
@@ -878,7 +894,8 @@ class Hub extends Node:
 		if from_unit != "" and id != "" and id != from_unit:   # a pipe in hand and a click on another unit's body: its one legal port takes it
 			var cands: Array = legal.filter(func(t): return str(t.unit) == id)
 			if cands.size() == 1: _on_port(id, str(cands[0].port), not from_inlet); return
-			if cands.size() > 1: app.toast(PaperStrings.t("PIPE_WHICH") % id, "info"); return
+			if cands.size() > 1: app.toast(PaperStrings.t("PIPE_WHICH") % [id, ", ".join(PackedStringArray(cands.map(func(t): return cap(str(t.port), not from_inlet))))], "info"); return
+			app.toast(PaperStrings.t("PIPE_NOFIT") % id, "warn"); return   # no legal port on that unit: the pipe stays in hand, nothing attaches
 		clear_pipe()
 		if id == "":
 			for k in Faceplate.plates.keys(): if not (Faceplate.plates[k] as Faceplate).pinned: (Faceplate.plates[k] as Faceplate).close()

@@ -127,8 +127,8 @@ func _unhandled_input(e: InputEvent) -> void:
 	if not _allowed(): _touches.clear(); return
 	if e is InputEventMouseButton and e.pressed and e.device != InputEvent.DEVICE_ID_EMULATION:
 		if (e.button_index == MOUSE_BUTTON_WHEEL_UP or e.button_index == MOUSE_BUTTON_WHEEL_DOWN) and _over_panel(): return   # the wheel belongs to the panel under it (knobs, key, bays)
-		if e.button_index == MOUSE_BUTTON_WHEEL_UP: zoom_step(1)
-		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: zoom_step(-1)
+		if e.button_index == MOUSE_BUTTON_WHEEL_UP: zoom_by(1.0 / 1.15)   # smooth wheel zoom, clamped ZMIN..ZMAX
+		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN: zoom_by(1.15)
 	elif e is InputEventMouseMotion and e.device != InputEvent.DEVICE_ID_EMULATION and (e.button_mask & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) != 0:
 		pan_pixels(e.relative)
 	elif e is InputEventKey and e.pressed and not e.echo and not _typing() and not (e.ctrl_pressed or e.alt_pressed):

@@ -168,7 +168,7 @@ describe('commission', () => {
     const e = newEngine();
     expect(reject(e, 'commission')).toMatch(/nothing to commission/);
     const f = placeAt(e, 'feed', 0, 0), m = placeAt(e, 'mixer', 4, 0);
-    expect(reject(e, 'commission')).toBe(`Stream from ${f} outlet goes nowhere. Every outlet must end in a unit, a product tank or the stack.`);
+    expect(reject(e, 'commission')).toBe(`Stream from ${f} OUT goes nowhere \u2014 pipe it to the next unit's IN, a product tank or the stack. Every outlet must end somewhere.`);
     must(e, 'connect', f, 'out', m, 'in1');
     expect(reject(e, 'commission')).toMatch(new RegExp(`Nothing arrives at the in2 inlet of ${m}`));
     expect(e.state.phase).toBe('design'); expect(e.state.solved).toBeNull();
