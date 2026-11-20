@@ -108,7 +108,9 @@ describe('the yearly decision', () => {
       const a = initCareer(seed, 'engineer'), b = initCareer(seed, 'engineer');
       answerDecision(a, 0); answerDecision(b, 1);
       let n = 0; while (a.m < 12 && n++ < 40) { run(a, humanCarefulDecisions(a)); run(b, humanCarefulDecisions(b)); advance(a, 1); advance(b, 1); }
-      expect(Math.abs(a.cash - b.cash), `seed ${seed} ${d0.kind}`).toBeGreaterThan(1e5); seen.add(d0.kind);
+      if (d0.kind === 'catgrade') expect(a.eco?.[d0.plant as 'nh3'], `seed ${seed} ${d0.kind}`).toBe(true);   // the grade pays out at the next catalyst charge, not within the year
+      else expect(Math.abs(a.cash - b.cash), `seed ${seed} ${d0.kind}`).toBeGreaterThan(1e5);
+      seen.add(d0.kind);
     }
     expect(seen.size).toBeGreaterThanOrEqual(2);
   });

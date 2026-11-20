@@ -107,10 +107,8 @@ func _advance_lock() -> void:
 	var m0 := int(view().dashboard.month)
 	act("advance", [3])
 	check(int(view().dashboard.month) == m0, "a +3 sent past the board is refused by the engine")
-	ca.pressed.emit(); await frames(4); b = board()
-	check(not bool(view().dashboard.needsAck), "CONTINUE ANYWAY acknowledges it")
-	k3 = b.find_child("Advance3", true, false) as Button
-	check(k3 != null and not k3.disabled, "+3 MONTHS is lit again")
+	ca.pressed.emit(); await frames(16); b = board()
+	check(int(view().dashboard.month) > m0, "CONTINUE ANYWAY acknowledges the warning and runs on in the same press (month %d to %d)" % [m0, int(view().dashboard.month)])
 
 ## The memo is a table, the top ending is FLAGSHIP, and the end slip carries the third flask rule.
 func _memo_and_slip() -> void:

@@ -212,6 +212,11 @@ func new_game(mode: String) -> void:
 		return
 	super(mode)
 
+## Launch aliases for CB_LEVEL / the level menu: "C", "c" and "career" all name the Career level (chapter 10), so CB_LEVEL=C opens it like CB_AUTOSTART=career does.
+const LEVEL_ALIAS := {"C": "CAREER", "CAREER": "CAREER"}
+func start_level(id: String, force := false) -> void:
+	super(LEVEL_ALIAS.get(id.strip_edges().to_upper(), id), force)
+
 ## Manual step (Space, pad Y): inside a level it turns the key one position; free play and the auto-run clock still advance the engine.
 func next_tick() -> void:
 	if speed == 0 and chrome != null and chrome.key_available(): chrome.turn_key(); return

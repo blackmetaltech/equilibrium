@@ -143,7 +143,7 @@ describe('Career: readable labels and the money story', () => {
     expect(v.options.invest.heat.preview).toMatch(/pays back in \d+ months/);
     expect(v.options.invest.abate.preview).toMatch(/kt of CO2/);
     expect(v.review.length).toBeGreaterThanOrEqual(2);
-    for (const y of v.review) { expect(y.driverNote).toMatch(/Revenue \d+ MUSD/); expect(Math.abs(y.rev - y.cost - y.pen - y.inv - y.margin)).toBeLessThan(1); }
+    for (const y of v.review) { expect(y.driverNote).toMatch(/Revenue \d+\.\d MUSD/); expect(Math.abs(y.rev - y.cost - y.pen - y.inv - y.margin)).toBeLessThan(1); }
   });
   it('the payback preview is pure and positive for heat at the start', () => {
     const c = initCareer(1003, 'learner');
