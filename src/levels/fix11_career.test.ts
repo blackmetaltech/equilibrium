@@ -80,7 +80,7 @@ describe('what would move you: levers with numbers', () => {
     expect(ta, 'turnaround lever').toBeDefined();
     expect(Number(ta!.vars.gain)).toBeGreaterThan(0);
     const e = endingsView(c);
-    expect(e.levers.join(' ')).toMatch(/turnaround \(catalyst \d+ %, exchanger U \d+ %\): \+[\d.]+ MUSD a year of output and gas back to new, less [\d.]+ MUSD of outage, = \+[\d.]+ MUSD a year/);
+    expect(e.levers.join(' ')).toMatch(/turnaround for month \d+ \(catalyst \d+ %, exchanger U \d+ %\): \+[\d.]+ MUSD a year of output and gas back to new, less [\d.]+ MUSD of outage, = \+[\d.]+ MUSD a year/);
     expect(Number(ta!.vars.gross) - Number(ta!.vars.outage)).toBeCloseTo(Number(ta!.vars.gain), 6);
     c.offers = [{ id: 99, p: 'acid', tpm: 4000, price: Math.round(c.prices.acid * 1.1), term: 12, pen: 100, exp: c.m + 1 }];
     const l2 = outlook(c).levers.find((l) => l.key === 'contract');

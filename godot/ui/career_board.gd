@@ -14,7 +14,8 @@ var _cards := {}              ## plant id -> its card (the alert strip scrolls t
 var _lock_until := 0          ## msec: +3 MONTHS stays dark for about a second after a stop at a warning, so a double click cannot ride through it
 var pin: VBoxContainer        ## the action row, the strike warning and a pending decision: outside the scroll, so they never move and never need a wheel
 var _open := {}               ## plant id -> bool: the player's choice to open or fold a plant card (absent: the default, see _plant_open)
-var _armed := {}              ## plant id -> msec: BUY CATALYST was pressed once and waits for the confirming press
+var _armed := {}              ## plant id -> true: BUY CATALYST was pressed once and waits (no timeout) for the confirming press or a CANCEL
+var _book_msg := {}           ## plant id -> why BOOK did nothing (no catalyst charge yet), shown until the charge is bought
 var _dec_open := -1           ## the pending card's DETAILS: -1 default (open unless compact), 0 folded, 1 open
 var _last_run := "3"          ## the last multi-month key pressed ("3" or "next"): CONTINUE ANYWAY acknowledges and runs it again
 
@@ -63,9 +64,18 @@ func _build() -> void:
 	var sw: Array = d.get("strikeWarn", [])
 	if not sw.is_empty() and not bool(d.over):
 		var swl := lbl("\n".join(PackedStringArray(sw)), 12, STAMP_RED, "mono_bold"); swl.name = "StrikeWarn"; swl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; swl.custom_minimum_size = Vector2(200, 0); pin.add_child(swl)
+	if not bool(d.over):
+		for bn in [["emWarn", "EmWarn"], ["endAhead", "EndAhead"]]:
+			var bt := str(d.get(bn[0], ""))
+			if bt == "": continue
+			var cut := bt.find(" Levers:")
+			var bl := lbl(bt.substr(0, cut) if cut >= 0 else bt, 12, STAMP_RED, "mono_bold"); bl.name = bn[1]; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size = Vector2(200, 0); pin.add_child(bl)
 	var dc: Variant = d.get("decision", null)
 	var dpend := dc is Dictionary and bool((dc as Dictionary).get("pending", false))
 	if dpend: pin.add_child(_decision_card(dc as Dictionary, bool(d.over)))
+	var ewt := str(d.get("emWarn", ""))
+	if ewt != "" and ewt.find(" Levers:") >= 0 and not bool(d.over):
+		var el := lbl("EMISSIONS LEVERS:" + ewt.substr(ewt.find(" Levers:") + 8), 12, AMBER_INK, "sans"); el.name = "EmLevers"; el.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; el.custom_minimum_size = Vector2(200, 0); body.add_child(_paper(el, Color("#F8EBD0")))
 	body.add_child(_alerts(d))
 	body.add_child(_calendar(d))
 	if dc is Dictionary and not dpend: body.add_child(_decision_card(dc as Dictionary, bool(d.over)))
@@ -137,6 +147,7 @@ func emit_act(name: String, args: Array = []) -> void:
 func advance_months(n: int) -> void:
 	if _busy: return
 	if n > 1: _last_run = "3"
+	var rv0 := (view.get("review", []) as Array).size()
 	_busy = true; _render()
 	await get_tree().process_frame; await get_tree().process_frame
 	Input.flush_buffered_events()
@@ -145,6 +156,7 @@ func advance_months(n: int) -> void:
 	Input.flush_buffered_events()
 	for i in 4: await get_tree().process_frame
 	_busy = false; _render()
+	_year_popup(rv0)
 	if _lock_until > Time.get_ticks_msec():
 		await get_tree().create_timer(1.05).timeout
 		if is_inside_tree(): _render()
@@ -160,6 +172,7 @@ func continue_anyway() -> void:
 func advance_to_decision() -> void:
 	if _busy: return
 	_last_run = "next"
+	var rv0 := (view.get("review", []) as Array).size()
 	_busy = true; _render()
 	await get_tree().process_frame; await get_tree().process_frame
 	Input.flush_buffered_events()
@@ -168,9 +181,26 @@ func advance_to_decision() -> void:
 	Input.flush_buffered_events()
 	for i in 4: await get_tree().process_frame
 	_busy = false; _render()
+	_year_popup(rv0)
 	if _lock_until > Time.get_ticks_msec():
 		await get_tree().create_timer(1.05).timeout
 		if is_inside_tree(): _render()
+
+## A year ended during this advance: the annual review opens as a card over the board (NEXT DECISION stops there), with last year's card priced against the road not taken. CONTINUE closes it. The last year's review opens through review_first instead.
+func _year_popup(before: int) -> void:
+	var ys: Array = view.get("review", [])
+	if app_ref == null or ys.size() <= before or ys.is_empty() or str(view.get("dashboard", {}).get("ending", "")) != "": return
+	var old = app_ref.get_meta("career_year_popup") if app_ref.has_meta("career_year_popup") else null
+	if old != null and is_instance_valid(old) and (old as Node).is_inside_tree(): (old as Node).queue_free()
+	var y: Dictionary = ys[ys.size() - 1]
+	var d: Dictionary = app_ref.dialog("career_year_review", 760.0, 0.0, EqTheme.PEN_GREEN, 0.6)
+	var host: Control = d.host; var vb: VBoxContainer = d.vb
+	app_ref.set_meta("career_year_popup", host)
+	var sc := ScrollContainer.new(); sc.name = "YearReviewScroll"; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; sc.custom_minimum_size = Vector2(0, minf(520.0, app_ref.get_viewport().get_visible_rect().size.y * 0.62)); vb.add_child(sc)
+	var memo := _memo(y, "YEAR %d REVIEW" % int(y.year), ys[ys.size() - 2] if ys.size() > 1 else {}); memo.name = "YearReview"; memo.size_flags_horizontal = Control.SIZE_EXPAND_FILL; sc.add_child(memo)
+	var go := EqTheme.key_button("CONTINUE", true, 16); go.name = "YearReviewContinue"
+	go.pressed.connect(func(): host.queue_free())
+	vb.add_child(go); go.grab_focus.call_deferred()
 
 ## The yearly decision card: a paper slip with the situation and two options, each with its expected MUSD from the engine and the terms that add up to it. Pending: amber paper (pinned above the scroll) and two CHOOSE keys; the long text sits behind DETAILS on a handheld. Answered: the chosen option stays on the slip.
 func _decision_card(dc: Dictionary, over: bool) -> Control:
@@ -188,7 +218,7 @@ func _decision_card(dc: Dictionary, over: bool) -> Control:
 		var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
 		var ix := int(o.index)
 		if pending:
-			var k := key("CHOOSE %s  ·  %s" % [str(o.label), _musd_short(float(o.effectUSD))], func(): emit_act("answer", [ix]), ix == int(dc.best) and bool(dc.get("learner", false)), 13); k.name = "Choose_%s" % str(o.label); k.disabled = over or _busy; k.tooltip_text = str(o.effectText); h.add_child(k)
+			var k := key("CHOOSE %s  ·  %+.2f MUSD" % [str(o.label), float(o.effMusd)], func(): emit_act("answer", [ix]), ix == int(dc.best) and bool(dc.get("learner", false)), 13); k.name = "Choose_%s" % str(o.label); k.disabled = over or _busy; k.tooltip_text = str(o.effectText); h.add_child(k)
 		else:
 			var tag := lbl("YOU CHOSE %s%s" % [str(o.label), "  (the decision lapsed)" if bool(dc.get("lapsed", false)) else ""], 12, OKGREEN if not bool(dc.get("lapsed", false)) else AMBER_INK, "mono_bold"); tag.name = "DecisionChosen"; h.add_child(tag)
 		var ef := lbl(str(o.effectText), 12, STAMP_RED if float(o.effectUSD) < 0.0 else PENCIL, "mono_bold"); ef.name = "Effect_%s" % str(o.label); ef.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ef.custom_minimum_size = Vector2(200, 0); ef.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(ef)
@@ -246,7 +276,11 @@ func _ending(d: Dictionary) -> Control:
 	var e := str(d.ending); var good := e == "chief" or e == "steady"
 	var h := HBoxContainer.new(); h.alignment = BoxContainer.ALIGNMENT_CENTER
 	var st := stamp(str(END_NAME.get(e, e)), OKGREEN if good else STAMP_RED, 26); st.custom_minimum_size = Vector2(240, 44); h.add_child(st)
-	return h
+	var why := str(d.get("endingWhy", ""))
+	if why == "": return h
+	var v := VBoxContainer.new(); v.name = "EndingCard"; v.add_theme_constant_override("separation", 4); v.add_child(h)
+	var wl := lbl(why, 12, OKGREEN if good else STAMP_RED, "mono_bold"); wl.name = "EndingWhy"; wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl.custom_minimum_size = Vector2(240, 0); v.add_child(wl)
+	return v
 
 # ---- ledger ---------------------------------------------------------------------------------------------------------------------------------
 func _ledger(d: Dictionary) -> Control:
@@ -320,19 +354,19 @@ func _plant_card(p: Dictionary, d: Dictionary) -> Control:
 	var ki := key("INSPECT $150k", func(): emit_act("inspect", [id]), false, 11); ki.disabled = over or ist == "locked"; ki.tooltip_text = "Needs six months since the last one. The plant is down a day."; keys.add_child(ki)
 	if ist == "locked": ki.tooltip_text = str(p.get("inspectionNote", ""))
 	var price := "$" + fnum(float(p.catalystPriceUSD) / 1e6, 1) + "M"
-	var armed := _armed.has(id) and Time.get_ticks_msec() - int(_armed[id]) < 4000
+	var armed := _armed.has(id) and int(p.catalystStock) == 0
 	var kc := key(("CATALYST: 1 CHARGE IN STOCK" if int(p.catalystStock) > 0 else (("PRESS AGAIN TO BUY %s" % price) if armed else "BUY CATALYST " + price)), func(): _buy_catalyst(id), armed, 11); kc.disabled = over or int(p.catalystStock) > 0; kc.name = "Catalyst_" + id
-	kc.tooltip_text = "A charge in the warehouse is what a turnaround loads. Buy it before you BOOK. It cannot be taken back, so the key asks twice: press it again within four seconds to pay %s." % price; keys.add_child(kc)
+	kc.tooltip_text = "A charge in the warehouse is what a turnaround loads. Buy it before you BOOK. It cannot be taken back, so the key asks twice: press it again to pay %s, or CANCEL." % price; keys.add_child(kc)
+	if armed:
+		var kcx := key("CANCEL", func(): _armed.erase(id); _refresh_keep(), false, 11); kcx.name = "CatalystCancel_" + id; kcx.tooltip_text = "Do not buy the catalyst."; keys.add_child(kcx)
 	v.add_child(_ta_row(p, m, over))
 	return _paper(v)
 
-## BUY CATALYST asks twice: the first press arms the key (it says so), the second within four seconds pays. A stray click, or a click that lands where a layout shift put the key, buys nothing.
+## BUY CATALYST asks twice: the first press arms the key (it says so and stays armed, with a CANCEL key beside it), the second press pays. A stray click, or a click that lands where a layout shift put the key, buys nothing, and nothing re-arms or disarms it on a timer.
 func _buy_catalyst(id: String) -> void:
-	if _armed.has(id) and Time.get_ticks_msec() - int(_armed[id]) < 4000:
+	if _armed.has(id):
 		_armed.erase(id); emit_act("buyCatalyst", [id]); return
-	_armed[id] = Time.get_ticks_msec(); _refresh_keep()
-	await get_tree().create_timer(4.1).timeout
-	if is_inside_tree() and _armed.has(id) and Time.get_ticks_msec() - int(_armed[id]) >= 4000: _armed.erase(id); _refresh_keep()
+	_armed[id] = true; _refresh_keep()
 
 ## Open by the player's choice; otherwise open on a desktop, and on a handheld only where the plant has an alert that a booked turnaround does not already cover.
 func _plant_open(id: String, d: Dictionary) -> bool:
@@ -348,6 +382,8 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 	if tam >= 0:
 		h.add_child(lbl("TURNAROUND booked: month %d · crane %d%s" % [tam + 1, int(p.turnaroundCrane), (" · +%d crew" % int(p.turnaroundCrew)) if int(p.turnaroundCrew) > 0 else ""], 12, OKGREEN, "mono_bold"))
 		var kx := key("CANCEL", func(): emit_act("cancelTurnaround", [id]), false, 11); kx.disabled = over; h.add_child(kx)
+		var bo := str(p.get("bookedOverlapNote", ""))
+		if bo != "": var bol := lbl(bo, 11, AMBER_INK, "sans"); bol.name = "BookedOverlap_" + id; bol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bol.custom_minimum_size = Vector2(220, 0); h.add_child(bol)
 		return h
 	var dr: Dictionary = _ta.get(id, {"m": m + 2, "crane": 1, "crew": 0}); dr.m = maxi(int(dr.m), m); _ta[id] = dr
 	h.add_child(lbl("TURNAROUND", 11, PENCIL, "semi"))
@@ -357,24 +393,33 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 	var kc := key("CRANE %d" % int(dr.crane), func(): dr.crane = 2 if int(dr.crane) == 1 else 1; _refresh_keep(), false, 11); kc.tooltip_text = "Second crane: faster, extra hire cost."; h.add_child(kc)
 	var kw := key("+4 CREW" if int(dr.crew) == 0 else "NO EXTRA CREW", func(): dr.crew = 4 if int(dr.crew) == 0 else 0; _refresh_keep(), false, 11); h.add_child(kw)
 	var stock := int(p.catalystStock) > 0
-	var kb := key("BOOK", func(): emit_act("turnaround", [id, int(dr.m), int(dr.crane), int(dr.crew)]), stock and not over, 11); kb.name = "Book_" + id; kb.disabled = over or not stock; h.add_child(kb)   # teal only when it can be pressed
+	var kb := key("BOOK", func(): _book(p, dr), stock and not over, 11); kb.name = "Book_" + id; kb.disabled = over; h.add_child(kb)   # teal only when it can be booked; pressed without a catalyst charge it says why (it is never silent)
 	var days := float(p.taDaysWithCatalyst) if stock else float(p.taDaysWithout)
-	for w in _book_warnings(id, int(dr.m)):
+	if stock: _book_msg.erase(id)
+	for w in _book_warnings(p, int(dr.m)):
 		var wl2 := lbl(w, 11, STAMP_RED, "sans"); wl2.name = "BookWarn_" + id; wl2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl2.custom_minimum_size = Vector2(220, 0); h.add_child(wl2)
 	var wn: Array = p.get("taWeighNote", [])   # booking in this month against the expected cost of not booking (outage, contract penalty and hire, against incident risk)
 	if int(dr.m) >= 0 and int(dr.m) < wn.size() and str(wn[int(dr.m)]) != "":
 		var wg := lbl(str(wn[int(dr.m)]), 11, OKGREEN if str(wn[int(dr.m)]).begins_with("Worth") else AMBER_INK, "sans"); wg.name = "BookWeigh_" + id; wg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wg.custom_minimum_size = Vector2(260, 0); h.add_child(wg)
-	if stock: h.add_child(lbl("%s d with catalyst" % fnum(days), 11, PENCIL, "sans"))
-	else:   # a turnaround without a catalyst charge changes nothing the plant needs: BOOK stays locked and says why
-		kb.tooltip_text = "BOOK needs a catalyst charge in the warehouse: press BUY CATALYST first."
-		var wl := lbl("BOOK is locked until you BUY CATALYST (the outage would take %s d)." % fnum(days), 11, AMBER_INK, "sans"); wl.name = "BookWhy_" + id; wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl.custom_minimum_size = Vector2(180, 0); h.add_child(wl)
+	var dn2 := str(p.get("taDaysNote", ""))   # the outage with and without the catalyst charge, and why they differ
+	if dn2 != "": var dl2 := lbl(dn2, 11, PENCIL, "sans"); dl2.name = "TaDays_" + id; dl2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; dl2.custom_minimum_size = Vector2(220, 0); h.add_child(dl2)
+	if not stock:   # a turnaround without a catalyst charge changes nothing the plant needs: BOOK waits for the charge and says why, on the key and when it is pressed
+		kb.tooltip_text = str(p.get("bookLockedNote", "BOOK needs a catalyst charge in the warehouse: press BUY CATALYST first."))
+		var wl := lbl("BOOK waits for a catalyst charge: press BUY CATALYST first (the outage would take %s d)." % fnum(days), 11, AMBER_INK, "sans"); wl.name = "BookWhy_" + id; wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl.custom_minimum_size = Vector2(180, 0); h.add_child(wl)
+		if _book_msg.has(id): var wm := lbl(str(_book_msg[id]), 12, STAMP_RED, "mono_bold"); wm.name = "BookMsg_" + id; wm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wm.custom_minimum_size = Vector2(220, 0); h.add_child(wm)
 	return h
 
-## What the BOOK key would do to the Works in month `m`: two plants out at once, and the contract tonnes the outage would leave short.
-func _book_warnings(id: String, m: int) -> Array:
-	var out: Array = []
-	for q in view.get("plants", []):
-		if str(q.id) != id and int(q.turnaroundMonth) == m: out.append("Overlaps the %s turnaround in month %d: two plants out at once." % [str(PLANT_TAG.get(str(q.id), str(q.id))).to_lower(), m + 1])
+## BOOK: with a catalyst charge it books; without one it shows, in red where the player is looking, why nothing was booked.
+func _book(p: Dictionary, dr: Dictionary) -> void:
+	var id := str(p.id)
+	if int(p.catalystStock) <= 0:
+		_book_msg[id] = str(p.get("bookLockedNote", "BOOK needs a catalyst charge in the warehouse: press BUY CATALYST first.")); _refresh_keep(); return
+	emit_act("turnaround", [id, int(dr.m), int(dr.crane), int(dr.crew)])
+
+## What the BOOK key would do to the Works in month `m`: when another turnaround falls in the same month, the extra outage days and MUSD of sharing the crews and the crane (the engine prices them), and which month has no overlap.
+func _book_warnings(p: Dictionary, m: int) -> Array:
+	var out: Array = []; var on: Array = p.get("taOverlapNote", [])
+	if m >= 0 and m < on.size() and str(on[m]) != "": out.append(str(on[m]))
 	return out
 
 # ---- inbox --------------------------------------------------------------------------------------------------------------------------------
@@ -467,6 +512,8 @@ func _memo(y: Dictionary, title: String, prev: Dictionary = {}) -> Control:
 		var t := lbl(str(r[2]), 11, PENCIL, "sans"); t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.custom_minimum_size = Vector2(160, 0); rg.add_child(t)
 	if str(y.get("revenueNote", "")) != "":
 		var rn := lbl(str(y.revenueNote), 11, PENCIL, "sans"); rn.name = "RevenueNote"; rn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(rn)
+	if str(y.get("cardNote", "")) != "":
+		var cnl := lbl(str(y.cardNote), 11, EqTheme.INK, "sans"); cnl.name = "CardNote"; cnl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cnl.custom_minimum_size = Vector2(200, 0); v.add_child(cnl)
 	if str(y.get("outlookNote", "")) != "":
 		var on := lbl(str(y.outlookNote), 12, EqTheme.INK, "sans"); on.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(on)
 	if str(y.get("capNote", "")) != "":

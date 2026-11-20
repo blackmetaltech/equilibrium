@@ -124,11 +124,11 @@ func _catalyst_and_book(sz: Vector2i) -> void:
 	var b := board(); var tag := " (%dx%d)" % [sz.x, sz.y]
 	b.open_all(); await frames(4); b = board()
 	var kb := b.find_child("Book_nh3", true, false) as Button
-	check(kb != null and kb.disabled, "BOOK is disabled without a charge" + tag)
-	var sbd := kb.get_theme_stylebox("disabled") as StyleBoxFlat; var sbn := kb.get_theme_stylebox("normal") as StyleBoxFlat
+	check(kb != null and not kb.disabled, "BOOK can be pressed without a charge (F19: it answers instead of staying silent)" + tag)
+	var sbn := kb.get_theme_stylebox("normal") as StyleBoxFlat
 	var k1 := b.find_child("Advance1", true, false) as Button
 	var teal := (k1.get_theme_stylebox("normal") as StyleBoxFlat).bg_color
-	check(sbd != null and (absf(sbd.bg_color.r - teal.r) + absf(sbd.bg_color.g - teal.g) + absf(sbd.bg_color.b - teal.b)) > 0.1, "its disabled face is not the teal of a pressable primary key (%s against %s)%s" % [str(sbd.bg_color), str(teal), tag])
+	check(sbn != null and (absf(sbn.bg_color.r - teal.r) + absf(sbn.bg_color.g - teal.g) + absf(sbn.bg_color.b - teal.b)) > 0.1, "its face is not the teal of a primary key until it can book (%s against %s)%s" % [str(sbn.bg_color), str(teal), tag])
 	var kc := b.find_child("Catalyst_nh3", true, false) as Button
 	var cash0 := float(view().dashboard.cashUSD)
 	kc.pressed.emit(); await frames(4); b = board()
