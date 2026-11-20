@@ -126,6 +126,11 @@ export function sealSetup(s: EqState): void {
 /** Number of successful commissions this attempt (the solution log is the record). */
 export function commissions(s: S): number { return (s.levelActions ?? []).filter((a) => a[0] === 'commission').length; }
 
+/** Commissions on the JOB so far: this attempt's plus the ones a Retry / stop-and-edit carried over (`carryBurns(n)` in the log), so "Test burns" counts the whole job, not the attempt since the last Retry. */
+export function burns(s: S): number {
+  return commissions(s) + (s.levelActions ?? []).filter((a) => a[0] === 'carryBurns').reduce((n, a) => n + (typeof a[1][0] === 'number' ? a[1][0] : 0), 0);
+}
+
 /** Region price of a key in USD-equivalent per kg (0 for a row that is not per kg / per t). */
 export function pricePerKg(s: S, key: string): number {
   const row = pricesOf(s)[key as PriceKey] as { value: number; unit: string } | undefined;

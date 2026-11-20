@@ -11,7 +11,7 @@ import { enthalpyFlowAt, makeMixture } from '../sim/thermo';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, flowOf, inStream, predictionOf, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, burns, commissions, fedOf, flowOf, inStream, predictionOf, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const L03_SPECIES = ['CH4', 'C3H8', 'O2', 'N2', 'CO2', 'H2O', 'CO'];
@@ -48,7 +48,7 @@ export function fuelMeasures(s: S): Measures {
   const fedFuel = toKmolH(fedOf(s, 'CH4') + fedOf(s, 'C3H8')), o2Fed = toKmolH(fedOf(s, 'O2'));
   const need = fedFuel * ff.o2;
   const v: Record<string, number> = {
-    fuel_kmol_h: fedFuel, o2_fed: o2Fed, air: o2Fed / AIR_O2, o2_need: need, test_burns: commissions(s), fuel_c: ff.c,
+    fuel_kmol_h: fedFuel, o2_fed: o2Fed, air: o2Fed / AIR_O2, o2_need: need, test_burns: burns(s), fuel_c: ff.c,
     co2: 0, h2o: 0, o2: 0, co: 0, slip: 0, slip_pct: 0, excess_air: 0, stack_loss_mw: 0, stack_T: 0, flue_error: 0, o2_burned: 0, c_per_h_ratio: 0,
   };
   if (s.solved === null || !s.solved.ok) return { ok: false, v };
@@ -124,7 +124,7 @@ const naive = () => {
 };
 
 export const L03: LevelSpec = {
-  id: 'L03', firstRun: true, chapter: 1, index: 3, setter: 'manager', budgetUSD: L03_BUDGET, units: L03_UNITS, notes: 2, shiftLen: 0,
+  carriesBurns: true, id: 'L03', firstRun: true, chapter: 1, index: 3, setter: 'manager', budgetUSD: L03_BUDGET, units: L03_UNITS, notes: 2, shiftLen: 0,
   setup: (s) => {
     baseSetup(s, L03_SPECIES, L03_UNITS, PRESETS);
     putFeed(s, 0, 0, { [fuelOfSeed(s.seed)]: 1 }, L03_FUEL_KMOL_H, T_AMB, P_FEED);

@@ -17,7 +17,7 @@ static func clear_log() -> void: act_log = []
 
 ## What the plant looks like now: units (type, tile, rot, knob values), feeds, pipes, banks and the Call it answers.
 static func capture(app) -> Dictionary:
-	var out := {"units": [], "streams": [], "banks": [], "calls": [], "acts": act_log.duplicate(true)}
+	var out := {"units": [], "streams": [], "banks": [], "calls": [], "acts": act_log.duplicate(true), "burns": 0}
 	var p = app.b.q("plant")
 	if not (p is Dictionary): return out
 	for u in p.get("units", []):
@@ -33,6 +33,7 @@ static func capture(app) -> Dictionary:
 	var li = PaperStrings.q(app, "levelInfo")
 	if li is Dictionary:
 		out.banks = (li.get("banks", []) as Array).duplicate(true)
+		out.burns = int(li.get("burns", 0))   # L03 counts its test burns across Retries
 		var cis: Array = li.get("callIts", []) if li.get("callIts") is Array else []
 		if cis.is_empty() and li.get("callIt") is Dictionary: cis = [li.callIt]
 		for ci in cis:
@@ -111,10 +112,23 @@ static func restore_acts(app, snap: Dictionary) -> void:
 
 static func restore_calls(app, snap: Dictionary) -> void:
 	for c in snap.calls:
+		var key := str(c.key)
 		var args: Array = [float(c.value)]
-		if str(c.key) != "": args.append(str(c.key))
+		if key != "": args.append(key)
 		var r: Dictionary = app.b.act("callIt", args)
-		if not bool(r.get("ok", false)) and args.size() > 1: app.b.act("callIt", [float(c.value)])
+		if not bool(r.get("ok", false)) and args.size() > 1: r = app.b.act("callIt", [float(c.value)])
+		if not bool(r.get("ok", false)) and key != "": app.b.act("predict", [key, float(c.value)])   # the stored-prediction route: answerOf reads it when the log has no callIt
+		if not _call_answered(app, key):
+			push_warning("BuildKeeper: the Call it answer %s = %s did not come back after the restart" % [key, str(c.value)])
+
+## True when the engine now holds an answer for this key (the single callIt, or the item of callIts).
+static func _call_answered(app, key: String) -> bool:
+	var li = PaperStrings.q(app, "levelInfo")
+	if not (li is Dictionary): return false
+	for ci in (li.get("callIts", []) as Array):
+		if ci is Dictionary and (str(ci.get("key", "")) == key or key == "") and bool(ci.get("answered", false)): return true
+	var one = li.get("callIt")
+	return one is Dictionary and (str(one.get("key", "")) == key or key == "") and bool(one.get("answered", false))
 
 ## Restart the current level. keep_build: units/pipes/knobs come back. Call it answers always come back.
 static func restart(app, keep_build: bool) -> Dictionary:
@@ -132,6 +146,7 @@ static func restart(app, keep_build: bool) -> Dictionary:
 	last_missing = []
 	if keep_build: fails = replay(app, snap)
 	restore_calls(app, snap)
+	if int(snap.get("burns", 0)) > 0: app.b.act("carryBurns", [int(snap.burns)])
 	if keep_build: restore_acts(app, snap)
 	if keep_build and (snap.units.size() > 0 or snap.calls.size() > 0): Notebook.started[str(li.id)] = true
 	app.game_on_changed()

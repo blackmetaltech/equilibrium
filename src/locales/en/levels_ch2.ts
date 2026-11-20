@@ -99,7 +99,7 @@ export const levelsCh2: Record<string, string> = {
   'lv.L07.title': 'Hess’s Road', 'lv.L07.place': 'Coke yard, the gasifier line',
   'lv.L07.note.1': 'The coke furnace is down. We have a gasifier that turns coke to CO and a CO burner. The process heater still needs 10 megawatts.',
   'lv.L07.note.2': 'Two steps, one coke pile. Add the heat of both, and mind the heat the gasifier gives off on the way. The process heater is the HEATER part from the tray, already set up as a heat sink with no utility: it takes the heat out of the hot gas and cools it to 25 °C, and its duty is the heat delivered. The COOLER in the tray is a water quench: think hard before you use it.',
-  'lv.L07.goal.heat': 'Deliver {target} MW to the process heater, within 0.2',
+  'lv.L07.goal.heat': 'Deliver {target} MW to the process heater, within 0.2 MW',
   'lv.L07.goal.route': 'Use both steps and burn all the CO: at most {target} kmol/h of CO to the stack',
   'lv.L07.star.1': 'Goals met: 10 MW through gasifier and CO burner',
   'lv.L07.star.2': 'Capture the gasifier heat too: at most 0.1 MW lost on the way',

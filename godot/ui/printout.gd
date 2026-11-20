@@ -123,6 +123,7 @@ static func open(app) -> bool:
 	if won and hg is Dictionary:
 		_line(vb, "", INKC, 8)
 		_line(vb, PaperStrings.t("PR_HIST") + " · " + str(hg.get("title", hg.metric)) + ((" (" + str(hg.unit) + ")") if str(hg.get("unit", "")) != "" else ""), INKC, 22, "HistHead")
+		_line(vb, "%s|%s" % [_pad(str(hg.get("unit", "")) if str(hg.get("unit", "")) != "" else str(hg.get("title", "")), 9), PaperStrings.t("PR_HIST_AXIS")], INKC.lerp(Color.WHITE, 0.3), 16, "HistAxis")   # the axes: left the value of the metric, bars the number of other runs
 		var bins: Array = hg.bins; var edges: Array = hg.edges; var mx := 1.0
 		for b in bins: mx = maxf(mx, float(b))
 		var you := float(hg.you)
@@ -187,10 +188,13 @@ static func _retry(app, host: Control) -> void:
 	app.end_ui = null
 	await app.get_tree().process_frame
 	var rr: Dictionary = BuildKeeper.restart(app, true)
-	if app.chrome != null: app.chrome.intercom.say("MARA", PaperStrings.t("IC_RETRY_KEPT") if int(rr.get("fails", 0)) == 0 else PaperStrings.t("IC_STOP_FAIL") % ", ".join(PackedStringArray(rr.get("missing", []))), "info")
+	if app.chrome != null and (app.chrome.engine_phase() == "design" or int(rr.get("fails", 0)) != 0): app.chrome.intercom.say("MARA", PaperStrings.t("IC_RETRY_KEPT") if int(rr.get("fails", 0)) == 0 else PaperStrings.t("IC_STOP_FAIL") % ", ".join(PackedStringArray(rr.get("missing", []))), "info")
 
 static func _fit(app, pn: Control, sc: ScrollContainer, vb: VBoxContainer, max_h: float) -> void:
-	for i in 2: await pn.get_tree().process_frame
+	var tree := pn.get_tree()
+	for i in 2:
+		await tree.process_frame
+		if not is_instance_valid(pn): return   # the card was closed before it was fitted
 	if not is_instance_valid(sc) or not is_instance_valid(vb): return
 	sc.custom_minimum_size.y = clampf(vb.get_combined_minimum_size().y + 4.0, 160.0, max_h)
 	pn.reset_size(); app.center(pn, 760.0, 0.0)

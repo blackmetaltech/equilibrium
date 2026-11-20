@@ -17,6 +17,9 @@ import { solveFlowsheet } from '../../sim/flowsheet';
 import { unitsForSolve } from '../actions/run';
 import { bindRegistry, phaseHook } from '../registry';
 import { ctxOf, plumbing } from '../solved';
+import { specOf } from '../../levels/registry';
+import { commissions } from '../../levels/util';
+import { answerOf } from './level';
 
 const BED_TYPES = ['multibed', 'eq_bed', 'eq_reactor', 'packed_bed'];
 const REACTOR_TYPES = ['stoich_reactor', 'burner', 'gasifier', 'co_burner', 'eq_reactor', 'eq_bed', 'packed_bed', 'multibed', 'cstr'];
@@ -33,6 +36,14 @@ function liveOf(s: Readonly<EqState>): Live | null {
   const units: Live['units'] = {};
   for (const [id, o] of Object.entries(r.value.units)) units[id] = { info: o.info ?? {}, ...(o.duty !== undefined ? { duty: o.duty } : {}), ...(o.work !== undefined ? { work: o.work } : {}) };
   return { streams: r.value.streams, units };
+}
+
+/** True on a call-it level before its first commission while an answer is still open: an instrument must not print the quantity the player is asked to call (the L05 ledger showed R-105's 8.25 MW). */
+export function callWithheld(s: Readonly<EqState>): boolean {
+  const spec = specOf(s);
+  if (!spec || commissions(s) > 0) return false;
+  const items = spec.callIts !== undefined && spec.callIts.length > 0 ? spec.callIts : spec.callIt ? [spec.callIt] : [];
+  return items.some((c) => answerOf(s, spec, c.key) === null);
 }
 
 const fin = (x: unknown): number => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
@@ -153,7 +164,7 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
   heatLedger: (s) => {
     const sol = liveOf(s);
     const labels = { ribbon: t('ledger.ribbon'), release: t('ledger.release'), recovered: t('ledger.recovered'), lost: t('ledger.lost'), duty: t('ledger.duty'), exchanger: t('ledger.exchanger'), efficiency: t('ledger.efficiency'), total: t('ledger.total') };
-    if (!sol || !s.species.every(hasThermo)) return { items: [], totalMW: 0, exchangerMW: 0, heaters: [], labels };
+    if (!sol || !s.species.every(hasThermo) || callWithheld(s)) return { items: [], totalMW: 0, exchangerMW: 0, heaters: [], labels };
     const mx = makeMixture(s.species);
     const H = (n: readonly number[]): number => enthalpyFlowAt(mx, n, T_REF);
     const sum = (ids: string[]): number[] => s.species.map((_, i) => ids.reduce((a, id) => a + (sol.streams[id]?.n[i] ?? 0), 0));

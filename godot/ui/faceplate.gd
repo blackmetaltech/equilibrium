@@ -104,6 +104,22 @@ static func open(app, id: String) -> Faceplate:
 	fp.refresh(); fp._place(true)
 	return fp
 
+## The coach steps "tap the converter" (L00), "pin the window" (L10) and "read the curve" (L13) are done by looking at the converter: opening its card tells the engine so
+## (markCoach with that step's id), only while that step is the one on the intercom.
+const WINDOW_STEPS := {"L00": [1, "tap_converter"], "L10": [5, "pin_window"], "L13": [4, "read_curve"]}
+static func note_window_read(app, id: String) -> void:
+	if app == null or app.b == null: return
+	var lid := str(app.b.g.get("level", ""))
+	if not WINDOW_STEPS.has(lid): return
+	var p = app.b.q("plant")
+	var type := ""
+	if p is Dictionary: for u in p.get("units", []): if str(u.get("id", "")) == id: type = str(u.get("type", ""))
+	if not ["eq_reactor", "eq_bed", "packed_bed"].has(type): return
+	var li = app.b.q("levelInfo")
+	if not (li is Dictionary) or not (li.get("coach") is Dictionary): return
+	if int(li.coach.get("step", 0)) != int((WINDOW_STEPS[lid] as Array)[0]): return
+	app.b.act("markCoach", [str((WINDOW_STEPS[lid] as Array)[1])]); app.game_on_changed()
+
 static func close_all() -> void:
 	for k in plates.keys():
 		if is_instance_valid(plates[k]): (plates[k] as Faceplate).close()
@@ -867,7 +883,7 @@ class Hub extends Node:
 		if id == "":
 			for k in Faceplate.plates.keys(): if not (Faceplate.plates[k] as Faceplate).pinned: (Faceplate.plates[k] as Faceplate).close()
 			_refresh_ports(); return
-		Faceplate.open(app, id); _refresh_ports()
+		Faceplate.open(app, id); _refresh_ports(); Faceplate.note_window_read(app, id)
 
 	func _on_unit_hover(id: String) -> void:
 		hover_id = id

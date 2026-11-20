@@ -76,6 +76,8 @@ export interface LevelSpec {
   requires?: string[];
   /** Seconds of the scripted shift (L00) or 0. */
   shiftLen: number;
+  /** The level counts test burns across Retries (L03): levelInfo reports `burns` and the front end carries the count into the fresh attempt with `carryBurns`. */
+  carriesBurns?: boolean;
   maxTicks?: number;
   /** A commission that meets every goal first runs the plant for FIRSTRUN_S plant seconds (phase 'firstrun'); only then is the level won. */
   firstRun?: boolean;
