@@ -61,6 +61,12 @@ const commission: Fn = (s) => {
   const bad = validateTopology(units, s.flowsheet.streams, registry, phaseHook);
   if (bad) {
     if (bad.code === 'TOPOLOGY_OPEN_PORT') {
+      const bu = s.flowsheet.units.find((u) => u.id === bad.unitId);
+      const loose = s.flowsheet.units.filter((u) => u.type === 'feed' && !s.flowsheet.streams.some((p) => p.from.unit === u.id)).map((u) => u.id);
+      const mixer = bu !== undefined && bu.type.startsWith('mixer');
+      if (s.lv.contractFeeds !== undefined && bu !== undefined && (mixer || (bu.type === 'feed' && s.flowsheet.units.some((u) => u.type.startsWith('mixer')))) && loose.length > 0) {
+        fail(t('err.commission.mixer_inlet', { unit: mixer ? bu.id : s.flowsheet.units.find((u) => u.type.startsWith('mixer'))!.id, feeds: loose.join(' / ') }));
+      }
       if (bad.data.inlet === 0) fail(t('err.commission.open_port', { unit: bad.unitId ?? '', port: String(bad.data.port).toUpperCase() }));
       fail(t('err.commission.open_inlet', { unit: bad.unitId ?? '', port: String(bad.data.port) }));
     }
@@ -115,7 +121,7 @@ const commission: Fn = (s) => {
   if (s.runs.length > MAX_RUNS) s.runs.splice(0, s.runs.length - MAX_RUNS);
   // L01-L04: a commission that meets every goal first runs the plant for 30 plant seconds; the win comes when it has rolled (levels/registry goal)
   const spec = specOf(s);
-  if (spec !== undefined && s.status === 'playing' && entersFirstRun(spec, s)) s.phase = 'firstrun';
+  if (spec !== undefined && s.status === 'playing' && entersFirstRun(spec, s)) { s.phase = 'firstrun'; s.lv.firstRuns = ((s.lv.firstRuns as number | undefined) ?? 0) + 1; }
   const message = t('log.commissioned', { units: s.flowsheet.units.length, streams: s.flowsheet.streams.length, passes: sol.passes });
   log(s, message, 'good');
   return ok(message, { commissioned: true });

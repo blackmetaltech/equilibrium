@@ -23,7 +23,8 @@ func _process(dt: float) -> void:
 	queue_redraw()
 
 func _draw_body() -> void:
-	if not has_reading(): empty_note(); return
+	if not has_reading():   # a helpful empty state, not a blank sheet: say what draws the staircase
+		empty_note(InstrPaper.T("INS_XT_NONE")); return
 	var eq := arr(data.eq); var beds := arr(data.beds); var coolers := arr(data.get("coolers", []))
 	var t_lo := kelvin_c(num(eq[0].T)); var t_hi := kelvin_c(num(eq[eq.size() - 1].T))
 	for b in beds: t_lo = minf(t_lo, kelvin_c(num(b.inT)) - 15.0); t_hi = maxf(t_hi, kelvin_c(num(b.outT)) + 15.0)

@@ -105,14 +105,24 @@ function phaseOf(s: S): 'design' | 'commissioned' | 'firstrun' | 'shift' | 'won'
 /** Which intercom line a running plant gets: product (first run of a product level), control (chapter 8 loops), rerun (a later run of the same design). */
 function runLineKey(s: S, spec: LevelSpec): string {
   if (spec.chapter >= 8) return 'lv.run.control';
-  return commissions(s) > 1 ? 'lv.run.rerun' : 'lv.run.product';
+  // a rerun is a second run that made product; earlier commissions that missed the goals do not make the first product run a "changed design"
+  return ((s.lv.firstRuns as number | undefined) ?? 0) > 1 ? 'lv.run.rerun' : 'lv.run.product';
 }
 
+/** Coach steps that read something off a run (the plant has to be solved for them to make sense). */
+export const coachReadsRun = (id: string): boolean => /^read_|^pin_window$/.test(id);
+
 /** The coach line: the first step whose predicate is false; null when done, when the level is over or the mode does not coach (DESIGN 7.6: Learner coaches L01-L04, every non-sandbox mode gets L00's two lines). */
-function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker: string; text: string; why: string; focus: { unit?: string; rack?: string; key?: boolean; knob?: string } | null } | null {
+function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker: string; text: string; why: string; focus: { unit?: string; rack?: string; key?: boolean; knob?: string } | null; redo: boolean } | null {
   if (s.status !== 'playing' || s.mode === 'sandbox' || (spec.id !== 'L00' && s.mode !== 'learner')) return null;
-  const i = spec.coach.findIndex((c) => !c.done(s));
+  let i = spec.coach.findIndex((c) => !c.done(s));
   if (i < 0) return null;
+  const i0 = i;
+  // a step that reads a run comes only while the plant is solved: after an edit (or a failed solve) the step before it that turns the key is the one to give
+  if (coachReadsRun(spec.coach[i]!.id) && !(s.solved !== null && s.solved.ok) && commissions(s) >= 1) {
+    const k = spec.coach.slice(0, i).map((x) => x.focus === 'key').lastIndexOf(true);
+    if (k >= 0) i = k;
+  }
   const c = spec.coach[i]!;
   let focus: { unit?: string; rack?: string; key?: boolean; knob?: string } | null = null;
   if (c.focus === 'key') focus = { key: true };
@@ -121,7 +131,7 @@ function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker:
     const u = s.flowsheet.units.find((x) => x.type === type);
     focus = u ? { unit: u.id, ...(knob ? { knob } : {}) } : { rack: type! };
   }
-  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`, { ...(spec.textVars ? spec.textVars(s) : {}), unit: focus?.unit ?? '' }), why: t(`lv.${spec.id}.coach.${c.id}.why`, { ...(spec.textVars ? spec.textVars(s) : {}), unit: focus?.unit ?? '' }), focus };
+  return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t(`lv.${spec.id}.coach.${c.id}.text`, { ...(spec.textVars ? spec.textVars(s) : {}), unit: focus?.unit ?? '' }), why: t(`lv.${spec.id}.coach.${c.id}.why`, { ...(spec.textVars ? spec.textVars(s) : {}), unit: focus?.unit ?? '' }), focus, redo: i !== i0 };
 }
 
 /** The offline "simulated engineers" sample of DESIGN 9.6, deterministic per (level, metric): 200 values around the reference, 12 bins. */

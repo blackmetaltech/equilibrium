@@ -7,7 +7,7 @@ import type { EqState } from '../state';
 import { scripted } from './bench';
 import { L10_FEED_P, NH3_PRESETS, ammoniaBuild, ammoniaMeasures, costPerT, outStream, refCost, type CostParts } from './l10';
 import type { Annunciator, CoachStep, LevelSpec } from './spec';
-import { baseSetup, commissions, flowOf, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, flowOf, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped, ran } from './util';
 
 type S = Readonly<EqState>;
 export const L11_SPECIES = ['N2', 'H2', 'NH3', 'Ar', 'CH4'];
@@ -53,9 +53,11 @@ export function gasMeasures(s: S) {
 }
 
 const COACH: CoachStep[] = [
-  { id: 'pick_gas', role: 'supervisor', focus: 'feed', done: (s) => s.flowsheet.units.length > 3 },
-  { id: 'commission', role: 'supervisor', focus: 'key', done: (s) => commissions(s) >= 1 },
-  { id: 'read_inert', role: 'supervisor', focus: 'vent', done: (s) => ['read_inert', 'why'].includes(s.ui.coachStep ?? '') },
+  { id: 'pick_gas', role: 'supervisor', focus: 'feed', done: (s) => unitsOfType(s, 'eq_reactor').length > 0 && unitsOfType(s, 'compressor').length > 0 },
+  { id: 'pipe_up', role: 'supervisor', done: (s) => piped(s, 8) },
+  { id: 'commission', role: 'supervisor', focus: 'key', done: (s) => ran(s) },
+  // the vent only has inerts to look at when the gas carries some (the pure contract has none)
+  { id: 'read_inert', role: 'supervisor', focus: 'vent', done: (s) => ['read_inert', 'why'].includes(s.ui.coachStep ?? '') || (() => { const m = gasMeasures(s); return !m.ok || m.v.inert_pct! < 0.05; })() },
   { id: 'why', role: 'supervisor', done: (s) => s.ui.coachStep === 'why' },
 ];
 
@@ -90,8 +92,8 @@ export const L11: LevelSpec = {
     return [
       { key: 'nh3', legend: t('lv.L11.ann.nh3'), state: !m.ok ? 'off' : nh3.met ? 'normal' : 'high' },
       { key: 'inert', legend: t('lv.L11.ann.inert'), state: m.v.inert_pct! > 7.5 ? 'critical' : m.v.inert_pct! > 0.5 ? 'high' : 'normal' },
-      { key: 'gas', legend: t('lv.L11.ann.gas'), state: g.find((x) => x.key === 'gas')!.met ? 'normal' : 'high' },
-      { key: 'temp', legend: t('lv.L11.ann.temp'), state: g.find((x) => x.key === 'temp')!.met ? 'normal' : 'high' },
+      { key: 'gas', legend: t('lv.L11.ann.gas'), state: !m.ok ? 'off' : g.find((x) => x.key === 'gas')!.met ? 'normal' : 'high' },
+      { key: 'temp', legend: t('lv.L11.ann.temp'), state: !m.ok ? 'off' : g.find((x) => x.key === 'temp')!.met ? 'normal' : 'high' },
       { key: 'press', legend: t('lv.L11.ann.press'), state: !m.ok ? 'off' : m.v.p_bar! > L11_P_MAX ? 'critical' : m.v.p_bar! > L11_P_STAR ? 'high' : 'normal' },
       { key: 'solve', legend: t('lv.L11.ann.solve'), state: failed ? 'critical' : 'off' },
       { key: 'goal', legend: t('lv.L11.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },

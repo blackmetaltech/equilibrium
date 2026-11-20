@@ -10,7 +10,7 @@ import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { findLaw } from '../data/kinetics';
 import { solveEquilibrium } from '../sim/chem/equilibrium';
 import { l15EqTable } from './callit_data';
-import { baseSetup, commissions, link, none, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { baseSetup, commissions, link, none, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L15_SPECIES = ['N2', 'H2', 'NH3', 'Ar'];
@@ -69,7 +69,7 @@ const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
 const LATE = (ids: string[]) => (s: S): boolean => ids.includes(s.ui.coachStep ?? '');
 const COACH: CoachStep[] = [
   { id: 'place_heater', role: 'mentor', focus: 'heater', done: (s) => has(s, 'heater') },
-  { id: 'pipe_up', role: 'mentor', done: (s) => s.flowsheet.streams.length >= 3 },
+  { id: 'pipe_up', role: 'mentor', done: (s) => piped(s, 3) },
   { id: 'commission', role: 'mentor', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_window', role: 'mentor', focus: 'packed_bed', done: LATE(['read_window', 'sweep', 'why']) },
   { id: 'sweep', role: 'mentor', done: (s) => commissions(s) >= 3 || LATE(['why'])(s) },

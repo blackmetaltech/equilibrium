@@ -5,7 +5,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, flowOf, inStream, link, none, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, fedOf, flowOf, inStream, link, none, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped } from './util';
 
 export const L02_SPECIES = ['S', 'O2', 'N2', 'SO2'];
 /** DESIGN: 100 kmol/h of liquid sulfur (3.21 t/h). */
@@ -55,7 +55,7 @@ const COACH: CoachStep[] = [
   { id: 'place_mixer', role: 'supervisor', focus: 'mixer', done: (s) => has(s, 'mixer') },
   { id: 'place_burner', role: 'supervisor', focus: 'burner', done: (s) => has(s, 'burner') },
   { id: 'place_stack', role: 'supervisor', focus: 'stack', done: (s) => has(s, 'stack') },
-  { id: 'pipe_up', role: 'supervisor', done: (s) => s.flowsheet.streams.length >= 5 },
+  { id: 'pipe_up', role: 'supervisor', done: (s) => piped(s, 5) },
   { id: 'commission', role: 'supervisor', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_stack', role: 'supervisor', focus: 'stack', done: (s) => ['read_stack', 'why'].includes(s.ui.coachStep ?? '') },
   { id: 'why', role: 'supervisor', done: (s) => s.ui.coachStep === 'why' },

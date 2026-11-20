@@ -11,7 +11,7 @@ import { enthalpyFlowAt, makeMixture } from '../sim/thermo';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, burns, commissions, fedOf, flowOf, inStream, predictionOf, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, burns, commissions, fedOf, flowOf, inStream, predictionOf, putFeed, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L03_SPECIES = ['CH4', 'C3H8', 'O2', 'N2', 'CO2', 'H2O', 'CO'];
@@ -74,7 +74,7 @@ const COACH: CoachStep[] = [
   { id: 'place_mixer', role: 'manager', focus: 'mixer', done: (s) => unitsOfType(s, 'mixer').length >= 1 },
   { id: 'place_burner', role: 'manager', focus: 'burner', done: (s) => unitsOfType(s, 'burner').length >= 1 },
   { id: 'place_boiler', role: 'manager', focus: 'boiler', done: (s) => unitsOfType(s, 'boiler').length >= 1 && unitsOfType(s, 'stack').length >= 1 },
-  { id: 'pipe_up', role: 'manager', done: (s) => s.flowsheet.streams.length >= 6 },
+  { id: 'pipe_up', role: 'manager', done: (s) => piped(s, 6) },
   { id: 'test_burn', role: 'manager', focus: 'key', done: burn },
   { id: 'read_analyser', role: 'manager', focus: 'stack', done: (s) => ['read_analyser', 'why'].includes(s.ui.coachStep ?? '') },
   { id: 'why', role: 'manager', done: (s) => s.ui.coachStep === 'why' },

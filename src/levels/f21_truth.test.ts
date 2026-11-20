@@ -47,6 +47,8 @@ describe('F21 L04', () => {
     const e = mk('L04');
     expect(li(e).coach.text).toMatch(/Call it first/);
     act(e, 'callIt', 30, 'N2');
+    expect(li(e).coach.text).toMatch(/Build the bench/i);
+    for (const a of benchBuild(2000, 1000)) if (a.name !== 'commission') e.step(a);
     expect(li(e).coach.text).toMatch(/commission the bench/i);
     expect(li(e).coach.text).not.toMatch(/printout/i);
   });

@@ -8,7 +8,7 @@ import { t } from '../i18n';
 import type { EqState } from '../state';
 import { readUnit, convOf, toC, C0, type BedRead } from './ch4_common';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, putFeed, put, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { baseSetup, commissions, putFeed, put, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
 import { V2O5_LIMIT_C, V2O5_SINTER_C, V2O5_WAKE_C } from './v2o5';
 
 type S = Readonly<EqState>;
@@ -65,6 +65,7 @@ const COACH: CoachStep[] = [
   { id: 'place_heater', role: 'supervisor', focus: 'heater', done: (s) => has(s, 'heater') },
   { id: 'pipe_up', role: 'supervisor', done: (s) => wired(s, 'hx', 'cold_in') && wired(s, 'heater', 'in') && wired(s, 'packed_bed', 'in') },
   { id: 'wire_hot', role: 'supervisor', focus: 'hx', done: (s) => hotLoop(s) },
+  { id: 'pipe_out', role: 'supervisor', done: (s) => piped(s, 1) },
   { id: 'commission', role: 'supervisor', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_bed', role: 'supervisor', focus: 'packed_bed', done: LATE(['read_bed', 'trim_heater', 'why']) },
   { id: 'trim_heater', role: 'supervisor', focus: 'hx:area', done: (s) => commissions(s) >= 2 || LATE(['why'])(s) },

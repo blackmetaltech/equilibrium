@@ -13,7 +13,7 @@ import { nh3Envelope } from '../sim/units/nitric';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
-import { fromKmolH, baseSetup, commissions, fedOf, inStream, intoType, link, markPrebuilt, predictionOf, put, putFeed, sealSetup, spentOf, toKgH, toKmolH, unitsOfType } from './util';
+import { fromKmolH, baseSetup, commissions, fedOf, inStream, intoType, link, markPrebuilt, predictionOf, put, putFeed, sealSetup, spentOf, toKgH, toKmolH, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L26_SPECIES = ['NH3', 'O2', 'N2', 'NO', 'NO2', 'N2O', 'H2O', 'HNO3(l)', 'H2O(l)'];
@@ -82,7 +82,7 @@ const COACH: CoachStep[] = [
   { id: 'place_gauze', role: 'safety', focus: 'gauze_burner', done: (s) => unitsOfType(s, 'gauze_burner').length >= 1 },
   { id: 'pipe_gauze', role: 'safety', done: (s) => { const g = gauze(s); return g !== undefined && s.flowsheet.streams.some((p) => p.to.unit === g.id) && s.flowsheet.streams.some((p) => p.from.unit === g.id); } },
   { id: 'set_mix', role: 'safety', focus: 'feed', done: (s) => { const m = nitricMeasures(s).v; return m.air_kmol_h! >= 600; } },
-  { id: 'place_abater', role: 'safety', focus: 'n2o_abater', done: (s) => unitsOfType(s, 'n2o_abater').length >= 1 },
+  { id: 'place_abater', role: 'safety', focus: 'n2o_abater', done: (s) => unitsOfType(s, 'n2o_abater').length >= 1 && piped(s, 1) },
   { id: 'commission', role: 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_gauze', role: 'safety', done: LATE(['read_gauze', 'why']) },
   { id: 'why', role: 'safety', done: LATE(['why']) },

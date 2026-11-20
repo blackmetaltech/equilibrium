@@ -343,6 +343,7 @@ func _add_knob(k: Dictionary) -> void:
 		else: kn.relative = true   # the wheel moves ~2 % of the value (0.2 % with Shift) in 1/2/5 steps: fine enough to land a narrow window
 		var ulab := str(dp.unit) if has_dp else str(k.get("unitLabel", unit))
 		kn.setup(lab, PaperStrings.usym(ulab), lo, hi, coarse, fine, float(dp.value) if has_dp else EqFmt.to_disp(float(k.value), unit), bool(k.get("int", false)))
+	if str(k.key) == "Pfix": kn.zero_text = "off"   # the flask holds its volume while this is 0: no "0.000 bar(a)" setpoint
 	kn.nudge_fine = kn.engine_steps and kn.unit == "°C"   # an interlock set point and a coolant move 1 degC per - / + click, not the 5 degC wheel notch
 	kn.name = "Knob_" + str(k.key); kn.set_meta("key", str(k.key)); kn.set_meta("spec", k)
 	kn.committed.connect(func(v: float) -> void: _commit(k, v))
@@ -508,8 +509,11 @@ func _update() -> void:
 	var res: Variant = card.get("results")
 	var duty: Variant = null; var dcap := PaperStrings.t("FP_DUTY") + " kW"
 	if res is Dictionary:
-		if (res as Dictionary).has("duty"): duty = float(res.duty)
-		elif (res as Dictionary).has("work"): duty = float(res.work); dcap = PaperStrings.t("FP_WORK") + " kW"
+		# a compressor's card says the shaft power going IN (positive, never the intercooler's negative duty and never 0.000 while it runs)
+		if (res as Dictionary).has("work"):
+			duty = float(res.work); dcap = PaperStrings.t("FP_WORK") + " kW"
+			if str(card.type) == "compressor": duty = absf(float(res.work)); dcap = PaperStrings.t("FP_POWER_IN") + " kW"
+		elif (res as Dictionary).has("duty"): duty = float(res.duty)
 	_set_cell("duty", dcap, duty, "kW")
 	# PV bar: the outlet stream's value for the SP knob's variable (T, P or flow); SP is the knob
 	var spk := {}
@@ -784,7 +788,11 @@ class Hub extends Node:
 		var did := false
 		if _confirm != null: _drop_confirm(); did = true
 		if from_unit != "": clear_pipe(); did = true
-		if w != null and w.placing != "": w.cancel_place(); did = true
+		if w != null and w.placing != "":
+			w.cancel_place(); did = true
+			# the parts tile that was clicked keeps keyboard focus, and a focused tile is drawn like a chosen one: it must not look like the tool is still in hand
+			var fo = app.get_viewport().gui_get_focus_owner()
+			if fo != null and fo.get_script() != null and str((fo.get_script() as Script).resource_path).ends_with("parts_rack.gd"): fo.release_focus()
 		if did: _refresh_ports(); return true
 		var tag = app.root.get_node_or_null("StreamTag")
 		if tag != null and tag.visible: tag.dismiss(); did = true

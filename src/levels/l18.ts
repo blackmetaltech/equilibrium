@@ -13,7 +13,7 @@ import { rigK, timeToFraction } from '../sim/units/rx_batch';
 import type { EqState } from '../state';
 import { C0, toC } from './ch4_common';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, put, putFeed, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { baseSetup, commissions, put, putFeed, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L18_SPECIES = ['H2O2(aq)', 'H2O(l)', 'O2'];
@@ -79,7 +79,7 @@ export const l18KNeeded = (T = L18_T_FEED): number => {
 const LATE = (ids: string[]) => (s: S): boolean => ids.includes(s.ui.coachStep ?? '');
 const COACH: CoachStep[] = [
   { id: 'strip_bench', role: 'safety', focus: 'batch', done: (s) => unitsOfType(s, 'batch').length <= 1 },
-  { id: 'pipe_up', role: 'safety', done: (s) => s.flowsheet.streams.length >= 2 },
+  { id: 'pipe_up', role: 'safety', done: (s) => piped(s, 2) },
   { id: 'commission', role: 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_burette', role: 'safety', focus: 'batch', done: LATE(['read_burette', 'swap', 'why']) },
   { id: 'swap', role: 'safety', done: (s) => commissions(s) >= 2 || LATE(['why'])(s) },

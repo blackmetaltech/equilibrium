@@ -148,7 +148,7 @@ export const levelsCh6: Record<string, string> = {
   'lv.L26.coach.pipe_gauze.why': 'Why: the boiler takes the heat out before the gas is cooled to oxidise NO.',
   'lv.L26.coach.set_mix.text': 'Set the gauze air to about 630 kmol/h for 10 % ammonia, then choose the air preheat.',
   'lv.L26.coach.set_mix.why': 'Why: the gauze needs 850 °C or better to make NO, and the air preheat plus the ammonia fraction decide that; too much of either is a fire.',
-  'lv.L26.coach.place_abater.text': 'Place the N₂O abater after the gauze and set how much N₂O it should destroy.',
+  'lv.L26.coach.place_abater.text': 'Place the N₂O abater after the gauze, pipe it into the line and set how much N₂O it should destroy.',
   'lv.L26.coach.place_abater.why': 'Why: N₂O is a greenhouse gas 273 times stronger than CO₂ and the gauze makes it as a by-product.',
   'lv.L26.coach.commission.text': 'Commission and read the gauze.',
   'lv.L26.coach.commission.why': 'Why: the exit temperature and the yield come from the same energy balance.',

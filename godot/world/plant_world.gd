@@ -917,8 +917,11 @@ func pad_move(left: Vector2, right: Vector2, _trigger: float, dt: float) -> void
 		cam_rig.pad_move(left, right, dt)
 
 ## Frame the plot: the whole fenced plot in view, whatever the pan and zoom were.
+## F frames the equipment on the sheet (the lone-feed start keeps some plot around it); an empty sheet shows the whole plot.
 func frame_plot() -> void:
-	_fit_boxes([[Vector2i.ZERO, Vector2i(NX, NZ)]]); cam_rig._instant = false
+	if _units.is_empty(): _fit_boxes([[Vector2i.ZERO, Vector2i(NX, NZ)]])
+	else: fit_view()
+	cam_rig._instant = false
 
 func _on_btn(which: String) -> void:
 	match which:

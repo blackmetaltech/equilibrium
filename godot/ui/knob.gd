@@ -21,6 +21,7 @@ var editable := true
 var relative := false        ## the wheel steps by a share of the value in 1/2/5 steps (log-like), not a fixed share of the range
 var off_disp := NAN          ## a display value outside [lo, hi] that means "off" (an interlock set point of 0 is disarmed): committed as such, drawn as OFF
 var is_off := false
+var zero_text := ""        ## a knob whose lowest value means "not in use" (the flask's fixed pressure) reads this word there, never 0.000 bar
 var _drag := false
 var _last_ang := 0.0
 var _f := 0.0
@@ -48,8 +49,11 @@ func set_value(v: float) -> void:
 func set_off(on: bool) -> void:
 	if is_off != on: is_off = on; queue_redraw()
 
+func _zero_on() -> bool: return zero_text != "" and value <= lo + 1e-9
+
 func value_text() -> String:
 	if is_off: return "OFF"
+	if _zero_on(): return zero_text
 	if not choices.is_empty(): return str(choices[clampi(int(round(value)), 0, choices.size() - 1)]).to_upper() if str(choices[clampi(int(round(value)), 0, choices.size() - 1)]) != "" else "—"
 	return PaperStrings.num(value, integer) + (" " + unit if unit != "" else "")
 
@@ -199,7 +203,7 @@ func _draw() -> void:
 	# number, then the unit in a smaller hand beside it
 	var nr := _num_rect(); var f := EqTheme.font("mono_bold"); var fs := EqTheme.fs(14)
 	var num_t := _num_text(); var uf := EqTheme.font("sans"); var us := EqTheme.fs(13)
-	var nw := f.get_string_size(num_t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x; var uw := uf.get_string_size(" " + unit, HORIZONTAL_ALIGNMENT_LEFT, -1, us).x if unit != "" and choices.is_empty() and not is_off else 0.0
+	var nw := f.get_string_size(num_t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x; var uw := uf.get_string_size(" " + unit, HORIZONTAL_ALIGNMENT_LEFT, -1, us).x if unit != "" and choices.is_empty() and not is_off and not _zero_on() else 0.0
 	var tx := maxf(0.0, (size.x - nw - uw) * 0.5)
 	draw_string(f, Vector2(tx, nr.position.y + 17.0), num_t, HORIZONTAL_ALIGNMENT_LEFT, size.x, fs, EqTheme.INK)
 	if uw > 0.0: draw_string(uf, Vector2(tx + nw, nr.position.y + 17.0), " " + unit, HORIZONTAL_ALIGNMENT_LEFT, size.x, us, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.3))
@@ -221,7 +225,7 @@ func _draw() -> void:
 		draw_rect(lr, EqTheme.DYMO_TAPE); draw_string(lf, lr.position + Vector2(5, 13.0), lt, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, ls, EqTheme.DYMO_TEXT)
 
 func _num_text() -> String:
-	if not choices.is_empty() or is_off: return value_text()
+	if not choices.is_empty() or is_off or _zero_on(): return value_text()
 	return PaperStrings.num(value, integer)
 
 # ---- keypad (also used by the notebook's Call-it answer line) ----------------------------------------------------------------

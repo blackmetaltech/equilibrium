@@ -140,6 +140,7 @@ func refresh() -> void:
 	var items: Array = []
 	for c in (pal.get("cats", []) if pal is Dictionary else []):
 		for it in c.items:
+			if it.get("limit") != null and int(it.limit) <= 0: continue   # a part this job allots none of (L02's tank) is no tile: never "All 0 placed" at "$1"
 			if it.available or str(it.why) == "err.place.limit": items.append(it)
 	var sig := JSON.stringify(items.map(func(i): return [i.type, i.count, i.available])) + JSON.stringify(prices)
 	if sig == _sig: return

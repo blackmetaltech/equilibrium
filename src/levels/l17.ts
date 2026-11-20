@@ -13,7 +13,7 @@ import { readUnit, convOf, toC, C0, type BedRead } from './ch4_common';
 import { L16_FEED_KMOL_H, L16_FEED_X, L16_P, L16_SPECIES, L16_T_FEED, L16_TMAX_C, L16_DAMAGE_C, L16_W_KG } from './l16';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { thermoAt } from './callit_data';
-import { baseSetup, commissions, put, putFeed, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { baseSetup, commissions, put, putFeed, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L17_CONV = 0.74, L17_CONV2 = 0.75;
@@ -52,7 +52,7 @@ const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
 const LATE = (ids: string[]) => (s: S): boolean => ids.includes(s.ui.coachStep ?? '');
 const COACH: CoachStep[] = [
   { id: 'place_heater', role: 'mentor', focus: 'heater', done: (s) => has(s, 'heater') },
-  { id: 'pipe_up', role: 'mentor', done: (s) => s.flowsheet.streams.length >= 3 },
+  { id: 'pipe_up', role: 'mentor', done: (s) => piped(s, 3) },
   { id: 'commission', role: 'mentor', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'swap_catalyst', role: 'mentor', focus: 'packed_bed:catalyst', done: (s) => unitsOfType(s, 'packed_bed')[0]?.catalystId === 'v2o5_cs' || LATE(['read', 'why'])(s) },
   { id: 'read', role: 'mentor', done: LATE(['read', 'why']) },

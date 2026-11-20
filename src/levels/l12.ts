@@ -10,7 +10,7 @@ import { scripted } from './bench';
 import { kOf, outStream } from './l10';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { thermoAt } from './callit_data';
-import { baseSetup, commissions, flowOf, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, flowOf, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped, ran } from './util';
 
 type S = Readonly<EqState>;
 export const L12_SPECIES = ['CO', 'H2O', 'CO2', 'H2'];
@@ -91,7 +91,8 @@ export function shiftBuild(T: number, ratio: number, comp?: { P: number; stages:
 const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
 const COACH: CoachStep[] = [
   { id: 'try_bigger', role: 'mentor', focus: 'compressor', done: (s) => has(s, 'compressor') || commissions(s) >= 1 },
-  { id: 'commission', role: 'mentor', focus: 'key', done: (s) => commissions(s) >= 1 },
+  { id: 'pipe_up', role: 'mentor', done: (s) => unitsOfType(s, 'eq_reactor').length > 0 && piped(s, 4) },
+  { id: 'commission', role: 'mentor', focus: 'key', done: (s) => ran(s) },
   { id: 'read_co', role: 'mentor', focus: 'product', done: (s) => ['read_co', 'why'].includes(s.ui.coachStep ?? '') },
   { id: 'why', role: 'mentor', done: (s) => s.ui.coachStep === 'why' },
 ];

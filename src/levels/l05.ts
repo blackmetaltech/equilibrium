@@ -10,7 +10,7 @@ import { rxnDH } from '../sim/chem/reactions';
 import { steamPricePerT } from '../sim/econ';
 import type { EqState } from '../state';
 import type { Annunciator, CoachStep, GoalEval, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, flowOf, inStream, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, fedOf, flowOf, inStream, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const FIRE_SPECIES = ['S', 'O2', 'N2', 'SO2'];
@@ -136,7 +136,7 @@ export const FIRE_COACH = (id: string): CoachStep[] => [
   { id: 'place_burner', role: id === 'L05' ? 'manager' : 'safety', focus: 'burner', done: (s) => has(s, 'burner') },
   { id: 'place_boiler', role: id === 'L05' ? 'manager' : 'safety', focus: 'boiler', done: (s) => has(s, 'boiler') },
   { id: 'place_stack', role: id === 'L05' ? 'manager' : 'safety', focus: 'stack', done: (s) => has(s, 'stack') },
-  { id: 'pipe_up', role: id === 'L05' ? 'manager' : 'safety', done: (s) => s.flowsheet.streams.length >= 6 || commissions(s) >= 1 },
+  { id: 'pipe_up', role: id === 'L05' ? 'manager' : 'safety', done: (s) => piped(s, 6) },
   { id: 'set_outlet', role: id === 'L05' ? 'manager' : 'safety', focus: 'boiler', done: (s) => (unitsOfType(s, 'boiler')[0]?.params.T as number) > 573.15 + 1 || commissions(s) >= 1 },
   { id: 'commission', role: id === 'L05' ? 'manager' : 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'start_shift', role: id === 'L05' ? 'manager' : 'safety', done: (s) => s.shift !== null || s.status !== 'playing' },

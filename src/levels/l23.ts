@@ -12,7 +12,7 @@ import { glucoseFeed } from '../sim/units/fermenter';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, inStream, intoType, predictionOf, putFeed, put, sealSetup, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, inStream, intoType, predictionOf, putFeed, put, sealSetup, spentOf, toKmolH, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L23_SPECIES = ['C6H12O6', 'H2O(l)', 'C2H5OH(l)', 'CO2'];
@@ -81,7 +81,7 @@ const COACH: CoachStep[] = [
   { id: 'call_wall', role: 'safety', done: (s) => predictionOf(s, 'wall_wt') !== null || commissions(s) > 0 },
   { id: 'place_fermenter', role: 'safety', focus: 'fermenter', done: (s) => unitsOfType(s, 'fermenter').length >= 1 },
   { id: 'place_column', role: 'safety', focus: 'column', done: (s) => unitsOfType(s, 'column').length >= 1 },
-  { id: 'pipe_up', role: 'safety', done: (s) => s.flowsheet.streams.length >= 5 },
+  { id: 'pipe_up', role: 'safety', done: (s) => piped(s, 5) },
   { id: 'set_batch', role: 'safety', focus: 'fermenter', done: (s) => { const u = fer(s), c = col(s); return u !== undefined && c !== undefined && typeof c.params.xD === 'number' && (c.params.xD as number) >= wtToMole(L23_SPIRIT_WT) - 1e-9; } },
   { id: 'commission', role: 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_wall', role: 'safety', done: LATE(['read_wall', 'why']) },

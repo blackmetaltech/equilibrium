@@ -2,6 +2,7 @@
 // prediction. Rule code: SI inside (mol/s), kmol/h and kg/h only at the edges; no sentences (keys only).
 import { SPECIES } from '../data/species';
 import { designActions } from '../engine/actions/design';
+import { openPortsOf } from '../engine/queries/plant';
 import { plumbing, pricesOf } from '../engine/solved';
 import type { PriceKey } from '../regions/data';
 import type { EqState, FeedSpec } from '../state';
@@ -118,6 +119,9 @@ export function link(s: EqState, a: string, ap: string, b: string, bp: string): 
 
 /** The pre-built plant is the level's starting point, not the player's first edit: nothing to undo. */
 export function sealSetup(s: EqState): void {
+  // two or more pre-placed feeds are the level's contracts: they are never "unconnected" clutter and a feed placed later takes the contract that is missing
+  const feeds = s.flowsheet.units.filter((u) => u.type === 'feed');
+  if (feeds.length >= 2) s.lv.contractFeeds = feeds.map((u) => ({ id: u.id, spec: structuredClone(s.feeds[u.id]) }));
   s.undo = { past: [], future: [] };
   s.solved = null;
   s.phase = 'design';
@@ -144,4 +148,17 @@ export function shown(x: number): number {
   const a = Math.abs(x);
   const f = a >= 1000 ? 1 : a >= 100 ? 10 : a >= 1 ? 100 : a >= 0.01 ? 1000 : 100000;
   return Math.round(x * f) / f;
+}
+
+/** The plant is piped: at least `n` pipes and no open port anywhere (the commission step may not come before this). A made commission counts as piped. */
+export function piped(s: S, n: number): boolean { return commissions(s) >= 1 || (s.flowsheet.streams.length >= n && openPortsOf(s as EqState).length === 0); }
+
+/** The current plant has been solved (a design edit or a failed solve takes this away: the plant has to be commissioned again before anything is read off it). */
+export function ran(s: S): boolean { return s.solved !== null && s.solved.ok; }
+
+/** A setpoint has been changed since the latest run: the player is already turning the dials the coach points at. */
+export function changedSinceRun(s: S): boolean {
+  const last = s.runs[s.runs.length - 1];
+  if (last === undefined) return false;
+  return s.flowsheet.units.some((u) => Object.entries(u.params).some(([k, v]) => typeof v === 'number' && last.setpoints[u.id] !== undefined && last.setpoints[u.id]![k] !== v));
 }

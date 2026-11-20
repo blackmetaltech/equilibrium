@@ -144,7 +144,10 @@ func _show_last() -> void:
 		if _text.get_line_count() <= _text.max_lines_visible or _text.size.x < 40.0: break
 	_text.text = full   # the whole line is laid out from the first letter (no re-wrap while it types) and revealed by visible_characters
 	_overflow = _text.get_line_count() > _text.max_lines_visible
-	_back = 0
+	var max_back := maxi(0, _text.get_line_count() - _text.max_lines_visible)
+	if full != _last_full:   # a NEW line starts at its first word (the paragraph is never cut mid-sentence at the top); only a line that does not fit then scrolls on
+		_last_full = full; _start = true; _auto_t = 0.0; _user_scrolled = false
+	_back = clampi(_back, 0, max_back)
 	_reveal(full.length())
 	_follow()
 	_lamps.queue_redraw(); _grille.queue_redraw()
@@ -167,6 +170,10 @@ func _reveal(n: int) -> void:
 		var e := txt.find(" ", k); k = txt.length() if e < 0 else e
 	_text.visible_characters = k
 
+var _last_full := ""
+var _start := true          ## the newest line is shown from its first word (nothing scrolled yet)
+var _auto_t := 0.0
+var _user_scrolled := false
 var _fit_seen := -1
 func _process(dt: float) -> void:
 	var fl := fit_lines()
@@ -179,9 +186,17 @@ func _process(dt: float) -> void:
 		_reveal(n); _grille.talk = true
 		_follow()
 	elif _grille.talk: _grille.talk = false; _grille.queue_redraw()
+	if _overflow and not _user_scrolled and (_start or _back > 0) and chars >= n:   # a long line reads itself down, one line every couple of seconds, like a teleprinter
+		_auto_t += dt
+		if _auto_t >= 2.2:
+			_auto_t = 0.0
+			if _start: _start = false; _back = maxi(0, _text.get_line_count() - _text.max_lines_visible - 1)
+			else: _back -= 1
+			_follow()
 
 func _gui_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.pressed and (e.button_index == MOUSE_BUTTON_WHEEL_UP or e.button_index == MOUSE_BUTTON_WHEEL_DOWN) and _overflow:
+		_user_scrolled = true; if _start: _start = false; _back = maxi(0, _text.get_line_count() - _text.max_lines_visible)
 		_back = clampi(_back + (1 if e.button_index == MOUSE_BUTTON_WHEEL_UP else -1), 0, maxi(0, _text.get_line_count() - _text.max_lines_visible)); _follow(); accept_event(); return   # a long line: the wheel reads back up it
 	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: open_full(); accept_event()
 
@@ -257,4 +272,5 @@ func set_max_lines(n: int) -> void:
 ## Long lines scroll like a teleprinter: the newest words stay in view (the full text is in the log).
 func _follow() -> void:
 	_text.lines_skipped = 0
+	if _start: return
 	_text.lines_skipped = maxi(0, _text.get_line_count() - _text.max_lines_visible - _back)

@@ -60,6 +60,8 @@ export const levelsCh4: Record<string, string> = {
   'lv.L16.coach.pipe_up.why': 'Why: the bed outlet runs back through the exchanger, so the loop closes through the gas itself.',
   'lv.L16.coach.wire_hot.text': 'Now wire the hot bed outlet into the exchanger hot side (HOT IN), and the hot side out to the tank.',
   'lv.L16.coach.wire_hot.why': 'Why: without this pipe the bed outlet never warms the feed, the bed stays asleep and the heater pays for everything.',
+  'lv.L16.coach.pipe_out.text': 'Pipe the exchanger\'s hot outlet on to the product tank: every outlet must end somewhere.',
+  'lv.L16.coach.pipe_out.why': 'Why: the cooled bed gas has to leave the plant before it can be commissioned.',
   'lv.L16.coach.commission.text': 'Set the heater near 410 °C and commission.',
   'lv.L16.coach.commission.why': 'Why: the catalyst wakes at about 410 °C, and the Arrhenius rate climbs like a cliff.',
   'lv.L16.coach.read_bed.text': 'Read the bed: inlet, hottest point, conversion.',

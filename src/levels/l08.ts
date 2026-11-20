@@ -7,7 +7,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import type { EqState } from '../state';
 import type { Annunciator, CoachStep, GoalEval, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, inStream, putFeed, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { baseSetup, commissions, inStream, putFeed, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L08_SPECIES = ['N2', 'H2', 'O2', 'CO2', 'H2O'];
@@ -55,7 +55,7 @@ export function pinchMeasures(s: S): Measures {
 
 const COACH: CoachStep[] = [
   { id: 'place_hx', role: 'manager', focus: 'hx', done: (s) => has(s, 'hx') },
-  { id: 'pipe_up', role: 'manager', done: (s) => s.flowsheet.streams.length >= 6 },
+  { id: 'pipe_up', role: 'manager', done: (s) => piped(s, 6) },
   { id: 'size_area', role: 'manager', focus: 'hx', done: (s) => commissions(s) >= 1 },
   { id: 'sweep', role: 'manager', focus: 'key', done: (s) => commissions(s) >= 2 },
 ];

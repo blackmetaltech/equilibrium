@@ -10,7 +10,7 @@ import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { l13EqTable } from './callit_data';
-import { baseSetup, commissions, flowOf, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, flowOf, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, changedSinceRun, piped, ran } from './util';
 import { V2O5_SINTER_C, V2O5_WAKE_C } from './v2o5';
 
 type S = Readonly<EqState>;
@@ -119,8 +119,9 @@ const has = (s: S, type: string, n = 1): boolean => unitsOfType(s, type).length 
 const COACH: CoachStep[] = [
   { id: 'place_bed', role: 'safety', focus: 'eq_bed', done: (s) => has(s, 'eq_bed') },
   { id: 'place_boiler', role: 'safety', focus: 'boiler', done: (s) => has(s, 'boiler') },
-  { id: 'commission', role: 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
-  { id: 'read_curve', role: 'safety', focus: 'eq_bed', done: (s) => s.ui.pinned.includes('eqwin') || ['read_curve', 'why'].includes(s.ui.coachStep ?? '') },
+  { id: 'pipe_up', role: 'safety', done: (s) => piped(s, 4) },
+  { id: 'commission', role: 'safety', focus: 'key', done: (s) => ran(s) },
+  { id: 'read_curve', role: 'safety', focus: 'eq_bed', done: (s) => s.ui.pinned.includes('eqwin') || ['read_curve', 'why'].includes(s.ui.coachStep ?? '') || changedSinceRun(s) },
   { id: 'why', role: 'safety', done: (s) => s.ui.coachStep === 'why' },
 ];
 
