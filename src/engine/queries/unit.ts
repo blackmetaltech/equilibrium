@@ -74,6 +74,8 @@ export const unitQueries: Record<string, QueryFn<EqState>> = {
     const def = hasUnitType(u.type) ? defOf(u.type) : { inlets: [], outlets: [] };
     const m = metaOf(u.type);
     const sol = s.solved;
+    /** The target of a ramping setpoint of this unit (the value the player typed), else `cur`. */
+    const aim = (key: string, cur: number | string): number | string => s.shift?.ramps[`${u.id}.${key}`]?.to ?? cur;
     const pipe = (port: string, inlet: boolean) => s.flowsheet.streams.find((p) => (inlet ? p.to : p.from).unit === u.id && (inlet ? p.to : p.from).port === port)?.id ?? null;
     const diags = (sol?.diag ?? []).filter((d) => d.unitId === u.id).map((d) => ({ code: d.code, severity: d.severity, data: d.data, message: messageOf(d, s.region) }));
     return {
@@ -83,10 +85,11 @@ export const unitQueries: Record<string, QueryFn<EqState>> = {
       catalyst: m.catalyst === true ? (u.type === 'batch' ? { id: u.catalystId ?? 'none', options: rigOptions(String(u.params.law ?? 'K6'), s.region) } : catalystKnob(u.catalystId)) : null,
       /** A batch rig (L18): its catalyst by name, k at 25 °C and at the charge temperature in one notation, Ea; null for other units. */
       rig: u.type === 'batch' ? rigOf(s, u) : null,
-      knobs: m.knobs.filter((k) => !(k.key === 'utility' && s.presets[u.type]?.process === 1)).map((k) => ({ ...k, label: t(`label.knob.${k.key}`), value: u.params[k.key] ?? (k.kind === 'choice' && k.def === '' ? '' : k.def), isDefault: (u.params[k.key] ?? k.def) === k.def, ...dispOf(k, u.params[k.key] ?? k.def) })),
+      knobs: m.knobs.filter((k) => !(k.key === 'utility' && s.presets[u.type]?.process === 1)).map((k) => ({ ...k, label: t(`label.knob.${k.key}`), value: aim(k.key, u.params[k.key] ?? (k.kind === 'choice' && k.def === '' ? '' : k.def)), isDefault: aim(k.key, u.params[k.key] ?? k.def) === k.def, ...dispOf(k, aim(k.key, u.params[k.key] ?? k.def) as number) })),
       inlets: def.inlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, true) })),
       outlets: def.outlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, false) })),
-      feed: s.feeds[u.id] ?? null,
+      /** A feed's spec as the player set it: while a setpoint ramps (shift) the knob shows where it is heading, not the value it is passing through. */
+      feed: s.feeds[u.id] ? { ...s.feeds[u.id]!, flow: aim('flow', s.feeds[u.id]!.flow) as number, T: aim('T', s.feeds[u.id]!.T) as number, P: aim('P', s.feeds[u.id]!.P) as number } : null,
       results: sol?.ok ? sol.units[u.id] ?? null : null,
       /** The temperatures of the unit's results in degC (the panel shows these, not the K the solver keeps). */
       resultsC: liveT(s, u.id, sol?.ok && sol.units[u.id] ? Object.fromEntries(Object.entries(sol.units[u.id]!.info).filter(([k, v]) => /^T(_?(max|min|in|out|hot|cold|c))?$/i.test(k) && Number.isFinite(v)).map(([k, v]) => [k, v - 273.15])) : null),

@@ -5,10 +5,11 @@ import { formatNumber } from '@core/regions';
 import { Rng, encodeSolution, fail, need, seedState } from '@core/kit';
 import type { ActionFn, QueryFn, System } from '@core/kit';
 import { SPECIES } from '../../data/species';
-import { t } from '../../i18n';
+import { i18n, t } from '../../i18n';
 import { FIRSTRUN_S } from '../../data/events';
 import { buildGuideOf } from '../../levels/build_guide';
 import { SPEC_BY_ID, firstRunT, madeKg, specOf } from '../../levels/registry';
+import { recommendedSpeed } from '../../levels/wallclock';
 import type { GoalEval, LevelSpec, Measures } from '../../levels/spec';
 import { burns, commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, unitsOfType, type Prediction } from '../../levels/util';
 import { REGIONS } from '../../regions';
@@ -41,6 +42,13 @@ export function answerOf(s: S, spec: LevelSpec, key: string): Prediction | null 
 }
 
 /** Grade the stored prediction against the level's oracle (or the engine's number at the player's design). Ungraded until there is a truth. */
+/** The data the Call-it needs, written for the player ("What you have: ..."): `lv.<ID>.callit.<key>.given` when the item has its own line, else the level's `lv.<ID>.callit.given`. Never the answer. */
+export function givenOf(s: S, spec: LevelSpec, key: string): { given?: string } {
+  const own = `lv.${spec.id}.callit.${key}.given`, lvl = `lv.${spec.id}.callit.given`;
+  const k = i18n.has(own) ? own : i18n.has(lvl) ? lvl : '';
+  return k === '' ? {} : { given: t(k, spec.textVars ? spec.textVars(s) : {}) };
+}
+
 export function gradeCallIt(s: S, spec: LevelSpec, m: Measures): CallItGrade {
   const c = spec.callIt;
   if (!c) return { answered: false };
@@ -207,11 +215,13 @@ const levelInfo: QueryFn<EqState> = (s) => {
     /** The prediction rule of a call-it level, also on its own for the notebook's Call it box. */
     predictNote: spec.callIt ? t(spec.callIt.lateOk ? 'lv.note.predict_late' : 'lv.note.predict') : null,
     notice,
+    /** The speed (1, 4 or 16) the speed dial opens at when a run of this level starts. */
+    recommendedSpeed: recommendedSpeed(spec.id),
     goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(lack !== null && g.value === undefined ? { readout: t('lv.goal.needs_unit', { unit: t(`label.unit.${lack}`) }) } : {}), ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
     budgetUSD: spec.budgetUSD, spentUSD: spent,
     stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`, spec.textVars?.(s))) },
     callIt: call === null ? null : {
-      key: call.key, prompt: t(`lv.${spec.id}.callit`), unit: call.unit, tol: tolText(call.tol), ...callBounds(call), answered: grade.answered, locked: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
+      key: call.key, prompt: t(`lv.${spec.id}.callit`), ...givenOf(s, spec, call.key), unit: call.unit, tol: tolText(call.tol), ...callBounds(call), answered: grade.answered, locked: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
       ...(grade.ok !== undefined && (s.solved !== null || s.status !== 'playing') ? { ok: grade.ok, truth: fin(grade.truth ?? 0) } : {}),
       ...(call.named ? { named: grade.named ?? '', options: s.species.filter((x) => x === 'N2' || x === 'H2'), ...(grade.namedOk !== undefined && (s.solved !== null || s.status !== 'playing') ? { namedOk: grade.namedOk, truthNamed: grade.truthNamed } : {}) } : {}),
       ...(call.lateOk ? { late: true } : {}),
@@ -220,7 +230,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     callIts: (spec.callIts ?? []).map((c) => {
       const a = answerOf(s, spec, c.key), tr = c.truth(s, m), over = s.solved !== null || s.status !== 'playing';
       const ok = a !== null && tr !== null ? (c.tol === 0 ? a.value === tr : relErr(a.value, tr) <= c.tol) : undefined;
-      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`, spec.textVars ? spec.textVars(s) : {}), unit: c.unit, tol: tolText(c.tol), ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
+      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`, spec.textVars ? spec.textVars(s) : {}), ...givenOf(s, spec, c.key), unit: c.unit, tol: tolText(c.tol), ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
     }),
     allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
     hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },

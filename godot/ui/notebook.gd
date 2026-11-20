@@ -268,7 +268,10 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 		if answered:   # the locked answer is written under the line, and stays there when the notebook is reopened
 			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "") + ((" · " + str(ci.tol)) if str(ci.get("tol", "")) != "" else "") + ((" · " + PaperStrings.t("NB_NAMED") + " " + str(ci.named) + (("  ✓" if ci.get("namedOk") == true else "  ✗ (" + str(ci.get("truthNamed", "")) + ")") if ci.get("namedOk") != null else "")) if str(ci.get("named", "")) != "" else "")
 			cnote.add_theme_color_override("font_color", EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK); cnote.label_settings = EqStrings.ls(15, EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK, "semi"); cnote.visible = true
-		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); fvb.remove_child(cr); cwrap.add_child(cr); cwrap.add_child(cnote); fvb.add_child(cwrap); fvb.move_child(cwrap, pi)
+		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); fvb.remove_child(cr); cwrap.add_child(cr)
+		if str(ci.get("given", "")) != "":   # what the call needs (data, table, formula), never the answer: written under the call row
+			var cg := EqTheme.label(str(ci.given), 14, EqTheme.PEN_BLUE, "sans"); cg.name = "CallGiven"; cg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cg.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cwrap.add_child(cg)
+		cwrap.add_child(cnote); fvb.add_child(cwrap); fvb.move_child(cwrap, pi)
 		var lo_b := float(ci.get("min", 0.0)); var hi_b := float(ci.get("max", 1e9))   # the engine's bounds for this answer (a typed 7000 °C is refused before it is locked in)
 		var is_locked := bool(ci.get("locked", answered)) and ci.get("value") != null
 		an.locked = is_locked

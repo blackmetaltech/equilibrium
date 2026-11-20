@@ -50,7 +50,7 @@ describe('L24 recipe, literally', () => {
     const e = mk(), notes = (info(e).note as string[]);
     // F14: the notebook is the goal plus one paragraph of why; the numbers live in the checklist rows (buildGuide)
     const text = notes.join(' ') + ' ' + (info(e).buildGuide as { text: string }[]).map((r) => r.text).join(' ');
-    for (const frag of [`${R.feedKmolH} kmol/h`, `${R.warmC} °C`, `${R.coolAtC} °C`, `${R.easeC} °C`, `${R.easeKmolH} kmol/h`, `${R.holdC} °C`, `${R.fullKmolH} kmol/h`, `${R.gapS} plant seconds`, `${R.settleS} plant seconds`, 'speed key on 16x', '260.6 kmol/h', 'Reset', '125 °C']) expect(text, frag).toContain(frag);
+    for (const frag of [`${R.feedKmolH} kmol/h`, `${R.warmC} °C`, `${R.coolAtC} °C`, `${R.easeC} °C`, `${R.easeKmolH} kmol/h`, `${R.holdC} °C`, `${R.fullKmolH} kmol/h`, `${R.gapS} plant seconds`, `/ ${R.settleS} plant s`, 'opens at 16x', '260.6 kmol/h', 'Reset', '125 °C']) expect(text, frag).toContain(frag);
     expect(Math.round(260.57 * 0.7)).toBe(R.feedKmolH);
     expect(R.speed).toBe('16x');
     expect(notes.length).toBeLessThanOrEqual(3);

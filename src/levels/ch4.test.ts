@@ -17,7 +17,7 @@ import { solveEquilibrium } from '../sim/chem/equilibrium';
 import { arrheniusEa, arrheniusRatio, arrheniusEaFromLog10Slope } from '../sim/chem/kinetics';
 import { rigK, timeToFraction } from '../sim/units/rx_batch';
 import type { SimCtx, StreamState, UnitInst } from '../sim/types';
-import { L15_FEED_KMOL_H, L15_FEED_X, L15_P, L15_W_KG, L15_SPECIES, l15Player } from './l15';
+import { L15_FEED_KMOL_H, L15_FEED_X, L15_P, L15_W_KG, L15_SPECIES, l15CallK, l15Player } from './l15';
 import { L16_FEED_KMOL_H, L16_FEED_X, L16_P, L16_SPECIES, L16_W_KG, l16Player } from './l16';
 import { L17_T_CALL_K, k600, l17Player } from './l17';
 import { L18_RUN_T1, L18_RUN_T2, SLOTS, exam, l18Player, runTemps, timeTruth } from './l18';
@@ -198,14 +198,16 @@ describe('L15 Rate vs Ceiling: the interior optimum (the hook)', () => {
     if (ad.ok) { expect(Math.abs(ad.value.T - o.expected.T_ad_K) / o.expected.T_ad_K).toBeLessThan(0.003); expect(Math.abs(ad.value.n[1]! - o.expected.X_ad_eq) / o.expected.X_ad_eq).toBeLessThan(0.003); }
     const e = solve('L15');
     const m = SPEC_BY_ID.L15!.measures(e.state);
-    const s = feed15(m.v.in_c!);
+    // F16: the call is made for the starting 400 C preheater whatever the player later sets, so the answer does not move with the run (395 C here)
+    const s = feed15(400);
     const eq = solveEquilibrium({ species: L15_SPECIES, n0: s.n, T: s.T, P: L15_P, reactions: ['R1'], detail: 'rigorous', mode: 'adiabatic' });
     expect(eq.ok).toBe(true);
-    if (eq.ok) expect(Math.abs(eq.value.T - m.v.tad_k!) / m.v.tad_k!).toBeLessThan(0.003);
-    expect(SPEC_BY_ID.L15!.callIt!.truth(e.state, m)).toBe(m.v.tad_k);
+    const truth = SPEC_BY_ID.L15!.callIt!.truth(e.state, m)!;
+    if (eq.ok) expect(Math.abs(eq.value.T - truth) / truth).toBeLessThan(0.003);
+    expect(truth).toBeCloseTo(l15CallK(), 6);
   });
-  it('Call it grades at the oracle tolerance 0.3 %: right, 0.29 % off, 0.31 % off, and the bare inlet temperature', () => {
-    const truth = SPEC_BY_ID.L15!.measures(solve('L15').state).v.tad_k!;
+  it('Call it grades at 1 % (an estimate from the printed table): right, 0.99 % off, 1.01 % off, and the bare inlet temperature', () => {
+    const truth = l15CallK();
     const run = (x: number) => {
       const e = start('L15'); act(e, 'callIt', x);
       const agent = SPEC_BY_ID.L15!.solver(1003);
@@ -213,7 +215,7 @@ describe('L15 Rate vs Ceiling: the interior optimum (the hook)', () => {
       for (const a of agent(e.state, e.ctx(new Rng(1)))) act(e, a.name, ...(a.args ?? []));
       return roll(e);
     };
-    for (const [x, ok] of [[truth, true], [truth * 1.0029, true], [truth * 0.9971, true], [truth * 1.0031, false], [truth * 0.99, false], [395 + 273.15, false]] as const) {
+    for (const [x, ok] of [[truth, true], [truth * 1.0099, true], [truth * 0.9901, true], [truth * 1.0101, false], [truth * 0.98, false], [395 + 273.15, false]] as const) {
       const e = run(x);
       expect(info(e).callIt.ok, String(x)).toBe(ok);
       expect(card(e).callIt.ok, String(x)).toBe(ok);

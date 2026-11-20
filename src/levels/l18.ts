@@ -130,6 +130,7 @@ export const L18: LevelSpec = {
     const called = p !== null && p.quantity === 'time_s' && Math.abs(p.value - timeTruth()) / timeTruth() <= L18_CALL_TOL;
     return [m.ok && m.v.ranboth === 1, m.ok && m.v.ranboth === 1 && called];
   },
+  textVars: (s) => ({ ratio: fmtNumber(exam().ratio, s.region), t1: fmtNumber(exam().t1, s.region), t2: fmtNumber(exam().t2, s.region) }),
   callIt: { key: 'time_s', unit: 's', tol: L18_CALL_TOL, truth: () => timeTruth() },
   callIts: [
     { key: 'time_s', unit: 's', tol: L18_CALL_TOL, truth: () => timeTruth() },

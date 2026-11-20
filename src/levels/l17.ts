@@ -12,6 +12,7 @@ import type { EqState } from '../state';
 import { readUnit, convOf, toC, C0, type BedRead } from './ch4_common';
 import { L16_FEED_KMOL_H, L16_FEED_X, L16_P, L16_SPECIES, L16_T_FEED, L16_TMAX_C, L16_DAMAGE_C, L16_W_KG } from './l16';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import { thermoAt } from './callit_data';
 import { baseSetup, commissions, put, putFeed, sealSetup, shown, spentOf, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
@@ -97,6 +98,7 @@ export const L17: LevelSpec = {
     return g;
   },
   extraStars: (_s, m) => [m.ok && m.v.conv! >= L17_CONV2, m.ok && m.v.cost_per_t! > 0 && m.v.cost_per_t! <= L17_STAR3_COST],
+  textVars: (s) => { const x = thermoAt('R2', L17_T_CALL_K); return { dH: fmtNumber(x.dH, s.region), dS: fmtNumber(x.dS, s.region) }; },
   callIt: { key: 'k600', unit: 'bar⁻½', tol: L17_CALL_TOL, truth: () => k600() },
   hero: (_s, m) => ({ key: 'conv_pct', unit: '%', value: m.v.conv! * 100, lo: L17_CONV * 100, hi: 78 }),
   secondary: (_s, m) => ({ key: 'in_c', unit: '°C', value: m.v.in_c!, limit: 400 }),

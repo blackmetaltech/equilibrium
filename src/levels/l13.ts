@@ -9,6 +9,7 @@ import { equilibriumStage } from '../sim/units/rx_equil';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import { l13EqTable } from './callit_data';
 import { baseSetup, commissions, flowOf, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
 import { V2O5_SINTER_C, V2O5_WAKE_C } from './v2o5';
 
@@ -143,6 +144,7 @@ export const L13: LevelSpec = {
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.beds! <= 3, m.ok && m.v.cost_usd_t! <= refAcidCost(s) + 0.03 * Math.abs(refAcidCost(s))],
+  textVars: (s) => { const x = l13EqTable(L13_SPECIES, L13_P, L13_KMOL_H, [600, 620, 640]); return { x600: fmtNumber(x[0]!, s.region), x620: fmtNumber(x[1]!, s.region), x640: fmtNumber(x[2]!, s.region) }; },
   callIt: { key: 'bed1_exit_c', unit: '°C', tol: L13_CALL_TOL, truth: () => bed1ExitC() },
   hero: (_s, m) => ({ key: 'conv', unit: '%', value: m.v.conv_pct!, lo: L13_CONV_MIN, hi: 100 }),
   secondary: (_s, m) => ({ key: 'tmax_c', unit: '°C', value: m.v.tmax_c!, limit: C(T_SINTER) }),
