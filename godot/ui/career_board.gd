@@ -288,11 +288,12 @@ func _ledger(d: Dictionary) -> Control:
 	v.add_child(lbl("CASH LEDGER", 12, PENCIL, "semi"))
 	var g := GridContainer.new(); g.name = "LedgerGrid"; g.columns = 4 if (not narrow and fit_w >= 1000.0) else 2; g.add_theme_constant_override("h_separation", 18); v.add_child(g)   # four columns of long captions are wider than an 800 px board: two there
 	var cash := float(d.cashUSD)
-	for r in [["CASH", _m(cash), STAMP_RED if cash < 0 else (AMBER_INK if cash < 1e7 else OKGREEN)], ["OPERATING MARGIN, TOTAL (the score)", _m(float(d.get("opMarginTotalUSD", d.marginTotalUSD))), PENCIL], ["OPERATING MARGIN, THIS YEAR", _m(float(d.get("opMarginYtdUSD", d.marginYtdUSD))), PENCIL], ["ON THIS PACE, FIVE YEARS", _m(float(d.get("paceUSD", 0.0))), PENCIL], ["FLAGSHIP NEEDS (operating margin)", _m(float(d.chiefMarginUSD)), PENCIL], ["INVESTMENTS, THIS YEAR", _m(float(d.get("investmentsYtdUSD", 0.0))), PENCIL], ["INVESTMENTS, TOTAL", _m(float(d.get("investmentsTotalUSD", 0.0))), PENCIL], ["AFTER INVESTMENTS, TOTAL", _m(float(d.marginTotalUSD)), PENCIL], ["AFTER INVESTMENTS, THIS YEAR", _m(float(d.marginYtdUSD)), PENCIL], ["GAS", "$%.2f / GJ" % float(d.gasUSDPerGJ), PENCIL],
+	for r in [["CASH", _m(cash), STAMP_RED if cash < 0 else (AMBER_INK if cash < 1e7 else OKGREEN)], ["OPERATING MARGIN, TOTAL (the score)", _m(float(d.get("opMarginTotalUSD", d.marginTotalUSD))), PENCIL], ["OPERATING MARGIN, THIS YEAR", _m(float(d.get("opMarginYtdUSD", d.marginYtdUSD))), PENCIL], ["ON THIS PACE, FIVE YEARS (extrapolation)", _m(float(d.get("paceUSD", 0.0))), PENCIL], ["FLAGSHIP NEEDS (operating margin)", _m(float(d.chiefMarginUSD)), PENCIL], ["INVESTMENTS, THIS YEAR", _m(float(d.get("investmentsYtdUSD", 0.0))), PENCIL], ["INVESTMENTS, TOTAL (catalyst, inspections, programmes)", _m(float(d.get("investmentsTotalUSD", 0.0))), PENCIL], ["AFTER INVESTMENTS, TOTAL", _m(float(d.marginTotalUSD)), PENCIL], ["AFTER INVESTMENTS, THIS YEAR", _m(float(d.marginYtdUSD)), PENCIL], ["GAS", "$%.2f / GJ" % float(d.gasUSDPerGJ), PENCIL],
 			["REGULATOR STRIKES", "%d / %d" % [int(d.strikes), int(d.strikesMax)], STAMP_RED if int(d.strikes) > 0 else PENCIL], ["CRITICAL ALARMS", str(int(d.criticals)), STAMP_RED if int(d.criticals) > 0 else PENCIL],
 			["EMISSIONS YTD", "%.0f / %.0f kt" % [float(d.emissionsYtdT) / 1000.0, float(d.emissionsCapT) / 1000.0], PENCIL]]:
 		var cell := VBoxContainer.new(); cell.add_theme_constant_override("separation", 0); cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL; g.add_child(cell)
 		var cap := lbl(r[0], 10, PENCIL, "semi"); cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cap.custom_minimum_size = Vector2(120, 0); cell.add_child(cap); cell.add_child(lbl(r[1], 14, r[2], "mono_bold"))
+	var ln := lbl(str(d.get("paceNote", "")) + "  " + str(d.get("ledgerNote", "")), 10, PENCIL, "sans"); ln.name = "LedgerNote"; ln.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ln.custom_minimum_size = Vector2(200, 0); v.add_child(ln)
 	var pr := HFlowContainer.new(); pr.add_theme_constant_override("h_separation", 14); v.add_child(pr)
 	pr.add_child(lbl("SPOT:", 11, PENCIL, "semi"))
 	for p in view.get("prices", []): pr.add_child(lbl("%s $%s/t" % [str(PLANT_TAG.get(str(p.plant), str(p.label))), fnum(float(p.spotUSDPerT))], 12, PLANT_COL.get(str(p.plant), PENCIL), "mono_bold"))
@@ -423,23 +424,53 @@ func _book_warnings(p: Dictionary, m: int) -> Array:
 	return out
 
 # ---- inbox --------------------------------------------------------------------------------------------------------------------------------
+var _settled := {}            ## offer id -> {idx, h, text, col}: the slot an accepted or declined offer leaves, kept until the next month so the list never reflows under the cursor
+var _settled_month := -1
+## ACCEPT / DECLINE: act on THIS offer's own id, and keep its slot (same height) as a "signed" / "declined" row, so a second click at the same spot can never sign the offer that slid up into it.
+func _settle(o: Dictionary, idx: int, holder: Array, verdict: String) -> void:
+	if _busy: return
+	var h := 0.0
+	if holder[0] != null and is_instance_valid(holder[0]): h = (holder[0] as Control).size.y
+	var tag := "%s  %s t/mo  @ $%s/t" % [str(PLANT_TAG.get(str(o.plant), str(o.plant))), fnum(float(o.tpm)), fnum(float(o.priceUSD))]
+	_settled[int(o.id)] = {"idx": idx, "h": h, "text": ("SIGNED: " if verdict == "accept" else "DECLINED: ") + tag + ("  (now under ACTIVE CONTRACTS)" if verdict == "accept" else ""), "col": OKGREEN if verdict == "accept" else PENCIL}
+	emit_act(verdict, [o.id])
+
 func _offers() -> void:
 	var offers: Array = view.get("offers", []); var over := bool(view.get("dashboard", {}).get("over", false))
-	if offers.is_empty(): body.add_child(_paper(lbl("No offers on the desk. New ones arrive each month.", 13, PENCIL))); return
-	for o in offers:
+	var mn := int(view.get("dashboard", {}).get("monthNow", -1))
+	if mn != _settled_month: _settled.clear(); _settled_month = mn
+	for k in _settled.keys():   # an id that is still on the desk was not settled (the engine refused): drop its placeholder
+		for o in offers:
+			if int(o.id) == int(k): _settled.erase(k); break
+	if offers.is_empty() and _settled.is_empty(): body.add_child(_paper(lbl("No offers on the desk. New ones arrive each month.", 13, PENCIL))); return
+	var ph := {}   # slot index -> settled record
+	for k in _settled.keys(): ph[int(_settled[k].idx)] = _settled[k]
+	var rows: Array = []; var oi := 0
+	while oi < offers.size() or not ph.is_empty():
+		var slot := rows.size()
+		if ph.has(slot): rows.append({"ph": ph[slot]}); ph.erase(slot)
+		elif oi < offers.size(): rows.append({"o": offers[oi]}); oi += 1
+		else: rows.append({"ph": ph[ph.keys().min()]}); ph.erase(ph.keys().min())
+	for idx in rows.size():
+		var row: Dictionary = rows[idx]
+		if row.has("ph"):
+			var pl := lbl(str(row.ph.text), 13, row.ph.col, "mono_bold"); pl.name = "OfferSettled"; pl.clip_text = true; pl.custom_minimum_size = Vector2(0, maxf(0.0, float(row.ph.h) - 16.0))
+			body.add_child(_paper(pl)); continue
+		var o: Dictionary = row.o
+		var holder := [null]
 		var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 2)
 		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8); v.add_child(h)
 		var prem := float(o.premium); var pc: Color = PLANT_COL.get(str(o.plant), PENCIL)
 		var t := lbl("%s  %s t/mo  @ $%s/t" % [str(PLANT_TAG.get(str(o.plant), str(o.plant))), fnum(float(o.tpm)), fnum(float(o.priceUSD))], 13, pc, "mono_bold"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.clip_text = true; h.add_child(t)
-		var ka := key("ACCEPT", func(): emit_act("accept", [o.id]), true, 12); ka.disabled = over; h.add_child(ka)
-		h.add_child(key("DECLINE", func(): emit_act("decline", [o.id]), false, 12))
+		var ka := key("ACCEPT", func(): _settle(o, idx, holder, "accept"), true, 12); ka.disabled = over; ka.name = "Accept_%d" % int(o.id); h.add_child(ka)
+		var kd := key("DECLINE", func(): _settle(o, idx, holder, "decline"), false, 12); kd.name = "Decline_%d" % int(o.id); h.add_child(kd)
 		v.add_child(lbl("%+.0f%% vs spot ($%s)  ·  %d months  ·  %s of this plant's nominal output (%s t/mo)  ·  penalty $%s/t short" % [prem * 100.0, fnum(float(o.spotUSD)), int(o.term), fnum(float(o.get("shareOfNominal", o.shareOfCap)) * 100.0) + "%", fnum(float(o.get("nominalT", 0))), fnum(float(o.penaltyUSDPerT))], 11, OKGREEN if prem > 0 else STAMP_RED, "sans"))
 		var ex := lbl(str(o.get("exposureNote", "")), 11, STAMP_RED if bool(o.get("overCapacity", false)) else PENCIL, "sans"); ex.name = "Exposure"; ex.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ex.custom_minimum_size = Vector2(220, 0); v.add_child(ex)
 		var tn := str(o.get("taNote", ""))
 		if tn != "":
 			var tl := lbl(tn, 11, STAMP_RED, "mono_bold"); tl.name = "TaNote"; tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tl.custom_minimum_size = Vector2(220, 0); v.add_child(tl)
 		ka.tooltip_text = (str(o.get("exposureNote", "")) + ("\n" + tn if tn != "" else ""))
-		body.add_child(_paper(v))
+		var pp := _paper(v); holder[0] = pp; body.add_child(pp)
 
 func _contracts() -> void:
 	var cs: Array = view.get("contracts", [])
@@ -490,7 +521,7 @@ func _memo(y: Dictionary, title: String, prev: Dictionary = {}) -> Control:
 	for h in ["", "THIS YEAR", "LAST YEAR", "CHANGE"]: g.add_child(lbl(h, 10, PENCIL, "semi"))
 	var op := float(y.get("opMarginUSD", float(y.rev) - float(y.cost) - float(y.pen)))   # one number: the table, the Victor line and the score all read the engine's operating margin
 	var rows := [["REVENUE", float(y.rev), float(prev.get("rev", 0.0)), false], ["OPERATING COST", float(y.cost), float(prev.get("cost", 0.0)), false], ["PENALTIES", float(y.pen), float(prev.get("pen", 0.0)), false],
-		["OPERATING MARGIN (the score)", op, float(prev.get("opMarginUSD", 0.0)), true], ["INVESTMENTS (apart)", float(y.get("investmentsUSD", y.inv)), float(prev.get("inv", 0.0)), false], ["NET", float(y.get("netUSD", y.margin)), float(prev.get("margin", 0.0)), false]]
+		["OPERATING MARGIN (the score)", op, float(prev.get("opMarginUSD", 0.0)), true], ["INVESTMENTS incl. catalyst (apart)", float(y.get("investmentsUSD", y.inv)), float(prev.get("inv", 0.0)), false], ["NET", float(y.get("netUSD", y.margin)), float(prev.get("margin", 0.0)), false]]
 	for r in rows:
 		var bold := bool(r[3]); var f := "mono_bold" if bold else "mono"
 		g.add_child(lbl(str(r[0]), 11, EqTheme.INK if bold else PENCIL, f))

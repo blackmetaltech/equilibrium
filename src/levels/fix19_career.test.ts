@@ -281,7 +281,7 @@ describe('F19: last year\'s card against the road not taken', () => {
       const d = c.decisions!.find((x) => x.year === y.year)!;
       expect(y.card!.cardUSD).toBe(d.options[0]!.effectUSD); expect(y.card!.choice).toBe(d.choice);
       const txt = cardNote(y);
-      expect(txt).toMatch(/^LAST YEAR'S CARD \([a-z ]+\): you chose [AB]( \(the card lapsed: option B\))?\. The card said option A earns [+-][\d.]+ MUSD against option B over \d+ months; this year it realised about [+-][\d.]+ MUSD of cash for A against B \(revenue [+-][\d.]+, operating cost [+-][\d.]+, penalties [+-][\d.]+, investments [+-][\d.]+, [+-]?\d+ plant-days of outage\)\./);
+      expect(txt).toMatch(/^LAST YEAR'S CARD \([a-z ]+\): you chose [AB]( \(the card lapsed: option B\))?: [AB] earned [+-][\d.]+ MUSD of cash against [AB] this year\. The card said option A earns [+-][\d.]+ MUSD against option B over \d+ months; this year it realised about [+-][\d.]+ MUSD for A against B \(revenue [+-][\d.]+, operating cost [+-][\d.]+, penalties [+-][\d.]+, investments [+-][\d.]+, [+-]?\d+ plant-days of outage, A less B\)\./);
     }
   });
   it('the replay is consistent: answering A and answering B give the same A-against-B number', () => {

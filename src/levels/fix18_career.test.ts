@@ -84,13 +84,12 @@ describe('F18: the yearly cards tell the truth', () => {
     }
     expect(hit).toBe(true);
   });
-  it('the lever gain for a plant is the card\'s two terms, gross less outage, in MUSD that add up', () => {
-    const c = initCareer(4, 'engineer'); idleTo(c, 8);
+  it('the lever gain for a plant is its terms (output and gas back to new + incidents avoided - outage, penalty and hire) and equals the BOOK net', () => {
     const e = start(4); const s = careerOf(e.state)!; idleTo(s, 8);
     const lv = (view(e).endings.levers as string[]).find((x) => x.includes('turnaround'));
     expect(lv, 'turnaround lever').toBeDefined();
-    const m = /\+([\d.]+) MUSD a year of output and gas back to new, less ([\d.]+) MUSD of outage, = \+([\d.]+) MUSD a year/.exec(lv!)!;
-    expect(Math.round((Number(m[1]) - Number(m[2])) * 10) / 10).toBeCloseTo(Number(m[3]), 6);
+    const m = /\+([\d.]+) MUSD of output and gas back to new and ([+-]?[\d.]+) MUSD of incidents avoided over twelve months, less ([\d.]+) MUSD of outage, penalty and hire = \+([\d.]+) MUSD/.exec(lv!)!;
+    expect(Math.abs(Number(m[1]) + Number(m[2]) - Number(m[3]) - Number(m[4]))).toBeLessThan(0.021);
   });
   it('termsShown: rounding is absorbed so the displayed terms always sum to the displayed total', () => {
     for (let k = 0; k < 200; k++) {
@@ -218,7 +217,7 @@ describe('F18: the stop banner, offers and strikes', () => {
     expect(view(e).dashboard.strikeWarn).toEqual([]);
     c.plants.nh3.insp = 14;   // due a while ago: at the year end it would be far over
     const w = view(e).dashboard.strikeWarn as string[];
-    expect(w.length).toBe(1); expect(w[0]).toMatch(/STRIKE AHEAD: the ammonia inspection \(due month -?\d+\) will be \d+ months overdue at the year-end check in month 12/); expect(w[0]).toContain('One strike closes the Flagship ending.');
+    expect(w.length).toBe(1); expect(w[0]).toMatch(/STRIKE AHEAD: the ammonia inspection \(due month -?\d+\) will be \d+ months past its due month at the year-end check in month 12 \(\d+ months overdue by the regulator/); expect(w[0]).toContain('One strike closes the Flagship ending.');
     decide(c, 'inspect', 'nh3'); expect(view(e).dashboard.strikeWarn).toEqual([]);
     c.plants.acid.insp = 14; decide(c, 'buyCatalyst', 'acid'); decide(c, 'turnaround', 'acid', 5, 1, 0); expect(strikeAhead(c)).toEqual([]);
   });

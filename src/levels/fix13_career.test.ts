@@ -84,9 +84,9 @@ describe('BOOK weighs the cost of booking against the expected cost of not booki
     const c = initCareer(1, 'engineer'); Object.assign(c.plants.nh3, { wear: 0.8, U: 0.6, insp: 18 });
     const worn = taWeigh(c, 'nh3', c.m + 2), fresh = taWeigh(initCareer(1, 'engineer'), 'nh3', 2);
     expect(worn.skipUSD).toBeGreaterThan(fresh.skipUSD);
-    expect(fresh.saveUSD).toBeLessThan(fresh.bookUSD);
+    expect(fresh.saveUSD).toBeLessThan(fresh.bookUSD);   // incidents alone do not pay for a fresh plant; the output term is shown beside it
     expect(worn.skipUSD).toBeGreaterThanOrEqual(worn.afterUSD);
-    expect(worn.netUSD).toBeCloseTo(worn.saveUSD - worn.bookUSD, 6);
+    expect(worn.netUSD).toBeCloseTo(worn.saveUSD + worn.gainUSD - worn.bookUSD, 6);
     const e = start(); const n = (view(e).plants[0].taWeighNote as string[])[2]!;
     expect(n).toMatch(/Not yet worth it/); expect(n).toMatch(/MUSD now/); expect(n).toMatch(/incidents over twelve months/);
     const cc = careerOf(e.state)!; cc.plants.nh3.wear = 0.9; cc.plants.nh3.U = 0.55; cc.plants.nh3.insp = 20;

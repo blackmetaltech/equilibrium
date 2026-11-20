@@ -469,9 +469,13 @@ export function levers(c: Career, proj: number): Lever[] {
   const out: Lever[] = [];
   const left = Math.max(1, MONTHS - c.m);
   if (c.m > 0 && proj < CHIEF_MARGIN) out.push({ key: 'gap', vars: { gap: Math.round((CHIEF_MARGIN - proj) / 1e5) / 10, perYear: Math.round(((CHIEF_MARGIN - proj) / left) * 12 / 1e5) / 10, left } });
-  let best: { p: PlantId; g: number } | null = null;
-  for (const p of PLANTS) if (c.plants[p].ta < 0) { const g = renewalGain(c, p); if (g > 2e5 && (best === null || g > best.g)) best = { p, g }; }
-  if (best !== null && c.m < MONTHS - 8) { const r = renewalParts(c, best.p); out.push({ key: 'turnaround', vars: { plant: best.p, month: suggestTaMonth(c, best.p) + 1, cat: Math.round(c.plants[best.p].cat * 100), u: Math.round(c.plants[best.p].U * 100), gross: Math.round(r.gross / 1e5) / 10, outage: Math.round(r.outage / 1e5) / 10, gain: (Math.round(r.gross / 1e5) - Math.round(r.outage / 1e5)) / 10 } }); }
+  // ONE number for the turnaround: the lever is the BOOK line (`taWeigh`) at the month the board suggests: output and gas back to new + incidents avoided - outage, penalty, hire and overlap
+  let best: { p: PlantId; g: number; m: number } | null = null;
+  for (const p of PLANTS) if (c.plants[p].ta < 0 && renewalGain(c, p) > 2e5) { const m = suggestTaMonth(c, p), g = taWeigh(c, p, m).netUSD; if (g > 2e5 && (best === null || g > best.g)) best = { p, g, m }; }
+  if (best !== null && c.m < MONTHS - 8) {
+    const w = taWeigh(c, best.p, best.m), f = (v: number): string => (v / 1e6).toFixed(2);
+    out.push({ key: 'turnaround', vars: { plant: best.p, month: best.m + 1, cat: Math.round(c.plants[best.p].cat * 100), u: Math.round(c.plants[best.p].U * 100), gross: f(w.gainUSD), incident: f(w.saveUSD), cost: f(w.bookUSD), outage: f(w.outageUSD), gain: f(w.netUSD), net: w.netUSD } });
+  }
   let bo: { id: number; p: PlantId; g: number; prem: number; tpm: number } | null = null;
   for (const o of c.offers) {
     const prem = o.price / c.prices[o.p] - 1, g = (o.price - c.prices[o.p]) * o.tpm * 12;
@@ -692,7 +696,7 @@ export function inspState(c: Career, p: PlantId): InspState {
 /** Expected cost of the incidents of one month at risk `r`: the chance of an incident times (a fine plus the outage days at `perDayUSD`), critical 40 % and minor 60 % of them. */
 const incidentUSD = (r: number, perDayUSD: number): number => clamp((r - 0.35) * 0.6, 0, 0.9) * (0.4 * (CRIT_FINE_USD + CRIT_DOWN_D * perDayUSD) + 0.6 * (MINOR_FINE_USD + MINOR_DOWN_D * perDayUSD));
 export const TA_HORIZON = 12;
-export interface TaWeigh { /** cost of booking: outage lost contribution + contract penalty + crane and crew hire + the overlap with other booked turnarounds */ bookUSD: number; outageUSD: number; penaltyUSD: number; hireUSD: number; /** extra plant-days and USD an overlap with turnarounds booked the same month adds (the stretch of this outage and of theirs); 0 without overlap */ overlapDays: number; overlapUSD: number; /** expected incident cost over the horizon if the plant is not renewed / if it is */ skipUSD: number; afterUSD: number; saveUSD: number; netUSD: number }
+export interface TaWeigh { /** cost of booking: outage lost contribution + contract penalty + crane and crew hire + the overlap with other booked turnarounds */ bookUSD: number; outageUSD: number; penaltyUSD: number; hireUSD: number; /** extra plant-days and USD an overlap with turnarounds booked the same month adds (the stretch of this outage and of theirs); 0 without overlap */ overlapDays: number; overlapUSD: number; /** expected incident cost over the horizon if the plant is not renewed / if it is */ skipUSD: number; afterUSD: number; saveUSD: number; /** a year of output and gas back to new (`renewalParts` gross): the same term the yearly card and the Endings lever count */ gainUSD: number; /** incidents avoided + output and gas back to new - bookUSD */ netUSD: number }
 /** Booking a turnaround in `month` against not booking: what it costs now (outage, penalty, hire) and the expected incident cost it removes over the next TA_HORIZON months (risk grows with wear and fouling). */
 export function taWeigh(c: Career, p: PlantId, month: number, crane = 1, extraCrew = 0): TaWeigh {
   const x = c.plants[p], d = DEFS[p], ov = taOverlap(c, p, month, crane, extraCrew), sh = taShort(c, p, month, crane, extraCrew, ov.days);
@@ -710,8 +714,8 @@ export function taWeigh(c: Career, p: PlantId, month: number, crane = 1, extraCr
     skipUSD += incidentUSD(riskAt(c, age(j, x)), perDay);
     afterUSD += incidentUSD(riskAt(c, j < t ? age(j, x) : age(j - t, { wear: 0, U: 1, insp: 0 })), perDay);
   }
-  const bookUSD = outageUSD + penaltyUSD + hireUSD + overlapUSD, saveUSD = skipUSD - afterUSD;
-  return { bookUSD, outageUSD, penaltyUSD, hireUSD, overlapDays: ov.extraDays, overlapUSD, skipUSD, afterUSD, saveUSD, netUSD: saveUSD - bookUSD };
+  const bookUSD = outageUSD + penaltyUSD + hireUSD + overlapUSD, saveUSD = skipUSD - afterUSD, gainUSD = renewalParts(c, p).gross;
+  return { bookUSD, outageUSD, penaltyUSD, hireUSD, overlapDays: ov.extraDays, overlapUSD, skipUSD, afterUSD, saveUSD, gainUSD, netUSD: saveUSD + gainUSD - bookUSD };
 }
 /** Alerts the office shows at the top: an inspection due or overdue, a worn catalyst, a fouled exchanger. Each names its plant (the board jumps to its card). */
 export interface Alert { kind: 'insp' | 'cat' | 'foul'; plant: PlantId }
@@ -753,7 +757,9 @@ export const DEC_KINDS: readonly DecKind[] = ['contract', 'turnaround', 'debottl
 export interface DecTerm { key: string; usd: number }
 export interface DecOption { id: 'a' | 'b'; /** expected effect against doing nothing, USD over `YearDecision.vars.months`: the sum of `terms` */ effectUSD: number; /** what the effect is made of, each in USD, summing to `effectUSD` */ terms: DecTerm[]; /** cash paid now */ costUSD: number; vars: Record<string, number | string> }
 export interface YearDecision { year: number; m: number; kind: DecKind; plant: PlantId | ''; options: DecOption[]; /** index of the option with the better expected effect (the careful pick) */ best: number; vars: Record<string, number | string>; /** -1 pending, else the option taken */ choice: number; lapsed: boolean }
-export interface StopWhy { kind: string; plant: string; n: number }
+export interface StopWhy { kind: string; plant: string; n: number; /** the event of the month the run stopped in (code, plant), so the stop can name what happened */ ev?: string; evPlant?: string }
+/** Victor recommends acting (option A) only when A's expected effect beats doing nothing by more than this: the forecast is a no-noise mean, so a sliver of expected gain does not pay for the risk of being wrong. */
+export const DEC_ACT_MARGIN = 3e5;
 export const DEC_CONTRACT_DISCOUNT = 0.03, DEC_CONTRACT_TERM = 18, DEC_CONTRACT_FRAC = 0.2, DEC_BOOST = 0.08, DEC_BOOST_PAYBACK_YEARS = 1.7, DEC_BOOST_HORIZON = 24, DEC_HEDGE_MARGIN = 0.05, DEC_HEDGE_STRESS_GAS = 12, DEC_TA_LEAD = 2, DEC_EM_SAFE = 0.97;
 export const pendingDecision = (c: Career): YearDecision | null => { const d = (c.decisions ?? [])[(c.decisions ?? []).length - 1]; return d !== undefined && d.choice === -1 ? d : null; };
 
@@ -902,7 +908,7 @@ function raiseDecision(c: Career): void {
       if (fresh && used.includes(kind)) continue;
       const d = dkind(c, kind);
       if (d === null) continue;
-      d.year = y + 1; d.m = c.m; d.best = d.options[0]!.effectUSD - d.options[1]!.effectUSD > 3e5 ? 0 : 1;
+      d.year = y + 1; d.m = c.m; d.best = d.options[0]!.effectUSD - d.options[1]!.effectUSD > DEC_ACT_MARGIN ? 0 : 1;
       (c.decisions ??= []).push(d); c.log.push({ m: c.m, kind: 'decision', code: kind, plant: d.plant, n: y + 1 });
       if (c.replay !== true) { c.snap = JSON.stringify({ ...c, snap: undefined, ops: undefined }); c.ops = []; }
       return;
@@ -962,7 +968,7 @@ export function advanceToDecision(c: Career): number {
     const bad = c.log.filter((l) => l.m === c.m - 1 && (l.kind === 'critical' || l.kind === 'incident')).pop();
     if (bad !== undefined) { why = { kind: bad.kind, plant: bad.plant, n: bad.n }; break; }
     const fresh = openWarnings(c);
-    if (fresh.length > 0) { c.stopped = fresh; const pick = fresh.find((k) => k.startsWith('end:')) ?? fresh.find((k) => k.startsWith('em:')) ?? fresh[0]!, [kind, plant] = pick.split(':'); why = { kind: kind!, plant: plant!, n: fresh.length }; break; }   // every open warning is in c.stopped; the banner lists them all
+    if (fresh.length > 0) { c.stopped = fresh; const pick = fresh.find((k) => k.startsWith('end:')) ?? fresh.find((k) => k.startsWith('em:')) ?? fresh[0]!, [kind, plant] = pick.split(':'); why = { kind: kind!, plant: plant!, n: fresh.length, ev: c.last.ev, evPlant: c.last.evPlant }; break; }   // every open warning is in c.stopped; the banner lists them all
     // plants that passed their inspection date this month stop the run ONCE, all of them listed (plant names joined with commas; n = the worst count)
     const newOd = PLANTS.filter((p) => overdue(c, p) > 0 && !od0.has(p));
     if (newOd.length > 0) { const all = PLANTS.filter((p) => overdue(c, p) > 0); why = { kind: 'overdue', plant: all.join(','), n: Math.max(...all.map((p) => overdue(c, p))) }; break; }
