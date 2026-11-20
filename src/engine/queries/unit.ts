@@ -76,6 +76,8 @@ export const unitQueries: Record<string, QueryFn<EqState>> = {
     const sol = s.solved;
     /** The target of a ramping setpoint of this unit (the value the player typed), else `cur`. */
     const aim = (key: string, cur: number | string): number | string => s.shift?.ramps[`${u.id}.${key}`]?.to ?? cur;
+    /** A knob's current value: a feed's flow / T / P live in its spec (a shift setpoint writes the spec, not the unit's params: round 7 saw the knob stuck at 260.6 with the feed at 182). */
+    const par = (key: string): number | string | undefined => (u.type === 'feed' && s.feeds[u.id] && (key === 'flow' || key === 'T' || key === 'P') ? (s.feeds[u.id] as unknown as Record<string, number>)[key] : (u.params[key] as number | string | undefined));
     const pipe = (port: string, inlet: boolean) => s.flowsheet.streams.find((p) => (inlet ? p.to : p.from).unit === u.id && (inlet ? p.to : p.from).port === port)?.id ?? null;
     const diags = (sol?.diag ?? []).filter((d) => d.unitId === u.id).map((d) => ({ code: d.code, severity: d.severity, data: d.data, message: messageOf(d, s.region) }));
     return {
@@ -85,7 +87,7 @@ export const unitQueries: Record<string, QueryFn<EqState>> = {
       catalyst: m.catalyst === true ? (u.type === 'batch' ? { id: u.catalystId ?? 'none', options: rigOptions(String(u.params.law ?? 'K6'), s.region) } : catalystKnob(u.catalystId)) : null,
       /** A batch rig (L18): its catalyst by name, k at 25 °C and at the charge temperature in one notation, Ea; null for other units. */
       rig: u.type === 'batch' ? rigOf(s, u) : null,
-      knobs: m.knobs.filter((k) => !(k.key === 'utility' && s.presets[u.type]?.process === 1)).map((k) => ({ ...k, label: t(`label.knob.${k.key}`), value: aim(k.key, u.params[k.key] ?? (k.kind === 'choice' && k.def === '' ? '' : k.def)), isDefault: aim(k.key, u.params[k.key] ?? k.def) === k.def, ...dispOf(k, aim(k.key, u.params[k.key] ?? k.def) as number) })),
+      knobs: m.knobs.filter((k) => !(k.key === 'utility' && s.presets[u.type]?.process === 1)).map((k) => { const cur = par(k.key) ?? (k.kind === 'choice' && k.def === '' ? '' : k.def); return { ...k, label: t(`label.knob.${k.key}`), value: aim(k.key, cur), isDefault: aim(k.key, cur) === k.def, ...dispOf(k, aim(k.key, cur) as number) }; }),
       inlets: def.inlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, true) })),
       outlets: def.outlets.map((port) => ({ port, label: t(`label.port.${port}`), stream: pipe(port, false) })),
       /** A feed's spec as the player set it: while a setpoint ramps (shift) the knob shows where it is heading, not the value it is passing through. */

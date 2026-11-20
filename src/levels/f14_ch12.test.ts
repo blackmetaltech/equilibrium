@@ -57,3 +57,13 @@ describe('F14 L22 checklist', () => {
     expect(sp.extraStars(e.state, m, g)[1]).toBe(false);
   });
 });
+
+describe('F14 feed knob', () => {
+  it('a shift setpoint on a feed moves its card knob (round 7: knob stuck at 260.6 with the feed at 182)', () => {
+    const e = mk('L24');
+    const act = (name: string, args: unknown[] = []) => e.step({ name, args } as any);
+    act('commission'); act('startShift', ['shift']); act('setpoint', ['F-101', 'flow', 182 / 3.6]); act('tick', [600]);
+    const k = (e.engine.q('unitCard', ['F-101']) as any).knobs.find((x: any) => x.key === 'flow');
+    expect(k.disp.value).toBeCloseTo(182, 3);
+  });
+});
