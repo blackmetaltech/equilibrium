@@ -14,6 +14,7 @@ import type { StreamState } from '../sim/types';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import { thermoAt } from './callit_data';
 import { baseSetup, commissions, flowOf, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
@@ -147,6 +148,7 @@ export const L10: LevelSpec = {
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.class > 0 && m.v.class <= P_VESSEL_LO, m.ok && m.v.cost_usd_t! <= refCost(s, L10_REF_PARTS) * 1.03],
+  textVars: (s) => { const x = thermoAt('R1', 450 + 273.15); return { dH: fmtNumber(x.dH, s.region), dS: fmtNumber(x.dS, s.region) }; },
   callIt: { key: 'k450_e5', unit: '1e-5 bar⁻²', tol: K450_TOL, truth: () => K450_E5() },
   hero: (_s, m) => ({ key: 'y_nh3', unit: '%', value: m.v.y_pct!, lo: L10_Y_MIN, hi: 100 }),
   secondary: (_s, m) => ({ key: 'p_bar', unit: 'bar', value: m.v.p_bar!, limit: P_VESSEL_LO }),

@@ -61,6 +61,8 @@ export interface ShiftState {
   act: ActiveEvent[];
   mods: Mods;
   ramps: Record<string, Ramp>;
+  /** Plant second of the player's last setpoint edit per `<unit>.<key>` (written by the setpoint action; absent until the first edit). A checklist's "steady for N s" row counts from it. */
+  edits?: Record<string, number>;
   trips: Record<string, TripRec>;
   /** Lagged (displayed) stream by pipe id, and the per-second lag weight of each pipe. */
   disp: Record<string, StreamState>;

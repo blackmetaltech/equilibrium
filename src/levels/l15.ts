@@ -7,6 +7,9 @@ import { t } from '../i18n';
 import type { EqState } from '../state';
 import { readUnit, molPct, toC, C0, type BedRead } from './ch4_common';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import { findLaw } from '../data/kinetics';
+import { solveEquilibrium } from '../sim/chem/equilibrium';
+import { l15EqTable } from './callit_data';
 import { baseSetup, commissions, link, none, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
@@ -25,7 +28,17 @@ export const L15_WINDOW_C = 520;
 export const L15_LIGHTOFF_C = 380;
 /** GAME: the third star needs this much NH3 at the outlet (about 95 % of the unconstrained best the research sweep finds, 11.13 % at 410 C). UNVERIFIED. */
 export const L15_STAR3_PCT = 10.6;
-export const L15_CALL_TOL = 0.003;   // EQ-CE-020 tolerance
+export const L15_CALL_TOL = 0.01;   // an estimate read off the equilibrium table and the adiabatic line (was 0.3 %: not reachable by hand)
+/** The call is made for the starting preheater setting (400 C), whatever the player later sets: the outlet of the adiabatic bed on its equilibrium curve (unlimited catalyst). */
+export const L15_CALL_INLET_K = 673.15;
+let callMemo = 0;
+export function l15CallK(): number {
+  if (callMemo > 0) return callMemo;
+  const law = findLaw('K1')!, n0 = L15_SPECIES.map((id) => ((L15_FEED_X as Record<string, number>)[id] ?? 0) * L15_FEED_KMOL_H);
+  const ad = solveEquilibrium({ species: L15_SPECIES, P: L15_P, reactions: law.reactions, detail: 'rigorous', n0, T: L15_CALL_INLET_K, mode: 'adiabatic' });
+  callMemo = ad.ok ? ad.value.T : 0;
+  return callMemo;
+}
 export const L15_UNITS: LevelSpec['units'] = {
   feed: { max: 1, price: 6000 }, heater: { max: 1, price: 18000 }, packed_bed: { max: 1, price: 90000 }, product: { max: 1, price: 5000 },
 };
@@ -106,7 +119,8 @@ export const L15: LevelSpec = {
     return g;
   },
   extraStars: (s, m) => [m.ok && m.v.tmax_c! <= L15_WINDOW_C, m.ok && m.v.nh3_pct! >= L15_STAR3_PCT],
-  callIt: { key: 'tad_k', unit: 'K', tol: L15_CALL_TOL, truth: (_s, m) => (m.ok ? m.v.tad_k! : null) },
+  textVars: (s) => { const x = l15EqTable(L15_SPECIES, L15_FEED_X, L15_FEED_KMOL_H, L15_P, L15_CALL_INLET_K, [780, 800, 830, 850]); return { y780: fmtNumber(x.y[0]!, s.region), y800: fmtNumber(x.y[1]!, s.region), y830: fmtNumber(x.y[2]!, s.region), y850: fmtNumber(x.y[3]!, s.region), slope: fmtNumber(x.slope, s.region) }; },
+  callIt: { key: 'tad_k', unit: 'K', tol: L15_CALL_TOL, truth: () => l15CallK() },
   hero: (_s, m) => ({ key: 'nh3_pct', unit: '%', value: m.v.nh3_pct!, lo: L15_NH3_PCT, hi: 11.7 }),
   secondary: (_s, m) => ({ key: 'tmax_c', unit: '°C', value: m.v.tmax_c!, limit: L15_TMAX_C }),
   annunciators: (s, m, g): Annunciator[] => {

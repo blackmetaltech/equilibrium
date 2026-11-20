@@ -197,7 +197,7 @@ func refresh() -> void:
 	var running := phase == "shift" or phase == "firstrun"
 	if running and not _shift_seen:
 		_shift_seen = true
-		if app.speed == 0: choose_speed(1)
+		choose_speed(_rec_idx())   # the speed dial opens at the level's recommended speed (levelInfo.recommendedSpeed), not at whatever the last level left
 	elif not running: _shift_seen = false
 	annunciator.set_windows(li.get("annunciators", []) if li.get("annunciators") is Array else [])
 	var runs: Array = qa_runs if not qa_li.is_empty() else (app.b.q("runs") if app.b.q("runs") is Array else [])
@@ -392,13 +392,13 @@ func turn_key(skip_predict := false) -> Dictionary:
 		if int(level_info().get("shiftLen", 0)) > 0:
 			var rs: Dictionary = app.b.act("startShift", ["shift"])
 			if rs.get("ok", false):
-				keys.set_pos(2); app.game_on_changed(); choose_speed(1); phase = engine_phase()
+				keys.set_pos(2); app.game_on_changed(); choose_speed(_rec_idx()); phase = engine_phase()
 				intercom.say("MARA", PaperStrings.t("IC_RUNNING"), "info"); _outcome_said = true
 		return r
 	elif phase == "commissioned":
 		var r2: Dictionary = app.b.act("startShift", ["shift"])
 		if not r2.get("ok", false): app.toast(str(r2.get("message", "")), "warn"); return r2
-		keys.set_pos(2); choose_speed(1); return r2
+		keys.set_pos(2); choose_speed(_rec_idx()); return r2
 	elif phase == "shift": return stop_and_edit()
 	else:
 		app.toast(PaperStrings.t("IC_FIRST_EDIT"), "info"); return {}
@@ -469,6 +469,11 @@ func stop_and_edit() -> Dictionary:
 	elif CbSettings.tutorial != "off" and level_info().get("coach") is Dictionary: _back_to_coach(level_info())
 	app.sfx("key")
 	return r
+
+## The speed-dial position (index into [pause, 1x, 4x, 16x]) a run of this level opens at.
+func _rec_idx() -> int:
+	var r := int(level_info().get("recommendedSpeed", 1))
+	return 3 if r >= 16 else (2 if r >= 4 else 1)
 
 func choose_speed(i: int) -> void:
 	if app == null or not app.started: return

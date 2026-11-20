@@ -21,6 +21,11 @@ export const SHIFT_PLAN: Readonly<Record<string, { len: number; plan: SpeedPlan;
   L08: { len: L08_LEN_S, plan: [[L08_LEN_S, 16]], steps: 2 },
   L24: { len: L24_SHIFT_S, plan: [[L24_SHIFT_S, 16]], steps: 4 },
 };
+/** The speed the speed dial is set to when a run starts (the front end applies it at the commission / shift start / first-run start; the player may change it after). The shifts take
+ *  it from their plan; the first runs of L15-L18 are 30 plant seconds, so 1x (30 s of wall clock): at 4x or 16x the light-off of the bed is over in a few seconds and an edit made
+ *  "mid-run" lands after RUN COMPLETE (round 7). Every other level opens at 1x. */
+export const RECOMMENDED_SPEED: Readonly<Record<string, 1 | 4 | 16>> = { L15: 1, L16: 1, L17: 1, L18: 1 };
+export const recommendedSpeed = (id: string): 1 | 4 | 16 => RECOMMENDED_SPEED[id] ?? SHIFT_PLAN[id]?.plan[0]?.[1] ?? 1;
 /** The first run that follows a win in the levels with `firstRun` is client-paced at 1x. */
 export const FIRSTRUN_WALL_S = FIRSTRUN_S;
 

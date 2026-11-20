@@ -141,6 +141,18 @@ const feedKmolH = (s: S): number => (s.shift ? toKmolH(target(s, ids.feed, 'flow
 const coolantC = (s: S): number => { const u = unitsOfType(s, 'cstr')[0]; return s.shift && u ? C(target(s, ids.cstr, 'Tc', typeof u.params.Tc === 'number' ? u.params.Tc : K7_GAME.Tc)) : -99; };
 /** The reactor has been lit: the chart has passed the cue at some time of the shift (the peak trend keeps the fact after the chart has come back down). */
 const litSeen = (s: S): boolean => s.shift !== null && Math.max(s.shift.dc[ids.cstr]?.T ?? 0, ...(s.trends.tmax_K ?? [])) > L24_RECIPE.coolAtC + K;
+/** Plant seconds the plant has been left alone since the last of the two step-3 edits (coolant eased, feed raised), or null before both are in. The notebook's "steady for N s" row. */
+export const l24SteadyS = (s: S): number | null => {
+  const sh = s.shift;
+  if (!sh || !litSeen(s) || coolantC(s) > L24_RECIPE.easeC + 0.5 || feedKmolH(s) < L24_RECIPE.easeKmolH - 1) return null;
+  const e = sh.edits ?? {};
+  return Math.max(0, sh.t - Math.max(e[`${ids.cstr}.Tc`] ?? 0, e[`${ids.feed}.flow`] ?? 0));
+};
+const settled = (s: S): boolean => {
+  if (!litSeen(s)) return false;
+  const w = l24SteadyS(s);
+  return (w !== null && w >= L24_RECIPE.settleS) || coolantC(s) <= L24_RECIPE.holdC + 0.5 || feedKmolH(s) >= L24_RECIPE.fullKmolH - 1;   // a later edit overtakes the wait
+};
 /** The notebook's start-up as rows: each ticks from engine state (the dials' targets, the reactor chart), never from a click. A row stays ticked when a later setting overtakes it
  *  (feed 235 counts as 'feed raised to 215'), so the two edits of step 3 and of step 4 may be made in either order. */
 export const L24_GUIDE: BuildStep[] = [
@@ -152,6 +164,7 @@ export const L24_GUIDE: BuildStep[] = [
   { id: 'lit', kind: 'set', slot: { type: 'cstr' }, done: litSeen },
   { id: 'ease_c', kind: 'set', slot: { type: 'cstr' }, done: (s) => litSeen(s) && coolantC(s) <= L24_RECIPE.easeC + 0.5 },
   { id: 'ease_f', kind: 'set', slot: { type: 'feed' }, done: (s) => litSeen(s) && feedKmolH(s) >= L24_RECIPE.easeKmolH - 1 },
+  { id: 'steady', kind: 'set', done: settled },
   { id: 'cooled', kind: 'set', slot: { type: 'cstr' }, done: (s) => litSeen(s) && coolantC(s) <= L24_RECIPE.holdC + 0.5 },
   { id: 'fed', kind: 'set', slot: { type: 'feed' }, done: (s) => litSeen(s) && feedKmolH(s) >= L24_RECIPE.fullKmolH - 1 },
 ];
@@ -161,7 +174,8 @@ export const L24: LevelSpec = {
   textVars: (s) => {
     const nowT = s.shift ? Math.round(C(s.shift.dc[ids.cstr]?.T ?? 298.15)) : 25;
     const run = l24RunC(), lo = l24AtFeed(l24FullFrac()).states[0]!.T, ig70 = l24AtFeed(l24StartFrac()).ignitionC;
-    return { nowT, tripDefault: C(L24_TRIP_DEFAULT_K), run: Math.round(run), lazy: Math.round(C(lo)), ign70: r1(ig70), warm: L24_RECIPE.warmC, gap: r1(L24_RECIPE.warmC - ig70), trip: C(L24_TRIP_K), relief: C(CSTR_RELIEF_K), tripGap: Math.round(C(L24_TRIP_K) - run), full: Math.round(C(l24HotK())), fullGap: Math.round(C(L24_TRIP_K) - C(l24HotK())), slowPeak: L24_RECIPE.slowPeakC, feedF: L24_RECIPE.feedKmolH, slowGap: C(L24_TRIP_K) - L24_RECIPE.slowPeakC, late: L24_RECIPE.lateS, ease: L24_RECIPE.easeC, easeF: L24_RECIPE.easeKmolH, gapS: L24_RECIPE.gapS, settle: L24_RECIPE.settleS, cue: L24_RECIPE.coolAtC, hold: L24_RECIPE.holdC, fullF: L24_RECIPE.fullKmolH };
+    const w = l24SteadyS(s), steady = w === null ? 0 : Math.min(L24_RECIPE.settleS, Math.floor(w));
+    return { steady, nowT, tripDefault: C(L24_TRIP_DEFAULT_K), run: Math.round(run), lazy: Math.round(C(lo)), ign70: r1(ig70), warm: L24_RECIPE.warmC, gap: r1(L24_RECIPE.warmC - ig70), trip: C(L24_TRIP_K), relief: C(CSTR_RELIEF_K), tripGap: Math.round(C(L24_TRIP_K) - run), full: Math.round(C(l24HotK())), fullGap: Math.round(C(L24_TRIP_K) - C(l24HotK())), slowPeak: L24_RECIPE.slowPeakC, feedF: L24_RECIPE.feedKmolH, slowGap: C(L24_TRIP_K) - L24_RECIPE.slowPeakC, late: L24_RECIPE.lateS, ease: L24_RECIPE.easeC, easeF: L24_RECIPE.easeKmolH, gapS: L24_RECIPE.gapS, settle: L24_RECIPE.settleS, cue: L24_RECIPE.coolAtC, hold: L24_RECIPE.holdC, fullF: L24_RECIPE.fullKmolH };
   },
   setup: (s) => { baseSetup(s, L24_SPECIES, L24_UNITS, PRESETS()); build(s); sealSetup(s); },
   measures: runawayMeasures,

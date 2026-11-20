@@ -9,6 +9,7 @@ import type { EqState } from '../state';
 import { scripted } from './bench';
 import { kOf, outStream } from './l10';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import { thermoAt } from './callit_data';
 import { baseSetup, commissions, flowOf, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
@@ -113,6 +114,7 @@ export const L12: LevelSpec = {
     return g;
   },
   extraStars: (s, m) => [!has(s, 'compressor'), m.ok && m.v.cost_usd_h! <= l12RefCost(s) * 1.03],
+  textVars: (s) => { const x = thermoAt('R5', 400 + 273.15); return { dH: fmtNumber(x.dH, s.region), dS: fmtNumber(x.dS, s.region) }; },
   callIt: { key: 'k400', unit: '', tol: L12_K400_TOL, truth: () => K400_TRUTH() },
   hero: (_s, m) => ({ key: 'co_dry', unit: '%', value: m.v.co_dry_pct!, lo: 0, hi: L12_CO_MAX }),
   secondary: (_s, m) => ({ key: 'comp_kw', unit: 'kW', value: m.v.comp_kw!, limit: 1 }),

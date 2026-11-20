@@ -96,7 +96,7 @@ describe('Ch8 / Ch9 call-its are computable from the notebook', () => {
     L33: [/2000 mol\/m3/, /2 x 10\^5 J per mol/, /2 x 10\^6 J\/\(m3 K\)/],
     L34: [/NTU = 1\.5/, /T sat/],
     L36: [/1800 USD/, /minutes of each step/],
-    L38: [/13 days/],
+    L38: [/critical path assumes unlimited crews and cranes/],   // F16: the answer itself (13 days) is no longer printed in the notes; the call-it `given` says how to read it off the job list
   };
   for (const [id, res] of Object.entries(NEEDS)) {
     it(`${id}: the given data is in the levelInfo notes`, () => {
