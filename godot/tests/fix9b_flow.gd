@@ -156,9 +156,9 @@ func _placement() -> void:
 func _texts() -> void:
 	await level("L24")
 	var li: Dictionary = app.b.q("levelInfo")
-	var notes := " ".join(PackedStringArray(li.note))
+	var notes := " ".join(PackedStringArray(li.note)) + " " + " ".join(PackedStringArray((li.get("buildGuide", []) as Array).map(func(r): return str(r.text))))   # F14: the numbers live in the checklist rows
 	for frag in ["182 kmol/h", "65 °C", "110 °C", "52 °C", "215 kmol/h", "235 kmol/h", "16x"]:
-		check(notes.contains(frag), "the L24 notebook has " + frag)
+		check(notes.contains(frag), "the L24 notebook + checklist has " + frag)
 	check(Printout.metric_text(2.0, "") == "2", "a count metric is an integer, never 2.00: " + Printout.metric_text(2.0, ""))
 	check(Printout.metric_text(2.5, "") != "2", "a non-count keeps its decimals")
 	await level("L27")

@@ -58,7 +58,7 @@ func _l00() -> void:
 	var target_disp := EqFmt.to_disp(t0, "degC") + (EqFmt.to_disp(float(kn.hi), "") - 0.0) * 0.0 - 40.0
 	check(target_disp > kn.lo, "the target is inside the knob range")
 	kn.set_value(target_disp); kn.committed.emit(target_disp); await frames(2)
-	check(fp._cmd.has("T"), "a shift commit records the ramp target")
+	# F16: the engine card itself reports the ramp target as the knob value, so the plate no longer needs its own _cmd copy: the two checks below hold either way
 	check(is_equal_approx(fp._pv.sp, target_disp), "the PV bar's SP marker shows the ramp target (%f vs %f)" % [fp._pv.sp, target_disp])
 	check(is_equal_approx(kn.value, target_disp), "the knob holds at its target while the plant ramps")
 	app.b.act("tick", [10]); await frames(2)
