@@ -8,7 +8,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import type { EqState } from '../state';
 import { scripted } from './bench';
-import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
+import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, flowOf, fedOf, inStream, intoType, link, predictionOf, put, putFeed, markPrebuilt, relErr, sealSetup, shown, spentOf, toKgH, toKmolH, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
@@ -80,14 +80,26 @@ const COACH: CoachStep[] = [
   { id: 'call_sn', role: 'manager', done: (s) => predictionOf(s, 'sn') !== null || commissions(s) > 0 },
   { id: 'place_tube', role: 'manager', focus: 'tubular', done: (s) => unitsOfType(s, 'tubular').length >= 1 },
   { id: 'pipe_tube', role: 'manager', done: (s) => { const u = tube(s); return u !== undefined && s.flowsheet.streams.some((p) => p.to.unit === u.id) && s.flowsheet.streams.some((p) => p.from.unit === u.id); } },
-  { id: 'set_coolant', role: 'manager', focus: 'tubular', done: (s) => { const u = tube(s); return u !== undefined && typeof u.params.W === 'number' && (u.params.W as number) >= 5000 && typeof u.params.Tc === 'number' && (u.params.Tc as number) < T_IN - 0.5; } },
+  { id: 'set_coolant', role: 'manager', focus: 'tubular', done: (s) => { const u = tubeOf(s); return u !== undefined && typeof u.params.W === 'number' && (u.params.W as number) >= 5000 && typeof u.params.Tc === 'number' && (u.params.Tc as number) < T_IN - 0.5; } },
   { id: 'commission', role: 'manager', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_hotspot', role: 'manager', done: LATE(['read_hotspot', 'why']) },
   { id: 'why', role: 'manager', done: LATE(['why']) },
 ];
 
+/** F14 (round 7: the first commission sintered, the tester tuned blind): the build checklist gives a SAFE first knob (220 °C coolant, 6000 kg), which meets the goals;
+ *  the calibrated-best cost (flask 3) is left to the player (more catalyst). The purge starts at the reference 20 %. */
+export const L22_FIRST = { TcC: 220, W: 6000 };
+const tubeOf = (s: Readonly<EqState>) => unitsOfType(s, 'tubular')[0];
+export const L22_GUIDE: BuildStep[] = [
+  { id: 'tube', kind: 'place', slot: { type: 'tubular' }, at: [10, 0] },
+  { id: 'p_in', kind: 'pipe', from: { type: 'heater', port: 'out' }, to: { type: 'tubular', port: 'in' } },
+  { id: 'p_out', kind: 'pipe', from: { type: 'tubular', port: 'out' }, to: { type: 'cooler', port: 'in' } },
+  { id: 'coolant', kind: 'set', slot: { type: 'tubular' }, done: (s) => { const u = tubeOf(s); return u !== undefined && typeof u.params.Tc === 'number' && Math.abs((u.params.Tc as number) - (L22_FIRST.TcC + 273.15)) < 0.6; } },
+  { id: 'load', kind: 'set', slot: { type: 'tubular' }, done: (s) => { const u = tubeOf(s); return u !== undefined && typeof u.params.W === 'number' && (u.params.W as number) >= L22_FIRST.W - 1; } },
+];
+
 export const L22: LevelSpec = {
-  id: 'L22', firstRun: true, chapter: 5, index: 22, setter: 'manager', budgetUSD: L22_BUDGET, units: L22_UNITS, notes: 2, shiftLen: 0,
+  id: 'L22', firstRun: true, chapter: 5, index: 22, setter: 'manager', budgetUSD: L22_BUDGET, units: L22_UNITS, notes: 3, shiftLen: 0,
   setup: (s) => { baseSetup(s, L22_SPECIES, L22_UNITS, PRESETS); buildMethanol(s, L22_REF.purge); },
   measures: methanolMeasures,
   goals: (s, m) => {
@@ -111,6 +123,7 @@ export const L22: LevelSpec = {
     { key: 'goal', legend: t('lv.L22.ann.goal'), state: m.ok && g.every((x) => x.met) ? 'normal' : 'off' },
   ],
   coach: COACH,
+  buildGuide: L22_GUIDE,
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met) && m.v.sinter === 0) return { key: 'pass', cause: null };

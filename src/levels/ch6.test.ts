@@ -141,9 +141,9 @@ describe('L28 Feed the World: the Works', () => {
     expect(v.gj_per_t!).toBeLessThan(BENCH_GJ.top); expect(v.gj_per_t!).toBeGreaterThan(BENCH_GJ.best); expect(v.nh3_t_d!).toBeGreaterThanOrEqual(L28_NH3_MIN_T_D);
     expect([BENCH_GJ.avg, BENCH_GJ.top, BENCH_GJ.best]).toEqual([36.6, 33, 28]);
   });
-  it('the plant as built (reformer 800 C, S/C 3, 2 % purge, nitrogen 125) is below the ammonia target (the verdict says short) and above 36.5 GJ/t', () => {
+  it('the plant as built (reformer 800 C, S/C 3.5, 4 % purge, a 400 m2 exchanger: F14) is below the ammonia target (the verdict says short) and above 36 GJ/t', () => {
     const e = start('L28'); act(e, 'commission');
-    const v = W(e); expect(e.state.solved!.ok).toBe(true); expect(v.nh3_t_d!).toBeLessThan(L28_NH3_MIN_T_D); expect(v.gj_per_t!).toBeGreaterThan(36.5);
+    const v = W(e); expect(e.state.solved!.ok).toBe(true); expect(v.nh3_t_d!).toBeLessThan(L28_NH3_MIN_T_D); expect(v.gj_per_t!).toBeGreaterThan(36);
     const sp = SPEC_BY_ID.L28!; expect(sp.verdict(e.state, sp.measures(e.state), sp.goals(e.state, sp.measures(e.state))).key).toBe('short');
   });
   it('nitrogen starved: hydrogen piles up in the loop (fresh 4.3 H2 : N2), the purge burns it and the energy jumps past 44 GJ/t', () => {

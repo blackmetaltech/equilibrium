@@ -102,7 +102,10 @@ export const levelsCh5: Record<string, string> = {
   // ---- L22 The Methanol Loop
   'lv.L22.title': 'The Methanol Loop', 'lv.L22.place': 'Methanol synthesis, reactor deck',
   'lv.L22.note.1': 'Same idea, different molecule. Copper catalyst, cooled tubes, and it hates anything above 280 °C.',
-  'lv.L22.note.2': 'The loop is built except for the reactor. Place the cooled tube, set its boiling-water coolant and catalyst load, open the purge. The exotherm makes a hot spot near the tube inlet: watch it. The loop you start with is already paid for and does not count as spent: the budget is only what you add, the tube.',
+  'lv.L22.note.2': 'The loop is built except for the reactor, and already paid for: the budget is only the tube. Follow the build order: the cooled tube between the heater and the cooler, coolant 220 °C, 6000 kg of catalyst. That meets the goals; the cheapest tonne (the last flask) needs you to tune the catalyst load. The exotherm makes a hot spot near the tube inlet: hotter coolant sinters the copper.',
+  'lv.L22.note.3': 'Why the purge cuts both ways. A bigger purge throws away fresh gas with the inerts (less carbon kept); a smaller one lets methane and argon build up in the loop until the reactor starves (less carbon kept again). The intercom\'s "keeps X % of the carbon" is per pass through the loop; the printout\'s carbon efficiency is the whole plant, product over carbon fed. The purge starts at a good 20 %.',
+  'lv.L22.build.coolant': 'Set the tube coolant to 220 °C (boiling water)',
+  'lv.L22.build.load': 'Set the catalyst load to 6000 kg (more is cheaper per tonne, later)',
   'lv.L22.goal.meoh': 'Crude methanol to the tank at least {target} t/h',
   'lv.L22.goal.carbon': 'Carbon efficiency (methanol carbon over CO + CO₂ fed) at least {target} %',
   'lv.L22.star.1': 'Crude methanol at the target rate with at least 85 % carbon efficiency',

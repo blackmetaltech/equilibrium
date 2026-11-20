@@ -170,7 +170,7 @@ export const levelsCh6: Record<string, string> = {
   'lv.L28.title': 'Feed the World', 'lv.L28.place': 'The Works, ammonia from natural gas',
   'lv.L28.note.1': 'Natural gas in, ammonia out. The world\'s best plants use 28 gigajoules a tonne. The average is 36.6.',
   'lv.L28.note.2': 'The whole plant is built. Tune it: the reformer exit temperature, the steam, the exchanger, the shift, the CO₂ recovery, the purge and the nitrogen. Burn what the purge carries.',
-  'lv.L28.note.3': 'First knob: raise the reformer exit from 800 to about 880 °C and watch the methane slip fall; then trim the steam, the nitrogen and the purge. The calibrated best is 32.2 GJ per tonne: the energy our reference engineer reached on this same Works (31.9) plus 1 %; it is not a book number, and it is a little tighter than the 33 GJ top quartile. The Works is already paid for: nothing is for sale here and nothing counts as spent.',
+  'lv.L28.note.3': 'First knob: raise the reformer exit from 800 to about 880 °C and watch the methane slip fall. The Works was handed over badly trimmed (steam at 3.5 per carbon, a 400 m² feed-effluent exchanger, a 4 % purge): trim the steam, enlarge the exchanger and close the purge for the top quartile. The calibrated best is 32.2 GJ per tonne: the energy our reference engineer reached on this same Works (31.9) plus 1 %; it is not a book number, and it is a little tighter than the 33 GJ top quartile. The Works is already paid for: nothing is for sale here and nothing counts as spent.',
   'lv.L28.goal.nh3': 'Ammonia at least {target} t/day',
   'lv.L28.goal.gj': 'Energy at most {target} GJ per tonne of NH₃ (IFA 2008 survey average)',
   'lv.L28.star.1': 'At least 95 t/day of NH₃ at no more than 36.6 GJ per tonne',

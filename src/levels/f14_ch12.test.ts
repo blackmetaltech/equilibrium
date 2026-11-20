@@ -44,3 +44,16 @@ describe('F14 L24 checklist', () => {
     expect(row().done).toBe(false);
   });
 });
+
+describe('F14 L22 checklist', () => {
+  it('the checklist first knob (220 °C, 6000 kg, purge as set) meets the goals but not the calibrated best', async () => {
+    const { methanolScript, L22_FIRST } = await import('./l22');
+    const { SPEC_BY_ID } = await import('./registry');
+    const e = mk('L22');
+    for (const a of methanolScript(L22_FIRST.TcC + 273.15, L22_FIRST.W, 0.2, true)) e.step(a as any);
+    expect((info(e).buildGuide as any[]).every((r) => r.done)).toBe(true);
+    const sp = SPEC_BY_ID.L22!, m = sp.measures(e.state), g = sp.goals(e.state, m);
+    expect(g.every((x) => x.met)).toBe(true);
+    expect(sp.extraStars(e.state, m, g)[1]).toBe(false);
+  });
+});

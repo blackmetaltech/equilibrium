@@ -394,7 +394,7 @@ describe('levelInfo and resultCard contract', () => {
         const q = info(e);
         for (const k of KEYS) expect(q, `${id} ${mode} ${k}`).toHaveProperty(k);
         expect(allFinite(q)).toBeNull();
-        expect(q.note.length).toBe(2); expect(q.note.every((n: string) => n.length > 5 && !n.includes('lv.'))).toBe(true);
+        expect(q.note.length).toBe(id === "L22" ? 3 : 2); expect(q.note.every((n: string) => n.length > 5 && !n.includes('lv.'))).toBe(true);
         for (const g of q.goals) { expect(g.text).not.toContain('lv.'); expect(g.text).not.toMatch(/\{/); }
         expect(q.annunciators.length).toBeGreaterThanOrEqual(4); expect(q.annunciators.length).toBeLessThanOrEqual(8);
         for (const a of q.annunciators) { expect(a.legend.length).toBeLessThanOrEqual(14); expect(a.legend).toBe(a.legend.toUpperCase()); expect(['off', 'normal', 'high', 'critical']).toContain(a.state); }

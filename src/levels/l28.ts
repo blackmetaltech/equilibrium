@@ -25,6 +25,9 @@ export const L28_NG_KMOL_H = 120, L28_STEAM_T = 673.15;
 export const BENCH_GJ = { avg: 36.6, top: 33, best: 28 };
 export const L28_NH3_MIN_T_D = 95;
 /** Reference design (GAME, calibrated by ch6.test.ts): reformer exit, S/C, exchanger area, shift T, CO2 recovery, purge, N2 flow, best GJ/t. */
+/** F14 (round 7: one knob, 880 °C, won all three flasks): the Works is handed over badly trimmed — too much steam, a small exchanger, a wide purge — so the
+ *  first knob alone lands near 33 GJ/t and the steam, the exchanger and the purge must be trimmed for the top quartile and the calibrated best. */
+export const L28_START = { sc: 3.5, area: 400, purge: 0.04 };
 export const L28_REF = { T: 1153.15, sc: 2.5, area: 800, shift: 473.15, co2: 0.99, purge: 0.01, n2: 126, gj: 31.92 };
 /** Star 3 line: the solver's own GJ/t + 1 % (GAME, pinned by ch6.test.ts). */
 export const L28_STAR3_GJ = L28_REF.gj * 1.01;
@@ -49,12 +52,12 @@ export const L28_IDS = { ng: 'F-101', steam: 'F-102', mix: 'M-103', hx: 'E-104',
 
 export function buildWorks(s: EqState): void {
   s.palette = null;
-  const ng = putFeed(s, 0, 0, { CH4: 1 }, L28_NG_KMOL_H, 300, P_REF), st = putFeed(s, 0, 3, { H2O: 1 }, L28_REF.sc * L28_NG_KMOL_H, L28_STEAM_T, P_REF);
-  const mix = put(s, 'mixer', 3, 1), hx = put(s, 'hx', 5, 6), ref = put(s, 'reformer', 7, 0, { T: 1073.15 }), boil = put(s, 'boiler', 12, 1, { T: 543.15, steam: 'HP' });
+  const ng = putFeed(s, 0, 0, { CH4: 1 }, L28_NG_KMOL_H, 300, P_REF), st = putFeed(s, 0, 3, { H2O: 1 }, L28_START.sc * L28_NG_KMOL_H, L28_STEAM_T, P_REF);
+  const mix = put(s, 'mixer', 3, 1), hx = put(s, 'hx', 5, 6, { area: L28_START.area }), ref = put(s, 'reformer', 7, 0, { T: 1073.15 }), boil = put(s, 'boiler', 12, 1, { T: 543.15, steam: 'HP' });
   const shift = put(s, 'eq_reactor', 16, 0, { reactions: 'R5', mode: 'isothermal', T: 473.15, Tmin: 463.15 }), cool = put(s, 'cooler', 21, 1, { T: T_CW, utility: 'cw' });
   const flash = put(s, 'flash', 21, 5, { T: T_CW, P: P_REF - 2e5 }), co2 = put(s, 'co2_removal', 18, 5, { recovery: 0.99 }), meth = put(s, 'methanator', 15, 5), comp = put(s, 'compressor', 10, 5, { P: P_LOOP, stages: 3 });
   const n2 = putFeed(s, 0, 12, { N2: 1 }, L28_REF.n2, 300, P_LOOP), mix3 = put(s, 'mixer3', 3, 9), syn = put(s, 'eq_reactor', 5, 10, { reactions: 'R1', mode: 'isothermal', T: T_SYN, dP: DP_RX });
-  const cool2 = put(s, 'cooler', 10, 10, { T: T_CW, utility: 'cw' }), sep = put(s, 'nh3_sep', 13, 10, { T: 253.15 }), split = put(s, 'splitter', 16, 10, { frac: 0.02 }), comp2 = put(s, 'compressor', 9, 14, { P: P_LOOP, stages: 1 });
+  const cool2 = put(s, 'cooler', 10, 10, { T: T_CW, utility: 'cw' }), sep = put(s, 'nh3_sep', 13, 10, { T: 253.15 }), split = put(s, 'splitter', 16, 10, { frac: L28_START.purge }), comp2 = put(s, 'compressor', 9, 14, { P: P_LOOP, stages: 1 });
   const prod = put(s, 'product', 21, 10), fuel = put(s, 'vent', 18, 13), co2v = put(s, 'vent', 18, 8), cond = put(s, 'sink', 22, 8);
   void [ng, st];
   link(s, ng, 'out', mix, 'in1'); link(s, st, 'out', mix, 'in2'); link(s, mix, 'out', hx, 'cold_in'); link(s, hx, 'cold_out', ref, 'in'); link(s, ref, 'out', hx, 'hot_in'); link(s, hx, 'hot_out', boil, 'in');
