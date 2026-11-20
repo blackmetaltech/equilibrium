@@ -8,7 +8,7 @@ import { SPECIES } from '../../data/species';
 import { i18n, t } from '../../i18n';
 import { FIRSTRUN_S } from '../../data/events';
 import { buildGuideOf } from '../../levels/build_guide';
-import { SPEC_BY_ID, firstRunT, madeKg, specOf } from '../../levels/registry';
+import { SPEC_BY_ID, entersFirstRun, firstRunT, madeKg, specOf } from '../../levels/registry';
 import { recommendedSpeed } from '../../levels/wallclock';
 import type { GoalEval, LevelSpec, Measures } from '../../levels/spec';
 import { burns, commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, unitsOfType, type Prediction } from '../../levels/util';
@@ -360,6 +360,8 @@ export const levelTickSystem: System<EqState> = {
   id: 'level_tick',
   run: (s) => {
     const spec = specOf(s);
+    // a commissioned plant whose goals are all met always rolls its first run (a goal that became true after the commission, e.g. through a level action, is not left waiting for a key turn that never comes)
+    if (spec?.firstRun === true && s.phase === 'commissioned' && s.status === 'playing' && s.shift === null && s.solved?.ok === true && s.runs.length > 0 && entersFirstRun(spec, s)) { s.phase = 'firstrun'; s.runs[s.runs.length - 1]!.tick = s.tick; }
     if (spec?.tick && (s.phase === 'shift' || s.phase === 'firstrun') && s.shift !== null && s.shift.ended === '') spec.tick(s);
   },
 };

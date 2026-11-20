@@ -103,7 +103,8 @@ export const L35: LevelSpec = {
     const order = orderOf(s), r = runSop(order);
     return {
       kind: 'sop',
-      cards: SOP_CARDS.map((c) => ({ id: c.id, label: t(`lv.L35.card.${c.id}`), pre: t(`lv.L35.pre.${c.id}`), mins: c.mins })),
+      // the heat-up cards' minutes ARE the call-it (350 K at 50 K/h): they stay off the card until the call is locked (mins -1 = not shown)
+      cards: SOP_CARDS.map((c) => ({ id: c.id, label: t(`lv.L35.card.${c.id}`), pre: t(`lv.L35.pre.${c.id}`), mins: predictionOf(s, 'heat_min') === null && (c.id === 'heat_slow' || c.id === 'heat_fast') ? -1 : c.mins })),
       order: order.map((id, i) => ({ i, id, label: t(`lv.L35.card.${id}`) })),
       trace: r.events.map((e) => ({ i: e.i, id: e.id, kind: e.kind, code: e.code, text: e.code === '' ? '' : t(`lv.L35.code.${e.code}`), sev: e.sev, t: e.t })),
       state: { o2: r.state.o2!, p: r.state.p!, t: r.state.t!, cool: r.state.cool!, flare: r.state.flare!, circ: r.state.circ!, leak: r.state.leak!, h2: r.state.h2!, red: r.state.red! },

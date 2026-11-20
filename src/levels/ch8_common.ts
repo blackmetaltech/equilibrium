@@ -91,6 +91,8 @@ export interface ControlViewIn {
   series: { [k: string]: number[] } | null;
   /** Series keys beyond pv, sp, op. */
   extras?: string[];
+  /** The extra pens are percentages (a flow in % of range): the chart draws them on the 0-100 % axis with the valve, not on the PV axis (L32: a 520 K bed and a 50 % flow cannot share a scale). */
+  extrasPct?: boolean;
   bump?: { t: number[]; pv: number[]; op: number[]; fit: { K: number; tau: number; theta: number } };
   metric: { value: number; unit: string; star3: number };
 }
@@ -100,6 +102,7 @@ export function controlView(v: ControlViewIn): Record<string, unknown> {
   for (const k of keys) { series[k] = decimate(v.series?.[k] ?? []); if (k !== 't') seriesLabels[k] = t(`lv.${v.id}.series.${k}`); }
   return {
     kind: 'control',
+    ...(v.extrasPct ? { extrasPct: true } : {}),
     dials: v.dials.map((d, i) => ({
       key: d.key, label: t(`lv.${v.id}.dial.${d.key}`), unit: d.unit, value: fin(vals[i]!), min: d.min, max: d.max, step: d.step,
       ...(d.choices ? { choices: d.choices.map((c) => t(`lv.ch8.choice.${c}`)) } : {}),

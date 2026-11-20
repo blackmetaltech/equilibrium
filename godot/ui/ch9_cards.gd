@@ -49,7 +49,7 @@ func _card_sb(col: Color, edge: Color) -> StyleBoxFlat:
 
 func _rack_card(c: Dictionary, sop: bool) -> Control:
 	var b := Button.new(); b.focus_mode = Control.FOCUS_ALL; b.alignment = HORIZONTAL_ALIGNMENT_LEFT; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	b.text = "%s  (%d min)" % [str(c.label), int(c.mins)]; b.tooltip_text = str(c.label)
+	b.text = ("%s  (%d min)" % [str(c.label), int(c.mins)]) if int(c.mins) >= 0 else str(c.label); b.tooltip_text = str(c.label)   # mins -1: the call-it answer, shown once the call is locked
 	if b.text.length() <= 38: b.autowrap_mode = TextServer.AUTOWRAP_OFF   # a one-line card stays one line (an autowrap button reserves two), so the whole rack fits
 	b.add_theme_font_override("font", EqTheme.font("mono")); b.add_theme_font_size_override("font_size", EqTheme.fs(12))
 	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: b.add_theme_color_override(st, EqTheme.INK)

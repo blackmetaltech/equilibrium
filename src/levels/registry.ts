@@ -29,13 +29,15 @@ export const isWon = (spec: LevelSpec, s: Readonly<EqState>): boolean => {
   return spec.won ? spec.won(s, m, g) : m.ok && g.every((x) => x.met);
 };
 
+/** The plant is in its first run: the phase says so, or (round 7) a run was started on a job that has no shift (the key's second turn used to do that: GOAL MET lit for minutes and no printout), which counts as the first run too. */
+export const inFirstRun = (s: Readonly<EqState>): boolean => s.phase === 'firstrun' || (s.phase === 'shift' && specOf(s)?.shiftLen === 0 && specOf(s)?.firstRun === true);
 /** Plant seconds since the commission that started the first run (one tick = one plant second); 0 outside it. */
 export function firstRunT(s: Readonly<EqState>): number {
-  if (s.phase !== 'firstrun' || s.runs.length === 0) return 0;
+  if (!inFirstRun(s) || s.runs.length === 0) return 0;
   return Math.max(0, Math.min(FIRSTRUN_S, s.tick - s.runs[s.runs.length - 1]!.tick));
 }
 /** The first run has rolled its full length. */
-export const firstRunDone = (s: Readonly<EqState>): boolean => s.phase === 'firstrun' && s.runs.length > 0 && firstRunT(s) >= FIRSTRUN_S;
+export const firstRunDone = (s: Readonly<EqState>): boolean => inFirstRun(s) && s.runs.length > 0 && firstRunT(s) >= FIRSTRUN_S;
 /** Should a commission that just succeeded enter the first run? Only for levels that have one and when every goal is met. */
 export const entersFirstRun = (spec: LevelSpec, s: Readonly<EqState>): boolean => spec.firstRun === true && isWon(spec, s);
 

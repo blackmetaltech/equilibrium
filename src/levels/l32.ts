@@ -17,6 +17,18 @@ export const L32_IAE_STAR = L32_IAE_REF * 1.03;
 export const L32_CALL_TOL = 0.05;
 /** Uncontrolled: a 20 % flow loss warms the bed by K x 20 at steady state (K = 1.2 K per % of quench). */
 export const l32OpenLoopRise = (): number => L32_RIG.procM.K * -L32_RIG.hdr;
+/** Which dial to move next, from the player's own numbers (never the whole answer: the dial, the direction and the rule of thumb). */
+export function l32SlaveMove(region: string, sKc: number, sTauI: number): string {
+  if (sKc < L32_REF.sKc * 0.75) return t('lv.L32.move.sKc_up', { sKc: fmtNumber(sKc, region) });
+  if (sTauI > L32_REF.sTauI * 2) return t('lv.L32.move.sTauI_down', { sTauI: fmtNumber(sTauI, region) });
+  return t('lv.L32.move.sKc_more');
+}
+export function l32MasterMove(region: string, mKc: number, mTauI: number, sTauI: number): string {
+  if (mTauI > L32_REF.mTauI * 1.5) return t('lv.L32.move.mTauI_down', { mTauI: fmtNumber(mTauI, region) });
+  if (mKc < L32_REF.mKc * 0.8) return t('lv.L32.move.mKc_up', { mKc: fmtNumber(mKc, region) });
+  if (sTauI > L32_REF.sTauI * 3) return t('lv.L32.move.sTauI_down', { sTauI: fmtNumber(sTauI, region) });
+  return t('lv.L32.move.mKc_more');
+}
 const KEYS = ['on', 'mKc', 'mTauI', 'sKc', 'sTauI', 'hdr', 'peak', 'iae', 'sat', 'hw', 'K', 'dist', 'open'];
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const UNITS: LevelSpec['units'] = { feed: { max: 1, price: 0 }, product: { max: 1, price: 0 } };
@@ -36,7 +48,7 @@ function measures(s: S): Measures {
 
 const VIEW = (s: S) => controlView({
   s, id: 'L32', dials: [{ key: 'on', unit: '', min: 0, max: 1, step: 1, choices: ['off', 'on'] }, { key: 'mKc', unit: '', min: 0, max: 10, step: 0.1 }, { key: 'mTauI', unit: 's', min: 0, max: 600, step: 5 }, { key: 'sKc', unit: '', min: 0, max: 10, step: 0.1 }, { key: 'sTauI', unit: 's', min: 0, max: 60, step: 0.5 }],
-  series: l32Series(s), extras: ['flow'], metric: { value: measures(s).v.iae!, unit: 'K s', star3: L32_IAE_STAR },
+  series: l32Series(s), extras: ['flow'], extrasPct: true, metric: { value: measures(s).v.iae!, unit: 'K s', star3: L32_IAE_STAR },
 });
 
 export const L32: LevelSpec = {
@@ -82,8 +94,8 @@ export const L32: LevelSpec = {
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
     const vars = { hdr: f(s, m.v.hdr!), iae: f(s, m.v.iae!), peak: f(s, m.v.peak!), open: f(s, m.v.open!), dist: f(s, m.v.dist!), sKc: f(s, m.v.sKc!), mKc: f(s, m.v.mKc!) };
     if (m.v.on === 0) return { key: 'single', cause: t('lv.L32.cause.single', vars) };
-    if (m.v.hdr! > L32_HDR_MAX) return { key: 'weak_slave', cause: t('lv.L32.cause.weak_slave', vars) };
-    if (m.v.iae! > L32_IAE_MAX) return { key: 'slow', cause: t('lv.L32.cause.slow', vars) };
+    if (m.v.hdr! > L32_HDR_MAX) return { key: 'weak_slave', cause: t('lv.L32.cause.weak_slave', { ...vars, lim: f(s, L32_HDR_MAX), move: l32SlaveMove(s.region, m.v.sKc!, m.v.sTauI!) }) };
+    if (m.v.iae! > L32_IAE_MAX) return { key: 'slow', cause: t('lv.L32.cause.slow', { ...vars, iaeMax: f(s, L32_IAE_MAX), move: l32MasterMove(s.region, m.v.mKc!, m.v.mTauI!, m.v.sTauI!) }) };
     return { key: 'budget', cause: t('lv.L32.cause.budget', vars) };
   },
   equation: (s, m) => {

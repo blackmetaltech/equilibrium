@@ -21,6 +21,7 @@ var _pv_sig := ""
 var _bump := false
 var _hint: Label
 var _title: Label
+var _head: HBoxContainer
 var _bar: HFlowContainer
 var _bottom: HBoxContainer
 var _right: VBoxContainer
@@ -40,7 +41,11 @@ func _init() -> void:
 	stop_key = EqTheme.key_button(T("STOP"), false, 12); stop_key.name = "StopKey"; stop_key.custom_minimum_size = Vector2(0, 30); stop_key.tooltip_text = T("STOP_HINT"); stop_key.visible = false
 	stop_key.pressed.connect(func(): if app_ref != null and app_ref.chrome != null: app_ref.chrome.stop_and_edit())
 	head.add_child(stop_key)
+	_head = head; head.custom_minimum_size = Vector2(0, 36)   # the Stop key's row is always reserved: showing or hiding Stop never moves the dials or the chart
 	_scroll = ScrollContainer.new(); _scroll.name = "Body"; _scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; _scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL; vb.add_child(_scroll)
+	# the hint line sits under the scrolling body, never inside it: the "Dials are locked" sentence and the Stop key stay on the panel at every size (round 7: cut off at 1280x800)
+	_hint = EqTheme.label(T("HINT"), 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans"); _hint.name = "Hint"; _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _hint.custom_minimum_size = Vector2(120, 34); _hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(_hint)
 	_body = VBoxContainer.new(); _body.add_theme_constant_override("separation", 4); _body.size_flags_horizontal = Control.SIZE_EXPAND_FILL; _scroll.add_child(_body)
 	chart = Chart.new(); chart.custom_minimum_size = Vector2(300, 170); chart.size_flags_vertical = Control.SIZE_EXPAND_FILL; _body.add_child(chart)
 	_scen = VBoxContainer.new(); _scen.name = "Scenarios"; _scen.add_theme_constant_override("separation", 1); _scen.visible = false; _body.add_child(_scen)
@@ -48,8 +53,7 @@ func _init() -> void:
 	var fp := PanelContainer.new(); fp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fsb := EqTheme.porcelain_sb(4, 4.0); fsb.bg_color = EqTheme.PORCELAIN.darkened(0.06); fsb.border_color = EqTheme.INK; fp.add_theme_stylebox_override("panel", fsb); _bottom.add_child(fp)
 	var fv := VBoxContainer.new(); fv.add_theme_constant_override("separation", 0); fp.add_child(fv)
-	_bar = HFlowContainer.new(); _bar.add_theme_constant_override("h_separation", 0); _bar.add_theme_constant_override("v_separation", 0); fv.add_child(_bar)
-	_hint = EqTheme.label(T("HINT"), 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans"); _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _hint.custom_minimum_size = Vector2(120, 0); fv.add_child(_hint)
+	_bar = HFlowContainer.new(); _bar.add_theme_constant_override("h_separation", 3); _bar.add_theme_constant_override("v_separation", 3); fv.add_child(_bar)
 	_right = VBoxContainer.new(); _right.add_theme_constant_override("separation", 6); _bottom.add_child(_right)
 	nix = Nixie.new(); _right.add_child(nix)
 	bump_key = EqTheme.key_button(T("BUMP"), false, 14); bump_key.custom_minimum_size = Vector2(0, 38); bump_key.tooltip_text = T("BUMP_HINT"); bump_key.visible = false
@@ -65,19 +69,24 @@ func _apply_bump() -> void:
 var avail := 560.0
 var pw := 620.0
 func fit(h: float, w: float, narrow: bool) -> void:
-	avail = h; pw = w; _size_chart(); _fit_scroll.call_deferred()
+	avail = h; pw = w; _size_chart(); _fit_scroll.call_deferred(); _settle.call_deferred()
 	_hint.visible = not narrow or true
+func _chrome_h() -> float:   ## head row + hint line + the vbox gaps and the panel's own margins
+	return (_head.get_combined_minimum_size().y if _head != null else 36.0) + (_hint.get_combined_minimum_size().y if _hint != null else 34.0) + 8.0 + 14.0
 func _size_chart() -> void:
-	var colw := maxf(pw - 12.0 - 190.0 - 14.0, 150.0)
-	var per := maxf(floorf(colw / 100.0), 1.0)
-	var wsum := 0.0
-	for k in knobs: wsum += (knobs[k] as Control).custom_minimum_size.x
-	var rows := maxf(ceilf(wsum / colw), 1.0) if wsum > 0.0 else 1.0
-	chart.custom_minimum_size = Vector2(300, clampf(avail - 40.0 - rows * 134.0 - 36.0 - (_scen.get_combined_minimum_size().y if _scen.visible else 0.0), 90.0, 230.0))
+	# the chart takes what the dials, the Nixie and (L33) the voting strip leave of the room above the console: measured from the laid-out rows, not guessed
+	var room := avail - _chrome_h()
+	var below := _bottom.get_combined_minimum_size().y + 4.0
+	if _scen.visible: below += _scen.get_combined_minimum_size().y + 4.0
+	chart.custom_minimum_size = Vector2(300, clampf(room - below, 70.0, 230.0))
+func _settle() -> void:
+	_size_chart(); _fit_scroll()
+	await get_tree().process_frame
+	if is_inside_tree(): _size_chart(); _fit_scroll()
 func _fit_scroll() -> void:
 	if _scroll == null: return
 	var want := _body.get_combined_minimum_size().y
-	_scroll.custom_minimum_size.y = maxf(minf(want, avail - 52.0), 120.0)
+	_scroll.custom_minimum_size.y = maxf(minf(want, avail - _chrome_h()), 100.0)
 func _unused(chart_h: float, narrow: bool) -> void:
 	chart.custom_minimum_size = Vector2(300, chart_h)
 	if narrow:
@@ -106,7 +115,7 @@ func set_view(d: Dictionary) -> void:
 	elif _hint.text == T("LOCKED"): _hint.text = T("HINT")
 	_build_scenarios(d)
 	_size_chart(); _fit_scroll()
-	if _scen.visible: _size_chart.call_deferred(); _fit_scroll.call_deferred()   # the strip's rows settle a frame late
+	_settle.call_deferred()   # the dials' rows and the strip settle a frame late
 	var psig := str((d.get("series", {}) as Dictionary).get("pv", []).hash()) if d.get("series") is Dictionary else ""
 	if psig != _pv_sig and _bump: _bump = false   # a new run: back to the loop trace
 	_pv_sig = psig
@@ -123,7 +132,7 @@ func set_view(d: Dictionary) -> void:
 	_apply_bump()
 
 func _build_dials(dials: Array) -> void:
-	for c in _bar.get_children(): c.queue_free()
+	for c in _bar.get_children(): _bar.remove_child(c); c.queue_free()
 	knobs = {}
 	for x in dials:
 		var key := str(x.key); var lab := str(x.get("label", key)); var ch: Array = x.get("choices", [])
@@ -142,7 +151,10 @@ func _build_dials(dials: Array) -> void:
 		w.tooltip_text = lab
 		w.mouse_entered.connect(func(): _hint.text = lab)
 		w.focus_entered.connect(func(): _hint.text = lab)
-		knobs[key] = w; _bar.add_child(w)
+		knobs[key] = w
+		# every dial sits in its own ruled cell, label inside it: with the labels at the foot of the dial a wrapped row read as "this label belongs to the knob under it" (round 7)
+		var cell := PanelContainer.new(); cell.name = "Cell_" + key; var csb := StyleBoxFlat.new(); csb.bg_color = Color(1, 1, 1, 0.18); csb.border_color = Color(EqTheme.INK, 0.35); csb.set_border_width_all(1); csb.set_corner_radius_all(3); csb.set_content_margin_all(2)
+		cell.add_theme_stylebox_override("panel", csb); cell.mouse_filter = Control.MOUSE_FILTER_PASS; cell.add_child(w); _bar.add_child(cell)
 
 ## The voting strip: per scenario its sensors (a failed one is a red X), the votes that fired against the votes needed, a TRIP stamp with its time, and the outcome.
 func _build_scenarios(d: Dictionary) -> void:
@@ -229,7 +241,8 @@ class Chart extends Control:
 		var yr := Vector2(0, 1)
 		if not empty:
 			var parts: Array = [pv, sp]
-			for k in extras: parts.append(extras[k])
+			if not bool(d.get("extrasPct", false)):   # percent pens (a flow in % of range) ride the 0-100 % axis with the valve, so the PV axis stays tight on the PV (L32: the bed deviation was invisible on a flow-wide scale)
+				for k in extras: parts.append(extras[k])
 			if shared_axis and not bump_mode: parts.append(op)
 			yr = _rng(parts)
 		var t0 := 0.0; var t1 := 1.0
@@ -264,7 +277,7 @@ class Chart extends Control:
 		if shared_axis and not bump_mode: pen.call(op, Yv, EqTheme.PEN_RED, 1.8)
 		elif bump_mode or not op.is_empty(): pen.call(op, Yp, EqTheme.PEN_RED, 1.8)
 		var ecol := [EqTheme.PEN_GREEN, Color("#8A5BA8")]; var ei := 0
-		for k in extras: pen.call(extras[k], Yv, ecol[ei % 2], 1.5); ei += 1
+		for k in extras: pen.call(extras[k], Yp if bool(d.get("extrasPct", false)) else Yv, ecol[ei % 2], 1.5); ei += 1
 		if not bump_mode:
 			# the setpoint is a dashed pen; stepped sp is drawn as a straight dashed run
 			if sp.size() >= 2:

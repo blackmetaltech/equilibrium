@@ -22,7 +22,7 @@ func all_text(n: Node) -> String:
 	for c in n.get_children(): s += all_text(c)
 	return s
 func rack_buttons(n: Node, out: Array) -> void:
-	if n is Button and (n as Button).text.contains("min)"): out.append(n)
+	if n is Button and ((n as Button).text.contains("min)") or (n as Button).text.begins_with("Heat at ")): out.append(n)   # F17: the heat-up cards print no minutes until the call is locked
 	for c in n.get_children(): rack_buttons(c, out)
 
 func _initialize() -> void:
