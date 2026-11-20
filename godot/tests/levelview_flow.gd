@@ -140,10 +140,11 @@ func _career() -> void:
 		await _act("accept", [offers[0].id]); check((cb.view.contracts as Array).size() == n0 + 1, "accept signs a contract")
 	await _act("setRate", ["nh3", 0.9]); check(is_equal_approx(float(cb.view.plants[0].rate), 0.9), "the rate knob sets the plant rate")
 	await _act("invest", ["heat"]); check(int(cb.view.options.invest.heat.level) == 1, "invest buys a level")
-	while int(cb.view.dashboard.month) < 6: await _act("advance", [6 - int(cb.view.dashboard.month)])   # a multi-month advance stops early at attention flags: step until month 6
+	await _act("answer", [1])   # the yearly decision blocks the multi-month keys until it is answered
+	while int(cb.view.dashboard.month) < 6: await _act("ackWarning", []); await _act("advance", [6 - int(cb.view.dashboard.month)])   # a multi-month advance stops early at attention flags: step until month 6
 	check(int(cb.view.dashboard.month) == 6, "advance moves the calendar")
 	await get_root_shot("career_mid")
-	while int(cb.view.dashboard.month) < 12: await _act("advance", [12 - int(cb.view.dashboard.month)])
+	while int(cb.view.dashboard.month) < 12: await _act("ackWarning", []); await _act("advance", [12 - int(cb.view.dashboard.month)])
 	check((cb.view.review as Array).size() == 1, "a review at month 12")
 	await get_root_shot("career_review")
 	cb.scroll.scroll_vertical = 100000; await frames(3)

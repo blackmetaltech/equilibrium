@@ -6,7 +6,7 @@ import { CAREER, careerOf } from './career';
 import { SPEC_BY_ID, SPECS } from './registry';
 import { Env } from '@core/kit';
 import { GAME } from '../game';
-import { INSPECT_EVERY, INSPECT_STRIKE_OVER, PLANTS, CareerError, ackWarning, advance, alerts, attention, decide, initCareer, inspState, stepMonth, taWeigh } from '../sim/career/model';
+import { answerDecision, pendingDecision, INSPECT_EVERY, INSPECT_STRIKE_OVER, PLANTS, CareerError, ackWarning, advance, alerts, attention, decide, initCareer, inspState, stepMonth, taWeigh } from '../sim/career/model';
 import type { EqState } from '../state';
 import { en } from '../locales/en';
 
@@ -19,6 +19,7 @@ const act = (e: Env<EqState>, name: string, ...args: unknown[]): void => { e.ste
 function stoppedCareer(): ReturnType<typeof initCareer> {
   const c = initCareer(1, 'engineer');
   for (let g = 0; g < 40 && c.ending === ''; g++) {
+    if (pendingDecision(c) !== null) answerDecision(c, 1);
     try { const n = advance(c, 3); if (n < 3 && c.m % 12 !== 0 && (c.stopped ?? []).length > 0) return c; } catch { ackWarning(c); }
   }
   throw new Error('no stop found');
@@ -35,7 +36,7 @@ describe('+3 MONTHS after a stop at a warning', () => {
   });
   it('through the level actions: the view says what stopped, the refusal changes nothing, ackWarning lets the next +3 run', () => {
     const e = start();
-    for (let g = 0; g < 60 && !view(e).dashboard.needsAck; g++) { try { act(e, 'advance', 3); } catch { act(e, 'ackWarning'); } if (e.state.status !== 'playing') break; }
+    for (let g = 0; g < 60 && !view(e).dashboard.needsAck; g++) { try { act(e, 'answer', 1); } catch { /* none waiting */ } try { act(e, 'advance', 3); } catch { act(e, 'ackWarning'); } if (e.state.status !== 'playing') break; }
     const d = view(e).dashboard;
     expect(d.needsAck).toBe(true); expect(d.stoppedNotes.length).toBeGreaterThan(0);
     const m = careerOf(e.state)!.m;

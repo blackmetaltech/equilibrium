@@ -1,6 +1,6 @@
 // Career reference policies (tests and the level personas): the engineer who maintains the Works, and the novice who accepts everything and never maintains.
 // A policy maps the Career state to a list of decisions [name, ...args]; the persona then adds `advance`. Pure.
-import { CareerError, MONTHS, PLANTS, advance, contracted, decide, DEFS, initCareer, previewInvest, type Career, type PlantId } from './model';
+import { CareerError, MONTHS, pendingDecision, PLANTS, advance, contracted, decide, DEFS, initCareer, previewInvest, type Career, type PlantId } from './model';
 
 export type Decision = [string, ...unknown[]];
 
@@ -45,6 +45,7 @@ export function naiveDecisions(c: Career): Decision[] {
  * turnaround (buying the catalyst the month before) when a plant's catalyst or exchanger health drops, inspects on schedule, takes contracts above spot within capacity. */
 export function carefulDecisions(c: Career): Decision[] {
   const d: Decision[] = [];
+  const pd = pendingDecision(c); if (pd !== null) d.push(['answer', pd.best]);   // the yearly decision: the option with the better expected effect
   if (c.m === 0) for (const p of PLANTS) d.push(['setRate', p, 0.95]);
   // payback advice: the invest cards state months to pay back; the player buys what pays back fast, one at a time, and keeps a cash reserve
   if (c.m % 2 === 0 && c.cash > 25e6) {
@@ -80,9 +81,9 @@ export function recklessDecisions(c: Career): Decision[] {
   return d;
 }
 
-/** Cautious player: the careful player's habits at 80 % of nameplate. Safe and solvent, but the margin stays under the board target: the Steady ending. */
+/** Cautious player: the careful player's habits at 80 % of nameplate; the yearly decision cards lapse unanswered. Safe and solvent, but the margin stays under the board target: the Steady ending. */
 export function cautiousDecisions(c: Career): Decision[] {
-  return carefulDecisions(c).map((d): Decision => (d[0] === 'setRate' ? ['setRate', d[1], 0.8] : d));
+  return carefulDecisions(c).filter((d) => d[0] !== 'answer').map((d): Decision => (d[0] === 'setRate' ? ['setRate', d[1], 0.8] : d));
 }
 
 /** Idle player: opens the Works and never decides anything. */

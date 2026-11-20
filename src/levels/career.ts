@@ -8,7 +8,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import {
   CHIEF_MARGIN, MARGIN_TARGET_YEAR, CREW_BASE, DEFS, EM_CAP_STEP, INSPECT_EVERY, INVEST_PRICE, MONTHS, PLANTS, RATE_MAX, RATE_MIN, STRIKES_MAX, START_CASH, TA_CRANE_HIRE_USD, TA_CREW_HIRE_USD,
-  CareerError, INSPECT_STRIKE_OVER, INSPECT_WARN, advance, alerts, attention, inspState, taWeigh, contracted, crewLimit, decide, emCap, exposure, gasMul, initCareer, investCost, outlook, outputOf, overdue, pace, previewInvest, riskOf, score, taDays, taShort, year, type Career, type EndNeed, type Lever, type LogRow, type Outlook,
+  CareerError, INSPECT_STRIKE_OVER, SKIP_MAX, DEC_CONTRACT_DISCOUNT, pendingDecision, worthyOffer, type YearDecision, INSPECT_WARN, advance, alerts, attention, inspState, taWeigh, contracted, crewLimit, decide, emCap, exposure, gasMul, initCareer, investCost, outlook, outputOf, overdue, pace, previewInvest, riskOf, score, taDays, taShort, year, type Career, type EndNeed, type Lever, type LogRow, type Outlook,
 } from '../sim/career/model';
 import { naiveDecisions, solverDecisions, type Decision } from '../sim/career/policy';
 import type { EqState } from '../state';
@@ -125,6 +125,37 @@ const realisedText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
   return t('lv.CAREER.invest.heat_have', { lvl: c.invest.heat, save: Math.round(pv.realisedUSDPerMonth / 1e4) / 100, gj: Math.round(pv.realisedGJ) });
 };
 
+
+// ------------------------------------------------------------------------------------------------ the yearly decision card and the NEXT DECISION key
+const mu = (x: number, d = 1): string => `${x >= 0 ? '+' : '-'}${(Math.abs(x) / 1e6).toFixed(d)}`;
+/** The card for a yearly decision (pending, or answered and kept as the chosen state): every number from the engine's own forecast. */
+export function decisionView(c: Career, d: YearDecision): Record<string, unknown> {
+  const v: Record<string, number | string> = { ...d.vars, plantName: plantLabel(d.plant).toLowerCase(), disc: Math.round(DEC_CONTRACT_DISCOUNT * 100) };
+  const key = `lv.CAREER.dec.${d.kind}`;
+  const opts = d.options.map((o, i) => {
+    const ov = { ...v, ...o.vars };
+    let text = t(`${key}.${o.id}`, ov);
+    if (d.kind === 'debottleneck' && i === 0 && Number(v.fine) > 0) text += ` ${t(`${key}.fine`, v)}`;
+    return { id: o.id, index: i, label: t(`lv.CAREER.dec.opt.${o.id}`), text, effectUSD: o.effectUSD, costUSD: o.costUSD, effectText: t('lv.CAREER.dec.effect', { eff: mu(o.effectUSD), months: v.months }), chosen: d.choice === i };
+  });
+  const other = d.options[d.best === 0 ? 1 : 0]!;
+  const hint = t('lv.CAREER.dec.hint', { opt: d.options[d.best]!.id.toUpperCase(), eff: mu(d.options[d.best]!.effectUSD), other: mu(other.effectUSD), months: v.months, why: t(`${key}.why${d.best}`, { ...v, ...d.options[d.best]!.vars }) });
+  return { kind: d.kind, year: d.year, month: d.m, pending: d.choice === -1, choice: d.choice, lapsed: d.lapsed, title: t(`${key}.title`, v), body: t(`${key}.body`, v), options: opts, best: d.best, hint, learner: c.mode === 'learner', blocks: t('lv.CAREER.dec.blocks') };
+}
+/** One line: what the NEXT DECISION key will stop at, with the dates that are already known. */
+function nextNote(c: Career): string {
+  if (pendingDecision(c) !== null) return t('lv.CAREER.next.pending');
+  const toYear = 12 - (c.m % 12), due = PLANTS.filter((p) => c.plants[p].insp < INSPECT_EVERY - INSPECT_WARN).map((p) => ({ p, n: INSPECT_EVERY - INSPECT_WARN - c.plants[p].insp })).sort((a, b) => a.n - b.n)[0];
+  return t('lv.CAREER.next.will', { max: SKIP_MAX, year: toYear, insp: due !== undefined && due.n <= SKIP_MAX ? t('lv.CAREER.next.insp', { plant: plantLabel(due.p).toLowerCase(), n: due.n }) : t('lv.CAREER.next.noinsp') });
+}
+/** After a stop: why it stopped, in one line. */
+function whyNote(c: Career): string {
+  const w = c.why;
+  if (w === null || w === undefined) return '';
+  const o = w.kind === 'offer' ? c.offers.find((x) => x.id === w.n) : undefined;
+  return t(`lv.CAREER.why.${w.kind}`, { plant: plantLabel(w.plant).toLowerCase(), n: w.n, id: w.n, tpm: o !== undefined ? Math.round(o.tpm / 100) / 10 : 0, prem: o !== undefined ? Math.round((o.price / c.prices[o.p] - 1) * 100) : 0, max: SKIP_MAX, month: c.m });
+}
+
 export const careerOf = (s: S): Career | null => { const c = s.lv.c as Career | undefined; return c !== undefined && c.v === 1 ? c : null; };
 const good = (c: Career): boolean => c.ending === 'chief' || c.ending === 'steady';
 
@@ -220,7 +251,7 @@ export const CAREER: LevelSpec = {
   histogram: { metric: 'margin', best: (s) => starMargin(s.seed, s.mode) * 1.03 / 1e6, spread: 0.6, lowerIsBetter: false },
   actions: {
     accept: byName('accept'), decline: byName('decline'), setRate: byName('setRate'), inspect: byName('inspect'), buyCatalyst: byName('buyCatalyst'), ackWarning: byName('ackWarning'),
-    turnaround: byName('turnaround'), cancelTurnaround: byName('cancelTurnaround'), hireCrew: byName('hireCrew'), invest: byName('invest'), advance: byName('advance'),
+    turnaround: byName('turnaround'), cancelTurnaround: byName('cancelTurnaround'), hireCrew: byName('hireCrew'), invest: byName('invest'), advance: byName('advance'), advanceToDecision: byName('advanceToDecision'), answer: byName('answer'),
   },
   view: (s) => {
     const c = careerOf(s);
@@ -228,7 +259,7 @@ export const CAREER: LevelSpec = {
     const spot = (p: (typeof PLANTS)[number]): number => c.prices[p];
     return {
       kind: 'career',
-      dashboard: { month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), attentionNotes: attentionNotes(c), alerts: alerts(c).map((a) => ({ ...a, label: plantLabel(a.plant), text: attentionNote(c, `${a.kind}:${a.plant}`) })), strikeRule: t('lv.CAREER.rule.strike', { over: INSPECT_STRIKE_OVER }), needsAck: (c.stopped ?? []).some((k) => attention(c).includes(k)), stoppedNotes: (c.stopped ?? []).filter((k) => attention(c).includes(k)).map((k) => attentionNote(c, k)), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
+      dashboard: { decision: ((): Record<string, unknown> | null => { const ds = c.decisions ?? [], d = pendingDecision(c) ?? ds[ds.length - 1]; return d !== undefined ? decisionView(c, d) : null; })(), decisionsDone: (c.decisions ?? []).filter((d) => d.choice >= 0).length, nextNote: nextNote(c), whyNote: whyNote(c), skipMax: SKIP_MAX, hasWorthyOffer: worthyOffer(c) !== null, month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), attentionNotes: attentionNotes(c), alerts: alerts(c).map((a) => ({ ...a, label: plantLabel(a.plant), text: attentionNote(c, `${a.kind}:${a.plant}`) })), strikeRule: t('lv.CAREER.rule.strike', { over: INSPECT_STRIKE_OVER }), needsAck: (c.stopped ?? []).some((k) => attention(c).includes(k)), stoppedNotes: (c.stopped ?? []).filter((k) => attention(c).includes(k)).map((k) => attentionNote(c, k)), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
       prices: PLANTS.map((p) => ({ plant: p, label: t(`lv.CAREER.plant.${p}`), spotUSDPerT: spot(p) })),
       plants: PLANTS.map((p) => {
         const x = c.plants[p];

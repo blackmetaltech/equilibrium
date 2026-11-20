@@ -35,6 +35,8 @@ func _build() -> void:
 	_cards.clear()
 	body.add_child(_alerts(d))
 	body.add_child(_calendar(d))
+	var dc: Variant = d.get("decision", null)
+	if dc is Dictionary: body.add_child(_decision_card(dc as Dictionary, bool(d.over)))
 	body.add_child(_advance_row(d))
 	if str(d.ending) != "": body.add_child(_ending(d))
 	body.add_child(_ledger(d))
@@ -91,7 +93,7 @@ func _calendar(d: Dictionary) -> Control:
 
 var _busy := false            ## a month advance is running: input is ignored (never queued and replayed later)
 func emit_act(name: String, args: Array = []) -> void:
-	if _busy and name != "advance": return
+	if _busy and name != "advance" and name != "advanceToDecision": return
 	super(name, args)
 
 ## One advance: show WORKING, let it draw, run the months, then keep ignoring input for a few frames so keys pressed during a long advance are dropped, not replayed.
@@ -109,20 +111,69 @@ func advance_months(n: int) -> void:
 		await get_tree().create_timer(1.05).timeout
 		if is_inside_tree(): _render()
 
+## NEXT DECISION: run months until something needs the manager (the engine says why it stopped); same busy/lock handling as advance_months.
+func advance_to_decision() -> void:
+	if _busy: return
+	_busy = true; _render()
+	await get_tree().process_frame; await get_tree().process_frame
+	Input.flush_buffered_events()
+	act.emit("advanceToDecision", [])
+	if bool(view.get("dashboard", {}).get("needsAck", false)): _lock_until = Time.get_ticks_msec() + 1000
+	Input.flush_buffered_events()
+	for i in 4: await get_tree().process_frame
+	_busy = false; _render()
+	if _lock_until > Time.get_ticks_msec():
+		await get_tree().create_timer(1.05).timeout
+		if is_inside_tree(): _render()
+
+## The yearly decision card: a paper slip with the situation and two options, each with its expected MUSD from the engine. Pending: amber paper and two CHOOSE keys. Answered: the chosen option stays on the slip.
+func _decision_card(dc: Dictionary, over: bool) -> Control:
+	var pending := bool(dc.get("pending", false))
+	var v := VBoxContainer.new(); v.name = "DecisionCard"; v.add_theme_constant_override("separation", 4)
+	var t := lbl("YEAR %d  ·  %s" % [int(dc.year), str(dc.title)], 14, STAMP_RED if pending else PENCIL, "mono_bold"); t.name = "DecisionTitle"; t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; t.custom_minimum_size = Vector2(220, 0); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; v.add_child(t)
+	if pending:
+		var b := lbl(str(dc.body), 12, PENCIL, "sans"); b.name = "DecisionBody"; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; b.custom_minimum_size = Vector2(220, 0); v.add_child(b)
+	for o in dc.get("options", []):
+		var chosen := bool(o.chosen)
+		if not pending and not chosen: continue
+		var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
+		var ix := int(o.index)
+		if pending:
+			var k := key("CHOOSE %s  ·  %s" % [str(o.label), _musd_short(float(o.effectUSD))], func(): emit_act("answer", [ix]), ix == int(dc.best) and bool(dc.get("learner", false)), 13); k.name = "Choose_%s" % str(o.label); k.disabled = over or _busy; k.tooltip_text = str(o.effectText); h.add_child(k)
+		else:
+			var tag := lbl("YOU CHOSE %s%s" % [str(o.label), "  (the decision lapsed)" if bool(dc.get("lapsed", false)) else ""], 12, OKGREEN if not bool(dc.get("lapsed", false)) else AMBER_INK, "mono_bold"); tag.name = "DecisionChosen"; h.add_child(tag)
+		var ef := lbl(str(o.effectText), 12, STAMP_RED if float(o.effectUSD) < 0.0 else PENCIL, "mono_bold"); ef.name = "Effect_%s" % str(o.label); ef.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ef.custom_minimum_size = Vector2(200, 0); ef.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(ef)
+		var ot := lbl(str(o.text), 12, PENCIL, "sans"); ot.name = "OptionText_%s" % str(o.label); ot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ot.custom_minimum_size = Vector2(220, 0); v.add_child(ot)
+	if pending:
+		if bool(dc.get("learner", false)):
+			var hi := lbl(str(dc.hint), 12, OKGREEN, "sans"); hi.name = "DecisionHint"; hi.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hi.custom_minimum_size = Vector2(220, 0); v.add_child(hi)
+		var bl := lbl(str(dc.blocks), 11, AMBER_INK, "sans"); bl.name = "DecisionBlocks"; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size = Vector2(220, 0); v.add_child(bl)
+	return _paper(v, Color("#F6E7B8") if pending else Color("#F4EEDC"))
+
+func _musd_short(x: float) -> String: return "%s%.1f MUSD" % ["+" if x >= 0.0 else "-", absf(x) / 1e6]
+
 func _advance_row(d: Dictionary) -> Control:
 	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 3)
 	var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
 	var over := bool(d.over)
 	var k1 := key("ADVANCE 1 MONTH", func(): advance_months(1), true, 15); k1.name = "Advance1"; k1.disabled = over or _busy; h.add_child(k1)
-	var gap := Control.new(); gap.custom_minimum_size = Vector2(28, 1); h.add_child(gap)   # keeps +3 a thumb away from ADVANCE
+	k1.tooltip_text = "One month. A waiting yearly decision lapses to option B."
+	var gap := Control.new(); gap.custom_minimum_size = Vector2(28, 1); h.add_child(gap)   # keeps the multi-month keys a thumb away from ADVANCE
 	var ack := bool(d.get("needsAck", false)); var locked := Time.get_ticks_msec() < _lock_until
-	var k3 := key("+3 MONTHS", func(): advance_months(3), false, 13); k3.name = "Advance3"; k3.disabled = over or _busy or ack or locked
+	var dcv: Variant = d.get("decision", null); var pend := dcv is Dictionary and bool((dcv as Dictionary).get("pending", false))
+	var kn := key("NEXT DECISION ▸", func(): advance_to_decision(), true, 15); kn.name = "NextDecision"; kn.disabled = over or _busy or ack or locked or pend
+	kn.tooltip_text = str(d.get("nextNote", "")); h.add_child(kn)
+	var k3 := key("+3 MONTHS", func(): advance_months(3), false, 13); k3.name = "Advance3"; k3.disabled = over or _busy or ack or locked or pend
 	k3.tooltip_text = "Stops early at an inspection coming due, a worn catalyst, a fouled exchanger and the annual review. After a stop at a warning, press CONTINUE ANYWAY first."; h.add_child(k3)
 	if ack and not over:
 		var kc := key("CONTINUE ANYWAY", func(): emit_act("ackWarning"), false, 12); kc.name = "ContinueAnyway"; kc.disabled = _busy or locked
 		kc.tooltip_text = "Acknowledge the warning that stopped the last +3 MONTHS; the next +3 may run. ADVANCE 1 MONTH always works."; h.add_child(kc)
 	if _busy:
 		var w := lbl("WORKING... running the months, input is paused", 13, AMBER_INK, "mono_bold"); w.name = "Working"; h.add_child(w)
+	var nn := lbl(str(d.get("nextNote", "")), 11, AMBER_INK if pend else PENCIL, "sans"); nn.name = "NextNote"; nn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; nn.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nn.custom_minimum_size = Vector2(200, 0); v.add_child(nn)
+	var wn := str(d.get("whyNote", ""))
+	if wn != "" and not over:
+		var wl := lbl(wn, 12, STAMP_RED, "mono_bold"); wl.name = "WhyStopped"; wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; wl.custom_minimum_size = Vector2(200, 0); v.add_child(wl)
 	var ev := str(d.get("lastEvent", ""))
 	var st := lbl("last month %s%s" % [_m(float(d.lastMonthUSD)), ("  ·  %s at %s" % [str(d.get("lastEventLabel", "")), str(d.get("lastEventPlantLabel", ""))]) if ev != "" else ""], 12, PENCIL)
 	st.name = "LastMonth"; st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; st.size_flags_horizontal = Control.SIZE_EXPAND_FILL; st.custom_minimum_size = Vector2(200, 0); v.add_child(st)   # a long event wraps here and never pushes the keys around
