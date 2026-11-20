@@ -404,13 +404,13 @@ describe('Call it grading at the oracle tolerance', () => {
   });
   it('L13: bed-1 exit at 420 C inlet is 621 C (DESIGN, 0.5 %) within 1 %; L12: K(400 C) within 2 %; L10: K(450 C) within 5 %', () => {
     expect(Math.abs(bed1ExitC() - 621) / 621).toBeLessThan(0.005);
-    expect(SPEC_BY_ID.L13!.callIt!.tol).toBe(0.01); expect(SPEC_BY_ID.L12!.callIt!.tol).toBe(0.02); expect(SPEC_BY_ID.L10!.callIt!.tol).toBe(0.05);
+    expect(SPEC_BY_ID.L13!.callIt!.tol).toBe(0.01); expect(SPEC_BY_ID.L12!.callIt!.tol).toBe(0.05); // F14: a textbook-table K (11.7) passes expect(SPEC_BY_ID.L10!.callIt!.tol).toBe(0.05);
     const grade = (id: string, truth: number, tol: number) => {
       for (const [f, ok] of [[1, true], [1 + tol * 0.9, true], [1 - tol * 0.9, true], [1 + tol * 1.1, false], [1 - tol * 1.1, false], [2, false]] as const) {
         const e = call(id, truth * f); expect(card(e).callIt.ok, `${id} x${f}`).toBe(ok);
       }
     };
-    grade('L13', bed1ExitC(), 0.01); grade('L12', K400_TRUTH(), 0.02); grade('L10', K450_E5(), 0.05);
+    grade('L13', bed1ExitC(), 0.01); grade('L12', K400_TRUTH(), 0.05); grade('L10', K450_E5(), 0.05);
     expect(K450_E5()).toBeCloseTo(4.9, 1);
   });
   it('a prediction is a prediction: callIt after a commission is refused; L11 has none', () => {

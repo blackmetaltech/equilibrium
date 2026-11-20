@@ -101,13 +101,13 @@ export const levelsCh3: Record<string, string> = {
   // ---- L13 The Staircase
   'lv.L13.title': 'The Staircase', 'lv.L13.place': 'The contact converter',
   'lv.L13.note.1': 'Ninety-eight percent of the SO₂ must become SO₃, or it goes up the stack. One bed will not do it.',
-  'lv.L13.note.2': 'The burner gas arrives hot. The catalyst wakes at 410 °C and sinters above 630 °C. Cool between beds, and sell the heat.',
+  'lv.L13.note.2': 'The burner gas arrives hot (the feed bank starts at 450 °C: turn it down to 420 °C first). It is 10 % SO₂, 11 % O₂ and 79 % N₂. The catalyst wakes at 410 °C and sinters above 630 °C. Cool between beds, and sell the heat.',
   'lv.L13.goal.conv': 'Overall SO₂ conversion at least {target} %',
   'lv.L13.goal.sinter': 'No bed hotter than {target} °C',
   'lv.L13.star.1': 'Goal met: 98 % conversion and no bed above 630 °C',
   'lv.L13.star.2': 'Three beds or fewer',
   'lv.L13.star.3': 'Cheapest tonne of acid, steam credit included (within 3 %)',
-  'lv.L13.callit': 'Called it: bed 1 exit temperature with a 420 °C inlet, °C',
+  'lv.L13.callit': 'Called it: bed 1 exit temperature with a 420 °C inlet (10 % SO₂, 11 % O₂, 79 % N₂, adiabatic, to equilibrium), °C',
   'lv.L13.hero': 'SO₂ converted, overall', 'lv.L13.sec': 'Hottest bed',
   'lv.L13.ann.conv': 'SO2 CONV LOW', 'lv.L13.ann.sinter': 'BED SINTER', 'lv.L13.ann.asleep': 'CAT ASLEEP', 'lv.L13.ann.stall': 'ON THE CURVE', 'lv.L13.ann.beds': 'OVER 3 BEDS',
   'lv.L13.ann.solve': 'SOLVE FAIL', 'lv.L13.ann.goal': 'GOAL MET',
@@ -133,7 +133,7 @@ export const levelsCh3: Record<string, string> = {
 
   // ---- L14 Exam Bridge: The Brown Gas
   'lv.L14.title': 'Exam Bridge: The Brown Gas', 'lv.L14.place': 'The glassware bench',
-  'lv.L14.note.1': 'A sealed flask, 13.8 grams of N₂O₄, 400 K. The gauge reads 9.15 bar, absolute pressure. What is Kp?',
+  'lv.L14.note.1': 'A sealed flask of 1 L, 13.8 grams of N₂O₄, 400 K. The gauge reads 9.15 bar, absolute pressure. What is Kp? Work it the book\'s way: N = 14, O = 16 and R = 0.083 L·bar/(mol·K).',
   'lv.L14.note.2': 'Write Kp down first. Then run the flask and push it: halve the volume, add argon at constant volume, add argon at constant pressure.',
   'lv.L14.goal.gauge': 'The notebook flask (1 L, 400 K, no argon) reads {target} bar, within 0.5 %',
   'lv.L14.star.1': 'The flask on the bench reads the book gauge, 9.15 bar',

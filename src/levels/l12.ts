@@ -16,7 +16,7 @@ export const L12_SPECIES = ['CO', 'H2O', 'CO2', 'H2'];
 export const L12_CO_KMOL_H = 100;
 export const L12_CO_MAX = 1.0;
 export const L12_FEED_P = 5e5;
-export const L12_K400_TOL = 0.02;
+export const L12_K400_TOL = 0.05;   // F14: textbook tables give about 11.7, the engine 12.25 (NIST Shomate); 5 % lets a student who reads a table pass
 /** Catalyst windows (deg C, DESIGN 4.4) and catalyst bills, USD/h (GAME, UNVERIFIED). */
 export const HTS = { lo: 320, hi: 450, usdH: 15 };
 export const LTS = { lo: 190, hi: 250, usdH: 45 };
