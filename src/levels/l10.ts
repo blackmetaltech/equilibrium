@@ -15,7 +15,7 @@ import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { thermoAt } from './callit_data';
-import { baseSetup, commissions, flowOf, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, flowOf, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped, changedSinceRun, ran } from './util';
 
 type S = Readonly<EqState>;
 export const L10_SPECIES = ['N2', 'H2', 'NH3'];
@@ -103,9 +103,9 @@ const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
 const COACH: CoachStep[] = [
   { id: 'place_comp', role: 'manager', focus: 'compressor', done: (s) => has(s, 'compressor') },
   { id: 'place_conv', role: 'manager', focus: 'eq_reactor', done: (s) => has(s, 'eq_reactor') },
-  { id: 'pipe_up', role: 'manager', done: (s) => s.flowsheet.streams.length >= 5 },
-  { id: 'commission', role: 'manager', focus: 'key', done: (s) => commissions(s) >= 1 },
-  { id: 'pin_window', role: 'manager', focus: 'eq_reactor', done: (s) => s.ui.pinned.includes('eqwin') || ['pin_window', 'why'].includes(s.ui.coachStep ?? '') },
+  { id: 'pipe_up', role: 'manager', done: (s) => piped(s, 5) },
+  { id: 'commission', role: 'manager', focus: 'key', done: (s) => ran(s) },
+  { id: 'pin_window', role: 'manager', focus: 'eq_reactor', done: (s) => s.ui.pinned.includes('eqwin') || ['pin_window', 'why'].includes(s.ui.coachStep ?? '') || changedSinceRun(s) },
   { id: 'why', role: 'manager', done: (s) => s.ui.coachStep === 'why' },
 ];
 

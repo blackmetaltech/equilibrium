@@ -86,6 +86,14 @@ export function defaultFeed(s: EqState): FeedSpec {
   return { x: s.species.map((_, i) => (i === 0 ? 1 : 0)), flow: 1, T: 298.15, P: 1e5, priceKey: '' };
 }
 
+/** A feed placed on a level that pre-places several contract feeds is the contract that is no longer on the sheet (same gas, same price), not a pure stand-in. */
+function missingContract(s: EqState): FeedSpec | null {
+  const cs = (s.lv.contractFeeds as { id: string; spec: FeedSpec }[] | undefined) ?? [];
+  const live = new Set(s.flowsheet.units.filter((u) => u.type === 'feed').map((u) => JSON.stringify(s.feeds[u.id]?.x)));
+  const c = cs.find((x) => !live.has(JSON.stringify(x.spec.x)));
+  return c ? structuredClone(c.spec) : null;
+}
+
 const placeUnit: Fn = (s, type: unknown, x: unknown, y: unknown, rot: unknown = 0) => {
   needEditable(s);
   need(typeof type === 'string' && hasUnitType(type), t('err.place.unknown_type', { type: String(type) }));
@@ -100,7 +108,7 @@ const placeUnit: Fn = (s, type: unknown, x: unknown, y: unknown, rot: unknown = 
     const id = nextName(s, PREFIX[type] ?? 'U');
     const u: UnitInst = { id, type, pos: { x, y }, rot, params: { ...defaultParams(type), ...(s.presets[type] ?? {}) } };
     s.flowsheet.units.push(u);
-    if (type === 'feed') { s.feeds[id] = defaultFeed(s); syncFeed(u, s.feeds[id]!, s.species); }
+    if (type === 'feed') { s.feeds[id] = missingContract(s) ?? defaultFeed(s); syncFeed(u, s.feeds[id]!, s.species); }
     return ok('', { id });
   });
 };

@@ -54,7 +54,8 @@ func _initialize() -> void:
 		same(fp.readouts.mass.text, float(row.mass) * 3600.0, "%s mass kg/h" % id)
 		same(fp.readouts.T.text, float(row.T) - 273.15, "%s T" % id)
 		same(fp.readouts.P.text, float(row.P) / 1e5, "%s P" % id)
-		if card.results != null and card.results.has("duty"): same(fp.readouts.duty.text, float(card.results.duty) / 1e3, "%s duty kW" % id)
+		if card.results != null and str(card.type) == "compressor" and card.results.has("work"): same(fp.readouts.duty.text, absf(float(card.results.work)) / 1e3, "%s shaft power in kW (positive, never the intercooler duty)" % id)
+		elif card.results != null and card.results.has("duty"): same(fp.readouts.duty.text, float(card.results.duty) / 1e3, "%s duty kW" % id)
 		# PV bar
 		var spk: Dictionary = {}
 		for k in card.knobs: if str(k.kind) == "num" and spk.is_empty(): spk = k

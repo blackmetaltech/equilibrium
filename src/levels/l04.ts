@@ -7,7 +7,7 @@ import { t } from '../i18n';
 import type { EqState } from '../state';
 import { BENCH_BUDGET, BENCH_COACH, BENCH_PRESETS, BENCH_SPECIES, BENCH_UNITS, benchBuild, benchMeasures, scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec } from './spec';
-import { baseSetup, commissions, molarMass, predictionOf, relErr, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { baseSetup, commissions, molarMass, predictionOf, relErr, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const NH3_TOL = 0.005;
@@ -35,6 +35,7 @@ export function bookAnswer(s: { region: string }): { nh3: number; h2left: number
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const COACH: CoachStep[] = [
   { id: 'call_first', role: 'mentor', done: (s) => s.prediction !== null },
+  { id: 'build_bench', role: 'mentor', focus: 'feed', done: (s) => piped(s, 6) },
   { id: 'commission', role: 'mentor', focus: 'key', done: (s) => commissions(s) >= 1 },   // the printout does not exist until the bench has run: the step after the call is the key
   { id: 'read_printout', role: 'mentor', done: (s) => ['read_printout', 'why'].includes(s.ui.coachStep ?? '') },
 ];

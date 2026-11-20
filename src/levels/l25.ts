@@ -8,7 +8,7 @@ import { REGIONS } from '../regions';
 import { t } from '../i18n';
 import type { EqState } from '../state';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, flowOf, inStream, link, markPrebuilt, molarMass, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, fedOf, flowOf, inStream, link, markPrebuilt, molarMass, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped } from './util';
 import { scripted } from './bench';
 
 type S = Readonly<EqState>;
@@ -124,7 +124,7 @@ export const L25: LevelSpec = {
     { id: 'place_beds', role: 'safety', focus: 'packed_bed', done: (s) => unitsOfType(s, 'packed_bed').length >= 3 },
     { id: 'catalyst', role: 'safety', focus: 'packed_bed', done: (s) => unitsOfType(s, 'packed_bed').length > 0 && unitsOfType(s, 'packed_bed').every((u) => u.catalystId !== undefined) },
     { id: 'absorber', role: 'safety', focus: 'absorber', done: (s) => unitsOfType(s, 'absorber').length >= 2 },
-    { id: 'pipe_up', role: 'safety', done: (s) => s.flowsheet.streams.length >= 12 },
+    { id: 'pipe_up', role: 'safety', done: (s) => piped(s, 12) },
     { id: 'commission', role: 'safety', focus: 'key', done: (s) => commissions(s) >= 1 },
     { id: 'read_stack', role: 'safety', focus: 'stack', done: (s) => ['read_stack', 'why'].includes(s.ui.coachStep ?? '') },
   ] as CoachStep[],

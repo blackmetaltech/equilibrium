@@ -67,6 +67,10 @@ func _draw_body() -> void:
 	for i in ts.size(): pts.append(Vector2(px.call(float(ts[i])), py.call(float(xs[i]))))
 	draw_polyline(pts, EqTheme.TEAL.darkened(0.35), 4.0 if big else 3.0, true)
 	draw_polyline(pts, EqTheme.TEAL, 2.0, true)
+	# the ceiling says the pressure it is drawn at (the reactor's own inlet pressure, so a moved dial moves the curve); the point label keeps clear of it
+	var cap := (T_("INS_EQ") + " " + T_("INS_X")) if pl.size.x >= 190.0 else "ceiling %"
+	if data.has("pBar") and pl.size.x >= 190.0: cap += "  @ %s bar" % PaperStrings.num(num(data.pBar))
+	var cap_bottom := tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), cap, EqTheme.TEAL, pl.size.x - 8.0)
 	# the operating point
 	if pt.has("T") and pt.has("X"):
 		var ox: float = px.call(num(pt.T)); var oy: float = py.call(num(pt.X))
@@ -77,8 +81,8 @@ func _draw_body() -> void:
 		var label := "%s %.0f °C  %.1f %%" % [T_("INS_NOW"), kelvin_c(num(pt.T)), num(pt.X) * 100.0] if pl.size.x >= 190.0 else "%.0f °C %.0f %%" % [kelvin_c(num(pt.T)), num(pt.X) * 100.0]
 		var lx := clampf(ox - 10.0, pl.position.x + 2.0, maxf(pl.end.x - 150.0, pl.position.x + 2.0))
 		var ly := oy + 12.0 if oy < pl.position.y + 40.0 else oy - 28.0
+		if ly < cap_bottom and lx < pl.position.x + 4.0 + 230.0: ly = maxf(ly, minf(cap_bottom + 1.0, pl.end.y - 22.0))   # never on top of the ceiling tape
 		tape(Vector2(lx, ly), label, EqTheme.PEN_RED, pl.size.x)
-	tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), (T_("INS_EQ") + " " + T_("INS_X")) if pl.size.x >= 190.0 else "ceiling %", EqTheme.TEAL, pl.size.x - 8.0)
 	if lo != null and px.call(num(lo)) > pl.position.x + 60.0: tape(Vector2(pl.position.x + 4.0, pl.end.y - 20.0), T_("INS_ASLEEP"), Color("#6B7C76"), px.call(num(lo)) - pl.position.x - 6.0, 11)
 	# the balance beam
 	if beam_w > 0.0:

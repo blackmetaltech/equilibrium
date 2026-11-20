@@ -73,6 +73,8 @@ const EMPTY_XT = { eq: [] as { T: number; X: number }[], beds: [] as unknown[], 
 export const instrumentQueries: Record<string, QueryFn<EqState>> = {
   /** The X-T diagram of the plant's adiabatic beds: equilibrium curve, one entry per bed (inlet / outlet T and cumulative conversion of the key fed to the first bed), the coolers between them and the catalyst window. */
   xtDiagram: (s) => {
+    // chapter 3 designs the staircase: before the first commission it must not print the answer (bed 3 at 98.9 %) off a throw-away solve
+    if (specOf(s)?.chapter === 3 && commissions(s) === 0 && !s.solved?.ok) return EMPTY_XT;
     const sol = liveOf(s);
     if (!sol) return EMPTY_XT;
     const order = flowOrder(s);
@@ -155,7 +157,7 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
     if (!c.ok) return none(c.code);
     const w = windowOf(u);
     return {
-      window: { T: c.value.T, X: c.value.X, ref: c.value.ref }, point: { T: Tout, X: fin(info.X), TIn: Tin },
+      window: { T: c.value.T, X: c.value.X, ref: c.value.ref }, pBar: st.P / 1e5, point: { T: Tout, X: fin(info.X), TIn: Tin },
       beam: { out: fin(info.QK_out), in: fin(info.QK_in) }, lightOffT: w.Tmin ?? null, sinterT: w.Tmax ?? null, reason: null,
     };
   },

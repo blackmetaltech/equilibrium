@@ -10,7 +10,7 @@ import { t } from '../i18n';
 import { rxnDH } from '../sim/chem/reactions';
 import type { EqState } from '../state';
 import type { Annunciator, CoachStep, GoalEval, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, flowOf, fromKmolH, inStream, intoType, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType } from './util';
+import { baseSetup, commissions, fedOf, flowOf, fromKmolH, inStream, intoType, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L07_SPECIES = ['C', 'O2', 'N2', 'CO', 'CO2'];
@@ -67,7 +67,7 @@ const COACH: CoachStep[] = [
   { id: 'place_gasifier', role: 'mentor', focus: 'gasifier', done: (s) => has(s, 'gasifier') },
   { id: 'place_burner', role: 'mentor', focus: 'co_burner', done: (s) => has(s, 'co_burner') },
   { id: 'place_heater', role: 'mentor', focus: 'heater', done: (s) => has(s, 'heater') && has(s, 'stack') },
-  { id: 'pipe_up', role: 'mentor', done: (s) => s.flowsheet.streams.length >= 6 },
+  { id: 'pipe_up', role: 'mentor', done: (s) => piped(s, 6) },
   { id: 'commission', role: 'mentor', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_ledger', role: 'mentor', focus: 'heater', done: (s) => ['read_ledger', 'why'].includes(s.ui.coachStep ?? '') },
   { id: 'why', role: 'mentor', done: (s) => s.ui.coachStep === 'why' },

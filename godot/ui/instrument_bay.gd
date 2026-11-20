@@ -133,7 +133,7 @@ func refresh(force := false) -> void:
 	if sig != _sig:
 		_sig = sig
 		if d is Dictionary: view.set_data(d)
-	visible = not ((k == "ledger" or k == "eqwin") and _forced_kind == "" and not view.has_reading())   # an instrument with nothing on it yet is no slab at all
+	visible = not ((k == "ledger" or k == "eqwin" or k == "xt") and _forced_kind == "" and not view.has_reading())   # an instrument with nothing on it yet is no slab at all
 
 func _only_feeds(p: Dictionary) -> bool:
 	for u in p.get("units", []): if str(u.get("type", "")) != "feed": return false

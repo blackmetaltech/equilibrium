@@ -175,6 +175,7 @@ func game_menu() -> bool:
 	if _from_esc and started:
 		var hub = root.get_node_or_null("PaperHub")
 		if hub != null and hub.close_one(): return true
+		if world != null and "placing" in world and str(world.placing) != "": world.cancel_place(); return true   # a build tool in hand is dropped before the pause plate, hub or no hub
 	return PauseMenu.toggle(self)
 ## A level (re)start: the shift-speed latch resets so a level that opens mid-shift (L00) starts at 1x.
 func _begin() -> void:

@@ -3,7 +3,7 @@
 import type { Action } from '@core/kit';
 import type { EqState } from '../state';
 import type { CoachStep, LevelSpec, Measures } from './spec';
-import { commissions, fedOf, intoType, pricePerKg, toKgH, toKmolH, unitsOfType } from './util';
+import { commissions, fedOf, intoType, pricePerKg, toKgH, toKmolH, unitsOfType, piped } from './util';
 
 export const BENCH_SPECIES = ['N2', 'H2', 'NH3'];
 /** GAME bench prices, USD per unit (UNVERIFIED: placeholders until calibrated, DESIGN 9.6). */
@@ -44,7 +44,7 @@ export const BENCH_COACH: CoachStep[] = [
   { id: 'place_feed', role: 'mentor', focus: 'feed', done: (s) => unitsOfType(s, 'feed').length >= 1 },
   { id: 'set_flow', role: 'mentor', focus: 'feed', done: (s) => unitsOfType(s, 'feed').some((u) => (s.feeds[u.id]?.flow ?? 1) !== 1 && (s.feeds[u.id]?.flow ?? 0) > 0) },
   { id: 'place_reactor', role: 'mentor', focus: 'stoich_reactor', done: (s) => unitsOfType(s, 'stoich_reactor').length >= 1 },
-  { id: 'pipe_up', role: 'mentor', done: (s) => s.flowsheet.streams.length >= 6 },
+  { id: 'pipe_up', role: 'mentor', done: (s) => piped(s, 6) },
   { id: 'commission', role: 'mentor', focus: 'key', done: (s) => commissions(s) >= 1 },
   { id: 'read_tank', role: 'mentor', focus: 'product', done: LATE(['read_tank', 'open_stream', 'why']) },
   { id: 'open_stream', role: 'mentor', done: LATE(['open_stream', 'why']) },

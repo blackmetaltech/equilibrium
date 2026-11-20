@@ -10,7 +10,7 @@ import { REGIONS } from '../regions';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, link, predictionOf, put, putFeed, relErr, sealSetup, shown } from './util';
+import { baseSetup, commissions, link, predictionOf, put, putFeed, relErr, sealSetup, shown, changedSinceRun } from './util';
 
 type S = Readonly<EqState>;
 export const L14_SPECIES = ['N2O4', 'NO2', 'Ar'];
@@ -82,7 +82,7 @@ const has = (s: S, type: string): boolean => s.flowsheet.units.some((u) => u.typ
 const COACH: CoachStep[] = [
   { id: 'call_kp', role: 'mentor', done: (s) => s.prediction !== null },
   { id: 'turn_volume', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[0] || (s.ui.coachStep ?? '') === 'read_colour' || commissions(s) >= 4 },
-  { id: 'read_colour', role: 'mentor', focus: 'lab_flask', done: (s) => ['read_colour', 'argon_v', 'argon_p', 'why'].includes(s.ui.coachStep ?? '') || testsDone(s)[1] },
+  { id: 'read_colour', role: 'mentor', focus: 'lab_flask', done: (s) => ['read_colour', 'argon_v', 'argon_p', 'why'].includes(s.ui.coachStep ?? '') || testsDone(s)[1] || changedSinceRun(s) },
   { id: 'argon_v', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[1] || ['argon_p', 'why'].includes(s.ui.coachStep ?? '') },
   { id: 'argon_p', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[2] || (s.ui.coachStep ?? '') === 'why' },
   { id: 'why', role: 'mentor', done: (s) => s.ui.coachStep === 'why' },
@@ -110,7 +110,7 @@ export const L14: LevelSpec = {
     const failed = s.solved !== null && !s.solved.ok;
     const lamp = (done: number): Annunciator['state'] => (done ? 'normal' : 'off');
     return [
-      { key: 'gauge', legend: t('lv.L14.ann.gauge'), state: !m.ok ? 'off' : g[0]!.met ? 'normal' : 'high' },
+      { key: 'gauge', legend: t('lv.L14.ann.gauge'), state: !m.ok || m.v.book !== 1 ? 'off' : g[0]!.met ? 'normal' : 'high' },   // a deliberate Le Chatelier test (V, argon or Pfix moved) is not a gauge that has gone wrong
       { key: 'halve', legend: t('lv.L14.ann.halve'), state: lamp(m.v.t_halve!) },
       { key: 'inert_v', legend: t('lv.L14.ann.inert_v'), state: lamp(m.v.t_inert_v!) },
       { key: 'inert_p', legend: t('lv.L14.ann.inert_p'), state: lamp(m.v.t_inert_p!) },

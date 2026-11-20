@@ -10,7 +10,7 @@ import { engineModel, reactStoich } from '../sim/units/rx_stoich';
 import type { EqState } from '../state';
 import { AIR_O2, FIRE_S_KMOL_H, FIRE_SPECIES, T_PIT, airTrim, fireMeasures, L05_UNITS } from './l05';
 import type { Annunciator, CoachStep, GoalEval, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, putFeed, relErr, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { baseSetup, commissions, fedOf, putFeed, relErr, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
 
 type S = Readonly<EqState>;
 export const L06_LEN_S = 600;
@@ -78,7 +78,7 @@ const COACH: CoachStep[] = [
   { id: 'place_burner', role: 'safety', focus: 'burner', done: (s) => has(s, 'burner') },
   { id: 'place_boiler', role: 'safety', focus: 'boiler', done: (s) => has(s, 'boiler') },
   { id: 'place_stack', role: 'safety', focus: 'stack', done: (s) => has(s, 'stack') },
-  { id: 'pipe_up', role: 'safety', done: (s) => s.flowsheet.streams.length >= 6 || commissions(s) >= 1 },
+  { id: 'pipe_up', role: 'safety', done: (s) => piped(s, 6) },
   { id: 'find_limit', role: 'safety', focus: 'burner', done: (s) => commissions(s) >= 1 },
   { id: 'dilution', role: 'safety', focus: 'splitter', done: (s) => has(s, 'splitter') || s.status !== 'playing' },
   { id: 'start_shift', role: 'safety', done: (s) => s.shift !== null || s.status !== 'playing' },

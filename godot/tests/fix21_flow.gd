@@ -74,7 +74,7 @@ func _walk_l04() -> void:
 	coach_true("L04 start")
 	await act("callIt", [30.0, "N2"]); await frames(2); coach_true("L04 after the call")
 	check(not last_line().contains("printout"), "L04: 'read the printout' is not said right after the call (%s)" % last_line())
-	check(last_line().to_lower().contains("commission the bench"), "L04: the key is the next step (%s)" % last_line())
+	check(last_line().to_lower().contains("build the bench"), "L04: building the bench is the next step (the key comes once it is piped) (%s)" % last_line())
 	for a in [["placeUnit", ["feed", 0, 0, 0]], ["placeUnit", ["feed", 0, 4, 0]], ["placeUnit", ["mixer", 4, 2, 0]], ["placeUnit", ["stoich_reactor", 8, 0, 0]], ["placeUnit", ["nh3_sep", 14, 0, 0]], ["placeUnit", ["product", 18, 0, 0]], ["placeUnit", ["vent", 18, 4, 0]],
 		["setBank", ["F-101", "N2", 140.0]], ["setBank", ["F-102", "H2", 30.0]], ["connect", ["F-101", "out", "M-103", "in1"]], ["connect", ["F-102", "out", "M-103", "in2"]], ["connect", ["M-103", "out", "R-104", "in"]],
 		["connect", ["R-104", "out", "D-105", "in"]], ["connect", ["D-105", "liq", "T-106", "in"]], ["connect", ["D-105", "vap", "Y-107", "in"]], ["commission", []]]:

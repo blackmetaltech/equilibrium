@@ -16,7 +16,7 @@ const S := {
 	"INS_X": "conversion %", "INS_T": "T °C", "INS_NOW": "actual", "INS_ASLEEP": "catalyst asleep", "INS_SINTER": "sinters",
 	"INS_G": "heat made", "INS_AT_FEED": "states at the current feed %s kmol/h", "INS_R": "heat removed", "INS_STABLE": "stable", "INS_UNSTABLE": "unstable", "INS_KW": "kW",
 	"INS_RELEASED": "released", "INS_RECOVERED": "recovered", "INS_LOST": "lost", "INS_DUTY": "duty", "INS_MW": "MW",
-	"INS_BED": "bed %d", "INS_COOL": "cooler", "INS_EQ": "equilibrium ceiling", "INS_BEAM_LEVEL": "level", "INS_QK_HI": "too much product", "INS_QK_LO": "too little product",
+	"INS_BED": "bed %d", "INS_XT_NONE": "Commission the plant: the staircase\ndraws itself, bed by bed.", "INS_COOL": "cooler", "INS_EQ": "equilibrium ceiling", "INS_BEAM_LEVEL": "level", "INS_QK_HI": "too much product", "INS_QK_LO": "too little product",
 	"INS_NONE": "No reading yet", "INS_CLOSE": "Close", "INS_TAP": "tap to enlarge", "INS_MORE": "+%d more", "INS_TOTAL": "total",
 	"INS_FROM": "ribbon", "INS_ROAD": "all roads", "INS_BEAM": "Q/K",
 }
@@ -129,9 +129,14 @@ func paper(xr: Vector2, yr: Vector2, xfmt: Callable, yfmt: Callable, gl := 44.0,
 func frame() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
-func empty_note() -> void:
+func empty_note(text := "") -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), EqTheme.PORCELAIN)
-	draw_string(EqStrings.font("body"), Vector2(10, size.y * 0.5 + 5.0), T("INS_NONE"), HORIZONTAL_ALIGNMENT_LEFT, size.x - 20.0, EqTheme.fs(13), Color("#6B7C76"))
+	var msg := text if text != "" else T("INS_NONE")
+	var f := EqStrings.font("body"); var fs := EqTheme.fs(13)
+	var lines := msg.split("\n")
+	var y := size.y * 0.5 + 5.0 - 9.0 * float(lines.size() - 1)
+	for ln in lines:
+		draw_string(f, Vector2(10, y), ln, HORIZONTAL_ALIGNMENT_LEFT, size.x - 20.0, fs, Color("#6B7C76")); y += 18.0
 	frame()
 
 func _draw() -> void:

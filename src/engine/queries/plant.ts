@@ -21,7 +21,8 @@ export function openPortsOf(s: Readonly<EqState>): { unit: string; port: string;
 /** Units with no pipe at all that would leave a port open (an instrument or a port-less unit is not a stray), while the plant has pipework. Ids in unit order. */
 export function strayUnitsOf(s: Readonly<EqState>): string[] {
   if (s.flowsheet.streams.length === 0) return [];
-  const ids = new Set(openPortsOf(s).filter((o) => o.stray).map((o) => o.unit));
+  const contracts = new Set(((s.lv.contractFeeds as { id: string }[] | undefined) ?? []).map((c) => c.id));   // a level's contract feeds are not stray (a mixer inlet needs them)
+  const ids = new Set(openPortsOf(s).filter((o) => o.stray && !contracts.has(o.unit)).map((o) => o.unit));
   return s.flowsheet.units.filter((u) => ids.has(u.id)).map((u) => u.id);
 }
 

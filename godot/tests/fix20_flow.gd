@@ -115,7 +115,7 @@ func _camera() -> void:
 	rig.pan_ground(Vector3(3, 0, 0)); check(rig.pan_target() != pan1, "keyboard / pad pan moves the target")
 	rig.set_size(30.0); rig.look_at_ground(Vector3(10, 0, 8)); await frames(2)
 	await key(KEY_F)
-	check(rig.pan_target().length() < 6.0 and rig._size_to > 34.0, "F frames the whole plot (pan %s size %.0f)" % [rig.pan_target(), rig._size_to])
+	check(rig.pan_target().distance_to(Vector3(10, 0, 8)) > 6.0 and rig._size_to > 34.0, "F frames the placed equipment (F23) (pan %s size %.0f)" % [rig.pan_target(), rig._size_to])
 	check(CamButtons.KINDS.has("frame"), "a frame button sits on the touch pad")
 
 func _undo_and_esc() -> void:
