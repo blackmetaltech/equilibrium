@@ -81,8 +81,8 @@ const m = (type: string, w: number, h: number, cat: PaletteCat, knobs: KnobSpec[
 const META_LIST: UnitMeta[] = [
   m('feed', 2, 2, 'source', [num('flow', 0, 1e4, 10, 1, 1, 'kmol/h'), T_K(298.15), P_PA('P', 1e5)]),
   m('mixer', 2, 2, 'mix'), m('mixer3', 2, 2, 'mix'), m('mixer4', 2, 2, 'mix'),
-  m('splitter', 2, 2, 'mix', [num('frac', 0, 1, 0.05, 0.01, 0.05, 'mol%')]),
-  m('purge', 2, 2, 'mix', [num('frac', 0, 1, 0.05, 0.01, 0.05, 'mol%')]),
+  m('splitter', 2, 2, 'mix', [num('frac', 0, 1, 0.01, 0.001, 0.05, 'mol%')]),
+  m('purge', 2, 2, 'mix', [num('frac', 0, 1, 0.01, 0.001, 0.05, 'mol%')]),
   m('heater', 2, 2, 'heat', [T_K(450), dP(), choice('utility', utilities, '')]),
   m('cooler', 2, 2, 'heat', [T_K(320), dP(), choice('utility', utilities, '')]),
   m('hx', 4, 2, 'heat', [num('area', 0, 5000, 10, 1, 10, 'm²'), num('dP_hot', 0, 5e6, 1e5, 1e4, 0, 'bar'), num('dP_cold', 0, 5e6, 1e5, 1e4, 0, 'bar')]),
