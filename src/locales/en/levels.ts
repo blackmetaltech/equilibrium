@@ -187,6 +187,8 @@ export const levels: Record<string, string> = {
   'lv.L04.ann.nh3': 'NH3 OFF BOOK', 'lv.L04.ann.left': 'H2 LEFT OFF', 'lv.L04.ann.limit': 'N2 LIMITING', 'lv.L04.ann.solve': 'SOLVE FAIL', 'lv.L04.ann.goal': 'GOAL MET',
   'lv.L04.coach.call_first.text': 'Call it first: write your NH₃ answer and name the limiting reagent.',
   'lv.L04.coach.call_first.why': 'Why: a prediction after the run is a reading, not a prediction.',
+  'lv.L04.coach.commission.text': 'Turn the key to commission the bench.',
+  'lv.L04.coach.commission.why': 'Why: the printout and the check against your call come only after the run.',
   'lv.L04.coach.read_printout.text': 'Read the printout beside the notebook working.',
   'lv.L04.coach.read_printout.why': 'Why: the book rounds the atomic masses; the engine does not.',
   'lv.L04.verdict.pass': 'The printout matches the notebook.', 'lv.L04.verdict.off_build': 'The plant does not match the notebook.', 'lv.L04.verdict.not_run': 'Not run yet.',

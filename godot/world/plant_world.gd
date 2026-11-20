@@ -858,16 +858,20 @@ func release_target(p: Vector2, from: Dictionary) -> Dictionary:
 
 var _press_at := Vector2.ZERO
 var _press_port := {}           ## the port a left press started on: releasing over another port finishes a drag-to-connect
+## A port drag ends where the button goes up. This runs before the GUI sees the release (a panel or the console under the cursor would swallow it from `_unhandled_input`),
+## so a drag released over empty ground, over a panel or off the plot always gets its answer: the pipe connects, or "Dropped on nothing".
+func _input(e: InputEvent) -> void:
+	if not (e is InputEventMouseButton) or e.pressed or e.button_index != MOUSE_BUTTON_LEFT or _press_port.is_empty(): return
+	if not input_ok(): _press_port = {}; return
+	var from := _press_port; _press_port = {}
+	if e.position.distance_to(_press_at) < 10.0: return   # a click, not a drag: the pipe stays in hand for the second click (a port that sits over another unit's body must not connect to that unit)
+	var rel := release_target(e.position, from)
+	drop_hover()
+	if not rel.is_empty(): port_clicked.emit(str(rel.unit), str(rel.port), bool(rel.inlet))
+	elif pipe_ghost_active(): pipe_missed(e.position)
+
 func _unhandled_input(e: InputEvent) -> void:
 	if not input_ok(): _press_port = {}; return
-	if e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT and not _press_port.is_empty():
-		var from := _press_port; _press_port = {}
-		if e.position.distance_to(_press_at) < 10.0: return   # a click, not a drag: the pipe stays in hand for the second click (a port that sits over another unit's body must not connect to that unit)
-		var rel := release_target(e.position, from)
-		drop_hover()
-		if not rel.is_empty(): port_clicked.emit(str(rel.unit), str(rel.port), bool(rel.inlet))
-		elif pipe_ghost_active(): pipe_missed(e.position)
-		return
 	if e is InputEventMouseMotion and e.button_mask != 0 and e.device != InputEvent.DEVICE_ID_EMULATION: drop_hover()   # mid-drag (a pan, a pipe): no tooltip or tag lingers under it
 	elif e is InputEventMouseButton and not e.pressed and e.button_index != MOUSE_BUTTON_LEFT and e.device != InputEvent.DEVICE_ID_EMULATION: drop_hover()
 	if e is InputEventMouseMotion and e.button_mask == 0 and placing == "" and e.device != InputEvent.DEVICE_ID_EMULATION: _hover_port(e.position)
@@ -881,7 +885,10 @@ func _unhandled_input(e: InputEvent) -> void:
 		if g != null:
 			var fp := footprint_of(placing, place_rot); var t := world_to_tile(g); _cursor = Vector2i(t.x - fp.x / 2, t.y - fp.y / 2); _update_ghost()
 	elif e is InputEventMouseButton and e.pressed and e.device != InputEvent.DEVICE_ID_EMULATION:
-		if e.button_index == MOUSE_BUTTON_LEFT: _click_at(e.position)
+		if e.button_index == MOUSE_BUTTON_LEFT:
+			var fo := get_viewport().gui_get_focus_owner()
+			if fo is LineEdit or fo is TextEdit: fo.release_focus()   # a click on the plot takes the keys back from a field left in focus (WASD pans again)
+			_click_at(e.position)
 		elif e.button_index == MOUSE_BUTTON_RIGHT and placing != "": cancel_place()
 	elif e is InputEventKey and e.pressed and not e.echo and (e.keycode == KEY_F or e.keycode == KEY_HOME) and not (e.ctrl_pressed or e.alt_pressed or e.meta_pressed) and not _focus_typing(): frame_plot()
 	elif e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_R and not (e.ctrl_pressed or e.alt_pressed) and not _focus_typing(): rotate_ghost()

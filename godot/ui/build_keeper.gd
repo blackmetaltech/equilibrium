@@ -9,6 +9,13 @@ static var act_log: Array = []
 static var restarting := false
 ## Levels whose prediction was made (or waived with Run anyway) in this attempt: the predict-first question is not asked again after a Retry / stop-and-edit.
 static var predict_done := {}
+## Runs of a level already printed before the last restart (Retry / Keep improving restart the engine, whose own run list starts empty): the printout's RUN number counts on from here.
+static var run_prior := {}
+## Goals that stood met when a level was restarted with its build kept, with a fingerprint of that build: the notebook keeps them ticked until the plant changes.
+static var kept_goals := {}
+static func plant_sig(app) -> int:
+	var c := capture(app)
+	return JSON.stringify([c.units, c.streams]).hash()
 static func note_act(name: String, args: Array) -> void:
 	if name == "setDial" and args.size() >= 1:
 		act_log = act_log.filter(func(a): return not (str(a[0]) == "setDial" and str((a[1] as Array)[0]) == str(args[0])))
@@ -136,6 +143,12 @@ static func restart(app, keep_build: bool) -> Dictionary:
 	if not (li is Dictionary) or not li.has("id"): app.new_game(app._mode_pref()); return {}
 	var snap := capture(app)
 	if not keep_build: snap.acts = []
+	var met_keys: Array = []
+	for g in li.get("goals", []): if g is Dictionary and bool(g.get("met", false)): met_keys.append(str(g.key))
+	if keep_build and not met_keys.is_empty(): kept_goals[str(li.id)] = {"sig": plant_sig(app), "met": met_keys}
+	else: kept_goals.erase(str(li.id))
+	var rq = app.b.q("runs")
+	run_prior[str(li.id)] = int(run_prior.get(str(li.id), 0)) + ((rq as Array).size() if rq is Array else 0)
 	restarting = true; clear_log()
 	var had_seed: int = int(app.get("last_seed")) if app.get("last_seed") != null else 0
 	if app.get("pinned_seed") != null and had_seed > 0: app.set("pinned_seed", had_seed)   # the same level seed: a Retry is the same job (L03's fuel does not re-roll)

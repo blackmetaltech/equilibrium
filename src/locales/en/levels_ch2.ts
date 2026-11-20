@@ -96,7 +96,7 @@ export const levelsCh2: Record<string, string> = {
   'lv.L06.cause.lean': 'The burner gas is {y} % SO₂ on {air} kmol/h of air, below the {min} % the smaller converter is sized for.',
   'lv.L06.cause.unfinished': 'The shift has run {t} of {len} s. Keep the gas inside the goals until the end.',
   'lv.L06.lesson': 'Sulfur burns to SO₂ without changing the number of moles, so the burner gas is the air plus a little less oxygen, and the heat of the reaction goes into that gas: a richer gas has fewer moles to share it. At {y} % SO₂ the burner gas left at {burner} °C, and the converter gas carried {r} mol of O₂ per mol of SO₂ ({dil} % of the air went round the burner).',
-  'lv.L06.metric.burner_so2': 'Burner gas SO₂', 'lv.L06.metric.burner_c': 'Burner gas temperature', 'lv.L06.metric.conv_cost_idx': 'Converter size index',
+  'lv.L06.metric.burner_so2': 'Burner gas SO₂ at shift end', 'lv.L06.metric.burner_c': 'Burner gas temperature, peak in the shift', 'lv.L06.metric.conv_cost_idx': 'Converter size index',
   // ---- L07 Hess's Road
   'lv.L07.title': 'Hess’s Road', 'lv.L07.place': 'Coke yard, the gasifier line',
   'lv.L07.note.1': 'The coke furnace is down. We have a gasifier that turns coke to CO and a CO burner. The process heater still needs 10 megawatts.',
@@ -173,6 +173,7 @@ export const levelsCh2: Record<string, string> = {
   'lv.L09.goal.run': 'Run the bench: flow calorimeter reads {value} kJ/mol of CH₄',
   'lv.L09.goal.run.pending': 'Run the bench: the flow calorimeter reading of the heat of burning CH₄ is pending (not run yet)',
   'lv.L09.goal.du.pending': 'Predict the bomb reading (ΔU of burning CH₄, kJ/mol) to within 0.5 %: your prediction is pending',
+  'lv.L09.goal.du.early': 'Bomb reading predicted within 0.5 %: target shown after the run (you wrote {value} kJ/mol)',
   'lv.L09.goal.du': 'Bomb reading predicted within 0.5 %: {target} kJ/mol (you wrote {value})',
   'lv.L09.star.1': 'The bomb prediction within 0.5 %',
   'lv.L09.star.2': 'Two of the three exam items right: the heat from the carbon, the energy of vaporising water, and the furnace switch temperature',
@@ -187,7 +188,7 @@ export const levelsCh2: Record<string, string> = {
   'lv.L09.callit.heat_co2': 'Exam item 1: heat released when 35.2 g of CO₂ forms from carbon, kJ',
   'lv.L09.callit.du_vap': 'Exam item 2: ΔU of vaporising one mole of water at 100 °C, kJ/mol',
   'lv.L09.callit.tmin_k': 'Exam item 3: the furnace reaction has ΔH = +{dH} kJ and ΔS = +{dS} kJ/K; the temperature above which it switches on (ΔG < 0), K',
-  'lv.L09.hero': 'Gap: flow minus bomb', 'lv.L09.sec': 'Lab furnace temperature',
+  'lv.L09.hero': 'Gap: flow minus bomb', 'lv.L09.sec': 'Furnace operating temperature (item 3 asks for the switch-on temperature)',
   'lv.L09.ann.bomb': 'BOMB RUN', 'lv.L09.ann.flow': 'FLOW CAL RUN', 'lv.L09.ann.gap': 'GAP OPEN', 'lv.L09.ann.furnace': 'FURNACE ON', 'lv.L09.ann.call': 'BOMB CALL',
   'lv.L09.ann.solve': 'SOLVE FAIL', 'lv.L09.ann.goal': 'GOAL MET',
   'lv.L09.coach.call_first.text': 'Call it first: the heat CH₄ gives in the bomb. Then make the three exam predictions.',
@@ -206,5 +207,5 @@ export const levelsCh2: Record<string, string> = {
   'lv.L09.cause.off': 'You wrote {p} kJ/mol; the bomb reads {bomb} and the flow calorimeter {flow}, a gap of {gap}.',
   'lv.L09.card': 'Exam items. Heat from 35.2 g of CO₂ formed from carbon: {heat} kJ. ΔU of vaporising water: {vap} kJ/mol. Furnace switches on above {tmin} K.',
   'lv.L09.lesson': 'ΔU = ΔH − Δn(gas) × RT. Burning methane to liquid water loses {dn} moles of gas: the flow calorimeter reads {flow} kJ/mol, the bomb {bomb}, and the gap is {gap} kJ/mol. A reaction run in a furnace switches on when ΔH − TΔS goes negative, above {tmin} K for ΔH = 400 kJ and ΔS = 0.2 kJ/K. You made {n} of the three exam items.',
-  'lv.L09.metric.gap_kj': 'Flow minus bomb', 'lv.L09.metric.ncert_ok': 'Exam items right', 'lv.L09.metric.furnace_k': 'Furnace temperature',
+  'lv.L09.metric.gap_kj': 'Flow minus bomb', 'lv.L09.metric.ncert_ok': 'Exam items right', 'lv.L09.metric.furnace_k': 'Furnace operating temperature (not the item-3 switch-on temperature)',
 };

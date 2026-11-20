@@ -85,7 +85,15 @@ func _allowed() -> bool: return world != null and world.call("input_ok")
 
 func _typing() -> bool:
 	var f := get_viewport().gui_get_focus_owner()
-	return f is LineEdit or f is TextEdit or f is SpinBox or f is OptionButton or f is Slider or f is ItemList or f is Tree
+	# only a field that is being typed in owns the letter keys: a slider, list or button that merely kept focus must not freeze WASD (round 8: no pan on L09)
+	if f is LineEdit: return (f as LineEdit).editable and (f as LineEdit).is_editing()
+	if f is TextEdit: return (f as TextEdit).editable and (f as TextEdit).has_focus()
+	return f is SpinBox
+
+## Arrow keys belong to a focused slider / list / picker (they move its value); the letters never do.
+func _arrows_taken() -> bool:
+	var f := get_viewport().gui_get_focus_owner()
+	return f is OptionButton or f is Slider or f is ItemList or f is Tree or f is TabBar
 
 func _process(dt: float) -> void:
 	var k := 1.0 - exp(-dt * 9.0)
@@ -93,10 +101,11 @@ func _process(dt: float) -> void:
 	if absf(_size - _size_to) > 0.004: _size = lerpf(_size, _size_to, k)
 	if _allowed() and not _typing() and not (Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_ALT) or Input.is_key_pressed(KEY_META)):
 		var v := Vector2.ZERO
-		if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): v.y -= 1
-		if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): v.y += 1
-		if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): v.x -= 1
-		if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): v.x += 1
+		var ar := not _arrows_taken()
+		if Input.is_key_pressed(KEY_W) or (ar and Input.is_key_pressed(KEY_UP)): v.y -= 1
+		if Input.is_key_pressed(KEY_S) or (ar and Input.is_key_pressed(KEY_DOWN)): v.y += 1
+		if Input.is_key_pressed(KEY_A) or (ar and Input.is_key_pressed(KEY_LEFT)): v.x -= 1
+		if Input.is_key_pressed(KEY_D) or (ar and Input.is_key_pressed(KEY_RIGHT)): v.x += 1
 		if v != Vector2.ZERO:
 			var sp := _size * 0.9 * dt * (2.0 if Input.is_key_pressed(KEY_SHIFT) else 1.0)
 			var right := Vector3.RIGHT.rotated(Vector3.UP, deg_to_rad(_yaw)); var fwd := Vector3.FORWARD.rotated(Vector3.UP, deg_to_rad(_yaw))

@@ -90,6 +90,8 @@ function goalText(s: S, spec: LevelSpec, g: GoalEval): string {
   };
   const pendingKey = `lv.${spec.id}.goal.${g.key}.pending`;
   if (g.value === undefined && pendingKey in en) return t(pendingKey, vars);
+  const earlyKey = `lv.${spec.id}.goal.${g.key}.early`;
+  if (g.target === undefined && g.value !== undefined && earlyKey in en) return t(earlyKey, vars);   // a prediction typed before the run: the target is not known yet, say so
   return t(g.key === 'budget' ? 'lv.goal.budget' : `lv.${spec.id}.goal.${g.key}`, vars);
 }
 
@@ -217,7 +219,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     notice,
     /** The speed (1, 4 or 16) the speed dial opens at when a run of this level starts. */
     recommendedSpeed: recommendedSpeed(spec.id),
-    goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(lack !== null && g.value === undefined ? { readout: t('lv.goal.needs_unit', { unit: t(`label.unit.${lack}`) }) } : {}), ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}) })),
+    goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met, pending: g.value === undefined, ...(lack !== null && g.value === undefined ? { readout: t('lv.goal.needs_unit', { unit: t(`label.unit.${lack}`) }) } : {}), ...(g.range !== undefined && g.value !== undefined ? { readout: t('lv.goal.readout_range', { value: fmt(s, g.value), unit: g.unit ?? '', lo: fmt(s, g.range[0]), hi: fmt(s, g.range[1]) }) } : {}), ...(g.value !== undefined ? { value: fin(g.value) } : {}), ...(g.target !== undefined ? { target: fin(g.target) } : {}), ...(g.unit !== undefined ? { unit: g.unit } : {}) })),
     budgetUSD: spec.budgetUSD, spentUSD: spent,
     stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`, spec.textVars?.(s))) },
     callIt: call === null ? null : {
@@ -253,7 +255,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     /** Extras: the cylinder banks (kg/h and kmol/h side by side), feed units whose composition no card may show, the shift length. */
     banks, bankSpecies: spec.bankSpecies ?? [], masked: spec.masked ? spec.masked(s) : [], shiftLen: spec.shiftLen,
     /** {t, total} plant seconds, speed, etaWallS (wall seconds left at this speed): the shift clock for the console; null on a level without a shift. */
-    shiftClock: shiftClockOf(s, spec),
+    shiftClock: ((c) => (c !== null && spec.id === 'L00' && m.ok && m.v.len! > 0 && m.v.len! < c.total ? { ...c, total: m.v.len!, etaWallS: c.etaWallS === null ? null : Math.ceil(Math.max(0, m.v.len! - c.t) / Math.max(1, c.speed)) } : c))(shiftClockOf(s, spec)),   // the L00 night is decided at 95 s: the clock counts to that, not to the 600 s timer
   };
 };
 
