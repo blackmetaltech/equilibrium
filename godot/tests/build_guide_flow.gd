@@ -5,6 +5,7 @@ extends SceneTree
 ## Run: godot --headless --path godot --script res://tests/build_guide_flow.gd   (CB_BG_SHOTS=<dir> to write screenshots: needs --rendering-driver opengl3 and a display)
 var fails := 0
 var checks := 0
+var auto_armed := 0   ## F14: part rows found already in hand after the previous part row was placed
 var app: CbApp
 var shots := OS.get_environment("CB_BG_SHOTS")
 func check(c: bool, msg: String) -> void:
@@ -52,6 +53,7 @@ func _initialize() -> void:
 		if only == "" or only == id: await play(id)
 	var ef := OS.get_environment("CB_BG_EMIT")
 	if ef != "": var fh := FileAccess.open(ef, FileAccess.WRITE); fh.store_string("\n".join(emit)); fh.close()
+	check(auto_armed >= 5, "after a part is placed, the next part row is already in hand (%d times)" % auto_armed)
 	print("BUILD-GUIDE-FLOW checks=%d" % checks)
 	print("BUILD-GUIDE-FLOW OK" if fails == 0 else "BUILD-GUIDE-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
@@ -143,6 +145,7 @@ func do_place(id: String, l: Dictionary) -> void:
 	for t in rack.tiles: if t.type == ty and t.guide: tile_on = true
 	check(tile_on, "%s: the %s tile in the parts rack pulses for %s" % [id, ty, sid])
 	check(w.suggested().x >= 0, "%s: the suggested spot of %s glows on the plot" % [id, sid])
+	if w.placing == ty: auto_armed += 1
 	await click_row(sid)
 	check(w.placing == ty, "%s: clicking %s arms the %s (placing '%s')" % [id, sid, ty, w.placing])
 	var at: Vector2i = w.suggested()

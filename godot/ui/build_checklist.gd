@@ -122,7 +122,12 @@ func _guide() -> void:
 	if w == null or not w.has_method("guide_ports"): return
 	var rack: Node = app.root.find_child("PartsRack", true, false)
 	var tg: Dictionary = target() if (visible or not lines.is_empty()) and str(Notebook.info(app).get("phase", "design")) == "design" and app.modal() == null else {}
+	var prev_auto := _auto
 	_auto = str(tg.get("id", ""))
+	# F14 (round 7 blocker): when a part row has just been done and the next row is another part, put that part in hand at once, so one click on the
+	# plot places it (testers clicked the plot and nothing happened: the tile only pulsed). Only on an advance, never on opening a level.
+	if _auto != prev_auto and prev_auto != "" and str(tg.get("kind", "")) == "place" and bool(line_of(prev_auto).get("done", false)):
+		_auto_arm.call_deferred(str(tg.get("id", "")))   # deferred: the placement that ticked the row is still in hand until its handler drops it
 	var ports: Array = []; var tile := ""; var sug := Vector2i(-1, -1); var stype := ""
 	if not tg.is_empty():
 		match str(tg.kind):
@@ -139,6 +144,13 @@ func _guide() -> void:
 	if sug.x >= 0: w.suggest_place(stype, sug)
 	else: w.clear_suggest()
 	if rack != null and rack.has_method("set_guide"): rack.call("set_guide", tile)
+
+func _auto_arm(id: String) -> void:
+	var l := line_of(id)
+	var w = app.world if app != null else null
+	if w == null or l.is_empty() or bool(l.get("done", false)) or str(w.get("placing")) != "" or _auto != id: return
+	w.begin_place(str(l.get("type", "")))
+	if l.get("at") is Array: w._cursor = Vector2i(int(l.at[0]), int(l.at[1])); w._update_ghost()
 
 ## A click on a line (panel or notebook): part -> in hand with its spot lit; pipe -> its ports pulse; setting -> the unit's plate opens.
 func activate(id: String) -> void:
