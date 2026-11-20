@@ -16,6 +16,7 @@ export const levels: Record<string, string> = {
   'ledger.ribbon': 'every release, side by side', 'ledger.release': 'released', 'ledger.recovered': 'recovered', 'ledger.lost': 'lost', 'ledger.duty': 'duty', 'ledger.exchanger': 'heat swapped in exchangers', 'ledger.efficiency': 'heater efficiency (duty / fuel)', 'ledger.total': 'total released',
   'ledger.heater_eff': '{id}: {duty} MW of duty from {fuel} MW of fuel, {eff} % efficient (the rest goes up the stack)',
   'lv.report.aborted': 'The run stopped before the goals were met. {cause}',
+  'lv.report.shift_over': 'The shift ran to its end, safely, but not every goal was met. {cause}',
   'lv.report.not_met': 'Not there yet: the job is still open, so change the plant and run again. {cause}',
   'lv.shift_lost': 'The shift ended early: the plant was lost before the goals were met.',
   'lv.goal.readout_range': '{value} {unit} (target {lo}-{hi})',

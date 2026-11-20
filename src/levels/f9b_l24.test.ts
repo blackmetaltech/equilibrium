@@ -46,6 +46,13 @@ function follow(p: Plan, rows?: string[][]): { e: Env<EqState>; litAt: number; p
 const WALL = 16; // the recipe runs at 16x: a human who needs w wall seconds loses 4 w plant seconds
 
 describe('L24 recipe, literally', () => {
+  it('F14: slow hands (each step minutes late) still win the safety goal with no trip (round 7: a literal, slow tester made 3.87 kmol)', () => {
+    for (const p of [{ first3: 'feed', late3: 480, gap3: 120, first4: 'coolant', gap4: 300, settle: 600 }, { first3: 'coolant', late3: 300, gap3: 200, first4: 'feed', gap4: 400, settle: 900 }] as Plan[]) {
+      const { e, peak } = follow(p);
+      expect(e.state.status, JSON.stringify(p)).toBe('won');
+      expect(peak).toBeLessThan(125);
+    }
+  });
   it('the notebook text carries the recipe numbers, in the dials units and with the speed, and is short', () => {
     const e = mk(), notes = (info(e).note as string[]);
     // F14: the notebook is the goal plus one paragraph of why; the numbers live in the checklist rows (buildGuide)

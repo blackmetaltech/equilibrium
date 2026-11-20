@@ -27,7 +27,7 @@ export const L24_FEED_MOL_S = (5 / 3600) * 52114;
 /** 45 minutes of plant time: about 4.5 minutes of wall clock when the recipe runs at 4x until the reactor is lit and at 16x afterwards (see wallclock.ts). It was 3600 s (6+ min). */
 export const L24_SHIFT_S = 2700;
 /** Plant-seconds of a PG goal, GAME. The on-spec product is counted from the moment the reactor is lit. */
-export const L24_PG_TARGET_KMOL = 5;
+export const L24_PG_TARGET_KMOL = 3.5;   // F14: round 7 (d3) followed the checklist with slow hands, no trip, and made 3.87: the goal is safety first; the Chief Engineer line (star 3) keeps the production challenge
 /** ★★★: the solver's best PG over the shift, divided by the 1.03 Chief-Engineer margin (GAME, UNVERIFIED; pinned by ch6.test.ts). */
 export const L24_PG_STAR = 6.6;
 /** The safety margin of the star: peak temperature at least this far below the 140 C relief point (DESIGN: 15 K). */

@@ -280,14 +280,15 @@ const resultCard: QueryFn<EqState> = (s) => {
   const histMetric = metrics.find((x) => x.key === h?.metric);
   const histOut = histogram && histMetric ? { ...histogram, title: histMetric.label, unit: histMetric.unit, labels: edgeLabels(histogram.edges, s.region) } : histogram;
   const grade = gradeCallIt(s, spec, m);
-  const notMet = !won && s.status === 'playing' && verdictKey !== 'solve_fail';
+  const shiftOver = !won && s.status === 'lost' && s.shift?.ended === 'time';   // the shift ran its full length, nothing lost: not an abort
+  const notMet = !won && verdictKey !== 'solve_fail' && (s.status === 'playing' || shiftOver);
   const eq = m.ok || spec.shiftLen === 0 ? spec.equation(s, m) : null;
   return {
     won, verdictKey, verdictText, ...(cause !== null ? { cause } : {}), ...(eq !== null ? { equation: eq } : {}), metrics,
     stars: { have: st.have, earned: st.earned }, starRule3: t(`lv.${spec.id}.star.3`, spec.textVars?.(s)), histogram: histOut,
     goals: goals.map((g) => ({ key: g.key, text: goalText(s, spec, g), met: g.met })),
     /** True when the run did not end in a win; `abortText` is a whole sentence for the banner (never a fragment to wrap in parentheses). */
-    aborted: !won, ...(!won ? { abortText: t(notMet ? 'lv.report.not_met' : 'lv.report.aborted', { cause: cause ?? verdictText }) } : {}),
+    aborted: !won, ...(!won ? { abortText: t(shiftOver ? 'lv.report.shift_over' : notMet ? 'lv.report.not_met' : 'lv.report.aborted', { cause: cause ?? verdictText }) } : {}),
     /** A run that missed its goals while the job is still open (a test burn, a first try): the printout says GOALS NOT MET, not RUN ABORTED. */
     notMet,
     ...(spec.callIt ? { callIt: grade } : {}),
