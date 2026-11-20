@@ -6,7 +6,7 @@ import { CAREER, careerOf, endingsView, outlookNote } from './career';
 import { SPEC_BY_ID, SPECS } from './registry';
 import { Env, Rng, TICK } from '@core/kit';
 import { GAME } from '../game';
-import { answerDecision, pendingDecision, CHIEF_MARGIN, INSPECT_EVERY, MONTHS, advance, attention, decide, exposure, initCareer, outlook, pace, previewInvest, score, taShort } from '../sim/career/model';
+import { ackWarning, answerDecision, pendingDecision, CHIEF_MARGIN, INSPECT_EVERY, MONTHS, advance, attention, decide, exposure, initCareer, outlook, pace, previewInvest, score, taShort } from '../sim/career/model';
 import { carefulDecisions, cautiousDecisions, playCareer } from '../sim/career/policy';
 import { humanCarefulDecisions, playCareerSteps } from '../sim/career/human';
 import type { EqState } from '../state';
@@ -72,7 +72,7 @@ describe('what would move you: levers with numbers', () => {
     expect(txt).toMatch(/\+\d+(\.\d)? MUSD a year/);
     expect(txt).not.toMatch(/lv\.CAREER|\{|undefined|NaN/);
   });
-  it('turnaround lever: book before the catalyst falls under 80 % (+x MUSD/yr); contract lever: sign at y % over spot', () => {
+  it('turnaround lever: the gain shown with its terms (output and gas less outage = +x MUSD/yr); contract lever: sign at y % over spot', () => {
     const c = initCareer(4, 'engineer');
     for (let i = 0; i < 8; i++) advance(c, 1);
     const o = outlook(c);
@@ -80,7 +80,8 @@ describe('what would move you: levers with numbers', () => {
     expect(ta, 'turnaround lever').toBeDefined();
     expect(Number(ta!.vars.gain)).toBeGreaterThan(0);
     const e = endingsView(c);
-    expect(e.levers.join(' ')).toMatch(/under 80 %/);
+    expect(e.levers.join(' ')).toMatch(/turnaround \(catalyst \d+ %, exchanger U \d+ %\): \+[\d.]+ MUSD a year of output and gas back to new, less [\d.]+ MUSD of outage, = \+[\d.]+ MUSD a year/);
+    expect(Number(ta!.vars.gross) - Number(ta!.vars.outage)).toBeCloseTo(Number(ta!.vars.gain), 6);
     c.offers = [{ id: 99, p: 'acid', tpm: 4000, price: Math.round(c.prices.acid * 1.1), term: 12, pen: 100, exp: c.m + 1 }];
     const l2 = outlook(c).levers.find((l) => l.key === 'contract');
     expect(l2).toBeDefined(); expect(l2!.vars.prem).toBe(10);
@@ -99,9 +100,9 @@ describe('plant cards, +3 MONTHS, BOOK and ACCEPT', () => {
   it('+3 MONTHS stops after the month an inspection comes within two months of due, a catalyst wears under 70 % or an exchanger fouls under 75 %, and at the year end; one month always runs', () => {
     const c = initCareer(1, 'engineer');
     let stoppedEarly = 0;
-    while (c.ending === '' && c.m < 36) { c.stopped = []; if (pendingDecision(c) !== null) answerDecision(c, 1); const n = advance(c, 3); expect(n).toBeGreaterThanOrEqual(1); if (n < 3 && c.m % 12 !== 0) { stoppedEarly++; expect(attention(c).length).toBeGreaterThan(0); } }
+    while (c.ending === '' && c.m < 36) { ackWarning(c); if (pendingDecision(c) !== null) answerDecision(c, 1); const n = advance(c, 3); expect(n).toBeGreaterThanOrEqual(1); if (n < 3 && c.m % 12 !== 0) { stoppedEarly++; expect(attention(c).length).toBeGreaterThan(0); } }
     expect(stoppedEarly).toBeGreaterThan(0);
-    const d = initCareer(1, 'engineer'); while (d.m < 11) advance(d, 1); expect(advance(d, 3)).toBe(1);   // month 12: the annual review
+    const d = initCareer(1, 'engineer'); while (d.m < 11) advance(d, 1); ackWarning(d); expect(advance(d, 3)).toBe(1);   // month 12: the annual review
     expect(d.years.length).toBe(1);
   });
   it('BOOK data: the shortfall a turnaround leaves against the running contracts, per month, with its penalty', () => {

@@ -33,6 +33,9 @@ export const CREW_BASE = 8;
 export const CREW_STEP = 4;
 export const TA_CREW_HIRE_USD = 6e5;
 export const TA_CRANE_HIRE_USD = 3e5;
+/** The economy catalyst grade: this fraction of the price, and its decay rate this many times the standard grade's. */
+export const ECO_PRICE = 0.5;
+export const ECO_DECAY = 1.15;
 export const RATE_MIN = 0.5;
 export const RATE_MAX = 1.1;
 
@@ -44,11 +47,11 @@ export const DEFS: Record<PlantId, PlantDef> = {
   etoh: { id: 'etoh', cap: 9000, price0: 950, gasGJ: 4, varUSD: 310, fixUSD: 2e6, catUSD: 5e5, decay: 0.010, foul: 0.015, wear: 0.006, proc: 0.05, gasCoupling: 0.05 },
 };
 
-export interface Plant { rate: number; cat: number; U: number; wear: number; insp: number; stock: number; down: number; ta: number; taCrane: number; taCrew: number; out: number; margin: number; risk: number }
+export interface Plant { /** decay multiplier of the installed catalyst grade (1 standard; absent in older saves) */ gm?: number; /** how many turnarounds the plant has had: tells one wear episode from the next (a warning is acknowledged per episode) */ gen?: number; rate: number; cat: number; U: number; wear: number; insp: number; stock: number; down: number; ta: number; taCrane: number; taCrew: number; out: number; margin: number; risk: number }
 export interface Contract { id: number; p: PlantId; tpm: number; price: number; left: number; pen: number }
 export interface Offer { id: number; p: PlantId; tpm: number; price: number; term: number; pen: number; exp: number }
 export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; /** operating margin: net margin before investments (catalyst, inspections, programmes) */ opMargin: number; tonnes: number; /** plant-days of lost output */ downDays: number; /** mean catalyst activity and exchanger U over the year (0..1) */ catAvg: number; uAvg: number; contractRev: number; contractT: number; /** where the Works is heading after this review (see `outlook`) */ outlook?: Outlook; capT: number; capOldT: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number }
-export interface LogRow { m: number; kind: 'event' | 'notice' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty' | 'decision'; code: string; plant: string; n: number }
+export interface LogRow { m: number; kind: 'event' | 'notice' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty' | 'decision'; code: string; plant: string; n: number; /** set on the rows that cost a regulator strike: the strike count after this one */ s?: number }
 export interface Hist { m: number; margin: number; cash: number; gas: number }
 export type Ending = '' | 'chief' | 'steady' | 'sold' | 'shut';
 export interface Career {
@@ -60,6 +63,10 @@ export interface Career {
   ending: Ending; lossYears: number;
   /** The attention flags that stopped the last multi-month advance and have not been acknowledged yet (absent in older saves). */
   stopped?: string[];
+  /** Warnings the player has acknowledged, one key each (kind:plant:episode); never a blanket acknowledgement. */
+  acked?: string[];
+  /** Plants that buy the economy catalyst grade (half price, faster decay) */
+  eco?: Partial<Record<PlantId, boolean>>;
   /** Yearly decisions: one per in-game year (absent in older saves). The last one with choice -1 is pending. */
   decisions?: YearDecision[];
   /** Debottleneck capacity added per plant (fraction of nameplate) and the gas hedge in force (fixed USD/GJ until month `until`). */
@@ -134,6 +141,8 @@ const riskAt = (c: Career, x: { wear: number; U: number; insp: number; rate: num
   clamp(0.45 * x.wear + 0.4 * Math.min(1, Math.max(0, x.insp - INSPECT_EVERY) / 6) + Math.max(0, x.rate - 0.95) * 4 + 0.3 * (1 - x.U) - 0.08 * c.invest.safety, 0, 1);
 export const riskOf = (c: Career, p: PlantId): number => riskAt(c, c.plants[p]);
 export const investCost = (c: Career, kind: 'heat' | 'abate' | 'safety'): number => INVEST_PRICE[kind]![c.invest[kind]] ?? 0;
+/** What a catalyst charge costs this plant now (standard or economy grade). */
+export const catPrice = (c: Career, p: PlantId): number => DEFS[p].catUSD * (c.eco?.[p] === true ? ECO_PRICE : 1);
 export const crewLimit = (c: Career): number => CREW_BASE + c.crews * CREW_STEP;
 
 // ------------------------------------------------------------------------------------------------ decisions
@@ -169,7 +178,7 @@ export function buyCatalyst(c: Career, p: unknown): void {
   alive(c);
   const id = plantOf(p), x = c.plants[id];
   need(x.stock === 0, 'stocked');
-  spend(c, DEFS[id].catUSD); x.stock = 1;
+  spend(c, catPrice(c, id)); x.stock = 1;
 }
 export function turnaround(c: Career, p: unknown, month: unknown, crane: unknown = 1, extraCrew: unknown = 0): void {
   alive(c);
@@ -235,7 +244,7 @@ export function stepMonth(c: Career): void {
     const stock = x.stock === 1, days = taDays(stock, x.taCrane, x.taCrew);
     const hire = (x.taCrew > 0 ? TA_CREW_HIRE_USD : 0) + (x.taCrane > 1 ? TA_CRANE_HIRE_USD : 0);
     cost += hire; x.down += days;
-    x.U = 1; x.wear = 0; x.insp = 0; if (stock) { x.cat = 1; x.stock = 0; }
+    x.U = 1; x.wear = 0; x.insp = 0; x.gen = (x.gen ?? 0) + 1; if (stock) { x.cat = 1; x.stock = 0; x.gm = c.eco?.[p] === true ? ECO_DECAY : 1; }
     x.ta = -1; c.log.push({ m, kind: 'turnaround', code: stock ? 'full' : 'nocat', plant: p, n: days });
   }
   // production and sales
@@ -270,7 +279,7 @@ export function stepMonth(c: Career): void {
     if (u >= pr) continue;
     if (u < pr * 0.4) {
       c.criticals++; c.ytd.criticals++; c.strikes++; x.down += CRIT_DOWN_D; x.wear = 0; fines += CRIT_FINE_USD;
-      c.log.push({ m, kind: 'critical', code: 'incident', plant: p, n: CRIT_DOWN_D });
+      c.log.push({ m, kind: 'critical', code: 'incident', plant: p, n: CRIT_DOWN_D, s: c.strikes });
     } else { x.down += MINOR_DOWN_D; fines += MINOR_FINE_USD; c.log.push({ m, kind: 'incident', code: 'minor', plant: p, n: MINOR_DOWN_D }); }
   }
   cost += fines; margin -= fines;
@@ -287,7 +296,7 @@ export function stepMonth(c: Career): void {
   // ageing
   for (const p of PLANTS) {
     const x = c.plants[p], d = DEFS[p];
-    x.cat = Math.max(0.2, x.cat * (1 - d.decay * x.rate));
+    x.cat = Math.max(0.2, x.cat * (1 - d.decay * x.rate * (x.gm ?? 1)));
     x.U = Math.max(0.5, x.U - d.foul * x.rate);
     x.wear = Math.min(1, x.wear + d.wear * x.rate * x.rate);
     x.insp += 1;
@@ -317,8 +326,11 @@ function yearEnd(c: Career): void {
   const emRatio = yt.em / (EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y));
   const effRatio = yt.effN > 0 ? yt.eff / yt.effN : 1;
   let strike = 0, fine = 0;
-  if (emRatio > 1) { fine = EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; strike++; c.cash -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.total.margin -= EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; c.log.push({ m: c.m, kind: 'fine', code: 'emissions', plant: '', n: Math.round((emRatio - 1) * 1000) }); }
-  if (PLANTS.some((p) => overdue(c, p) > INSPECT_STRIKE_OVER)) { strike++; c.log.push({ m: c.m, kind: 'fine', code: 'inspection', plant: '', n: 0 }); }
+  if (emRatio > 1) { fine = EM_CAP_MONTHLY_USD * (emRatio - 1) * 12 + EM_CAP_MONTHLY_USD; strike++; c.cash -= fine; c.total.margin -= fine; c.log.push({ m: c.m, kind: 'fine', code: 'emissions', plant: '', n: Math.round(emRatio * 100), s: c.strikes + strike }); }
+  // every plant past the inspection limit is named in the log; the regulator counts them as one strike
+  const late = PLANTS.filter((p) => overdue(c, p) > INSPECT_STRIKE_OVER);
+  if (late.length > 0) strike++;
+  late.forEach((p, i) => c.log.push({ m: c.m, kind: 'fine', code: 'inspection', plant: p, n: overdue(c, p), ...(i === 0 ? { s: c.strikes + strike } : {}) }));
   c.strikes += strike;
   // Victor judges operating performance: margin before investments. The return on a programme (less gas, fewer fines) is already inside it, its price is not charged to the score.
   const opMargin = yt.margin + (yt.inv ?? 0) - fine, net = yt.margin - fine;
@@ -327,7 +339,7 @@ function yearEnd(c: Career): void {
   const noor = clamp(Math.round(100 - 45 * yt.criticals - 100 * Math.max(0, emRatio - 0.9) - 25 * strike), 0, 100);
   // Mara also reads the equipment: a fouled exchanger and a tired catalyst cost points even when a heat-recovery programme hides them in the gas figure.
   const mara = clamp(Math.round(100 - 250 * Math.max(0, effRatio - 1) - 100 * Math.max(0, 0.95 - uAvg) - 80 * Math.max(0, 0.9 - catAvg)), 0, 100);
-  c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: yt.cost ?? 0, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: net, opMargin, tonnes: yt.tonnes, downDays: yt.down ?? 0, catAvg, uAvg, contractRev: yt.crev ?? 0, contractT: yt.ct ?? 0, capT: emCap(c), capOldT: EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y), criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
+  c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: (yt.cost ?? 0) + fine, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: net, opMargin, tonnes: yt.tonnes, downDays: yt.down ?? 0, catAvg, uAvg, contractRev: yt.crev ?? 0, contractT: yt.ct ?? 0, capT: emCap(c), capOldT: EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y), criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
   c.lossYears = opMargin < 0 ? c.lossYears + 1 : 0;
   c.years[c.years.length - 1]!.outlook = outlook(c);
   c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0, down: 0, cat: 0, U: 0, pn: 0, crev: 0, ct: 0 };
@@ -374,15 +386,16 @@ export function taShort(c: Career, p: PlantId, month: number, crane = 1, extraCr
 }
 export interface Lever { key: 'gap' | 'turnaround' | 'contract' | 'inspect'; vars: Record<string, number | string> }
 const unitMargin = (c: Career, p: PlantId): number => c.prices[p] - DEFS[p].varUSD - DEFS[p].gasGJ * gasMul(c, p) * c.gas;
-/** USD a year a turnaround would add to this plant, net of its outage: catalyst and exchanger back to new, with the catalyst taken at `catAt` if it is still above it. */
-export function renewalGain(c: Career, p: PlantId, catAt = 1): number {
+/** USD a year a turnaround would add to this plant, as its two terms: `gross` (catalyst and exchanger back to new: more output and less gas) and `outage` (the contribution lost while the plant is out). The catalyst is taken at `catAt` if it is still above it. */
+export function renewalParts(c: Career, p: PlantId, catAt = 1): { gross: number; outage: number } {
   const x = c.plants[p], d = DEFS[p], cat = Math.min(x.cat, catAt), keep = 1 - 0.15 * x.wear;
   const dOut = d.cap * x.rate * 0.6 * (1 - cat) * keep, out = outputOf(c, p);
   const um = unitMargin(c, p), mulNow = ((1 + 0.5 * (1 - x.U)) / (0.6 + 0.4 * cat)) * (1 - 0.07 * c.invest.heat), mulNew = 1 - 0.07 * c.invest.heat;
   const gas = out * d.gasGJ * (mulNow - mulNew) * c.gas;
-  const outage = (taDays(true, 1, 0) / 30) * out * Math.max(0, um);
-  return 12 * dOut * Math.max(0, um) + 12 * Math.max(0, gas) - outage;
+  return { gross: 12 * dOut * Math.max(0, um) + 12 * Math.max(0, gas), outage: (taDays(true, 1, 0) / 30) * out * Math.max(0, um) };
 }
+/** USD a year a turnaround would add to this plant, net of its outage (gross less outage of `renewalParts`). */
+export function renewalGain(c: Career, p: PlantId, catAt = 1): number { const r = renewalParts(c, p, catAt); return r.gross - r.outage; }
 /** Where the capacity of a plant stands against what is contracted: tonnes a month the plant can make at its present state and rate, and the exposure with an extra contract of `extra` t/month. */
 export const capacityT = (c: Career, p: PlantId): number => outputOf(c, p);
 /** Concrete levers toward the flagship, each with its number. Pure. */
@@ -391,8 +404,8 @@ export function levers(c: Career, proj: number): Lever[] {
   const left = Math.max(1, MONTHS - c.m);
   if (c.m > 0 && proj < CHIEF_MARGIN) out.push({ key: 'gap', vars: { gap: Math.round((CHIEF_MARGIN - proj) / 1e5) / 10, perYear: Math.round(((CHIEF_MARGIN - proj) / left) * 12 / 1e5) / 10, left } });
   let best: { p: PlantId; g: number } | null = null;
-  for (const p of PLANTS) if (c.plants[p].ta < 0) { const g = renewalGain(c, p, 0.8); if (g > 2e5 && (best === null || g > best.g)) best = { p, g }; }
-  if (best !== null && c.m < MONTHS - 8) out.push({ key: 'turnaround', vars: { plant: best.p, cat: Math.round(c.plants[best.p].cat * 100), gain: Math.round(best.g / 1e5) / 10 } });
+  for (const p of PLANTS) if (c.plants[p].ta < 0) { const g = renewalGain(c, p); if (g > 2e5 && (best === null || g > best.g)) best = { p, g }; }
+  if (best !== null && c.m < MONTHS - 8) { const r = renewalParts(c, best.p); out.push({ key: 'turnaround', vars: { plant: best.p, cat: Math.round(c.plants[best.p].cat * 100), u: Math.round(c.plants[best.p].U * 100), gross: Math.round(r.gross / 1e5) / 10, outage: Math.round(r.outage / 1e5) / 10, gain: (Math.round(r.gross / 1e5) - Math.round(r.outage / 1e5)) / 10 } }); }
   let bo: { id: number; p: PlantId; g: number; prem: number; tpm: number } | null = null;
   for (const o of c.offers) {
     const prem = o.price / c.prices[o.p] - 1, g = (o.price - c.prices[o.p]) * o.tpm * 12;
@@ -443,7 +456,25 @@ export function attention(c: Career): string[] {
   }
   return out;
 }
-/** Run up to `months` months. A multi-month run stops after the month in which an inspection comes within two months of due, a catalyst wears under 70 %, an exchanger fouls under 75 %, or the year ends (always at least one month).
+/** The inspection due month (1-based) of a plant: fixed while the plant is not inspected, however many months pass. */
+export const inspDueMonth = (c: Career, p: PlantId): number => c.m + (INSPECT_EVERY - c.plants[p].insp) + 1;
+/** The key of one warning: kind, plant and the episode (inspection: its due month; catalyst or exchanger: the turnaround count). An acknowledgement covers exactly one such key. */
+export const warnKey = (c: Career, kind: string, p: PlantId): string => `${kind}:${p}:${kind === 'insp' ? inspDueMonth(c, p) : (c.plants[p].gen ?? 0)}`;
+/** True when a booked turnaround already takes care of the warning before it can matter: it resets the inspection clock (if it comes before the plant is overdue), the exchanger, and the catalyst (when a charge is in stock). */
+export function warnHandled(c: Career, kind: string, p: PlantId): boolean {
+  const x = c.plants[p];
+  if (x.ta < c.m) return false;
+  if (kind === 'insp') return x.insp + (x.ta - c.m) <= INSPECT_EVERY;
+  if (kind === 'cat') return x.stock === 1;
+  return true;
+}
+/** The warnings that are lit, not handled by a booked turnaround and not yet acknowledged: what a multi-month run must not ride through. Keys as `warnKey`. */
+export function openWarnings(c: Career): string[] {
+  const acked = c.acked ?? [];
+  return attention(c).map((k) => k.split(':') as [string, PlantId]).filter(([kind, p]) => !warnHandled(c, kind, p)).map(([kind, p]) => warnKey(c, kind, p)).filter((k) => !acked.includes(k));
+}
+/** Run up to `months` months. A multi-month run stops after the month in which an inspection comes within two months of due, a catalyst wears under 70 %, an exchanger fouls under 75 %, or the year ends (always at least one month);
+ * it does not start while a warning is open (lit, not handled by a booked turnaround, not acknowledged one by one).
  * A pending yearly decision blocks every multi-month run; a single month always runs and lets the decision lapse to "do nothing". */
 export function advance(c: Career, months: unknown = 1): number {
   alive(c);
@@ -452,23 +483,20 @@ export function advance(c: Career, months: unknown = 1): number {
   need((months as number) === 1 || pend === null, 'decision');
   if (pend !== null) { pend.choice = 1; pend.lapsed = true; }
   c.why = null;
-  // after a stop at a warning, the next multi-month run needs the warning acknowledged (ackWarning, the board's CONTINUE ANYWAY key); one month at a time always goes
-  const lit = new Set(attention(c));
-  c.stopped = (c.stopped ?? []).filter((k) => lit.has(k));
-  need((months as number) === 1 || c.stopped.length === 0, 'ack');
+  const open = openWarnings(c);
+  if ((months as number) > 1 && open.length > 0) { c.stopped = open; need(false, 'ack'); }
   c.stopped = [];
   let n = 0;
-  const before = new Set(attention(c));
   while (n < (months as number) && c.ending === '') {
     stepMonth(c); n++;
     if (c.m % 12 === 0) break;
-    const fresh = attention(c).filter((k) => !before.has(k));
+    const fresh = openWarnings(c);
     if ((months as number) > 1 && fresh.length > 0) { c.stopped = fresh; break; }
   }
   return n;
 }
-/** Acknowledge the warning that stopped the last multi-month advance: the next +3 MONTHS may run. */
-export function ackWarning(c: Career): void { alive(c); c.stopped = []; }
+/** Acknowledge the warnings that are open now (each by its own key: plant, kind and due month); a warning that lights later is a new one and stops the run again. */
+export function ackWarning(c: Career): void { alive(c); c.acked = [...(c.acked ?? []), ...openWarnings(c).filter((k) => !(c.acked ?? []).includes(k))]; c.stopped = []; }
 
 /** One decision by name (the level actions call this); unknown names and refused decisions throw CareerError. */
 export function decide(c: Career, name: string, ...a: unknown[]): void {
@@ -552,13 +580,39 @@ export function alerts(c: Career): Alert[] {
   return attention(c).map((k) => { const [kind, plant] = k.split(':') as [Alert['kind'], PlantId]; return { kind, plant }; });
 }
 
+/** A plant whose inspection will be a regulator strike at the coming year end unless it is done (or a turnaround books it) first: the board says so ahead of time. */
+export interface StrikeAhead { plant: PlantId; /** months past due the plant will be at the year end if nothing is done */ over: number; dueMonth: number; /** month number of the year-end check */ checkMonth: number; /** the strike this would be (1-based) */ strikeNo: number }
+export function strikeAhead(c: Career): StrikeAhead[] {
+  if (c.ending !== '') return [];
+  const toCheck = 12 - (c.m % 12), out: StrikeAhead[] = [];
+  for (const p of PLANTS) {
+    const x = c.plants[p], proj = x.insp + toCheck - INSPECT_EVERY;
+    if (proj < INSPECT_STRIKE_OVER - 2 || (x.ta >= c.m && x.ta < c.m + toCheck)) continue;
+    out.push({ plant: p, over: proj, dueMonth: inspDueMonth(c, p), checkMonth: c.m + toCheck, strikeNo: c.strikes + 1 });
+  }
+  return out;
+}
+/** What signing an offer does to a plant that has a turnaround booked inside the contract term: the plant is out for days that month, so it ships less than the contracts (this one included) ask; the tonnes short and the penalty this contract adds. */
+export function offerTaShort(c: Career, o: Offer): { month: number; days: number; shortT: number; penaltyUSD: number } | null {
+  const x = c.plants[o.p];
+  if (x.ta < c.m || x.ta - c.m >= o.term) return null;
+  const month = x.ta, days = Math.min(30, taDays(x.stock === 1, x.taCrane, x.taCrew)), ks = [...c.contracts.filter((k) => k.p === o.p && k.left > month - c.m), { tpm: o.tpm, pen: o.pen }];
+  const base = taShort(c, o.p, month, x.taCrane, x.taCrew), need_ = ks.reduce((a, k) => a + k.tpm, 0), can = outputOf(c, o.p) * (1 - days / 30), deliver = Math.min(can, need_);
+  let pen = 0;
+  for (const k of ks) pen += Math.max(0, k.tpm - (need_ > 0 ? (k.tpm / need_) * deliver : 0)) * k.pen;
+  const shortT = Math.max(0, need_ - can);
+  return shortT > 1 ? { month, days, shortT, penaltyUSD: Math.max(0, pen - base.penaltyUSD) } : null;
+}
+
 
 // ------------------------------------------------------------------------------------------------ the yearly decision
 // One decision a year, drawn from a pool of four (rotated from the seed so all four kinds come up), each with two options and an expected effect in USD computed from the engine's own formulas on a no-noise forecast of
 // the gas and price walk (the same mean reversion `stepMonth` applies). Option 0 acts, option 1 is the status quo ("do nothing"), which a lapsed decision takes.
-export type DecKind = 'contract' | 'turnaround' | 'debottleneck' | 'hedge';
-export const DEC_KINDS: readonly DecKind[] = ['contract', 'turnaround', 'debottleneck', 'hedge'];
-export interface DecOption { id: 'a' | 'b'; /** expected effect against doing nothing, USD over `YearDecision.vars.months` */ effectUSD: number; /** cash paid now */ costUSD: number; vars: Record<string, number | string> }
+export type DecKind = 'contract' | 'turnaround' | 'debottleneck' | 'hedge' | 'catgrade' | 'crew';
+export const DEC_KINDS: readonly DecKind[] = ['contract', 'turnaround', 'debottleneck', 'hedge', 'catgrade', 'crew'];
+/** One term of an option's expected effect (USD, signed): the terms of an option add up to its `effectUSD` exactly. */
+export interface DecTerm { key: string; usd: number }
+export interface DecOption { id: 'a' | 'b'; /** expected effect against doing nothing, USD over `YearDecision.vars.months`: the sum of `terms` */ effectUSD: number; /** what the effect is made of, each in USD, summing to `effectUSD` */ terms: DecTerm[]; /** cash paid now */ costUSD: number; vars: Record<string, number | string> }
 export interface YearDecision { year: number; m: number; kind: DecKind; plant: PlantId | ''; options: DecOption[]; /** index of the option with the better expected effect (the careful pick) */ best: number; vars: Record<string, number | string>; /** -1 pending, else the option taken */ choice: number; lapsed: boolean }
 export interface StopWhy { kind: string; plant: string; n: number }
 export const DEC_CONTRACT_DISCOUNT = 0.03, DEC_CONTRACT_TERM = 18, DEC_CONTRACT_FRAC = 0.2, DEC_BOOST = 0.08, DEC_BOOST_PAYBACK_YEARS = 1.7, DEC_BOOST_HORIZON = 24, DEC_HEDGE_MARGIN = 0.05, DEC_HEDGE_STRESS_GAS = 12, DEC_TA_LEAD = 2, DEC_EM_SAFE = 0.97;
@@ -579,6 +633,10 @@ function forecast(c: Career, h: number): Fcst {
 }
 const gasUseGJ = (c: Career): number => PLANTS.reduce((a, p) => a + outputOf(c, p) * DEFS[p].gasGJ * gasMul(c, p), 0);
 const r1 = (x: number): number => Math.round(x * 10) / 10;
+const r2 = (x: number): number => Math.round(x / 1e4) / 100;
+const sumTerms = (t: DecTerm[]): number => t.reduce((a, x) => a + x.usd, 0);
+/** An option whose effect IS the sum of its terms. */
+const mkOpt = (id: 'a' | 'b', terms: DecTerm[], costUSD: number, vars: Record<string, number | string>): DecOption => ({ id, effectUSD: sumTerms(terms), terms, costUSD, vars });
 
 function contractDecision(c: Career, p: PlantId): YearDecision | null {
   const d = DEFS[p], o = outputOf(c, p), tpm = Math.round((d.cap * DEC_CONTRACT_FRAC) / 100) * 100, have = contracted(c, p);
@@ -586,29 +644,33 @@ function contractDecision(c: Career, p: PlantId): YearDecision | null {
   const price = Math.round(c.prices[p] * (1 - DEC_CONTRACT_DISCOUNT)), term = Math.min(DEC_CONTRACT_TERM, MONTHS - c.m), pen = Math.round(price * 1.6);
   if (term < 6) return null;
   const f = forecast(c, term);
-  let eff = 0;
+  // the effect on the Works, term by term: the fixed price against spot on the contracted tonnes; what the spot tonnes left over fetch (selling fewer of them lifts their price); the penalty on tonnes the plant cannot deliver
+  let tPrice = 0, tDepth = 0, tPen = 0;
   for (let k = 0; k < term; k++) {
     const s = f.price[p][k]!, free = Math.max(0, o - have), dE = Math.min(tpm, free), spotBefore = free * s * (1 - 0.15 * (free / d.cap)), spotAfter = (free - dE) * s * (1 - 0.15 * ((free - dE) / d.cap));
-    eff += dE * price + spotAfter - spotBefore - Math.max(0, have + tpm - o) * pen;
+    tPrice += dE * (price - s); tDepth += dE * s + spotAfter - spotBefore; tPen -= Math.max(0, have + tpm - o) * pen;
   }
+  const terms: DecTerm[] = [{ key: 'price', usd: tPrice }, { key: 'depth', usd: tDepth }, { key: 'penalty', usd: tPen }];
   const avgSpot = f.price[p].reduce((a, x) => a + x, 0) / term, mean = d.price0;
   const vars = { plant: p, tpm, price, spot: Math.round(c.prices[p]), term, months: term, expSpot: Math.round(avgSpot), pen, mean };
-  return { year: 0, m: 0, kind: 'contract', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [{ id: 'a', effectUSD: eff, costUSD: 0, vars: { price, tpm, term } }, { id: 'b', effectUSD: 0, costUSD: 0, vars: { spot: Math.round(c.prices[p]), expSpot: Math.round(avgSpot) } }] };
+  return { year: 0, m: 0, kind: 'contract', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', terms, 0, { price, tpm, term }), mkOpt('b', [], 0, { spot: Math.round(c.prices[p]), expSpot: Math.round(avgSpot) })] };
 }
 function turnaroundDecision(c: Career): YearDecision | null {
   if (c.m > MONTHS - 12) return null;
-  let best: { p: PlantId; eff: number; w: TaWeigh; cat: number } | null = null;
+  let best: { p: PlantId; terms: DecTerm[]; w: TaWeigh; cat: number; gr: { gross: number; outage: number } } | null = null;
   for (const p of PLANTS) {
     const x = c.plants[p]; if (x.ta >= 0) continue;
-    const w = taWeigh(c, p, c.m + DEC_TA_LEAD), cat = x.stock === 0 ? DEFS[p].catUSD : 0, eff = w.saveUSD + renewalGain(c, p) - w.penaltyUSD - w.hireUSD - cat;
-    if (best === null || eff > best.eff) best = { p, eff, w, cat };
+    const w = taWeigh(c, p, c.m + DEC_TA_LEAD), cat = x.stock === 0 ? catPrice(c, p) : 0, gr = renewalParts(c, p);
+    // incident cost removed + a year of output and gas back to new - the outage - contract penalty - hire - the catalyst charge
+    const terms: DecTerm[] = [{ key: 'incident', usd: w.saveUSD }, { key: 'gain', usd: gr.gross }, { key: 'outage', usd: -gr.outage }, { key: 'penalty', usd: -w.penaltyUSD }, { key: 'hire', usd: -w.hireUSD }, { key: 'catalyst', usd: -cat }];
+    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms, w, cat, gr };
   }
   if (best === null) return null;
-  const { p, w } = best, x = c.plants[p], days = taDays(true, 1, 0);
+  const { p, w, gr } = best, x = c.plants[p], days = taDays(true, 1, 0);
   const vars = { plant: p, month: c.m + DEC_TA_LEAD + 1, days, cat: Math.round(x.cat * 100), u: Math.round(x.U * 100), months: 12 };
   return { year: 0, m: 0, kind: 'turnaround', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [
-    { id: 'a', effectUSD: best.eff, costUSD: best.cat, vars: { skip: Math.round(w.skipUSD / 1e4) / 100, after: Math.round(w.afterUSD / 1e4) / 100, outage: Math.round(w.outageUSD / 1e4) / 100, pen: Math.round(w.penaltyUSD / 1e4) / 100, cat: Math.round(best.cat / 1e4) / 100 } },
-    { id: 'b', effectUSD: 0, costUSD: 0, vars: { risk: Math.round(riskOf(c, p) * 100) } }] };
+    mkOpt('a', best.terms, best.cat, { skip: r2(w.skipUSD), after: r2(w.afterUSD), outage: r2(gr.outage), pen: r2(w.penaltyUSD), cat: r2(best.cat) }),
+    mkOpt('b', [], 0, { risk: Math.round(riskOf(c, p) * 100) })] };
 }
 /** CO2 a year (t) at the present state, with every plant taken at no less than 95 % of nameplate (the rate a careful player settles at), and with `extraP` taking the extra capacity `x`. */
 function emissionsYear(c: Career, extraP: PlantId | '' = '', x = 0): number {
@@ -632,7 +694,7 @@ function debottleneckDecision(c: Career): YearDecision | null {
   const em0 = emissionsYear(c), em1 = emissionsYear(c, q, DEC_BOOST), cap = emCap(c), ratio = em1 / cap;
   const fine = ratio > DEC_EM_SAFE ? EM_CAP_MONTHLY_USD * (Math.max(0, ratio - 1) * 12 + 1) : 0;
   const perYear = (gain / h) * 12, vars = { plant: q, pct: Math.round(DEC_BOOST * 100), dT: Math.round(dO), months: h, perYear: r1(perYear / 1e6), price: r1(cost / 1e6), dEm: Math.round((em1 - em0) / 1000), ratio: Math.round(ratio * 100), safe: Math.round(DEC_EM_SAFE * 100), fine: r1(fine / 1e6) };
-  return { year: 0, m: 0, kind: 'debottleneck', plant: q, vars, best: 0, choice: -1, lapsed: false, options: [{ id: 'a', effectUSD: gain - cost - fine, costUSD: cost, vars: { gain: r1(gain / 1e6), price: r1(cost / 1e6), fine: r1(fine / 1e6) } }, { id: 'b', effectUSD: 0, costUSD: 0, vars: {} }] };
+  return { year: 0, m: 0, kind: 'debottleneck', plant: q, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', [{ key: 'gain', usd: gain }, { key: 'build', usd: -cost }, { key: 'fine', usd: -fine }], cost, { gain: r1(gain / 1e6), price: r1(cost / 1e6), fine: r1(fine / 1e6) }), mkOpt('b', [], 0, {})] };
 }
 function hedgeDecision(c: Career): YearDecision | null {
   const h = Math.min(12, MONTHS - c.m);
@@ -641,23 +703,69 @@ function hedgeDecision(c: Career): YearDecision | null {
   let eff = 0, stress = 0;
   for (let k = 0; k < h; k++) { eff += gj * (f.gas[k]! * f.evGas - strike); stress += gj * (DEC_HEDGE_STRESS_GAS - strike); }
   const avg = (f.gas.reduce((a, x) => a + x, 0) / h) * f.evGas, vars = { price: strike, gas: Math.round(c.gas * 100) / 100, expGas: Math.round(avg * 100) / 100, gj: Math.round(gj / 1000), months: h, stress: r1(stress / 1e6), stressGas: DEC_HEDGE_STRESS_GAS };
-  return { year: 0, m: 0, kind: 'hedge', plant: '', vars, best: 0, choice: -1, lapsed: false, options: [{ id: 'a', effectUSD: eff, costUSD: 0, vars: { price: strike, stress: r1(stress / 1e6) } }, { id: 'b', effectUSD: 0, costUSD: 0, vars: { gas: Math.round(c.gas * 100) / 100, expGas: Math.round(avg * 100) / 100 } }] };
+  return { year: 0, m: 0, kind: 'hedge', plant: '', vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', [{ key: 'gas', usd: eff }], 0, { price: strike, stress: r1(stress / 1e6) }), mkOpt('b', [], 0, { gas: Math.round(c.gas * 100) / 100, expGas: Math.round(avg * 100) / 100 })] };
 }
-/** Raise this year's decision (the kind rotates from the seed; a kind that does not apply gives way to the next). */
+/** Economy catalyst grade: half the price of every charge, but it decays faster. Effect over the horizon: the saving on the next charge against the output and gas the faster decay costs on the forecast walk. */
+function catgradeDecision(c: Career): YearDecision | null {
+  const h = Math.min(DEC_BOOST_HORIZON, MONTHS - c.m);
+  if (h < 12) return null;
+  const f = forecast(c, h);
+  let best: { p: PlantId; terms: DecTerm[] } | null = null;
+  for (const p of PLANTS) {
+    if (c.eco?.[p] === true) continue;
+    const x = c.plants[p], d = DEFS[p], heat = 1 - 0.07 * c.invest.heat;
+    const margin = (cat: number, k: number): number => d.cap * (1 + (c.boost?.[p] ?? 0)) * x.rate * (0.4 + 0.6 * cat) * (f.price[p][k]! - d.varUSD - d.gasGJ * (heat / (0.6 + 0.4 * cat)) * f.gas[k]! * f.evGas);
+    let loss = 0, cs = 1, ce = 1;
+    for (let k = DEC_TA_LEAD; k < h; k++) { loss += margin(cs, k) - margin(ce, k); cs *= 1 - d.decay * x.rate; ce *= 1 - d.decay * x.rate * ECO_DECAY; }
+    const terms: DecTerm[] = [{ key: 'saving', usd: d.catUSD * (1 - ECO_PRICE) }, { key: 'loss', usd: -loss }];
+    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms };
+  }
+  if (best === null) return null;
+  const { p, terms } = best, d = DEFS[p];
+  const vars = { plant: p, price: r2(d.catUSD), eco: r2(d.catUSD * ECO_PRICE), pct: Math.round((1 - ECO_PRICE) * 100), decay: Math.round((ECO_DECAY - 1) * 100), months: h, save: r2(terms[0]!.usd), loss: r2(-terms[1]!.usd) };
+  return { year: 0, m: 0, kind: 'catgrade', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', terms, 0, { eco: vars.eco, save: vars.save, loss: vars.loss }), mkOpt('b', [], 0, { price: vars.price })] };
+}
+/** A worn plant's turnaround, booked either way: with contractors (a second crane and four extra hands, hired) or with the Works' own crew and one crane. Option A's effect is the outage and penalty it saves less the hire; B is the baseline. */
+function crewDecision(c: Career): YearDecision | null {
+  if (c.m > MONTHS - 12) return null;
+  const month = c.m + DEC_TA_LEAD;
+  let best: { p: PlantId; terms: DecTerm[]; days: [number, number] } | null = null;
+  for (const p of PLANTS) {
+    const x = c.plants[p];
+    if (x.ta >= 0 || (x.cat >= 0.8 && x.U >= 0.85)) continue;
+    const wa = taWeigh(c, p, month, 2, CREW_STEP), wb = taWeigh(c, p, month, 1, 0);
+    const terms: DecTerm[] = [{ key: 'outage', usd: wb.outageUSD - wa.outageUSD }, { key: 'penalty', usd: wb.penaltyUSD - wa.penaltyUSD }, { key: 'hire', usd: -wa.hireUSD }];
+    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms, days: [taShort(c, p, month, 2, CREW_STEP).days, taShort(c, p, month, 1, 0).days] };
+  }
+  if (best === null) return null;
+  const { p, terms, days } = best, x = c.plants[p], cat = x.stock === 0 ? catPrice(c, p) : 0;
+  const vars = { plant: p, month: month + 1, cat: Math.round(x.cat * 100), u: Math.round(x.U * 100), daysA: days[0], daysB: days[1], hire: r2(TA_CREW_HIRE_USD + TA_CRANE_HIRE_USD), catUSD: r2(cat), months: 12 };
+  return { year: 0, m: 0, kind: 'crew', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', terms, cat, { daysA: days[0], hire: vars.hire }), mkOpt('b', [], cat, { daysB: days[1] })] };
+}
+const dkind = (c: Career, kind: DecKind): YearDecision | null => {
+  switch (kind) {
+    case 'contract': { const first = Math.floor(draw(c.seed, c.m, 501) * PLANTS.length); for (let j = 0; j < PLANTS.length; j++) { const d = contractDecision(c, PLANTS[(first + j) % PLANTS.length]!); if (d !== null) return d; } return null; }
+    case 'turnaround': return turnaroundDecision(c);
+    case 'debottleneck': return debottleneckDecision(c);
+    case 'catgrade': return catgradeDecision(c);
+    case 'crew': return crewDecision(c);
+    default: return hedgeDecision(c);
+  }
+};
+/** Raise this year's decision: the kind rotates from the seed, and a kind not yet drawn this career comes before one that was, so five years show five different cards while the pool allows. A kind that does not apply gives way to the next. */
 function raiseDecision(c: Career): void {
   if (c.ending !== '') return;
-  const y = year(c), start = Math.floor(draw(c.seed, 0, 500) * DEC_KINDS.length);
-  for (let i = 0; i < DEC_KINDS.length; i++) {
-    const kind = DEC_KINDS[(start + y + i) % DEC_KINDS.length]!;
-    let d: YearDecision | null = null;
-    if (kind === 'contract') { const first = Math.floor(draw(c.seed, c.m, 501) * PLANTS.length); for (let j = 0; j < PLANTS.length && d === null; j++) d = contractDecision(c, PLANTS[(first + j) % PLANTS.length]!); }
-    else if (kind === 'turnaround') d = turnaroundDecision(c);
-    else if (kind === 'debottleneck') d = debottleneckDecision(c);
-    else d = hedgeDecision(c);
-    if (d === null) continue;
-    d.year = y + 1; d.m = c.m; d.best = d.options[0]!.effectUSD - d.options[1]!.effectUSD > 3e5 ? 0 : 1;
-    (c.decisions ??= []).push(d); c.log.push({ m: c.m, kind: 'decision', code: kind, plant: d.plant, n: y + 1 });
-    return;
+  const y = year(c), start = Math.floor(draw(c.seed, 0, 500) * DEC_KINDS.length), used = (c.decisions ?? []).map((d) => d.kind), n = DEC_KINDS.length;
+  for (const fresh of [true, false]) {
+    for (let i = 0; i < n; i++) {
+      const kind = DEC_KINDS[(start + y + i) % n]!;
+      if (fresh && used.includes(kind)) continue;
+      const d = dkind(c, kind);
+      if (d === null) continue;
+      d.year = y + 1; d.m = c.m; d.best = d.options[0]!.effectUSD - d.options[1]!.effectUSD > 3e5 ? 0 : 1;
+      (c.decisions ??= []).push(d); c.log.push({ m: c.m, kind: 'decision', code: kind, plant: d.plant, n: y + 1 });
+      return;
+    }
   }
 }
 /** Answer the pending yearly decision: 0 takes the action, 1 does nothing. */
@@ -673,8 +781,10 @@ export function answerDecision(c: Career, choice: unknown): void {
       case 'turnaround': { const p = d!.plant as PlantId, x = c.plants[p]; if (x.stock === 0) buyCatalyst(c, p); x.ta = c.m + DEC_TA_LEAD; x.taCrane = 1; x.taCrew = 0; break; }
       case 'debottleneck': { const q = d!.plant as PlantId; spend(c, d!.options[0]!.costUSD); (c.boost ??= {})[q] = (c.boost[q] ?? 0) + DEC_BOOST; break; }
       case 'hedge': c.hedge = { price: v.price as number, until: c.m + (v.months as number) }; break;
+      case 'catgrade': (c.eco ??= {})[d!.plant as PlantId] = true; break;
+      case 'crew': { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, c.m + DEC_TA_LEAD, 2, CREW_STEP); break; }
     }
-  }
+  } else if (d!.kind === 'crew') { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, c.m + DEC_TA_LEAD, 1, 0); }
   d!.choice = choice as number;
 }
 
@@ -694,10 +804,10 @@ export const SWING_GAS = 0.5, SWING_PRICE = 0.2, SKIP_MAX = 12;
 export function advanceToDecision(c: Career): number {
   alive(c);
   need(pendingDecision(c) === null, 'decision');
-  const lit = new Set(attention(c));
-  c.stopped = (c.stopped ?? []).filter((k) => lit.has(k));
-  need(c.stopped.length === 0, 'ack');
-  const before = new Set(attention(c)), gas0 = c.gas, p0 = { ...c.prices }, od0 = new Set(PLANTS.filter((p) => overdue(c, p) > 0));
+  const open = openWarnings(c);
+  if (open.length > 0) { c.stopped = open; need(false, 'ack'); }
+  c.stopped = [];
+  const gas0 = c.gas, p0 = { ...c.prices }, od0 = new Set(PLANTS.filter((p) => overdue(c, p) > 0));
   let n = 0, why: StopWhy = { kind: 'limit', plant: '', n: SKIP_MAX };
   while (n < SKIP_MAX && c.ending === '') {
     stepMonth(c); n++;
@@ -706,7 +816,7 @@ export function advanceToDecision(c: Career): number {
     if (c.m % 12 === 0) { why = { kind: 'year', plant: '', n: c.m / 12 }; break; }
     const bad = c.log.filter((l) => l.m === c.m - 1 && (l.kind === 'critical' || l.kind === 'incident')).pop();
     if (bad !== undefined) { why = { kind: bad.kind, plant: bad.plant, n: bad.n }; break; }
-    const fresh = attention(c).filter((k) => !before.has(k));
+    const fresh = openWarnings(c);
     if (fresh.length > 0) { c.stopped = fresh; const [kind, plant] = fresh[0]!.split(':'); why = { kind: kind!, plant: plant!, n: fresh.length }; break; }
     const od = PLANTS.find((p) => overdue(c, p) > 0 && !od0.has(p));
     if (od !== undefined) { why = { kind: 'overdue', plant: od, n: overdue(c, od) }; break; }

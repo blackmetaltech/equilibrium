@@ -219,6 +219,7 @@ func _l33() -> void:
 func _career() -> void:
 	await level("CAREER"); app.lvbay.refresh(true); await frames(5)
 	var p = app.lvbay.panel
+	p.open_all(); await frames(3)   # a handheld board folds its plant cards
 	var books: Array = p.find_children("Book_*", "Button", true, false)
 	check(books.size() == 4, "four BOOK keys, one per plant (%d)" % books.size())
 	var all_off := true
