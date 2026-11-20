@@ -3,6 +3,23 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [Unreleased] - 0.7 layer 0 · "The Works you run" (F19: the Career stops selling careful players)
+### Added
+- **Overlap pricing.** Turnarounds in the same month share one crew pool and one crane (`taGroupDays`): the outages really run longer. BOOK shows the extra days and
+  MUSD ("Overlaps the ammonia turnaround in month 6 ... 26 d instead of 15 d ... 11 extra plant-days, about 1.60 MUSD"), the yearly turnaround/crew cards carry an `overlap`
+  term, and the board (card, lever, `suggestTaMonth`) suggests the first month with no other turnaround.
+- **Emissions strike warned.** Year-end emissions are projected from the aged state of the plants; from six months out an over-the-cap projection is an EMISSIONS AHEAD banner
+  (pinned), a stop on NEXT DECISION / +3 MONTHS, with two levers and their numbers (rates per plant, abatement level). The debottleneck card states one emissions figure.
+- **One target**: the yearly target is the Flagship total over five years (28 MUSD a year of 140), in reviews, the endings strip, the course line and Victor's score.
+- **Endings say why** on the end card and the verdict ("Two losing years in a row: year 2 -33.2 MUSD, year 3 -10.9 MUSD."); an ENDING AHEAD projection stops a run three months before a year
+  end that would sell the Works or shut the site; simultaneous overdue inspections are one stop listing every plant.
+- **Annual review as a card** at each year end with "last year's card": the card replayed against the option not taken (same later decisions, same seed) gives what it realised and why.
+- **Suggestion follower** policy (`followerDecisions`, `playCareerFollower`): does what the board says. Twelve seeds, Steady or better everywhere.
+### Changed
+- BUY CATALYST stays armed until pressed again or CANCELled; BOOK without a charge answers in red; STRIKE AHEAD only when the projected overdue passes 6 months; "due now" clears
+  once a booking resets it; one penalty number on offers; the outage with and without the catalyst charge is explained; the card button and its Expected line share one rounding.
+- Victor's score now uses the 28 MUSD yearly target (was 40).
+
 ## [0.6.0] - 2026-11-20 · "Every level, every persona" (round 7: the whole campaign play-tested; guidance you can follow)
 ### Added
 - **Career: NEXT DECISION ▸** runs months until something needs you (an offer worth taking, an inspection two months out, worn catalyst,

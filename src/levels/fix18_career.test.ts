@@ -75,7 +75,7 @@ describe('F18: the yearly cards tell the truth', () => {
       const d = pendingDecision(c); if (d === null || d.kind !== 'turnaround') continue;
       hit = true;
       const p = d.plant as 'nh3', terms = Object.fromEntries(d.options[0]!.terms.map((x) => [x.key, x.usd]));
-      expect(Object.keys(terms)).toEqual(['incident', 'gain', 'outage', 'penalty', 'hire', 'catalyst']);
+      expect(Object.keys(terms)).toEqual(['incident', 'gain', 'outage', 'penalty', 'overlap', 'hire', 'catalyst']);
       const r = renewalParts(c, p);
       expect(terms.gain).toBeCloseTo(r.gross, 4); expect(terms.outage).toBeCloseTo(-r.outage, 4);
       expect(d.options[0]!.effectUSD).toBeCloseTo(Object.values(terms).reduce((a, x) => a + x, 0), 4);
@@ -227,7 +227,7 @@ describe('F18: the stop banner, offers and strikes', () => {
     decide(c, 'buyCatalyst', 'acid'); decide(c, 'turnaround', 'acid', c.m + 3, 1, 0);
     c.offers = [{ id: 77, p: 'acid', tpm: 30000, price: Math.round(c.prices.acid * 1.05), term: 12, pen: 220, exp: c.m + 1 }];
     const r = offerTaShort(c, c.offers[0]!); expect(r).not.toBeNull(); expect(r!.penaltyUSD).toBeGreaterThan(0);
-    const o = view(e).offers[0]; expect(o.taNote).toMatch(/Your sulfuric acid turnaround is booked for month \d+: the plant is out \d+ days, so this contract would leave it [\d]+ t short that month, about [\d.]+ MUSD of penalty\./);
+    const o = view(e).offers[0]; expect(o.taNote).toMatch(/Your sulfuric acid turnaround is booked for month \d+: the plant is out \d+ days, so this contract would leave it [\d]+ t short that month and adds [\d.]+ MUSD of penalty\./);
     expect(o.taPenaltyUSD).toBeGreaterThan(0);
     c.plants.acid.ta = -1; expect(view(e).offers[0].taNote).toBe('');
   });

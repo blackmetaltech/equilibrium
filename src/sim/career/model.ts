@@ -50,7 +50,8 @@ export const DEFS: Record<PlantId, PlantDef> = {
 export interface Plant { /** decay multiplier of the installed catalyst grade (1 standard; absent in older saves) */ gm?: number; /** how many turnarounds the plant has had: tells one wear episode from the next (a warning is acknowledged per episode) */ gen?: number; rate: number; cat: number; U: number; wear: number; insp: number; stock: number; down: number; ta: number; taCrane: number; taCrew: number; out: number; margin: number; risk: number }
 export interface Contract { id: number; p: PlantId; tpm: number; price: number; left: number; pen: number }
 export interface Offer { id: number; p: PlantId; tpm: number; price: number; term: number; pen: number; exp: number }
-export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; /** operating margin: net margin before investments (catalyst, inspections, programmes) */ opMargin: number; tonnes: number; /** plant-days of lost output */ downDays: number; /** mean catalyst activity and exchanger U over the year (0..1) */ catAvg: number; uAvg: number; contractRev: number; contractT: number; /** where the Works is heading after this review (see `outlook`) */ outlook?: Outlook; capT: number; capOldT: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number }
+export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; /** operating margin: net margin before investments (catalyst, inspections, programmes) */ opMargin: number; tonnes: number; /** plant-days of lost output */ downDays: number; /** mean catalyst activity and exchanger U over the year (0..1) */ catAvg: number; uAvg: number; contractRev: number; contractT: number; /** where the Works is heading after this review (see `outlook`) */ outlook?: Outlook; capT: number; capOldT: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number; /** what the year's card said and what the year realised (see `cardReview`) */ card?: CardReview }
+export interface CardReview { kind: string; plant: string; choice: number; lapsed: boolean; /** what the card said option A earns against B over `months` */ cardUSD: number; months: number; /** the year's cash with A less the year's cash with B (the same later decisions, the same seed) */ realisedUSD: number; /** A less B, by line */ diff: { rev: number; cost: number; pen: number; inv: number; down: number }; /** the month of the booking (turnaround and crew cards) */ taMonth: number }
 export interface LogRow { m: number; kind: 'event' | 'notice' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty' | 'decision'; code: string; plant: string; n: number; /** set on the rows that cost a regulator strike: the strike count after this one */ s?: number }
 export interface Hist { m: number; margin: number; cash: number; gas: number }
 export type Ending = '' | 'chief' | 'steady' | 'sold' | 'shut';
@@ -74,6 +75,8 @@ export interface Career {
   hedge?: { price: number; until: number } | null;
   /** Why the last NEXT DECISION run stopped. */
   why?: StopWhy | null;
+  /** The Works as JSON when this year's card was raised, and the decisions taken since (month, name, args): the year-end review replays them to price the card against the option not taken. Absent in older saves and in replays. */
+  snap?: string; ops?: [number, string, ...unknown[]][]; replay?: boolean;
 }
 
 // ------------------------------------------------------------------------------------------------ seeded draws
@@ -99,6 +102,42 @@ export function taDays(stock: boolean, crane: number, extraCrew: number): number
   const jobs = taJobs(stock);
   const prio = ['iso', ...jobs.filter((j) => j.id !== 'iso' && j.id !== 'start').sort((a, b) => b.crane - a.crane || b.days - a.days).map((j) => j.id), 'start'];
   return schedule(jobs, prio, { crew: CREW_BASE + extraCrew, crane }).makespan;
+}
+
+/** One booked turnaround, as the shared crews and crane see it. */
+export interface TaBook { p: PlantId; stock: boolean; crane: number; crew: number }
+/** Days each plant is out when several turnarounds fall in the same month: they draw on ONE site pool (the base crew plus every extra crew booked, the largest crane count booked), so the crane and crew jobs queue behind
+ * one another. One booking alone gives exactly `taDays`. Plants queue in the fixed order of PLANTS. */
+export function taGroupDays(books: TaBook[]): Record<string, number> {
+  const bs = [...books].sort((a, b) => PLANTS.indexOf(a.p) - PLANTS.indexOf(b.p)), out: Record<string, number> = {};
+  if (bs.length === 1) { out[bs[0]!.p] = taDays(bs[0]!.stock, bs[0]!.crane, bs[0]!.crew); return out; }
+  const jobs: Job[] = [], prio: string[] = [];
+  for (const b of bs) {
+    const js = taJobs(b.stock).map((j): Job => ({ ...j, id: `${b.p}:${j.id}`, deps: j.deps.map((d) => `${b.p}:${d}`) }));
+    jobs.push(...js);
+    prio.push(`${b.p}:iso`, ...js.filter((j) => j.id !== `${b.p}:iso` && j.id !== `${b.p}:start`).sort((a, c) => c.crane - a.crane || c.days - a.days).map((j) => j.id), `${b.p}:start`);
+  }
+  const sc = schedule(jobs, prio, { crew: CREW_BASE + bs.reduce((a, b) => a + b.crew, 0), crane: Math.max(...bs.map((b) => b.crane)) });
+  for (const b of bs) out[b.p] = sc.finish[`${b.p}:start`] ?? 0;
+  return out;
+}
+const bookOf = (c: Career, q: PlantId): TaBook => ({ p: q, stock: c.plants[q].stock === 1, crane: c.plants[q].taCrane, crew: c.plants[q].taCrew });
+/** What a turnaround of `p` in `month` really costs in days once the other plants booked that month are counted: its own days (queueing behind theirs), the days it alone would need, the days it adds to the others, and who they are. */
+export interface TaOverlap { days: number; solo: number; /** plant-days the booking adds across the Works beyond its solo outage (its own queueing plus the stretch of the others) */ extraDays: number; with: PlantId[]; /** per other plant: days added to its outage */ bump: { p: PlantId; days: number }[] }
+export function taOverlap(c: Career, p: PlantId, month: number, crane = 1, extraCrew = 0, stock = c.plants[p].stock === 1): TaOverlap {
+  const solo = taDays(stock, crane, extraCrew);
+  const others = month < c.m ? [] : PLANTS.filter((q) => q !== p && c.plants[q].ta === month).map((q) => bookOf(c, q));
+  if (others.length === 0) return { days: solo, solo, extraDays: 0, with: [], bump: [] };
+  const withMe = taGroupDays([...others, { p, stock, crane, crew: extraCrew }]), without = taGroupDays(others);
+  const bump = others.map((o) => ({ p: o.p, days: withMe[o.p]! - without[o.p]! }));
+  const days = withMe[p]!;
+  return { days, solo, extraDays: days - solo + bump.reduce((a, b) => a + b.days, 0), with: others.map((o) => o.p), bump };
+}
+/** The month a turnaround of `p` should be booked in: `from` or the first month after it in which no other plant has a turnaround (those months share crews and crane); `taken` adds months the caller is about to book. */
+export function suggestTaMonth(c: Career, p: PlantId, from = c.m + 2, taken: number[] = []): number {
+  const start = Math.max(c.m, from);
+  for (let m = start; m < Math.min(MONTHS, start + 12); m++) if (!taken.includes(m) && !PLANTS.some((q) => q !== p && c.plants[q].ta === m)) return m;
+  return start;
 }
 
 // ------------------------------------------------------------------------------------------------ setup
@@ -150,6 +189,8 @@ export class CareerError extends Error {}
 const need = (ok: boolean, code: string): void => { if (!ok) throw new CareerError(code); };
 const alive = (c: Career): void => need(c.ending === '', 'over');
 const plantOf = (p: unknown): PlantId => { need(typeof p === 'string' && (PLANTS as readonly string[]).includes(p), 'plant'); return p as PlantId; };
+/** Remember a decision for the year-end review's replay (only while this year's card has a snapshot). */
+const rec = (c: Career, name: string, ...a: unknown[]): void => { if (c.snap !== undefined) (c.ops ??= []).push([c.m, name, ...a]); };
 const spend = (c: Career, usd: number): void => { c.cash -= usd; c.ytd.margin -= usd; c.ytd.inv = (c.ytd.inv ?? 0) + usd; c.total.cost += usd; c.total.margin -= usd; c.total.inv = (c.total.inv ?? 0) + usd; };
 
 export function accept(c: Career, id: unknown): void {
@@ -160,25 +201,26 @@ export function accept(c: Career, id: unknown): void {
   c.contracts.push({ id: o!.id, p: o!.p, tpm: o!.tpm, price: o!.price, left: o!.term, pen: o!.pen });
   c.offers = c.offers.filter((x) => x.id !== id);
   c.log.push({ m: c.m, kind: 'contract', code: 'signed', plant: o!.p, n: o!.tpm });
+  rec(c, 'accept', id);
 }
-export function decline(c: Career, id: unknown): void { alive(c); need(c.offers.some((x) => x.id === id), 'offer'); c.offers = c.offers.filter((x) => x.id !== id); }
+export function decline(c: Career, id: unknown): void { alive(c); need(c.offers.some((x) => x.id === id), 'offer'); c.offers = c.offers.filter((x) => x.id !== id); rec(c, 'decline', id); }
 export function setRate(c: Career, p: unknown, rate: unknown): void {
   alive(c);
   const id = plantOf(p);
   need(typeof rate === 'number' && Number.isFinite(rate) && rate >= RATE_MIN - 1e-9 && rate <= RATE_MAX + 1e-9, 'rate');
-  c.plants[id].rate = Math.round((rate as number) * 100) / 100;
+  c.plants[id].rate = Math.round((rate as number) * 100) / 100; rec(c, 'setRate', p, rate);
 }
 export function inspect(c: Career, p: unknown): void {
   alive(c);
   const id = plantOf(p), x = c.plants[id];
   need(x.insp >= INSPECT_MIN_GAP, 'early');
-  spend(c, INSPECT_USD); x.insp = 0; x.down += 1;
+  spend(c, INSPECT_USD); x.insp = 0; x.down += 1; rec(c, 'inspect', p);
 }
 export function buyCatalyst(c: Career, p: unknown): void {
   alive(c);
   const id = plantOf(p), x = c.plants[id];
   need(x.stock === 0, 'stocked');
-  spend(c, catPrice(c, id)); x.stock = 1;
+  spend(c, catPrice(c, id)); x.stock = 1; rec(c, 'buyCatalyst', p);
 }
 export function turnaround(c: Career, p: unknown, month: unknown, crane: unknown = 1, extraCrew: unknown = 0): void {
   alive(c);
@@ -186,16 +228,16 @@ export function turnaround(c: Career, p: unknown, month: unknown, crane: unknown
   need(typeof month === 'number' && Number.isInteger(month) && month >= c.m && month < MONTHS, 'month');
   need(crane === 1 || crane === 2, 'crane');
   need(extraCrew === 0 || extraCrew === CREW_STEP, 'crew');
-  x.ta = month as number; x.taCrane = crane as number; x.taCrew = extraCrew as number;
+  x.ta = month as number; x.taCrane = crane as number; x.taCrew = extraCrew as number; rec(c, 'turnaround', p, month, crane, extraCrew);
 }
-export function cancelTurnaround(c: Career, p: unknown): void { alive(c); c.plants[plantOf(p)].ta = -1; }
-export function hireCrew(c: Career): void { alive(c); need(c.crews < 3, 'crews'); c.crews++; }
+export function cancelTurnaround(c: Career, p: unknown): void { alive(c); c.plants[plantOf(p)].ta = -1; rec(c, 'cancelTurnaround', p); }
+export function hireCrew(c: Career): void { alive(c); need(c.crews < 3, 'crews'); c.crews++; rec(c, 'hireCrew'); }
 export function doInvest(c: Career, kind: unknown): void {
   alive(c);
   need(kind === 'heat' || kind === 'abate' || kind === 'safety', 'kind');
   const k = kind as 'heat' | 'abate' | 'safety';
   need(c.invest[k] < 3, 'max');
-  spend(c, investCost(c, k)); c.invest[k]++;
+  spend(c, investCost(c, k)); c.invest[k]++; rec(c, 'invest', kind);
 }
 
 // ------------------------------------------------------------------------------------------------ the month
@@ -238,10 +280,11 @@ export function stepMonth(c: Career): void {
   let em = 0, gasGJ = 0, tonnes = 0, effNum = 0, effDen = 0;
   const out: Record<string, number> = {};
   // turnarounds planned for this month: cost, down days, the plant comes back as new
+  const taNow = PLANTS.filter((q) => c.plants[q].ta === m), groupDays = taNow.length > 0 ? taGroupDays(taNow.map((q) => bookOf(c, q))) : {};
   for (const p of PLANTS) {
     const x = c.plants[p];
     if (x.ta !== m) continue;
-    const stock = x.stock === 1, days = taDays(stock, x.taCrane, x.taCrew);
+    const stock = x.stock === 1, days = groupDays[p]!;
     const hire = (x.taCrew > 0 ? TA_CREW_HIRE_USD : 0) + (x.taCrane > 1 ? TA_CRANE_HIRE_USD : 0);
     cost += hire; x.down += days;
     x.U = 1; x.wear = 0; x.insp = 0; x.gen = (x.gen ?? 0) + 1; if (stock) { x.cat = 1; x.stock = 0; x.gm = c.eco?.[p] === true ? ECO_DECAY : 1; }
@@ -319,8 +362,9 @@ export function stepMonth(c: Career): void {
 
 function finish(c: Career, e: Ending): void { c.ending = e; c.log.push({ m: c.m, kind: 'strike', code: `end_${e}`, plant: '', n: c.strikes }); }
 
-export const MARGIN_TARGET_YEAR = 40e6;
 export const CHIEF_MARGIN = 1.4e8;
+/** The board's yearly target IS the Flagship total spread over the five years (140 MUSD in five years = 28 MUSD a year on pace). */
+export const MARGIN_TARGET_YEAR = CHIEF_MARGIN / 5;
 function yearEnd(c: Career): void {
   const y = c.m / 12 - 1, yt = c.ytd;
   const emRatio = yt.em / (EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y));
@@ -342,10 +386,32 @@ function yearEnd(c: Career): void {
   c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: (yt.cost ?? 0) + fine, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: net, opMargin, tonnes: yt.tonnes, downDays: yt.down ?? 0, catAvg, uAvg, contractRev: yt.crev ?? 0, contractT: yt.ct ?? 0, capT: emCap(c), capOldT: EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y), criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
   c.lossYears = opMargin < 0 ? c.lossYears + 1 : 0;
   c.years[c.years.length - 1]!.outlook = outlook(c);
+  const cr = cardReview(c); if (cr !== undefined) c.years[c.years.length - 1]!.card = cr;
+  c.snap = undefined; c.ops = undefined;
   c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0, down: 0, cat: 0, U: 0, pn: 0, crev: 0, ct: 0 };
   if (c.ending === '' && c.m < MONTHS) c.log.push({ m: c.m, kind: 'notice', code: 'cap', plant: '', n: Math.round(emCap(c) / 1000) });
   if (c.lossYears >= 2 || c.cash < 0) finish(c, 'sold');
   else if (c.strikes >= STRIKES_MAX) finish(c, 'shut');
+}
+/** The year's card priced against the road not taken: the Works as it stood when the card was raised, run to this year end with the same later decisions and the same seed, once with option A and once with B; the difference in cash is what the card realised. */
+function cardReview(c: Career): CardReview | undefined {
+  if (c.snap === undefined || c.replay === true) return undefined;
+  const d = (c.decisions ?? []).find((x) => x.year === c.years.length);
+  if (d === undefined || d.choice < 0) return undefined;
+  const target = c.m, ops = c.ops ?? [];
+  const world = (choice: number): Career => {
+    const w = JSON.parse(c.snap!) as Career; w.replay = true;
+    try { answerDecision(w, choice); } catch (e) { if (!(e instanceof CareerError)) throw e; }
+    while (w.ending === '' && w.m < target) {
+      for (const o of ops) if (o[0] === w.m) { try { decide(w, o[1], ...o.slice(2)); } catch (e) { if (!(e instanceof CareerError)) throw e; } }
+      stepMonth(w);
+    }
+    return w;
+  };
+  const alt = world(1 - d.choice), A = d.choice === 0 ? c : alt, B = d.choice === 0 ? alt : c;
+  const ya = A.years[c.years.length - 1], yb = B.years[c.years.length - 1];
+  if (ya === undefined || yb === undefined) return undefined;
+  return { kind: d.kind, plant: d.plant, choice: d.choice, lapsed: d.lapsed, cardUSD: d.options[0]!.effectUSD, months: Number(d.vars.months ?? 12), realisedUSD: A.cash - B.cash, diff: { rev: ya.rev - yb.rev, cost: ya.cost - yb.cost, pen: ya.pen - yb.pen, inv: ya.inv - yb.inv, down: ya.downDays - yb.downDays }, taMonth: Number(d.vars.taMonth ?? -1) };
 }
 /** THE five-year score everywhere (ledger, ENDINGS, course line, Flagship test, end card, histogram): operating margin = revenue less operating cost, penalties and fines. Investments (catalyst, inspections, programmes) are not charged to it; they are judged by their payback. */
 export const score = (c: Career): number => c.total.margin + (c.total.inv ?? 0);
@@ -377,8 +443,8 @@ export function exposure(c: Career, p: PlantId, tpm: number, pen: number): Expos
   return { nominalT, contractedT, afterT, shortT, penaltyUSD: shortT * pen };
 }
 /** What a turnaround of this plant in `month` costs the contracts: the plant is out `days` of that month, so it can ship only the rest; the tonnes short against the contracts still running, and their penalty. */
-export function taShort(c: Career, p: PlantId, month: number, crane = 1, extraCrew = 0): { days: number; shortT: number; penaltyUSD: number } {
-  const x = c.plants[p], days = Math.min(30, taDays(x.stock === 1, crane, extraCrew)), ks = c.contracts.filter((k) => k.p === p && k.left > month - c.m);
+export function taShort(c: Career, p: PlantId, month: number, crane = 1, extraCrew = 0, daysOverride?: number): { days: number; shortT: number; penaltyUSD: number } {
+  const days = Math.min(30, daysOverride ?? taOverlap(c, p, month, crane, extraCrew).days), ks = c.contracts.filter((k) => k.p === p && k.left > month - c.m);
   const need_ = ks.reduce((a, k) => a + k.tpm, 0), can = outputOf(c, p) * (1 - days / 30), deliver = Math.min(can, need_);
   let pen = 0;
   for (const k of ks) pen += Math.max(0, k.tpm - (need_ > 0 ? (k.tpm / need_) * deliver : 0)) * k.pen;
@@ -405,14 +471,14 @@ export function levers(c: Career, proj: number): Lever[] {
   if (c.m > 0 && proj < CHIEF_MARGIN) out.push({ key: 'gap', vars: { gap: Math.round((CHIEF_MARGIN - proj) / 1e5) / 10, perYear: Math.round(((CHIEF_MARGIN - proj) / left) * 12 / 1e5) / 10, left } });
   let best: { p: PlantId; g: number } | null = null;
   for (const p of PLANTS) if (c.plants[p].ta < 0) { const g = renewalGain(c, p); if (g > 2e5 && (best === null || g > best.g)) best = { p, g }; }
-  if (best !== null && c.m < MONTHS - 8) { const r = renewalParts(c, best.p); out.push({ key: 'turnaround', vars: { plant: best.p, cat: Math.round(c.plants[best.p].cat * 100), u: Math.round(c.plants[best.p].U * 100), gross: Math.round(r.gross / 1e5) / 10, outage: Math.round(r.outage / 1e5) / 10, gain: (Math.round(r.gross / 1e5) - Math.round(r.outage / 1e5)) / 10 } }); }
+  if (best !== null && c.m < MONTHS - 8) { const r = renewalParts(c, best.p); out.push({ key: 'turnaround', vars: { plant: best.p, month: suggestTaMonth(c, best.p) + 1, cat: Math.round(c.plants[best.p].cat * 100), u: Math.round(c.plants[best.p].U * 100), gross: Math.round(r.gross / 1e5) / 10, outage: Math.round(r.outage / 1e5) / 10, gain: (Math.round(r.gross / 1e5) - Math.round(r.outage / 1e5)) / 10 } }); }
   let bo: { id: number; p: PlantId; g: number; prem: number; tpm: number } | null = null;
   for (const o of c.offers) {
     const prem = o.price / c.prices[o.p] - 1, g = (o.price - c.prices[o.p]) * o.tpm * 12;
     if (prem > 0.03 && contracted(c, o.p) + o.tpm <= capacityT(c, o.p) && (bo === null || g > bo.g)) bo = { id: o.id, p: o.p, g, prem, tpm: o.tpm };
   }
-  if (bo !== null) out.push({ key: 'contract', vars: { plant: bo.p, tpm: Math.round(bo.tpm / 100) / 10, prem: Math.round(bo.prem * 100), gain: Math.round(bo.g / 1e5) / 10 } });
-  const due = PLANTS.filter((p) => c.plants[p].insp >= INSPECT_EVERY - INSPECT_WARN && c.plants[p].ta !== c.m);
+  if (bo !== null) out.push({ key: 'contract', vars: { id: bo.id, plant: bo.p, tpm: Math.round(bo.tpm / 100) / 10, prem: Math.round(bo.prem * 100), gain: Math.round(bo.g / 1e5) / 10 } });
+  const due = PLANTS.filter((p) => c.plants[p].insp >= INSPECT_EVERY - INSPECT_WARN && c.plants[p].ta !== c.m && !warnHandled(c, 'insp', p));
   if (due.length > 0) out.push({ key: 'inspect', vars: { plant: due[0]!, left: Math.max(0, INSPECT_EVERY - c.plants[due[0]!].insp) } });
   return out;
 }
@@ -440,6 +506,70 @@ export function outlook(c: Career): Outlook {
     return { id, state, needs };
   };
   return { course, rows: [row('sold', soldNeeds), row('shut', shutNeeds), row('steady', steadyNeeds), row('chief', chiefNeeds)], proj, levers: levers(c, proj), gaps, chiefClosed };
+}
+
+// ------------------------------------------------------------------------------------------------ the year end, seen coming: emissions against the cap, and the ending a year end would bring
+/** The emissions warning opens this many months before the year-end check (the check is at the end of month 12 of the year). */
+export const EM_WARN_MONTHS = 6;
+/** The ending warning stops a multi-month run this many months before the year end that would end the career. */
+export const END_STOP_MONTHS = 3;
+/** Year-end emissions (t) projected from the Works as it stands: the plants aged month by month (catalyst, exchanger and compressor wear as `stepMonth` ages them), booked turnarounds and the outage days still to run included,
+ * every rate multiplied by `scale`, `extraAbate` more abatement levels. No events: the run rate, not a forecast of luck. */
+export function emProject(c: Career, scale = 1, extraAbate = 0): number {
+  const toCheck = 12 - (c.m % 12), abate = Math.min(3, c.invest.abate + extraAbate);
+  const st = {} as Record<PlantId, { cat: number; U: number; wear: number; down: number }>;
+  for (const p of PLANTS) { const x = c.plants[p]; st[p] = { cat: x.cat, U: x.U, wear: x.wear, down: x.down }; }
+  let em = c.ytd.em;
+  for (let k = 0; k < toCheck; k++) {
+    const mo = c.m + k, taNow = PLANTS.filter((q) => c.plants[q].ta === mo), gd = taNow.length > 0 ? taGroupDays(taNow.map((q) => bookOf(c, q))) : {};
+    for (const p of PLANTS) {
+      const x = c.plants[p], d = DEFS[p], s = st[p], rate = Math.max(RATE_MIN, Math.min(RATE_MAX, x.rate * scale));
+      if (x.ta === mo) { s.down += gd[p]!; s.U = 1; s.wear = 0; if (x.stock === 1) s.cat = 1; }
+      const days = Math.min(30, s.down); s.down -= days;
+      const o = d.cap * (1 + (c.boost?.[p] ?? 0)) * rate * (0.4 + 0.6 * s.cat) * (1 - 0.15 * s.wear) * (1 - days / 30);
+      const mul = ((1 + 0.5 * (1 - s.U)) / (0.6 + 0.4 * s.cat)) * (1 - 0.07 * c.invest.heat);
+      em += (o * d.gasGJ * mul * GJ_CO2 + o * d.proc) * (1 - 0.12 * abate);
+      s.cat = Math.max(0.2, s.cat * (1 - d.decay * rate * (x.ta === mo && x.stock === 1 ? (c.eco?.[p] === true ? ECO_DECAY : 1) : (x.gm ?? 1)))); s.U = Math.max(0.5, s.U - d.foul * rate); s.wear = Math.min(1, s.wear + d.wear * rate * rate);
+    }
+  }
+  return em;
+}
+export interface EmWarn { /** the projected year-end emissions (t) and the cap (t) */ projT: number; capT: number; ratio: number; /** months to the year-end check */ toCheck: number; /** the rate each plant would have to run at from now on to end at 98 % of the cap (floored at the minimum rate) */ rates: Record<PlantId, number>; /** the same, as one scale factor on every rate */ scale: number; /** true when even the lowest rates would not be enough */ short: boolean; /** abatement: the next level's price (USD, 0 when finished) and the t it would cut from here */ abateUSD: number; abateCutT: number; /** true when that next level alone brings the projection under the cap */ abateEnough: boolean }
+/** Year-end emissions projected from the state of now. A projection over the cap is a regulator strike at the year end unless a lever is pulled: warned from EM_WARN_MONTHS ahead. Null when the projection is under the cap. */
+export function emWarn(c: Career): EmWarn | null {
+  if (c.ending !== '' || c.m >= MONTHS) return null;
+  const toCheck = 12 - (c.m % 12);
+  if (toCheck > EM_WARN_MONTHS) return null;
+  const cap = emCap(c), projT = emProject(c), ratio = projT / cap;
+  if (ratio <= 1) return null;
+  let lo = 0, hi = 1;   // bisection on the one factor that scales every rate: the largest factor that still ends at 98 % of the cap
+  for (let i = 0; i < 16; i++) { const mid = (lo + hi) / 2; if (emProject(c, mid) <= 0.98 * cap) lo = mid; else hi = mid; }
+  const rates = {} as Record<PlantId, number>; let short = false;
+  for (const p of PLANTS) { const r = Math.floor(c.plants[p].rate * lo * 100) / 100; if (r < RATE_MIN) { short = true; rates[p] = RATE_MIN; } else rates[p] = r; }
+  const cut = c.invest.abate < 3 ? projT - emProject(c, 1, 1) : 0;
+  return { projT, capT: cap, ratio, toCheck, rates, scale: lo, short, abateUSD: c.invest.abate < 3 ? investCost(c, 'abate') : 0, abateCutT: cut, abateEnough: c.invest.abate < 3 && projT - cut <= cap };
+}
+export interface EndAhead { ending: 'sold' | 'shut'; why: 'loss' | 'cash' | 'strikes'; toCheck: number; /** month number of the year-end check (1-based) */ checkMonth: number; /** this year's projected operating margin, USD, and last year's */ yearOp: number; prevOp: number; prevYear: number; cashProj: number }
+/** The ending the coming year end would bring if nothing changes: the board sells after a second losing year in a row (or cash under zero), the regulator shuts the site at the third strike. Projected from the last three months' run rate. */
+export function endAhead(c: Career): EndAhead | null {
+  if (c.ending !== '' || c.m >= MONTHS + 0 || c.m === 0) return null;
+  const toCheck = 12 - (c.m % 12), h = c.hist.slice(-3), rate = h.length > 0 ? h.reduce((a, r) => a + r.margin, 0) / h.length : 0;
+  const ew = emWarn(c), fine = ew !== null && ew.ratio > 1 ? EM_CAP_MONTHLY_USD * ((ew.ratio - 1) * 12 + 1) : 0;
+  const yearOp = c.ytd.margin + (c.ytd.inv ?? 0) + toCheck * rate - fine, cashProj = c.cash + toCheck * rate - fine;
+  const last = c.years[c.years.length - 1], base = { toCheck, checkMonth: c.m + toCheck, yearOp, prevOp: last?.opMargin ?? 0, prevYear: last?.year ?? 0, cashProj };
+  if (c.lossYears >= 1 && yearOp < 0) return { ending: 'sold', why: 'loss', ...base };
+  if (cashProj < 0) return { ending: 'sold', why: 'cash', ...base };
+  if (c.strikes + (strikeAhead(c).length > 0 ? 1 : 0) + (ew !== null ? 1 : 0) >= STRIKES_MAX) return { ending: 'shut', why: 'strikes', ...base };
+  return null;
+}
+/** Why a career ended, as data: the losing years in a row, the cash, or the strikes. */
+export interface EndWhy { kind: 'loss' | 'cash' | 'strikes' | 'tenure'; years: { year: number; op: number }[] }
+export function endWhy(c: Career): EndWhy {
+  const loss: { year: number; op: number }[] = [];
+  for (let i = c.years.length - 1; i >= 0 && c.years[i]!.opMargin < 0; i--) loss.unshift({ year: c.years[i]!.year, op: c.years[i]!.opMargin });
+  if (c.ending === 'sold') return loss.length >= 2 ? { kind: 'loss', years: loss } : { kind: 'cash', years: loss };
+  if (c.ending === 'shut') return { kind: 'strikes', years: [] };
+  return { kind: 'tenure', years: [] };
 }
 
 /** Things that need the player's attention, as flags (the board lights them; a multi-month `advance` stops when a new one appears). */
@@ -471,7 +601,12 @@ export function warnHandled(c: Career, kind: string, p: PlantId): boolean {
 /** The warnings that are lit, not handled by a booked turnaround and not yet acknowledged: what a multi-month run must not ride through. Keys as `warnKey`. */
 export function openWarnings(c: Career): string[] {
   const acked = c.acked ?? [];
-  return attention(c).map((k) => k.split(':') as [string, PlantId]).filter(([kind, p]) => !warnHandled(c, kind, p)).map(([kind, p]) => warnKey(c, kind, p)).filter((k) => !acked.includes(k));
+  const keys = attention(c).map((k) => k.split(':') as [string, PlantId]).filter(([kind, p]) => !warnHandled(c, kind, p)).map(([kind, p]) => warnKey(c, kind, p));
+  // the year-end projections: emissions over the cap (a regulator strike) and an ending the year end would bring; each lights once per year and ending
+  if (emWarn(c) !== null) keys.push(`em:all:${year(c)}`);
+  const ea = endAhead(c);
+  if (ea !== null && ea.toCheck <= END_STOP_MONTHS) keys.push(`end:all:${year(c)}:${ea.ending}`);
+  return keys.filter((k) => !acked.includes(k));
 }
 /** Run up to `months` months. A multi-month run stops after the month in which an inspection comes within two months of due, a catalyst wears under 70 %, an exchanger fouls under 75 %, or the year ends (always at least one month);
  * it does not start while a warning is open (lit, not handled by a booked turnaround, not acknowledged one by one).
@@ -557,12 +692,16 @@ export function inspState(c: Career, p: PlantId): InspState {
 /** Expected cost of the incidents of one month at risk `r`: the chance of an incident times (a fine plus the outage days at `perDayUSD`), critical 40 % and minor 60 % of them. */
 const incidentUSD = (r: number, perDayUSD: number): number => clamp((r - 0.35) * 0.6, 0, 0.9) * (0.4 * (CRIT_FINE_USD + CRIT_DOWN_D * perDayUSD) + 0.6 * (MINOR_FINE_USD + MINOR_DOWN_D * perDayUSD));
 export const TA_HORIZON = 12;
-export interface TaWeigh { /** cost of booking: outage lost contribution + contract penalty + crane and crew hire */ bookUSD: number; outageUSD: number; penaltyUSD: number; hireUSD: number; /** expected incident cost over the horizon if the plant is not renewed / if it is */ skipUSD: number; afterUSD: number; saveUSD: number; netUSD: number }
+export interface TaWeigh { /** cost of booking: outage lost contribution + contract penalty + crane and crew hire + the overlap with other booked turnarounds */ bookUSD: number; outageUSD: number; penaltyUSD: number; hireUSD: number; /** extra plant-days and USD an overlap with turnarounds booked the same month adds (the stretch of this outage and of theirs); 0 without overlap */ overlapDays: number; overlapUSD: number; /** expected incident cost over the horizon if the plant is not renewed / if it is */ skipUSD: number; afterUSD: number; saveUSD: number; netUSD: number }
 /** Booking a turnaround in `month` against not booking: what it costs now (outage, penalty, hire) and the expected incident cost it removes over the next TA_HORIZON months (risk grows with wear and fouling). */
 export function taWeigh(c: Career, p: PlantId, month: number, crane = 1, extraCrew = 0): TaWeigh {
-  const x = c.plants[p], d = DEFS[p], sh = taShort(c, p, month, crane, extraCrew);
+  const x = c.plants[p], d = DEFS[p], ov = taOverlap(c, p, month, crane, extraCrew), sh = taShort(c, p, month, crane, extraCrew, ov.days);
   const perDay = (outputOf(c, p) * Math.max(0, unitMargin(c, p))) / 30;
-  const outageUSD = sh.days * perDay, hireUSD = (extraCrew > 0 ? TA_CREW_HIRE_USD : 0) + (crane > 1 ? TA_CRANE_HIRE_USD : 0), penaltyUSD = sh.penaltyUSD;
+  // the part of the outage and penalty that exists only because another turnaround shares the crews and crane: this plant's own stretch, and the days (and penalties) it adds to the plants already booked
+  const solo = taShort(c, p, month, crane, extraCrew, ov.solo);
+  let overlapUSD = (sh.days - solo.days) * perDay + (sh.penaltyUSD - solo.penaltyUSD);
+  for (const b of ov.bump) { const q = b.p, xq = c.plants[q], dq = taOverlap(c, q, month, xq.taCrane, xq.taCrew).days; overlapUSD += b.days * ((outputOf(c, q) * Math.max(0, unitMargin(c, q))) / 30) + (taShort(c, q, month, xq.taCrane, xq.taCrew, dq + b.days).penaltyUSD - taShort(c, q, month, xq.taCrane, xq.taCrew, dq).penaltyUSD); }
+  const outageUSD = solo.days * perDay, hireUSD = (extraCrew > 0 ? TA_CREW_HIRE_USD : 0) + (crane > 1 ? TA_CRANE_HIRE_USD : 0), penaltyUSD = solo.penaltyUSD;
   const age = (j: number, from: { wear: number; U: number; insp: number }): { wear: number; U: number; insp: number; rate: number } =>
     ({ wear: Math.min(1, from.wear + d.wear * x.rate * x.rate * j), U: Math.max(0.5, from.U - d.foul * x.rate * j), insp: from.insp + j, rate: x.rate });
   const t = clamp(month - c.m, 0, TA_HORIZON - 1);
@@ -571,8 +710,8 @@ export function taWeigh(c: Career, p: PlantId, month: number, crane = 1, extraCr
     skipUSD += incidentUSD(riskAt(c, age(j, x)), perDay);
     afterUSD += incidentUSD(riskAt(c, j < t ? age(j, x) : age(j - t, { wear: 0, U: 1, insp: 0 })), perDay);
   }
-  const bookUSD = outageUSD + penaltyUSD + hireUSD, saveUSD = skipUSD - afterUSD;
-  return { bookUSD, outageUSD, penaltyUSD, hireUSD, skipUSD, afterUSD, saveUSD, netUSD: saveUSD - bookUSD };
+  const bookUSD = outageUSD + penaltyUSD + hireUSD + overlapUSD, saveUSD = skipUSD - afterUSD;
+  return { bookUSD, outageUSD, penaltyUSD, hireUSD, overlapDays: ov.extraDays, overlapUSD, skipUSD, afterUSD, saveUSD, netUSD: saveUSD - bookUSD };
 }
 /** Alerts the office shows at the top: an inspection due or overdue, a worn catalyst, a fouled exchanger. Each names its plant (the board jumps to its card). */
 export interface Alert { kind: 'insp' | 'cat' | 'foul'; plant: PlantId }
@@ -587,7 +726,7 @@ export function strikeAhead(c: Career): StrikeAhead[] {
   const toCheck = 12 - (c.m % 12), out: StrikeAhead[] = [];
   for (const p of PLANTS) {
     const x = c.plants[p], proj = x.insp + toCheck - INSPECT_EVERY;
-    if (proj < INSPECT_STRIKE_OVER - 2 || (x.ta >= c.m && x.ta < c.m + toCheck)) continue;
+    if (proj <= INSPECT_STRIKE_OVER || (x.ta >= c.m && x.ta < c.m + toCheck)) continue;   // a strike needs MORE than INSPECT_STRIKE_OVER months overdue at the year-end check
     out.push({ plant: p, over: proj, dueMonth: inspDueMonth(c, p), checkMonth: c.m + toCheck, strikeNo: c.strikes + 1 });
   }
   return out;
@@ -596,7 +735,7 @@ export function strikeAhead(c: Career): StrikeAhead[] {
 export function offerTaShort(c: Career, o: Offer): { month: number; days: number; shortT: number; penaltyUSD: number } | null {
   const x = c.plants[o.p];
   if (x.ta < c.m || x.ta - c.m >= o.term) return null;
-  const month = x.ta, days = Math.min(30, taDays(x.stock === 1, x.taCrane, x.taCrew)), ks = [...c.contracts.filter((k) => k.p === o.p && k.left > month - c.m), { tpm: o.tpm, pen: o.pen }];
+  const month = x.ta, days = Math.min(30, taOverlap(c, o.p, month, x.taCrane, x.taCrew).days), ks = [...c.contracts.filter((k) => k.p === o.p && k.left > month - c.m), { tpm: o.tpm, pen: o.pen }];
   const base = taShort(c, o.p, month, x.taCrane, x.taCrew), need_ = ks.reduce((a, k) => a + k.tpm, 0), can = outputOf(c, o.p) * (1 - days / 30), deliver = Math.min(can, need_);
   let pen = 0;
   for (const k of ks) pen += Math.max(0, k.tpm - (need_ > 0 ? (k.tpm / need_) * deliver : 0)) * k.pen;
@@ -657,17 +796,17 @@ function contractDecision(c: Career, p: PlantId): YearDecision | null {
 }
 function turnaroundDecision(c: Career): YearDecision | null {
   if (c.m > MONTHS - 12) return null;
-  let best: { p: PlantId; terms: DecTerm[]; w: TaWeigh; cat: number; gr: { gross: number; outage: number } } | null = null;
+  let best: { p: PlantId; terms: DecTerm[]; w: TaWeigh; cat: number; gr: { gross: number; outage: number }; m: number } | null = null;
   for (const p of PLANTS) {
     const x = c.plants[p]; if (x.ta >= 0) continue;
-    const w = taWeigh(c, p, c.m + DEC_TA_LEAD), cat = x.stock === 0 ? catPrice(c, p) : 0, gr = renewalParts(c, p);
+    const tm = suggestTaMonth(c, p, c.m + DEC_TA_LEAD), w = taWeigh(c, p, tm), cat = x.stock === 0 ? catPrice(c, p) : 0, gr = renewalParts(c, p);
     // incident cost removed + a year of output and gas back to new - the outage - contract penalty - hire - the catalyst charge
-    const terms: DecTerm[] = [{ key: 'incident', usd: w.saveUSD }, { key: 'gain', usd: gr.gross }, { key: 'outage', usd: -gr.outage }, { key: 'penalty', usd: -w.penaltyUSD }, { key: 'hire', usd: -w.hireUSD }, { key: 'catalyst', usd: -cat }];
-    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms, w, cat, gr };
+    const terms: DecTerm[] = [{ key: 'incident', usd: w.saveUSD }, { key: 'gain', usd: gr.gross }, { key: 'outage', usd: -gr.outage }, { key: 'penalty', usd: -w.penaltyUSD }, { key: 'overlap', usd: -w.overlapUSD }, { key: 'hire', usd: -w.hireUSD }, { key: 'catalyst', usd: -cat }];
+    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms, w, cat, gr, m: tm };
   }
   if (best === null) return null;
   const { p, w, gr } = best, x = c.plants[p], days = taDays(true, 1, 0);
-  const vars = { plant: p, month: c.m + DEC_TA_LEAD + 1, days, cat: Math.round(x.cat * 100), u: Math.round(x.U * 100), months: 12 };
+  const vars = { plant: p, month: best.m + 1, taMonth: best.m, shifted: best.m > c.m + DEC_TA_LEAD ? 1 : 0, days, cat: Math.round(x.cat * 100), u: Math.round(x.U * 100), months: 12 };
   return { year: 0, m: 0, kind: 'turnaround', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [
     mkOpt('a', best.terms, best.cat, { skip: r2(w.skipUSD), after: r2(w.afterUSD), outage: r2(gr.outage), pen: r2(w.penaltyUSD), cat: r2(best.cat) }),
     mkOpt('b', [], 0, { risk: Math.round(riskOf(c, p) * 100) })] };
@@ -728,18 +867,18 @@ function catgradeDecision(c: Career): YearDecision | null {
 /** A worn plant's turnaround, booked either way: with contractors (a second crane and four extra hands, hired) or with the Works' own crew and one crane. Option A's effect is the outage and penalty it saves less the hire; B is the baseline. */
 function crewDecision(c: Career): YearDecision | null {
   if (c.m > MONTHS - 12) return null;
-  const month = c.m + DEC_TA_LEAD;
-  let best: { p: PlantId; terms: DecTerm[]; days: [number, number] } | null = null;
+  let best: { p: PlantId; terms: DecTerm[]; days: [number, number]; month: number } | null = null;
   for (const p of PLANTS) {
     const x = c.plants[p];
     if (x.ta >= 0 || (x.cat >= 0.8 && x.U >= 0.85)) continue;
+    const month = suggestTaMonth(c, p, c.m + DEC_TA_LEAD);
     const wa = taWeigh(c, p, month, 2, CREW_STEP), wb = taWeigh(c, p, month, 1, 0);
-    const terms: DecTerm[] = [{ key: 'outage', usd: wb.outageUSD - wa.outageUSD }, { key: 'penalty', usd: wb.penaltyUSD - wa.penaltyUSD }, { key: 'hire', usd: -wa.hireUSD }];
-    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms, days: [taShort(c, p, month, 2, CREW_STEP).days, taShort(c, p, month, 1, 0).days] };
+    const terms: DecTerm[] = [{ key: 'outage', usd: wb.outageUSD - wa.outageUSD }, { key: 'penalty', usd: wb.penaltyUSD - wa.penaltyUSD }, { key: 'overlap', usd: wb.overlapUSD - wa.overlapUSD }, { key: 'hire', usd: -wa.hireUSD }];
+    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms, month, days: [taShort(c, p, month, 2, CREW_STEP).days, taShort(c, p, month, 1, 0).days] };
   }
   if (best === null) return null;
-  const { p, terms, days } = best, x = c.plants[p], cat = x.stock === 0 ? catPrice(c, p) : 0;
-  const vars = { plant: p, month: month + 1, cat: Math.round(x.cat * 100), u: Math.round(x.U * 100), daysA: days[0], daysB: days[1], hire: r2(TA_CREW_HIRE_USD + TA_CRANE_HIRE_USD), catUSD: r2(cat), months: 12 };
+  const { p, terms, days, month } = best, x = c.plants[p], cat = x.stock === 0 ? catPrice(c, p) : 0;
+  const vars = { plant: p, month: month + 1, taMonth: month, shifted: month > c.m + DEC_TA_LEAD ? 1 : 0, cat: Math.round(x.cat * 100), u: Math.round(x.U * 100), daysA: days[0], daysB: days[1], hire: r2(TA_CREW_HIRE_USD + TA_CRANE_HIRE_USD), catUSD: r2(cat), months: 12 };
   return { year: 0, m: 0, kind: 'crew', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', terms, cat, { daysA: days[0], hire: vars.hire }), mkOpt('b', [], cat, { daysB: days[1] })] };
 }
 const dkind = (c: Career, kind: DecKind): YearDecision | null => {
@@ -755,6 +894,7 @@ const dkind = (c: Career, kind: DecKind): YearDecision | null => {
 /** Raise this year's decision: the kind rotates from the seed, and a kind not yet drawn this career comes before one that was, so five years show five different cards while the pool allows. A kind that does not apply gives way to the next. */
 function raiseDecision(c: Career): void {
   if (c.ending !== '') return;
+  c.snap = undefined; c.ops = undefined;
   const y = year(c), start = Math.floor(draw(c.seed, 0, 500) * DEC_KINDS.length), used = (c.decisions ?? []).map((d) => d.kind), n = DEC_KINDS.length;
   for (const fresh of [true, false]) {
     for (let i = 0; i < n; i++) {
@@ -764,12 +904,17 @@ function raiseDecision(c: Career): void {
       if (d === null) continue;
       d.year = y + 1; d.m = c.m; d.best = d.options[0]!.effectUSD - d.options[1]!.effectUSD > 3e5 ? 0 : 1;
       (c.decisions ??= []).push(d); c.log.push({ m: c.m, kind: 'decision', code: kind, plant: d.plant, n: y + 1 });
+      if (c.replay !== true) { c.snap = JSON.stringify({ ...c, snap: undefined, ops: undefined }); c.ops = []; }
       return;
     }
   }
 }
 /** Answer the pending yearly decision: 0 takes the action, 1 does nothing. */
 export function answerDecision(c: Career, choice: unknown): void {
+  const keep = c.snap; c.snap = undefined;   // what the answer does inside is part of the answer, not a separate decision to replay
+  try { answerInner(c, choice); } finally { c.snap = keep; }
+}
+function answerInner(c: Career, choice: unknown): void {
   alive(c);
   const d = pendingDecision(c);
   need(d !== null, 'nodecision');
@@ -778,13 +923,13 @@ export function answerDecision(c: Career, choice: unknown): void {
     const v = d!.vars;
     switch (d!.kind) {
       case 'contract': need(c.contracts.length < 12, 'full'); c.contracts.push({ id: c.nextId++, p: d!.plant as PlantId, tpm: v.tpm as number, price: v.price as number, left: v.term as number, pen: v.pen as number }); c.log.push({ m: c.m, kind: 'contract', code: 'signed', plant: d!.plant, n: v.tpm as number }); break;
-      case 'turnaround': { const p = d!.plant as PlantId, x = c.plants[p]; if (x.stock === 0) buyCatalyst(c, p); x.ta = c.m + DEC_TA_LEAD; x.taCrane = 1; x.taCrew = 0; break; }
+      case 'turnaround': { const p = d!.plant as PlantId, x = c.plants[p]; if (x.stock === 0) buyCatalyst(c, p); x.ta = (v.taMonth as number | undefined) ?? c.m + DEC_TA_LEAD; x.taCrane = 1; x.taCrew = 0; break; }
       case 'debottleneck': { const q = d!.plant as PlantId; spend(c, d!.options[0]!.costUSD); (c.boost ??= {})[q] = (c.boost[q] ?? 0) + DEC_BOOST; break; }
       case 'hedge': c.hedge = { price: v.price as number, until: c.m + (v.months as number) }; break;
       case 'catgrade': (c.eco ??= {})[d!.plant as PlantId] = true; break;
-      case 'crew': { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, c.m + DEC_TA_LEAD, 2, CREW_STEP); break; }
+      case 'crew': { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, (v.taMonth as number | undefined) ?? c.m + DEC_TA_LEAD, 2, CREW_STEP); break; }
     }
-  } else if (d!.kind === 'crew') { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, c.m + DEC_TA_LEAD, 1, 0); }
+  } else if (d!.kind === 'crew') { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, (d!.vars.taMonth as number | undefined) ?? c.m + DEC_TA_LEAD, 1, 0); }
   d!.choice = choice as number;
 }
 
@@ -817,9 +962,10 @@ export function advanceToDecision(c: Career): number {
     const bad = c.log.filter((l) => l.m === c.m - 1 && (l.kind === 'critical' || l.kind === 'incident')).pop();
     if (bad !== undefined) { why = { kind: bad.kind, plant: bad.plant, n: bad.n }; break; }
     const fresh = openWarnings(c);
-    if (fresh.length > 0) { c.stopped = fresh; const [kind, plant] = fresh[0]!.split(':'); why = { kind: kind!, plant: plant!, n: fresh.length }; break; }
-    const od = PLANTS.find((p) => overdue(c, p) > 0 && !od0.has(p));
-    if (od !== undefined) { why = { kind: 'overdue', plant: od, n: overdue(c, od) }; break; }
+    if (fresh.length > 0) { c.stopped = fresh; const pick = fresh.find((k) => k.startsWith('end:')) ?? fresh.find((k) => k.startsWith('em:')) ?? fresh[0]!, [kind, plant] = pick.split(':'); why = { kind: kind!, plant: plant!, n: fresh.length }; break; }   // every open warning is in c.stopped; the banner lists them all
+    // plants that passed their inspection date this month stop the run ONCE, all of them listed (plant names joined with commas; n = the worst count)
+    const newOd = PLANTS.filter((p) => overdue(c, p) > 0 && !od0.has(p));
+    if (newOd.length > 0) { const all = PLANTS.filter((p) => overdue(c, p) > 0); why = { kind: 'overdue', plant: all.join(','), n: Math.max(...all.map((p) => overdue(c, p))) }; break; }
     const o = worthyOffer(c);
     if (o !== null) { why = { kind: 'offer', plant: o.p, n: o.id }; break; }
     if (Math.abs(c.gas / gas0 - 1) >= SWING_GAS) { why = { kind: 'gas', plant: '', n: Math.round((c.gas / gas0 - 1) * 100) }; break; }

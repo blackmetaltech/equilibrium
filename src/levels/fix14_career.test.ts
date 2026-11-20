@@ -67,7 +67,7 @@ describe('NEXT DECISION (skip to the next thing that needs you)', () => {
         const before = new Set(c.plants.nh3 ? [] : []); void before;
         const flags0 = new Set<string>(); for (const p of ['nh3', 'acid', 'meoh', 'etoh'] as const) { const x = c.plants[p]; if (x.insp >= 10) flags0.add(`insp:${p}`); if (x.cat < 0.7) flags0.add(`cat:${p}`); if (x.U < 0.75) flags0.add(`foul:${p}`); }
         const m0 = c.m, n = advanceToDecision(c);
-        if (n < 12 && c.m % 12 !== 0 && c.ending === '') expect(['insp', 'cat', 'foul', 'overdue', 'offer', 'gas', 'price', 'incident', 'critical'], `seed ${seed} m${m0}`).toContain(c.why!.kind);
+        if (n < 12 && c.m % 12 !== 0 && c.ending === '') expect(['insp', 'cat', 'foul', 'overdue', 'offer', 'gas', 'price', 'incident', 'critical', 'em', 'end'], `seed ${seed} m${m0}`).toContain(c.why!.kind);
         if (['insp', 'cat', 'foul'].includes(c.why!.kind)) expect((c.stopped ?? []).length).toBeGreaterThan(0);
       }
     }
