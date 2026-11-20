@@ -1,11 +1,12 @@
 // The human careful player: what a tester did on the real board (+3 MONTHS key, card defaults), as a pure policy for tests.
-import { CareerError, MONTHS, PLANTS, ackWarning, advance, decide, exposure, initCareer, previewInvest, type Career } from './model';
+import { CareerError, MONTHS, pendingDecision, PLANTS, ackWarning, advance, decide, exposure, initCareer, previewInvest, type Career } from './model';
 import type { Decision } from './policy';
 
 /** Follows the payback advice and maxes heat recovery, takes the contracts above spot that the card says the plant can fill, books turnarounds with the card's defaults (two months ahead, one crane, no extra
  * crew, every worn plant at the same stop), inspects when the due warning lights, and decides only where a +3 month advance stopped. Moves a turnaround later only to clear an overlap; no extra crews, no calendar. */
 export function humanCarefulDecisions(c: Career): Decision[] {
   const d: Decision[] = [], booked: number[] = [];
+  const pd = pendingDecision(c); if (pd !== null) d.push(['answer', pd.best]);   // the yearly decision card: take the option with the better expected MUSD
   if (c.m === 0) for (const p of PLANTS) d.push(['setRate', p, 0.95]);
   if (c.cash > 25e6) {
     for (const k of ['heat', 'safety', 'abate'] as const) {

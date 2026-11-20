@@ -9,7 +9,7 @@ import { levelsCareer } from '../locales/en/levels_career';
 import { SPEC_BY_ID, SPECS, levelOf } from './registry';
 import { CAREER, careerOf, referenceCareer, starMargin } from './career';
 import { cpm, schedule } from '../sim/ops/turnaround';
-import { PLANTS, MONTHS, CHIEF_MARGIN, score, advance, decide, initCareer, riskOf, taJobs, taDays, CareerError } from '../sim/career/model';
+import { answerDecision, PLANTS, MONTHS, CHIEF_MARGIN, score, advance, decide, initCareer, riskOf, taJobs, taDays, CareerError } from '../sim/career/model';
 import { naiveDecisions, solverDecisions } from '../sim/career/policy';
 import type { EqState } from '../state';
 
@@ -64,6 +64,7 @@ describe('model', () => {
   });
   it('plants only age: catalyst and U fall, wear and the inspection clock rise, until a turnaround resets them; risk rises with the overdue inspection', () => {
     const c = initCareer(1, 'engineer');
+    answerDecision(c, 1);   // a pending yearly decision blocks the multi-month advance
     advance(c, 6);
     const x = c.plants.nh3;
     expect(x.cat).toBeLessThan(1); expect(x.U).toBeLessThan(1); expect(x.wear).toBeGreaterThan(0); expect(x.insp).toBe(6);

@@ -97,7 +97,7 @@ func _cards() -> void:
 	var guard := 0
 	while guard < 30 and int(view().dashboard.month) < 36:
 		var a: int = int(view().dashboard.month)
-		act("ackWarning", []); act("advance", [3])
+		act("answer", [1]); act("ackWarning", []); act("advance", [3])
 		if int(view().dashboard.month) - a < 3: stops += 1
 		guard += 1
 	check(stops >= 1, "+3 MONTHS stopped early at least once before month 36 (%d stops)" % stops)

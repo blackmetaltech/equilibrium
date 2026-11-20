@@ -91,7 +91,7 @@ func _advance_lock() -> void:
 	var b := board()
 	var guard := 0
 	while guard < 30 and not bool(view().dashboard.needsAck) and str(view().dashboard.ending) == "":
-		b.advance_months(3); await frames(12); guard += 1   # not awaited to the end: the one-second dark period after a stop must still be running when we look
+		act("answer", [1]); b.advance_months(3); await frames(12); guard += 1   # not awaited to the end: the one-second dark period after a stop must still be running when we look
 	check(bool(view().dashboard.needsAck), "a +3 MONTHS stop at a warning leaves it unacknowledged (%d presses)" % guard)
 	b = board()
 	var k3 := b.find_child("Advance3", true, false) as Button
@@ -129,7 +129,7 @@ func _memo_and_slip() -> void:
 	# the end slip: finish the career quickly with idle months, then read the printout
 	var guard := 0
 	while str(view().dashboard.ending) == "" and guard < 80:
-		act("ackWarning", []); act("advance", [12]); guard += 1
+		act("answer", [1]); act("ackWarning", []); act("advance", [12]); guard += 1
 	await frames(6)
 	Printout.open(app); await frames(8)
 	var slip := app.find_child("FlaskRule3", true, false) as Label

@@ -6,7 +6,7 @@ import { CAREER, careerOf, endingsView, outlookNote } from './career';
 import { SPEC_BY_ID, SPECS } from './registry';
 import { Env, Rng, TICK } from '@core/kit';
 import { GAME } from '../game';
-import { CHIEF_MARGIN, INSPECT_EVERY, MONTHS, advance, attention, decide, exposure, initCareer, outlook, pace, previewInvest, score, taShort } from '../sim/career/model';
+import { answerDecision, pendingDecision, CHIEF_MARGIN, INSPECT_EVERY, MONTHS, advance, attention, decide, exposure, initCareer, outlook, pace, previewInvest, score, taShort } from '../sim/career/model';
 import { carefulDecisions, cautiousDecisions, playCareer } from '../sim/career/policy';
 import { humanCarefulDecisions, playCareerSteps } from '../sim/career/human';
 import type { EqState } from '../state';
@@ -99,7 +99,7 @@ describe('plant cards, +3 MONTHS, BOOK and ACCEPT', () => {
   it('+3 MONTHS stops after the month an inspection comes within two months of due, a catalyst wears under 70 % or an exchanger fouls under 75 %, and at the year end; one month always runs', () => {
     const c = initCareer(1, 'engineer');
     let stoppedEarly = 0;
-    while (c.ending === '' && c.m < 36) { c.stopped = []; const n = advance(c, 3); expect(n).toBeGreaterThanOrEqual(1); if (n < 3 && c.m % 12 !== 0) { stoppedEarly++; expect(attention(c).length).toBeGreaterThan(0); } }
+    while (c.ending === '' && c.m < 36) { c.stopped = []; if (pendingDecision(c) !== null) answerDecision(c, 1); const n = advance(c, 3); expect(n).toBeGreaterThanOrEqual(1); if (n < 3 && c.m % 12 !== 0) { stoppedEarly++; expect(attention(c).length).toBeGreaterThan(0); } }
     expect(stoppedEarly).toBeGreaterThan(0);
     const d = initCareer(1, 'engineer'); while (d.m < 11) advance(d, 1); expect(advance(d, 3)).toBe(1);   // month 12: the annual review
     expect(d.years.length).toBe(1);
