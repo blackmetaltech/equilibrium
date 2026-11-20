@@ -465,7 +465,7 @@ func set_units(arr: Array) -> void:
 			if _units.has(id): (_units[id] as Node).queue_free()
 			var m := UnitModels.create(type, id); add_child(m); _units[id] = m; _fit(m, type)
 			if type == "hx": _label_hx_ports(m)
-			if _is_small(type): _tag_small(m, id, type)
+			if _is_small(type) or _is_named_big(type): _tag_small(m, id, type)
 			if id == selected_id: m.set_selected(true)
 			st = []
 		_unit_state[id] = [type, x, y, rot]
@@ -696,6 +696,9 @@ const SMALL_TYPES := ["relief", "valve", "interlock", "purge", "splitter", "sink
 func _is_small(type: String) -> bool:
 	var f := footprint_of(type, 0)
 	return SMALL_TYPES.has(type) or f.x * f.y <= 2
+## L00: the two units the coach names (the converter and the inlet-trim cooler) carry a name label like the small units do, so "Tap the converter R-106" can be found on the plant.
+func _is_named_big(type: String) -> bool:
+	return (type == "eq_reactor" or type == "cooler") and app != null and app.b != null and str(app.b.g.get("level", "")) == "L00"
 func _tag_small(m: UnitModel, id: String, type: String) -> void:
 	var lb := Label3D.new(); lb.name = "SmallTag"; lb.text = "%s %s" % [type.replace("_", " ").to_upper(), id]; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true
 	lb.pixel_size = 0.0010; lb.font_size = 32; lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.9); lb.modulate = Color("#FFD27A"); lb.font = EqTheme.font("semi")

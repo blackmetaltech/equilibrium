@@ -274,6 +274,9 @@ func _explain_run(li: Dictionary, runs: Array) -> void:
 
 ## The plant went back to design after an edit: nothing on the intercom may talk about the old design. Speak the current coach line again, else a neutral one.
 func _stale_lines(li: Dictionary) -> void:
+	if phase != "design" and not li.is_empty() and qa_li.is_empty():   # "Stopped. Back in DESIGN..." / "Retry: your build is kept" are about the design: gone once the plant runs again
+		for k in ["IC_STOPPED", "IC_RETRY_KEPT"]:
+			if intercom.drop_last_if(PaperStrings.t(k)) and CbSettings.tutorial != "off" and li.get("coach") is Dictionary: _back_to_coach(li)
 	if not _outcome_said or phase != "design" or li.is_empty() or not qa_li.is_empty(): return
 	_outcome_said = false
 	_back_to_coach(li)
@@ -461,7 +464,9 @@ func stop_and_edit() -> Dictionary:
 	var r := BuildKeeper.restart(app, true)
 	app.set_speed(0); keys.set_speed_pos(0)
 	phase = engine_phase()
-	intercom.say("MARA", PaperStrings.t("IC_STOPPED") if int(r.get("fails", 0)) == 0 else PaperStrings.t("IC_STOP_FAIL") % ", ".join(PackedStringArray(r.get("missing", []))), "info")
+	if phase == "design" or int(r.get("fails", 0)) != 0:   # a level that restarts mid-shift (L00) has no DESIGN to go back to: it says nothing about one
+		intercom.say("MARA", PaperStrings.t("IC_STOPPED") if int(r.get("fails", 0)) == 0 else PaperStrings.t("IC_STOP_FAIL") % ", ".join(PackedStringArray(r.get("missing", []))), "info")
+	elif CbSettings.tutorial != "off" and level_info().get("coach") is Dictionary: _back_to_coach(level_info())
 	app.sfx("key")
 	return r
 

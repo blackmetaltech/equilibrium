@@ -10,7 +10,7 @@ import { FIRSTRUN_S } from '../../data/events';
 import { buildGuideOf } from '../../levels/build_guide';
 import { SPEC_BY_ID, firstRunT, madeKg, specOf } from '../../levels/registry';
 import type { GoalEval, LevelSpec, Measures } from '../../levels/spec';
-import { commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, unitsOfType, type Prediction } from '../../levels/util';
+import { burns, commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, unitsOfType, type Prediction } from '../../levels/util';
 import { REGIONS } from '../../regions';
 import type { EqState } from '../../state';
 import { designActions, unitOf } from '../actions/design';
@@ -239,6 +239,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     /** Withheld while a prediction is still open (nothing commissioned, none locked): the lesson quotes the numbers the Call-it asks for. */
     lesson: !m.ok && s.status === 'playing' && lack !== null ? t('lv.lesson.not_run') : (call !== null && !grade.answered && commissions(s) === 0 && s.status === 'playing') ? '' : t(`lv.${spec.id}.lesson`, spec.lessonVars(s, m)),
     mode: s.mode,
+    ...(spec.carriesBurns ? { burns: burns(s) } : {}),
     /** Extras: the cylinder banks (kg/h and kmol/h side by side), feed units whose composition no card may show, the shift length. */
     banks, bankSpecies: spec.bankSpecies ?? [], masked: spec.masked ? spec.masked(s) : [], shiftLen: spec.shiftLen,
     /** {t, total} plant seconds, speed, etaWallS (wall seconds left at this speed): the shift clock for the console; null on a level without a shift. */
@@ -335,7 +336,13 @@ const levelAct: Fn = (s, name: unknown, ...args: unknown[]) => {
   f!(s, ...args);
 };
 
-export const levelActions: Record<string, Fn> = { callIt, setBank, levelAct };
+/** carryBurns(n): a Retry / stop-and-edit restarts the level; the front end hands the test burns of the attempt it replaces to the fresh one, so the job's count is not lost (L03's "at most 3"). Before the first commission, once. */
+const carryBurns: Fn = (s, n: unknown) => {
+  need(typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 50, t('lv.err.carry_burns'));
+  need(commissions(s) === 0 && !(s.levelActions ?? []).some((a) => a[0] === 'carryBurns'), t('lv.err.carry_burns'));
+};
+
+export const levelActions: Record<string, Fn> = { callIt, setBank, levelAct, carryBurns };
 
 /** Runs the current level's `tick` while the plant runs (shift / first run). */
 export const levelTickSystem: System<EqState> = {

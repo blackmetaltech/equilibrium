@@ -341,7 +341,9 @@ class Watch extends Node:
 		var id := str(li.id) + ":" + str(app.b.g.get("seed", ""))
 		if Notebook._seen.get(key, "") == id: return
 		Notebook._seen[key] = id
-		if str(li.get("phase", "design")) == "design" and float(li.get("spentUSD", 0)) == 0.0: Notebook.open(app)
+		# once per level start (a fresh campaign, "Next job", a direct launch): a level that presets parts (L03+) has spent money before the player did anything, so the test is "nothing run yet", not "nothing spent"
+		var runs = PaperStrings.q(app, "runs")
+		if str(li.get("phase", "design")) == "design" and int(app.b.g.get("tick", 0)) == 0 and not (runs is Array and not (runs as Array).is_empty()) and not bool(Notebook.started.get(str(li.id), false)): Notebook.open(app)
 
 static func attach(app) -> void:
 	if app.root.get_node_or_null("NotebookWatch") != null: return
