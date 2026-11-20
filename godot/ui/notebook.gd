@@ -174,6 +174,9 @@ class Dismiss extends Node:
 			var dy: float = e.position.y - _y0
 			if dy > 110.0 and dy > absf(e.position.x - _x0) * 1.5 and sc.scroll_vertical <= 1: _done = true; host.queue_free()
 
+## A goal's unit with its space (" s"), so "now 94 s · target 95 s" never shows two bare numbers.
+static func _gu(g: Dictionary) -> String: return (" " + str(g.unit)) if str(g.get("unit", "")) != "" else ""
+
 static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void:
 	var fvb: VBoxContainer = vb.get_meta("fvb", vb)
 	vb.add_theme_constant_override("separation", 10); vb.custom_minimum_size.x = minf(660.0, app.get_viewport().get_visible_rect().size.x - 140.0)   # wrapped labels need a width to size against
@@ -193,14 +196,19 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	var gv := VBoxContainer.new(); gv.name = "Goals"; gv.add_theme_constant_override("separation", 0); vb.add_child(gv)
 	for g in li.get("goals", []):
 		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); row.name = "Goal_" + str(g.key)
-		var tb := TickBox.new(); tb.met = bool(g.met); row.add_child(tb)
+		var kept := false   # after Keep improving the plant is the same as the one that passed: the tick stays until a part or a dial changes
+		var kg: Dictionary = BuildKeeper.kept_goals.get(str(li.get("id", "")), {})
+		if not bool(g.met) and bool(g.get("pending", false)) and not kg.is_empty() and (kg.met as Array).has(str(g.key)):
+			if int(kg.sig) == BuildKeeper.plant_sig(app): kept = true
+			else: BuildKeeper.kept_goals.erase(str(li.get("id", "")))
+		var tb := TickBox.new(); tb.met = bool(g.met) or kept; row.add_child(tb)
 		var gl := EqTheme.label(str(g.text), 18, EqTheme.INK, "sans"); gl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; row.add_child(gl)
 		if g.get("readout") != null and str(g.readout) != "":
 			row.add_child(EqTheme.label(str(g.readout), 16, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.25), "mono"))
 		elif bool(g.get("pending", false)) and not bool(g.met):
-			row.add_child(EqTheme.label(PaperStrings.t("NB_PENDING"), 16, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.4), "mono"))
+			row.add_child(EqTheme.label(PaperStrings.t("NB_KEPT") if kept else PaperStrings.t("NB_PENDING"), 16, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.4), "mono"))
 		elif g.has("value") and g.get("value") != null:
-			var vt := PaperStrings.t("NB_NOW") % PaperStrings.num(float(g.value)) + ((" · " + PaperStrings.t("NB_TARGET") % PaperStrings.num(float(g.target))) if g.get("target") != null else "")   # "now 16.67 · target 10.25", never two bare numbers
+			var vt := PaperStrings.t("NB_NOW") % PaperStrings.num(float(g.value)) + _gu(g) + ((" · " + PaperStrings.t("NB_TARGET") % (PaperStrings.num(float(g.target)) + _gu(g))) if g.get("target") != null else "")   # "now 16.67 · target 10.25", never two bare numbers
 			row.add_child(EqTheme.label(vt, 16, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.25), "mono"))
 		gv.add_child(row)
 		var rule := ColorRect.new(); rule.color = Color(EqTheme.INK, 0.28); rule.custom_minimum_size = Vector2(0, 1); gv.add_child(rule)
@@ -241,12 +249,16 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	var cis: Array = []
 	if li.get("callIts") is Array and not (li.callIts as Array).is_empty(): cis = li.callIts
 	elif li.get("callIt") is Dictionary: cis = [li.callIt]
+	var cbox := VBoxContainer.new(); cbox.name = "CallBox"; cbox.add_theme_constant_override("separation", 6); cbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if not cis.is_empty():   # the call rows scroll inside the page (a four-item bench must not push the title and the Start key off a 1080p screen)
+		var csc := ScrollContainer.new(); csc.name = "CallScroll"; csc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; csc.size_flags_horizontal = Control.SIZE_EXPAND_FILL; csc.add_child(cbox); fvb.add_child(csc)
+		_fit_calls.call_deferred(app, csc, cbox)
 	for ci in cis:
 		if not (ci is Dictionary): continue
 		if ci == cis[0] and li.get("predictNote") != null and str(li.predictNote) != "":
-			var pn := EqTheme.label(str(li.predictNote), 15, EqTheme.PEN_BLUE, "semi"); pn.name = "PredictNote"; pn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; fvb.add_child(pn)
+			var pn := EqTheme.label(str(li.predictNote), 15, EqTheme.PEN_BLUE, "semi"); pn.name = "PredictNote"; pn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cbox.add_child(pn)
 		var ckey := str(ci.get("key", ""))
-		var cr := HBoxContainer.new(); cr.name = "CallIt" if cis.size() == 1 else "CallIt_" + ckey; cr.add_theme_constant_override("separation", 10); fvb.add_child(cr)
+		var cr := HBoxContainer.new(); cr.name = "CallIt" if cis.size() == 1 else "CallIt_" + ckey; cr.add_theme_constant_override("separation", 10); cbox.add_child(cr)
 		cr.add_child(EqTheme.dymo(PaperStrings.t("NB_CALLIT"), 13))
 		var pl := EqTheme.label(str(ci.prompt) + ":", 18, EqTheme.INK, "sans"); pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cr.add_child(pl)
 		var answered := bool(ci.get("answered", false)) and ci.get("value") != null
@@ -264,14 +276,14 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 		if answered: an.text = PaperStrings.num(float(ci.value))
 		cr.add_child(an)
 		cr.add_child(EqTheme.label(str(ci.unit), 18, EqTheme.INK, "mono"))
-		var cnote := EqTheme.label("", 15, EqTheme.RED, "semi"); cnote.name = "CallNote"; cnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cnote.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cnote.visible = false
+		var cnote := EqTheme.label(" ", 15, EqTheme.RED, "semi"); cnote.name = "CallNote"; cnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cnote.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # the note line is always there (blank until the answer is locked), so a locked answer never pushes the page down
 		if answered:   # the locked answer is written under the line, and stays there when the notebook is reopened
 			cnote.text = PaperStrings.t("NB_PREDICTED") % [PaperStrings.num(float(ci.value)), str(ci.unit)] + ("  ✓" if ci.get("ok") == true else ("  ✗" if ci.get("ok") == false else "")) + ((" · actual %s %s" % [PaperStrings.num(float(ci.truth)), str(ci.unit)]) if ci.get("truth") != null else "") + ((" · " + str(ci.tol)) if str(ci.get("tol", "")) != "" else "") + ((" · " + PaperStrings.t("NB_NAMED") + " " + str(ci.named) + (("  ✓" if ci.get("namedOk") == true else "  ✗ (" + str(ci.get("truthNamed", "")) + ")") if ci.get("namedOk") != null else "")) if str(ci.get("named", "")) != "" else "")
 			cnote.add_theme_color_override("font_color", EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK); cnote.label_settings = EqStrings.ls(15, EqTheme.PEN_GREEN if ci.get("ok") == true else EqTheme.INK, "semi"); cnote.visible = true
-		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); fvb.remove_child(cr); cwrap.add_child(cr)
+		var cwrap := VBoxContainer.new(); cwrap.add_theme_constant_override("separation", 2); var pi := cr.get_index(); cbox.remove_child(cr); cwrap.add_child(cr)
 		if str(ci.get("given", "")) != "":   # what the call needs (data, table, formula), never the answer: written under the call row
 			var cg := EqTheme.label(str(ci.given), 14, EqTheme.PEN_BLUE, "sans"); cg.name = "CallGiven"; cg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cg.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cwrap.add_child(cg)
-		cwrap.add_child(cnote); fvb.add_child(cwrap); fvb.move_child(cwrap, pi)
+		cwrap.add_child(cnote); cbox.add_child(cwrap); cbox.move_child(cwrap, pi)
 		var lo_b := float(ci.get("min", 0.0)); var hi_b := float(ci.get("max", 1e9))   # the engine's bounds for this answer (a typed 7000 °C is refused before it is locked in)
 		var is_locked := bool(ci.get("locked", answered)) and ci.get("value") != null
 		an.locked = is_locked
@@ -299,6 +311,13 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; foot.add_child(sp)
 	var go := EqTheme.key_button(PaperStrings.t("NB_RESUME") if (bool(started.get(str(li.get("id", "")), false)) or str(li.get("phase", "design")) != "design" or int(app.b.g.get("tick", 0)) > 0 or (PaperStrings.q(app, "runs") is Array and not (PaperStrings.q(app, "runs") as Array).is_empty())) else PaperStrings.t("NB_START"), true, 20); go.name = "Start"; go.custom_minimum_size = Vector2(190, 50)
 	go.pressed.connect(func(): host.queue_free()); foot.add_child(go)
+
+## The call rows take what they need up to a share of the screen, then scroll.
+static func _fit_calls(app, csc: ScrollContainer, cbox: Control) -> void:
+	if not is_instance_valid(csc) or not is_instance_valid(cbox): return
+	await csc.get_tree().process_frame
+	if not is_instance_valid(csc) or not is_instance_valid(cbox): return
+	csc.custom_minimum_size.y = minf(cbox.get_combined_minimum_size().y, maxf(140.0, app.vs_h() * 0.30))
 
 static func _is_first(app, id: String) -> bool:
 	var ls: Array = app.b.levels()

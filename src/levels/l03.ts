@@ -68,7 +68,7 @@ export function fuelMeasures(s: S): Measures {
 }
 
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
-const burn = (s: S): boolean => commissions(s) >= 1;
+const burn = (s: S): boolean => burns(s) >= 1;   // a Retry restarts the attempt but the burns already made still count: the coach never asks for a test burn again
 const COACH: CoachStep[] = [
   { id: 'set_air', role: 'manager', focus: 'compressor', done: (s) => unitsOfType(s, 'compressor').length >= 1 },
   { id: 'place_mixer', role: 'manager', focus: 'mixer', done: (s) => unitsOfType(s, 'mixer').length >= 1 },

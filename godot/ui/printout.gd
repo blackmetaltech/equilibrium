@@ -80,7 +80,7 @@ static func open(app) -> bool:
 	var lid := str(ed.get("level_id", ""))
 	if lid == "": lid = str(li.get("id", ""))
 	var runs = PaperStrings.q(app, "runs")
-	var run_n: int = (runs as Array).size() if runs is Array else 1
+	var run_n: int = ((runs as Array).size() if runs is Array else 1) + int(BuildKeeper.run_prior.get(lid, 0))   # counts on across a Retry / Keep improving
 	_line(vb, "%s · %s · %s" % [PaperStrings.t("PR_HEAD"), PaperStrings.t("PR_RUN") % run_n, lid], INKC, 26, "Header")
 	var not_met := not won and bool(rc.get("notMet", false))   # a test burn / first try that missed: the job is still open, not an abort
 	_line(vb, PaperStrings.t("PR_DONE") if won else (PaperStrings.t("PR_NOTMET") if not_met else PaperStrings.t("PR_ABORT")), EqTheme.PEN_GREEN if won else (EqTheme.INK if not_met else EqTheme.RED), 30, "Banner")
@@ -141,11 +141,14 @@ static func open(app) -> bool:
 	if ci is Dictionary:
 		_line(vb, "", INKC, 8)
 		var cok := bool(ci.get("ok", false))
-		var ct := "%s: %s %s" % [PaperStrings.t("PR_CALLIT"), PaperStrings.num(float(ci.get("value", 0))), str(ci.get("unit", ""))]
-		if ci.has("answer"): ct += "   ENGINE %s" % PaperStrings.num(float(ci.answer))
-		elif ci.get("truth") != null: ct += "   ENGINE %s" % PaperStrings.num(float(ci.truth))
-		if str(ci.get("tol", "")) != "": ct += "  (%s)" % str(ci.tol)   # every call result line states its tolerance: "within ±2 %"
-		_line(vb, ct + "   " + (PaperStrings.t("PR_PASS") if cok else PaperStrings.t("PR_FAIL")), INKC if cok else EqTheme.RED.darkened(0.15), 21, "CallIt")
+		if not bool(ci.get("answered", true)) or ci.get("value") == null:   # nothing was called: say so, never "0.000 FAIL"
+			_line(vb, "%s: %s" % [PaperStrings.t("PR_CALLIT"), PaperStrings.t("PR_NOCALL")], INKC.lerp(Color.WHITE, 0.3), 21, "CallIt")
+		else:
+			var ct := "%s: %s %s" % [PaperStrings.t("PR_CALLIT"), PaperStrings.num(float(ci.get("value", 0))), str(ci.get("unit", ""))]
+			if ci.has("answer"): ct += "   ENGINE %s" % PaperStrings.num(float(ci.answer))
+			elif ci.get("truth") != null: ct += "   ENGINE %s" % PaperStrings.num(float(ci.truth))
+			if str(ci.get("tol", "")) != "": ct += "  (%s)" % str(ci.tol)   # every call result line states its tolerance: "within ±2 %"
+			_line(vb, ct + "   " + (PaperStrings.t("PR_PASS") if cok else PaperStrings.t("PR_FAIL")), INKC if cok else EqTheme.RED.darkened(0.15), 21, "CallIt")
 	# Mara's note in blue pen, at the margin
 	if str(rc.get("lesson", "")) != "":
 		var nt := PanelContainer.new(); nt.name = "Margin"; var ns := StyleBoxEmpty.new(); ns.content_margin_top = 8; nt.add_theme_stylebox_override("panel", ns)

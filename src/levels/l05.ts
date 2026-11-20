@@ -66,7 +66,7 @@ export function fireMeasures(s: S, shiftLen = L05_LEN_S): Measures {
   const sFed = toKmolH(fedOf(s, 'S')), o2Fed = toKmolH(fedOf(s, 'O2'));
   const v: Record<string, number> = {
     s_fed: sFed, o2_fed: o2Fed, air: o2Fed / AIR_O2, heat_mw: 0, so2_pct: 0, o2_pct: 0, o2_so2: 0, burner_so2_pct: 0, burner_K: 0, conv_K: 0, steam_th: 0, steam_P: 0, boiler_mw: 0,
-    blower_kw: 0, net_usd_h: 0, high_s: 0, crit_s: 0, shift_t: 0, shift_len: shiftLen, ended: 0, wear: 0, surge: 0, burner_tier: 0, tripped: 0, dil_frac: 0,
+    burner_peak_K: 0, blower_kw: 0, net_usd_h: 0, high_s: 0, crit_s: 0, shift_t: 0, shift_len: shiftLen, ended: 0, wear: 0, surge: 0, burner_tier: 0, tripped: 0, dil_frac: 0,
   };
   const sh = s.shift;
   if (sh) {
@@ -85,6 +85,7 @@ export function fireMeasures(s: S, shiftLen = L05_LEN_S): Measures {
   const bo = outStream(s, bur.id), btot = bo ? bo.n.reduce((a, b) => a + b, 0) : 0;
   v.burner_K = bo ? sh?.disp[plumbing(s).outPipe(bur.id, 'out')!]?.T ?? bo.T : 0;
   v.burner_so2_pct = bo && btot > 0 ? (flowOf(s, bo, 'SO2') / btot) * 100 : 0;
+  v.burner_peak_K = Math.max(...(s.trends['T:' + bur.id] ?? [0]), v.burner_K!);   // the peak the recorder's trace shows, kept apart from the value at the end of the shift
   const info = s.solved.units[boi.id]?.info ?? {};
   v.steam_th = info.steam_t_h ?? 0; v.steam_P = info.steam_P ?? 0; v.boiler_mw = Math.abs(info.Q ?? 0) / 1e6;
   const bi = s.solved.units[bur.id]?.info ?? {};

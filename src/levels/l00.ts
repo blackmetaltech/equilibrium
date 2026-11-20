@@ -75,7 +75,7 @@ export function loopMeasures(s: S): Measures {
 
 const COACH: CoachStep[] = [
   { id: 'tap_converter', role: 'supervisor', focus: 'eq_reactor', done: (s) => s.ui.pinned.includes('eqwin') || s.ui.coachStep === 'tap_converter' || (s.shift?.t ?? 0) >= L00_EVENT_AT },
-  { id: 'inlet_down', role: 'supervisor', focus: 'cooler', done: (s) => s.shift === null || s.shift.ended !== '' || Object.keys(s.shift.ramps).length > 0 || (unitsOfType(s, 'cooler')[0]?.params.T as number) < T_COOL - 20 },
+  { id: 'inlet_down', role: 'supervisor', focus: 'cooler', done: (s) => s.shift === null || s.shift.ended !== '' || Object.keys(s.shift.ramps).length > 0 || Math.abs((unitsOfType(s, 'cooler')[0]?.params.T as number) - T_COOL) > 1 },
 ];
 
 const solver = () => {
@@ -102,7 +102,7 @@ export const L00: LevelSpec = {
     s.undo = { past: [], future: [] };
   },
   measures: loopMeasures,
-  goals: (_s, m) => [{ key: 'night', met: m.v.ended === 1, value: m.v.t, target: m.v.len }],
+  goals: (_s, m) => [{ key: 'night', met: m.v.ended === 1, value: m.v.t, target: m.v.len, unit: 's' }],   // plant seconds into the night; the night is decided at v.len (95 s), not the 600 s the shift timer is set to
   won: (_s, m) => m.v.ended === 1,
   extraStars: () => [false, false],
   callIt: null,

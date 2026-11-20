@@ -102,7 +102,14 @@ static func open(app, id: String) -> Faceplate:
 	plates[id] = fp
 	app.root.add_child(fp)
 	fp.refresh(); fp._place(true)
+	fp._settle_place.call_deferred()   # wrapped text and the knob rows size a frame late: lay the plate out again once its real size is known, so a second card never lands over the first
 	return fp
+
+func _settle_place() -> void:
+	for i in 2:
+		await get_tree().process_frame
+		if not is_instance_valid(self): return
+		_place(true)
 
 ## The coach steps "tap the converter" (L00), "pin the window" (L10) and "read the curve" (L13) are done by looking at the converter: opening its card tells the engine so
 ## (markCoach with that step's id), only while that step is the one on the intercom.
@@ -173,6 +180,13 @@ func _stream_id(c: Dictionary) -> String:
 	for k in ["outlets", "inlets"]:
 		for p in c.get(k, []):
 			if p.get("stream") != null: return str(p.stream)
+	return ""
+
+## A unit with several outlets (a splitter, a separator) shows one stream's numbers: which port that is, so "888 kmol/h" is never read as the whole inlet.
+func _port_tag(c: Dictionary, sid: String) -> String:
+	var outs: Array = c.get("outlets", [])
+	if outs.size() < 2: return ""
+	for p in outs: if p.get("stream") != null and str(p.stream) == sid: return " (" + str(p.get("label", p.get("port", ""))) + ")"
 	return ""
 
 func refresh() -> void:
@@ -475,7 +489,7 @@ func _update() -> void:
 	readouts.clear()
 	# flow (kmol/h) and mass (kg/h) side by side; for a feed the spec itself is the flow (engine value), the mass comes from the solved stream or the engine's feed fields
 	var flow: Variant = float(feed.flow) if is_feed and feed.has("flow") else (st.get("flow") if st.has("flow") else null)
-	_set_cell("flow", PaperStrings.t("FP_FLOW") + " " + PaperStrings.t("FP_KMOLH"), flow, "kmol/h")
+	_set_cell("flow", PaperStrings.t("FP_FLOW") + " " + PaperStrings.t("FP_KMOLH") + _port_tag(card, sid), flow, "kmol/h")
 	var mass: Variant = null
 	if st.has("mass"):
 		mass = float(st.mass) * 3600.0
@@ -487,7 +501,9 @@ func _update() -> void:
 	var t_cell: Variant = st.get("T") if st.has("T") else (float(feed.T) if is_feed and feed.has("T") else null)
 	var live = card.get("live")   # during a shift the engine sends the vessel's live dynamic T (K): the card shows it, not the steady solve
 	if live is Dictionary and (live as Dictionary).get("T") != null and is_finite(float(live.T)): t_cell = float(live.T)
-	_set_cell("T", "T " + PaperStrings.usym("degC"), t_cell, "degC")
+	var t_cap := "T " + PaperStrings.usym("degC")
+	if _cmd.has("T") and _phase() == "shift" and t_cell != null and absf(float(_cmd.T) - float(t_cell)) > 0.5: t_cap += " → " + PaperStrings.num(EqFmt.to_disp(float(_cmd.T), "degC"))   # a ramp under way: the card says where it is heading, not only where it is passing through
+	_set_cell("T", t_cap, t_cell, "degC")
 	_set_cell("P", "P " + PaperStrings.usym("bar"), st.get("P") if st.has("P") else (float(feed.P) if is_feed and feed.has("P") else null), "bar")
 	var res: Variant = card.get("results")
 	var duty: Variant = null; var dcap := PaperStrings.t("FP_DUTY") + " kW"

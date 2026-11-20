@@ -208,6 +208,7 @@ func refresh() -> void:
 		var notes: Array = li.get("note", []) if li.get("note") is Array else []
 		intercom.say(str(li.get("setter", "mara")), str(notes[0]) if not notes.is_empty() else EqStrings.T("IC_IDLE"), "info")
 	_explain_run(li, runs)
+	_reconcile(li)
 	_stale_lines(li)
 	_bank_hint(li)
 	_failure()
@@ -245,6 +246,7 @@ var _gl := ""
 ## A level change that did not come with an engine `changed` signal still wipes the intercom (no stale coach line from the last job).
 func _process(_dt: float) -> void:
 	if _on and app != null and app.started and app.b != null and str(app.b.g.get("level", "")) != _gl: refresh()
+	elif _transient_at > 0 and _on and app != null and app.started and app.b != null and Time.get_ticks_msec() - _transient_at > 2500: settle_intercom()
 
 ## After a commission the intercom says the outcome with the player's own numbers: a miss gives the lesson (levelInfo.lesson), a win gives "Goal met: ..." and,
 ## when the first run starts, the first-run line. Once per commission.
@@ -270,7 +272,7 @@ func _explain_run(li: Dictionary, runs: Array) -> void:
 		return
 	intercom.say("MARA", PaperStrings.t("IC_GOAL_MET") % "; ".join(met), "info"); _outcome_said = true
 	var rl = li.get("runLine")   # the engine says what a run is (a control level is not "making product")
-	if rl != null and str(rl) != "": intercom.say("MARA", str(rl), "info")
+	if rl != null and str(rl) != "": _say_bound("MARA", str(rl), "firstrun")
 
 ## The plant went back to design after an edit: nothing on the intercom may talk about the old design. Speak the current coach line again, else a neutral one.
 func _stale_lines(li: Dictionary) -> void:
@@ -353,13 +355,53 @@ func _sync_key() -> void:
 	keys.set_speed_enabled(phase == "shift" or phase == "firstrun")
 	if phase != "shift" and phase != "firstrun" and app.speed != 0 and str(app.b.g.get("status", "playing")) == "playing" and app.started: app.set_speed(0); keys.set_speed_pos(0)
 	# the note follows the real clock: "PAUSED" only while nothing runs (dial at the pause bars), never over a 4x / 16x shift
-	keys.set_speed_note(PaperStrings.t("CLOCK_PAUSED") if (phase == "design" or phase == "commissioned") and key_available() and app.speed == 0 and keys.speed_pos == 0 else (recorder.rate_note() if phase == "shift" else ""))
+	keys.set_speed_note(PaperStrings.t("CLOCK_PAUSED") if (phase == "design" or phase == "commissioned") and key_available() and app.speed == 0 and keys.speed_pos == 0 else (PaperStrings.t("CLOCK_PAUSED_RUN") if (phase == "shift" or phase == "firstrun") and app.speed == 0 and app.started else (recorder.rate_note() if phase == "shift" else "")))
 	if (phase == "shift" or phase == "firstrun") and keys.speed_pos != app.speed: keys.set_speed_pos(app.speed)
+
+## A line that is only true while the plant is in a state ("the plant is making product" while the first run rolls): it goes the moment the state is over.
+func _say_bound(who: String, text: String, bound: String) -> void:
+	intercom.say(who, text, "info")
+	var l := intercom.last()
+	if not l.is_empty() and str(l.get("text", "")) == text: l["bound"] = bound
+
+func _bound_ok(bound: String) -> bool:
+	match bound:
+		"firstrun": return phase == "firstrun"
+		"running": return phase == "shift" or phase == "firstrun"
+	return true
+
+## The intercom follows the plant: bound lines are withdrawn when their state is over, a coach line whose step is done (or whose level is won) goes, and a passing
+## log line ("Piped X to Y") gives the floor back to the current instruction after a moment.
+var _transient_at := 0
+func _reconcile(li: Dictionary) -> void:
+	if li.is_empty() or not qa_li.is_empty(): return
+	var changed := false
+	for i in range(intercom.lines.size() - 1, -1, -1):
+		var l: Dictionary = intercom.lines[i]
+		if l.has("bound") and not _bound_ok(str(l.bound)): intercom.lines.remove_at(i); changed = true
+	if changed: intercom.chars = 1.0e6; intercom._show_last()
+	if _transient_at > 0 and Time.get_ticks_msec() - _transient_at > 2500: settle_intercom(li)
+
+## Put the current instruction back on top when the newest line is only a passing log line.
+func settle_intercom(li := {}) -> void:
+	if li.is_empty(): li = level_info()
+	_transient_at = 0
+	var l := intercom.last()
+	if l.is_empty() or not bool(l.get("transient", false)): return
+	if CbSettings.tutorial != "off" and li.get("coach") is Dictionary: _back_to_coach(li)
+
+## No coach step is current (the level is won, or its steps are all done): a coach line of this level left on top of the log is no longer an instruction.
+func _withdraw_coach(li: Dictionary) -> void:
+	var pre := str(li.get("id", "")) + ":"
+	var dropped := false
+	while not intercom.lines.is_empty() and intercom.last().kind == "coach" and str(intercom.last().step).begins_with(pre):
+		intercom.lines.pop_back(); dropped = true
+	if dropped: _coach_id = ""; intercom.current = ""; intercom.chars = 1.0e6; intercom._show_last()
 
 func _poll_coach(li: Dictionary) -> void:
 	if li.is_empty() or CbSettings.tutorial == "off": return
 	var c = li.get("coach")
-	if not (c is Dictionary): _point(null); return
+	if not (c is Dictionary): _point(null); _withdraw_coach(li); return
 	var cid := "%s:%s" % [str(li.id), str(c.get("step", ""))]
 	_point(c.get("focus"))
 	if cid != _coach_id:
@@ -394,7 +436,7 @@ func turn_key(skip_predict := false) -> Dictionary:
 			var rs: Dictionary = app.b.act("startShift", ["shift"])
 			if rs.get("ok", false):
 				keys.set_pos(2); app.game_on_changed(); choose_speed(_rec_idx()); phase = engine_phase()
-				intercom.say("MARA", PaperStrings.t("IC_RUNNING"), "info"); _outcome_said = true
+				_say_bound("MARA", PaperStrings.t("IC_RUNNING"), "running"); _outcome_said = true
 		return r
 	elif phase == "commissioned":
 		if _no_shift():   # a job with no shift is judged on its commission: a second click on the key is harmless, never a second run
@@ -418,6 +460,7 @@ func _call_it_empty() -> bool:
 	var cis: Array = li.get("callIts", []) if li.get("callIts") is Array else []
 	if cis.is_empty() and li.get("callIt") is Dictionary: cis = [li.callIt]
 	if cis.is_empty(): return false
+	if li.get("callIt") is Dictionary and bool(li.callIt.get("late", false)): return false   # a late call (L03): the player may call after a test burn, so the first commission is never held up for it
 	var lid := str(li.get("id", ""))
 	if BuildKeeper.predict_done.has(lid): return false   # asked, answered or waived once for this attempt: never again until a fresh start
 	for ci in cis: if ci is Dictionary and bool(ci.get("answered", false)): BuildKeeper.predict_done[lid] = true; return false
@@ -496,6 +539,9 @@ func choose_speed(i: int) -> void:
 func toast(text: String, level: String) -> void:
 	var warn := level == "warn" or level == "bad"
 	intercom.say("TOMAS" if warn else "MARA", text, level if warn else "info")
+	if not warn:   # a log line ("Piped X to Y", "Undone"): it passes, then the current instruction is back on top
+		var tl := intercom.last()
+		if not tl.is_empty() and str(tl.get("text", "")) == text: tl["transient"] = true; _transient_at = Time.get_ticks_msec()
 	if warn: app.sfx("alarm" if level == "warn" else "bad")
 
 ## The shell's own coach steps (a placeholder "read" step): the line carries the teal tick, why? and, for read steps, "got it".

@@ -17,7 +17,7 @@ import { R_GAS } from '../sim/thermo/shomate';
 import type { EqState } from '../state';
 import { FIRSTRUN_S } from '../data/events';
 import type { Annunciator, CoachStep, GoalEval, LevelSpec, Measures } from './spec';
-import { baseSetup, predictionOf, fromKmolH, link, put, putFeed, relErr, sealSetup, shown, unitsOfType } from './util';
+import { baseSetup, predictionOf, fromKmolH, link, put, putFeed, relErr, sealSetup, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const L09_SPECIES = ['CH4', 'O2', 'CO2', 'H2O'];
@@ -53,6 +53,8 @@ export function ch4Facts(): { gasQ: number; condQ: number; flowQ: number; dnG: n
 }
 
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
+/** Heat figures that are added and subtracted on the page: always two decimals, so 890.30 − 4.96 = 885.34 can be checked by eye. */
+const f2 = (_s: { region: string }, x: number): string => x.toFixed(2);
 /** Plant seconds since the commission that started the first run (the same rule as registry.firstRunT, which this file cannot import: registry imports the chapter files). */
 const firstRunT = (s: S): number => (s.phase !== 'firstrun' || s.runs.length === 0 ? 0 : Math.max(0, Math.min(FIRSTRUN_S, s.tick - s.runs[s.runs.length - 1]!.tick)));
 const ITEMS = ['du_ch4', 'heat_co2', 'du_vap', 'tmin_k'] as const;
@@ -165,15 +167,14 @@ export const L09: LevelSpec = {
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
     if (m.v.a_du !== 1) return { key: 'no_call', cause: t('lv.L09.cause.no_call') };
     const near = Math.abs(m.v.p_du! - m.v.flow_q!) <= Math.abs(m.v.p_du! - m.v.bomb_q!);
-    return { key: near ? 'delta_h' : 'off', cause: t(near ? 'lv.L09.cause.delta_h' : 'lv.L09.cause.off', { p: f(s, m.v.p_du!), flow: f(s, m.v.flow_q!), bomb: f(s, m.v.bomb_q!), gap: f(s, m.v.gap!) }) };
+    return { key: near ? 'delta_h' : 'off', cause: t(near ? 'lv.L09.cause.delta_h' : 'lv.L09.cause.off', { p: f2(s, m.v.p_du!), flow: f2(s, m.v.flow_q!), bomb: f2(s, m.v.bomb_q!), gap: f2(s, m.v.gap!) }) };
   },
   equation: (s, m) => {
     if (!m.ok) return null;
     // the result is the difference of the two numbers as displayed (890.3 − 4.96), not of the unrounded readings (which would print 885.4)
-    const a = shown(m.v.flow_q!), b = shown(m.v.gap!);
-    return `${f(s, a)} − ${f(s, b)} = ${f(s, Math.round((a - b) * 1000) / 1000)} kJ/mol released at constant volume`;
+        return `${f2(s, m.v.flow_q!)} − ${f2(s, m.v.gap!)} = ${f2(s, m.v.flow_q! - m.v.gap!)} kJ/mol released at constant volume`;   // one precision (2 decimals) on all three numbers, so the sum can be checked by eye
   },
-  lessonVars: (s, m) => ({ flow: f(s, m.v.flow_q!), bomb: f(s, m.v.bomb_q!), gap: f(s, m.v.gap!), dn: f(s, m.v.dn_g!), tmin: f(s, m.v.tmin_K!), n: m.v.n_ncert! }),
+  lessonVars: (s, m) => ({ flow: f2(s, m.v.flow_q!), bomb: f2(s, m.v.bomb_q!), gap: f2(s, m.v.gap!), dn: f(s, m.v.dn_g!), tmin: f(s, m.v.tmin_K!), n: m.v.n_ncert! }),
   textVars: (s) => ({ dH: f(s, ORACLE.dH_kJ()), dS: f(s, ORACLE.dS_kJ_K()) }),
   metrics: (_s, m) => [
     { key: 'gap_kj', unit: 'kJ/mol', value: m.v.gap! },

@@ -427,7 +427,7 @@ describe('L09 Exam Bridge: Bomb vs Burner (EQ-NC-016, 019, 021)', () => {
   });
   it('the novice who calls the flow calorimeter\'s number for the bomb: the cause names the 5 kJ gap; the bench animation (first run) switches the furnace on at 2000 K only for a winner', () => {
     const e = play('L09', NAIVE.L09!);
-    expect(card(e).verdictKey).toBe('delta_h'); expect(card(e).cause).toContain('4.96'); expect(card(e).cause).toContain('885.4'); expect(card(e).histogram).toBeNull();
+    expect(card(e).verdictKey).toBe('delta_h'); expect(card(e).cause).toContain('4.96'); expect(card(e).cause).toMatch(/885\.3\d/); expect(card(e).histogram).toBeNull();
     expect(e.state.status).toBe('playing'); expect(info(e).phase).toBe('commissioned');
     const w = start('L09');
     const agent = SPEC_BY_ID.L09!.solver(1);

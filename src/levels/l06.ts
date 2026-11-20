@@ -155,7 +155,7 @@ export const L06: LevelSpec = {
   lessonVars: (s, m) => ({ y: f(s, m.v.burner_so2_pct!), burner: f(s, C(m.v.burner_K!)), r: f(s, m.v.o2_so2!), air: f(s, m.v.air!), dil: f(s, m.v.dil_frac! * 100), conv: f(s, m.v.so2_pct!) }),
   metrics: (_s, m) => [
     { key: 'burner_so2', unit: '%', value: m.v.burner_so2_pct! },
-    { key: 'burner_c', unit: '°C', value: C(m.v.burner_K!) },
+    { key: 'burner_c', unit: '°C', value: C(m.v.burner_peak_K!) },   // the peak of the shift (what the recorder's trace tops out at), named so on the slip
     { key: 'conv_cost_idx', unit: '%', value: m.v.so2_pct! > 0 ? (10 / m.v.so2_pct!) * 100 : 0 },
   ],
   histogram: { metric: 'burner_so2', best: () => 11.85, spread: 0.12, lowerIsBetter: false },
