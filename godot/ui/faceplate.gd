@@ -522,10 +522,10 @@ func _update() -> void:
 	_need.text = str(need.text) if need is Dictionary and not (need as Dictionary).is_empty() else (PaperStrings.t("FP_FAILED") if bool(card.get("failed", false)) else "")
 	_need.modulate.a = 1.0 if _need.text != "" else 0.0   # the slot stays, so nothing below it jumps
 	if _warn != null:
-		var utl := ""
-		for k in card.knobs: if str(k.key) == "utility": utl = str(k.value)
+		var utl := ""; var has_utl := false
+		for k in card.knobs: if str(k.key) == "utility": utl = str(k.value); has_utl = true
 		var res2: Variant = card.get("results")
-		var zero: bool = utl == "" or (res2 is Dictionary and (res2 as Dictionary).has("duty") and absf(float(res2.duty)) < 1.0)
+		var zero: bool = (has_utl and utl == "") or (res2 is Dictionary and (res2 as Dictionary).has("duty") and absf(float(res2.duty)) < 1.0)
 		var wrong := ""
 		if str(card.type) == "heater" and (utl == "cw" or utl == "refrig"): wrong = PaperStrings.t("UT_COLD")   # a heater on cooling water cannot heat: say so loudly
 		elif str(card.type) == "cooler" and (utl == "fired" or utl == "steam"): wrong = PaperStrings.t("UT_HOT")

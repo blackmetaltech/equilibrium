@@ -212,7 +212,7 @@ export const L05: LevelSpec = {
     const sFed = shown(m.v.s_fed!), dh = shown(dhSO2());
     return `${f(s, sFed)} × ${f(s, dh)} ÷ 3600 = ${f(s, shown((sFed * dh) / 3600))} MW released`;
   },
-  lessonVars: (s, m) => ({ s: f(s, m.v.s_fed!), dh: f(s, shown(dhSO2())), q: f(s, m.v.heat_mw!), steam: f(s, m.v.steam_th!), boiler: f(s, m.v.boiler_mw!), so2: f(s, m.v.so2_pct!), conv: f(s, C(m.v.conv_K!)), burner: f(s, C(m.v.burner_K!)) }),
+  lessonVars: (s, m) => ({ s: f(s, m.v.s_fed!), dh: f(s, shown(dhSO2())), q: f(s, (m.v.s_fed! * shown(dhSO2())) / 3600) /* the sentence own product: kmol/h × kJ/mol / 3600 = MW */, steam: f(s, m.v.steam_th!), boiler: f(s, m.v.boiler_mw!), so2: f(s, m.v.so2_pct!), conv: f(s, C(m.v.conv_K!)), burner: f(s, C(m.v.burner_K!)) }),
   metrics: (_s, m) => [
     { key: 'steam_th', unit: 't/h', value: m.v.steam_th! },
     { key: 'net_usd_h', unit: 'USD/h', value: m.v.net_usd_h! },

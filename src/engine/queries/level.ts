@@ -220,7 +220,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     callIts: (spec.callIts ?? []).map((c) => {
       const a = answerOf(s, spec, c.key), tr = c.truth(s, m), over = s.solved !== null || s.status !== 'playing';
       const ok = a !== null && tr !== null ? (c.tol === 0 ? a.value === tr : relErr(a.value, tr) <= c.tol) : undefined;
-      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`), unit: c.unit, tol: tolText(c.tol), ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
+      return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`, spec.textVars ? spec.textVars(s) : {}), unit: c.unit, tol: tolText(c.tol), ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
     }),
     allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
     hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },

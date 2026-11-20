@@ -65,7 +65,7 @@ export function answersOf(s: S): Partial<Record<Item, number>> {
   const out: Partial<Record<Item, number>> = {};
   for (const [name, args] of s.levelActions ?? []) {
     if (name === 'commission') break;
-    if (name === 'callIt' && typeof args[0] === 'number') out.du_ch4 = args[0];
+    if (name === 'callIt' && typeof args[0] === 'number') { const k = typeof args[1] === 'string' && (ITEMS as readonly string[]).includes(args[1]) ? (args[1] as Item) : 'du_ch4'; out[k] = args[0]; }   // the notebook rows send callIt(value, item)
     else if (name === 'predict' && typeof args[0] === 'string' && (ITEMS as readonly string[]).includes(args[0]) && typeof args[1] === 'number') out[args[0] as Item] = args[1];
   }
   return out;
@@ -174,6 +174,7 @@ export const L09: LevelSpec = {
     return `${f(s, a)} − ${f(s, b)} = ${f(s, Math.round((a - b) * 1000) / 1000)} kJ/mol released at constant volume`;
   },
   lessonVars: (s, m) => ({ flow: f(s, m.v.flow_q!), bomb: f(s, m.v.bomb_q!), gap: f(s, m.v.gap!), dn: f(s, m.v.dn_g!), tmin: f(s, m.v.tmin_K!), n: m.v.n_ncert! }),
+  textVars: (s) => ({ dH: f(s, ORACLE.dH_kJ()), dS: f(s, ORACLE.dS_kJ_K()) }),
   metrics: (_s, m) => [
     { key: 'gap_kj', unit: 'kJ/mol', value: m.v.gap! },
     { key: 'ncert_ok', unit: '', value: m.v.n_ncert! },
