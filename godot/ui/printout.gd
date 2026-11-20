@@ -123,17 +123,19 @@ static func open(app) -> bool:
 	if won and hg is Dictionary:
 		_line(vb, "", INKC, 8)
 		_line(vb, PaperStrings.t("PR_HIST") + " · " + str(hg.get("title", hg.metric)) + ((" (" + str(hg.unit) + ")") if str(hg.get("unit", "")) != "" else ""), INKC, 22, "HistHead")
-		_line(vb, "%s|%s" % [_pad(str(hg.get("unit", "")) if str(hg.get("unit", "")) != "" else str(hg.get("title", "")), 9), PaperStrings.t("PR_HIST_AXIS")], INKC.lerp(Color.WHITE, 0.3), 16, "HistAxis")   # the axes: left the value of the metric, bars the number of other runs
+		_line(vb, "%s|%s" % [_pad(str(hg.get("unit", "")) if str(hg.get("unit", "")) != "" else str(hg.get("title", "")), 15), PaperStrings.t("PR_HIST_AXIS")], INKC.lerp(Color.WHITE, 0.3), 16, "HistAxis")   # the axes: left the value of the metric, bars the number of other runs
 		var bins: Array = hg.bins; var edges: Array = hg.edges; var mx := 1.0
 		for b in bins: mx = maxf(mx, float(b))
 		var you := float(hg.you)
 		for i in range(bins.size()):
 			var lo := float(edges[i]); var hi := float(edges[i + 1])
 			var mine: bool = (i == int(hg.youBin)) if hg.has("youBin") else ((you >= lo and you < hi) or (i == bins.size() - 1 and you >= lo))   # the engine names the bin; older cards fall back to the edges
-			var bar := "█".repeat(maxi(int(round(float(bins[i]) / mx * 22.0)), 1 if int(bins[i]) > 0 else 0))
+			var bar := "█".repeat(maxi(int(round(float(bins[i]) / mx * 14.0)), 1 if int(bins[i]) > 0 else 0))
 			var lbls: Array = hg.get("labels", [])
 			var edge_t := str(lbls[i]) if i < lbls.size() else CbKit.num(lo, 0)   # the engine's labels carry the decimals that keep neighbours apart
-			_line(vb, "%s|%s %d%s" % [_pad(edge_t, 9), bar, int(bins[i]), "  " + PaperStrings.t("PR_YOU") + " " + PaperStrings.num(you) if mine else ""], EqTheme.PEN_BLUE if mine else INKC, 20, "Hist_%d" % i)
+			var hi_t := str(lbls[i + 1]) if i + 1 < lbls.size() else CbKit.num(hi, 0)
+			var range_t := "%s–%s" % [edge_t, hi_t]   # a bucket is a range: the YOU marker's value always falls inside the label it sits on (round 7: 22,260 beside a "22,043" bar)
+			_line(vb, "%s|%s %d%s" % [_pad(range_t, 15), bar, int(bins[i]), "  " + PaperStrings.t("PR_YOU") + " " + PaperStrings.num(you) if mine else ""], EqTheme.PEN_BLUE if mine else INKC, 20, "Hist_%d" % i)
 	# call it
 	var ci = rc.get("callIt")
 	if ci is Dictionary:

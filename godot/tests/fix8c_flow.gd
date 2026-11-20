@@ -45,7 +45,8 @@ func _initialize() -> void:
 ## After a run the Loop Panel ends above the console (the DESIGN key / Commission dial live in it) and the panel has a Stop key that returns to design.
 func _panel_clear(sz: Vector2i) -> void:
 	await level("L33"); app.lvbay.refresh(true); await frames(3)
-	app.chrome.turn_key(true); await frames(8); app.chrome.turn_key(true); await frames(10); app.lvbay.refresh(true); await frames(6)
+	lact(["setDial", "sensors", 3]); lact(["setDial", "k", 2]); lact(["setDial", "tripC", 89]); lact(["setDial", "action", 3])   # winning dials: the commission rolls the first run (F17: a second click on the key no longer starts a run of its own)
+	app.chrome.turn_key(true); await frames(10); app.lvbay.refresh(true); await frames(6)
 	var cp: ControlPanel = app.lvbay.panel as ControlPanel
 	var tag := "%dx%d" % [sz.x, sz.y]
 	check(cp != null, "control panel exists " + tag)

@@ -26,8 +26,8 @@ func _build() -> void:
 		g.add_child(lbl("%s ± %s" % [fnum(m.reading, 2), fnum(m.sigma, 2)], 13, dim))
 		g.add_child(lbl("—" if m.recon == null else fnum(m.recon, 2), 13, dim))
 		g.add_child(lbl("—" if m.adjust == null else ("%+.2f" % float(m.adjust)), 13, dim))
-		var big := m.z != null and absf(float(m.z)) > zl
-		g.add_child(lbl("—" if m.z == null else ("%+.2f" % float(m.z)) + (" !" if big else ""), 13, STAMP_RED if big else dim, "mono_bold"))
+		var big := m.z != null and absf(float(m.z)) > zl and not ex   # an excluded (flagged) meter is out of the balance: its alarm is cleared, the number stays as the evidence
+		g.add_child(lbl("—" if m.z == null else ("%+.2f" % float(m.z)) + (" !" if big else (" out" if ex else "")), 13, STAMP_RED if big else dim, "mono_bold"))
 		g.add_child(key("INCLUDE" if ex else "EXCLUDE", func(): emit_act("include" if ex else "exclude", [m.i]), ex, 11))
 		g.add_child(key("UNFLAG" if fl else "FLAG", func(): emit_act("unflag" if fl else "flag", [m.i]), fl, 11))
 	var bar := HBoxContainer.new(); bar.add_theme_constant_override("separation", 12); body.add_child(bar)

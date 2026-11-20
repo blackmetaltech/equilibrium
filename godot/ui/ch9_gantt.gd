@@ -10,7 +10,7 @@ func _build() -> void:
 	var ms := int(view.get("makespan", 0)); var win := int(view.get("window", 0))
 	var line := HFlowContainer.new(); line.add_theme_constant_override("h_separation", 16); body.add_child(line)
 	line.add_child(lbl("MAKESPAN %d d" % ms, 14, STAMP_RED if ms > win else OKGREEN, "mono_bold"))
-	line.add_child(lbl("CPM %d d" % int(view.get("cpmDays", 0)), 13, PENCIL))
+	if view.get("cpmDays") != null: line.add_child(lbl("CPM %d d" % int(view.cpmDays), 13, PENCIL))   # the critical path is the call-it's answer: not printed until the call is locked or the plan has run
 	line.add_child(lbl("LOST %s t" % fnum(view.get("lostTonnes", 0)), 13, PENCIL, "mono_bold"))
 	var cost := float(view.get("costUSD", 0.0)); var bud := float(view.get("budgetUSD", 0.0))
 	line.add_child(lbl("COST %s / %s" % [usd(cost), usd(bud)], 13, STAMP_RED if cost > bud else PENCIL, "mono_bold"))
@@ -23,12 +23,19 @@ func _build() -> void:
 	ctl.add_child(lbl("hire %s" % usd(float(view.get("craneHireUSD", 0.0))), 12, PENCIL))
 	if str(view.get("hint", "")) != "":
 		var hl := lbl(str(view.hint), 12, PENCIL, "sans"); hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hl.custom_minimum_size = Vector2(200, 0); body.add_child(hl)
-	body.add_child(lbl("PRIORITY ORDER (drag a chip)", 12, PENCIL, "semi"))
+	var ph := HBoxContainer.new(); ph.add_theme_constant_override("separation", 8); body.add_child(ph)
+	ph.add_child(lbl("PRIORITY ORDER (drag a chip, or pick one and use the arrows)", 12, PENCIL, "semi"))
 	var pr := Chips.new(); pr.chips = []
+	var back := key("◀", func(): pr.nudge(-1), false, 12); back.name = "ChipEarlier"; back.tooltip_text = "Move the picked job earlier in the order"; ph.add_child(back)
+	var fwd := key("▶", func(): pr.nudge(1), false, 12); fwd.name = "ChipLater"; fwd.tooltip_text = "Move the picked job later in the order"; ph.add_child(fwd)
+	pr.name = "Chips"; pr.sel_keep = _sel_keep
 	for id in view.get("priority", []):
 		for j in view.get("jobs", []): if j.id == id: pr.chips.append({"id": id, "label": str(j.label), "crit": bool(j.critical)})
-	pr.moved.connect(func(a: int, b: int): emit_act("move", [a, b]))
+	pr.moved.connect(func(a: int, b: int): _sel_keep = b; emit_act("move", [a, b]))
+	pr.picked.connect(func(i: int): _sel_keep = i)
 	body.add_child(pr)
+
+var _sel_keep := -1     ## the picked chip survives the rebuild that follows a move
 
 class Plan extends Control:
 	var view := {}
@@ -78,16 +85,21 @@ class Plan extends Control:
 		for d in a.size():
 			var v := float(a[d]); var bh := h * v / mx
 			draw_rect(Rect2(x0 + d * dx, y + h - bh, maxf(dx - 0.5, 1.0), bh), Color("#C8323C") if v > lim else col)
+			if cap == "CREW" and dx >= 12.0 and v > 0.0: draw_string(EqTheme.font("mono"), Vector2(x0 + d * dx + 1.0, y + h - bh - 2.0), "%d" % int(v), HORIZONTAL_ALIGNMENT_LEFT, dx, EqTheme.fs(9), Color("#1E2A2E"))   # crew in use that day, against the limit line
 		var ly := y + h - h * lim / mx; draw_line(Vector2(x0, ly), Vector2(x0 + pw, ly), Color("#1E2A2E"), 1.5)
 
 class Chips extends Control:
 	signal moved(from: int, to: int)
+	signal picked(i: int)
 	var chips: Array = []
+	var sel_keep := -1
 	var _drag := -1
 	var _pos := Vector2.ZERO
+	var _press := Vector2.ZERO
 	var _sel := -1
 	const CH := 26.0
-	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_DRAG
+	const NUDGE_PX := 10.0       ## a drag that ends on its own chip but travelled this far sideways moves it one place
+	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_DRAG; focus_mode = Control.FOCUS_ALL
 	func _w(i: int) -> float: return minf(maxf(size.x, 120.0), minf(190.0, EqTheme.font("mono").get_string_size(str(chips[i].label), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 34.0))
 	func _layout() -> Array:
 		var out: Array = []; var x := 0.0; var y := 0.0
@@ -96,7 +108,7 @@ class Chips extends Control:
 			if x + w > size.x and x > 0: x = 0.0; y += CH + 4.0
 			out.append(Rect2(x, y, w, CH)); x += w + 4.0
 		return out
-	func _ready() -> void: resized.connect(_fix)
+	func _ready() -> void: resized.connect(_fix); _sel = sel_keep; queue_redraw()
 	func _fix() -> void:
 		var l := _layout(); custom_minimum_size.y = (l.back().end.y if not l.is_empty() else CH) + 2.0
 	func _notification(what: int) -> void:
@@ -105,26 +117,47 @@ class Chips extends Control:
 		var l := _layout()
 		for i in l.size(): if (l[i] as Rect2).has_point(at): return str(chips[i].label)
 		return ""
+	## The chip a drop at `p` lands on: the chip whose rectangle holds the point (chips differ in width, so the nearest centre is often the wrong neighbour); in a gap or off the row, the nearest rectangle.
+	func slot_at(p: Vector2) -> int:
+		var l := _layout(); var best := -1; var bd := 1e9
+		for i in l.size():
+			var r: Rect2 = l[i]
+			if r.has_point(p): return i
+			var cp := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+			var d := cp.distance_to(p)
+			if d < bd: bd = d; best = i
+		return best
+	## Pick a chip and move it one place earlier (-1) or later (+1) with the arrow keys or the arrow buttons.
+	func nudge(dir: int) -> void:
+		var to := _sel + dir
+		if _sel < 0 or to < 0 or to >= chips.size(): return
+		var from := _sel; _sel = to; moved.emit(from, to)
 	func _gui_input(e: InputEvent) -> void:
 		var l := _layout()
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 			if e.pressed:
-				for i in l.size(): if (l[i] as Rect2).has_point(e.position): _drag = i; _sel = i; _pos = e.position
+				_drag = -1
+				for i in l.size(): if (l[i] as Rect2).has_point(e.position): _drag = i
+				if _drag >= 0: _sel = _drag; _press = e.position; _pos = e.position; picked.emit(_drag); grab_focus()
 				queue_redraw()
 			elif _drag >= 0:
-				var best := _drag; var bd := 1e9
-				for i in l.size():
-					var d: float = ((l[i] as Rect2).get_center() - e.position).length()
-					if d < bd: bd = d; best = i
-				var f := _drag; _drag = -1; queue_redraw()
-				if best != f: moved.emit(f, best)
+				var f := _drag; _drag = -1
+				var to := slot_at(e.position)
+				if to == f and absf(e.position.x - _press.x) >= NUDGE_PX:   # a short drag that stays on its own chip: one place the way it went
+					to = clampi(f + (1 if e.position.x > _press.x else -1), 0, chips.size() - 1)
+				queue_redraw()
+				if to != f and to >= 0: _sel = to; moved.emit(f, to)
 		elif e is InputEventMouseMotion and _drag >= 0: _pos = e.position; queue_redraw()
+		elif e is InputEventKey and e.pressed and _sel >= 0:
+			if e.keycode == KEY_LEFT: nudge(-1); accept_event()
+			elif e.keycode == KEY_RIGHT: nudge(1); accept_event()
 	func _draw() -> void:
 		var l := _layout(); var f := EqTheme.font("mono")
 		for i in l.size():
 			var r: Rect2 = l[i]; var c: Dictionary = chips[i]
 			var col := Color("#C8323C") if bool(c.crit) else Color("#3C7E8C")
 			draw_rect(r, Color(col, 0.35) if i == _drag else col); draw_rect(r, col.darkened(0.4), false, 1.0)
+			if i == _sel: draw_rect(r.grow(1.5), Color("#1E2A2E"), false, 2.5)
 			draw_string(f, r.position + Vector2(8, 17), "%d %s" % [i + 1, Plan.fit_text(f, str(c.label), r.size.x - 30, EqTheme.fs(12))], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, EqTheme.fs(12), Color.WHITE)
 		if _drag >= 0:
 			var r2: Rect2 = l[_drag]; r2.position = _pos - r2.size * 0.5

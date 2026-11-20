@@ -81,8 +81,9 @@ describe('L38: the budget and the crane trade-off', () => {
     perm(L38_JOBS.map((j) => j.id), 0);
     expect(b1).toBe(L38_BEST.one); expect(b2).toBe(L38_BEST.two);
     expect(L38_BUDGET % 100000).toBe(0);
-    const e = start('L38'); const h: string = view(e).hint;
-    expect(h).toMatch(/13 d/); expect(h).toMatch(/18 d/); expect(h).toMatch(/16 d/); expect(h).toMatch(/second crane/);
+    const e = start('L38'); let h: string = view(e).hint;
+    expect(h).not.toMatch(/13 d/); expect(h).toMatch(/18 d/); expect(h).toMatch(/16 d/); expect(h).toMatch(/second crane/);   // F17: the CPM is the call-it's answer: shown once the call is locked
+    e.step({ name: 'callIt', args: [13] } as any); h = view(e).hint; expect(h).toMatch(/13 d/);
     expect(info(e).note.join(' ')).toMatch(/18 days[\s\S]*16 days/);
   });
 });
@@ -93,14 +94,14 @@ describe('Ch8 / Ch9 call-its are computable from the notebook', () => {
     L30: [/BUMP TEST/, /K, tau and theta/],
     L31: [/N2 \+ 3 H2/],
     L32: [/1\.2 K for every percent/, /20 % of the quench/],
-    L33: [/2000 mol\/m3/, /2 x 10\^5 J per mol/, /2 x 10\^6 J\/\(m3 K\)/],
+    L33: [/2,000 mol\/m³/, /2 × 10⁵ J\/mol/, /2 × 10⁶ J\/\(m³·K\)/],   // F17: the notebook is the goal and one paragraph; the data is on the call row's "What you have" line
     L34: [/NTU = 1\.5/, /T sat/],
-    L36: [/1800 USD/, /minutes of each step/],
+    L36: [/1800 USD/, /Card minutes/],
     L38: [/critical path assumes unlimited crews and cranes/],   // F16: the answer itself (13 days) is no longer printed in the notes; the call-it `given` says how to read it off the job list
   };
   for (const [id, res] of Object.entries(NEEDS)) {
     it(`${id}: the given data is in the levelInfo notes`, () => {
-      const text = (info(start(id)).note as string[]).join(' ');
+      const li = info(start(id)); const text = (li.note as string[]).join(' ') + ' ' + String(li.callIt?.given ?? '');   // the notebook's "What you have" line sits under the call row (F16)
       for (const r of res) expect(text, `${id} ${r}`).toMatch(r);
     });
   }

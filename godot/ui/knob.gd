@@ -244,7 +244,7 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var host: Control = d.host; var pn: PanelContainer = d.panel; var vb: VBoxContainer = d.vb
 	pn.add_theme_stylebox_override("panel", EqTheme.porcelain_sb(6, 18.0))
 	vb.add_theme_constant_override("separation", 10)
-	var head := HBoxContainer.new(); vb.add_child(head); var ttl := EqTheme.dymo(title if title != "" else "VALUE", 14); ttl.name = "Title"; ttl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; head.add_child(ttl)
+	var head := HBoxContainer.new(); head.name = "Head"; head.custom_minimum_size = Vector2(0, 52); head.clip_contents = true; vb.add_child(head); var ttl := EqTheme.dymo(title if title != "" else "VALUE", 14); ttl.name = "Title"; ttl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; head.add_child(ttl)
 	var ttl_l := ttl.get_child(0) as Label; ttl_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ttl_l.custom_minimum_size = Vector2(minf(280.0, 24.0 + 9.0 * title.length()), 0)   # a long title wraps on the tape, never truncates
 	var disp := Label.new(); disp.label_settings = EqTheme.settings(30, EqTheme.INK, "mono_bold"); disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var field := PanelContainer.new(); var fsb := StyleBoxFlat.new(); fsb.bg_color = Color("#FFFFFF"); fsb.border_color = EqTheme.INK; fsb.set_border_width_all(2); fsb.set_corner_radius_all(3); fsb.set_content_margin_all(8)
@@ -252,7 +252,9 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var absurd := hi >= 1.0e6 or lo <= -1.0e6   # a bound nobody could type: say only what the number is in
 	var hint_t := (PaperStrings.t("KEYPAD_IN") % unit if unit != "" else "") if absurd else (PaperStrings.t("KEYPAD_RANGE") % [PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))]) + (" " + unit if unit != "" else "")
 	var hint := EqTheme.label(hint_t, 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans")
-	if allow_range: vb.add_child(hint)
+	hint.name = "Hint"; hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hint.clip_text = true; hint.custom_minimum_size = Vector2(300, 2.0 * ceilf(EqTheme.font("sans").get_height(EqTheme.fs(14))) + 2.0)
+	if not allow_range: hint.text = ""
+	vb.add_child(hint)   # always there (empty when no range is shown): same height, so the pad never changes size
 	var reason := EqTheme.label("", 14, EqTheme.RED, "semi"); reason.autowrap_mode = TextServer.AUTOWRAP_OFF; reason.clip_text = true; reason.custom_minimum_size = Vector2(300, ceilf(EqTheme.font("semi").get_height(EqTheme.fs(14))) + 2.0); reason.name = "Reason"; vb.add_child(reason)   # the line is always there (empty until needed): the pad never shifts when a refusal appears
 	var buf := [initial if initial != "" else ""]
 	var upd := func() -> void: disp.text = (buf[0] if buf[0] != "" else "0") + (" " + unit if unit != "" else "")

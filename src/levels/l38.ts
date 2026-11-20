@@ -91,13 +91,16 @@ export const L38: LevelSpec = {
   view: (s) => {
     const sc = sched(s), crane = craneOf(s), crit = new Set(levelledCritical(L38_JOBS, sc));
     const horizon = Math.max(sc.makespan, L38_WINDOW);
+    // the critical-path length is the call-it's answer: the board prints it only once the call is locked or the plan has been run
+    const reveal = predictionOf(s, 'cpm_days') !== null || commissions(s) >= 1;
+    const gain = (L38_BEST.one - L38_BEST.two) * L38_RATE_T_PER_D * L38_MARGIN_USD_PER_T;
     const crew: number[] = Array(horizon).fill(0), cr: number[] = Array(horizon).fill(0);
     for (const j of L38_JOBS) for (let d = sc.start[j.id]!; d < sc.finish[j.id]!; d++) { crew[d] = crew[d]! + j.crew; cr[d] = cr[d]! + j.crane; }
     return {
       kind: 'gantt', window: L38_WINDOW, horizon,
       jobs: L38_JOBS.map((j) => ({ id: j.id, label: t(`lv.L38.job.${j.id}`), days: j.days, deps: j.deps.slice(), crew: j.crew, crane: j.crane, start: sc.start[j.id]!, finish: sc.finish[j.id]!, es: L38_CPM.es[j.id]!, ls: L38_CPM.ls[j.id]!, float: L38_CPM.float[j.id]!, cpmCritical: L38_CPM.critical.includes(j.id), critical: crit.has(j.id) })),
-      priority: orderOf(s), crane, limits: { crew: L38_LIM.crew, crane }, craneOptions: [1, 2], cpmDays: L38_CPM.length, cpmCritical: L38_CPM.critical.slice(),
-      hint: t('lv.L38.hint', { cpm: f(s, L38_CPM.length), one: f(s, L38_BEST.one), two: f(s, L38_BEST.two), hire: f(s, L38_CRANE_HIRE_USD), saved: f(s, (L38_BEST.one - L38_BEST.two) * L38_RATE_T_PER_D * L38_MARGIN_USD_PER_T) }),
+      priority: orderOf(s), crane, limits: { crew: L38_LIM.crew, crane }, craneOptions: [1, 2], cpmDays: reveal ? L38_CPM.length : null, cpmCritical: reveal ? L38_CPM.critical.slice() : [],
+      hint: t(reveal ? 'lv.L38.hint' : 'lv.L38.hint_blind', { cpm: f(s, L38_CPM.length), one: f(s, L38_BEST.one), two: f(s, L38_BEST.two), hire: f(s, L38_CRANE_HIRE_USD), saved: f(s, gain), net: f(s, gain - L38_CRANE_HIRE_USD), crew: f(s, L38_LIM.crew) }),
       makespan: sc.makespan, lostTonnes: sc.makespan * L38_RATE_T_PER_D, costUSD: cost(sc.makespan, crane), craneHireUSD: L38_CRANE_HIRE_USD, budgetUSD: L38_BUDGET, rateTPerDay: L38_RATE_T_PER_D, marginUsdPerT: L38_MARGIN_USD_PER_T,
       crewByDay: crew, craneByDay: cr,
     };

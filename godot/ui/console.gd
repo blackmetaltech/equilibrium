@@ -345,7 +345,8 @@ func _sync_key() -> void:
 	if key_available() and str(app.b.g.get("status", "playing")) == "playing":
 		match phase:
 			"design": nx = 1; nt = PaperStrings.t("KH_DESIGN")
-			"commissioned": nx = 2; nt = PaperStrings.t("KH_COMMISSIONED")
+			"commissioned":
+				if not _no_shift(): nx = 2; nt = PaperStrings.t("KH_COMMISSIONED")
 			"shift": nx = 0; nt = PaperStrings.t("KH_RUN")
 	if str(app.b.g.get("status", "playing")) == "lost" and not level_info().is_empty(): nx = 0; nt = PaperStrings.t("KH_BACK")
 	keys.set_next(nx, nt)
@@ -396,12 +397,19 @@ func turn_key(skip_predict := false) -> Dictionary:
 				intercom.say("MARA", PaperStrings.t("IC_RUNNING"), "info"); _outcome_said = true
 		return r
 	elif phase == "commissioned":
+		if _no_shift():   # a job with no shift is judged on its commission: a second click on the key is harmless, never a second run
+			app.toast(PaperStrings.t("IC_NO_RUN"), "info"); return {}
 		var r2: Dictionary = app.b.act("startShift", ["shift"])
 		if not r2.get("ok", false): app.toast(str(r2.get("message", "")), "warn"); return r2
 		keys.set_pos(2); choose_speed(_rec_idx()); return r2
 	elif phase == "shift": return stop_and_edit()
 	else:
 		app.toast(PaperStrings.t("IC_FIRST_EDIT"), "info"); return {}
+
+## A level that has no shift to run (shiftLen 0): its only run is the first run that follows a winning commission.
+func _no_shift() -> bool:
+	var li := level_info()
+	return not li.is_empty() and int(li.get("shiftLen", 0)) <= 0
 
 ## A call-it level whose answer line is still empty: the first commission is the moment the prediction is for.
 func _call_it_empty() -> bool:

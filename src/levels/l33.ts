@@ -84,7 +84,7 @@ const VIEW = (s: S) => {
 };
 
 export const L33: LevelSpec = {
-  id: 'L33', firstRun: true, chapter: 8, index: 33, setter: 'safety', budgetUSD: L33_BUDGET, units: UNITS, notes: 4, shiftLen: 0,
+  id: 'L33', firstRun: true, chapter: 8, index: 33, setter: 'safety', budgetUSD: L33_BUDGET, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => rigSetup(s, UNITS, [
     { key: 'sensors', def: { learner: 3, engineer: 1 } }, { key: 'k', def: { learner: 1, engineer: 1 } }, { key: 'tripC', def: { learner: 89, engineer: 100 } }, { key: 'action', def: { learner: 1, engineer: 1 } },
   ]),
