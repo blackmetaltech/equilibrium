@@ -3,6 +3,38 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [0.6.0] - 2026-11-20 · "Every level, every persona" (round 7: the whole campaign play-tested; guidance you can follow)
+### Added
+- **Career: NEXT DECISION ▸** runs months until something needs you (an offer worth taking, an inspection two months out, worn catalyst,
+  fouled exchanger, an incident, a big price or gas move, a review, a yearly card), at most 12 a press; a skip player finishes 60 months in
+  about 25 presses. Warnings are acknowledged one by one (plant, kind, due month); a booked turnaround covers its plant's warnings; CONTINUE
+  ANYWAY acknowledges and runs on in one press.
+- **One decision card a year** from six kinds (long contract vs spot, turnaround now vs later, debottleneck, gas hedge, economy catalyst
+  grade, contractors vs own crew), five different cards in five years. Every option lists the terms that make up its MUSD and they add up;
+  the Learner hint names the option the careful policy would take. Strikes are named (plant, month, cause, "strike N of 3") with a STRIKE
+  AHEAD warning; the handheld board pins its action row and the pending card and folds quiet plant cards.
+- **"What you have" under every call-it** (all 35 call-it levels): the data, table or formula the call needs, from the engine's own numbers,
+  never the answer. Tests: no placeholder, no answer leak, and a hand calculation from the given data lands inside the tolerance for ten
+  levels.
+- **L22 build checklist** with a safe first knob (meets the goals, not the calibrated best).
+- Per-level opening speed (`recommendedSpeed`): first-run levels open at 1x so the light-off is seen.
+### Changed
+- **The build checklist stays up while the plant runs** until every row is done (round 7: L24's start-up rows vanished at commission, a
+  fresh tester tripped three times). After a part row is placed, the next part is put in hand (the plot ignored clicks before).
+- **L24**: goal 3.5 kmol (safety first; the Chief Engineer star keeps 6.6 kmol with a 15 K margin); the feed row ticks only at 182; a
+  wait row counts down "steady 87 / 120 plant s"; the lit row shows the live temperature; feed knobs read the feed spec (they showed 260.6
+  with the feed at 182). Two fresh testers won it on their first try.
+- **Notebooks of checklist levels** (L22-L26, L33) are the goal plus one paragraph of why; the numbers live in the checklist rows.
+- A run that misses its goals on an open job prints GOALS NOT MET, not RUN ABORTED; a shift that runs its full length safely says so.
+- L04 limiting-reagent chip (flask 2 was unearnable); L09 exam rows each grade their own item; L10 cost per tonne without a tank
+  ($1,000,000,000/t on the slip); L13 gives the feed gas; L14 the book constants; L12 call tolerance 5 %; L28 starts badly trimmed so one
+  knob no longer wins all three flasks; splitter steps of 1 %; L32 bed temperature on its own scale and reachable 3-star tunings printed;
+  L38 16-day plan reachable, chip drag fixed, CPM hidden until the call is locked; Esc pauses without losing a run; a second key click
+  never starts a second run; fixed keypad; histogram buckets as ranges.
+### Known gaps
+- Still no real-phone pass: the Pixel shows as "unauthorized" on adb and needs the owner to accept the debugging prompt.
+- See docs/CRITIQUE-0.6.md.
+
 ## [0.5.0] - 2026-11-20 · "The plant you design" (big builds, a winnable Career, no long waits)
 ### Added
 - **Build checklist** (`buildGuide` on a level spec) for L23 Spirits, L25 and L26 and the L24 start-up: every part, pipe and setting from the
