@@ -3,8 +3,21 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
-## [Unreleased] - 0.7 layer 0 · "The Works you run" (F19: the Career stops selling careful players)
+## [0.7.0] - 2026-11-21 · "The Works you run" (rounds 8-9: the Career keeps careful players; what the game says is what the plant does)
 ### Added
+- **Coach audit** (`f23_truth.test.ts`): every coached level is replayed with its reference solver, action by action; a coach step is never shown after it is done,
+  before its precondition (commission before the pipes, a read before a run, the vent before there are inerts) or on a fully piped plant. Found and fixed stale steps in
+  L03, L04, L08, L10-L14, L16, L18 and L26.
+- **The coach follows the build checklist**: while a design row is open on a checklist level the intercom names the next unticked row (round 9: L25 said "commission"
+  at 24/26).
+- **Wiring** (F20, F25): snap-to-port with pulsing legal ports; a missed drop names the nearest free inlet (also when the click lands near a pipe); smooth wheel zoom,
+  right-drag/WASD pan and F/Home to frame the plant; ctrl+z/ctrl+y; Esc drops the tool. **Chained piping**: a pipe dropped on an inlet re-arms from that unit's next
+  free outlet, so a train is one click per link; the first part of a checklist level is in hand at the start; "Same catalyst and charge on all beds". L25 is piped in 24
+  moves (round 9 counted about 45), L13 in about 21.
+- **Design estimates are labelled**: the X-T staircase, the Equilibrium Window and the heat ledger say "design estimate" until a run exists; the heat ledger clears on an
+  abort.
+- **Star-3 flasks state their numbers** (L05, L06, L08, in the region's currency); L12's flask 2 states its full condition.
+- **Career: overlap pricing.** Turnarounds in the same month share one crew pool and one crane (`taGroupDays`): the outages really run longer. BOOK shows the extra days and
 - **Overlap pricing.** Turnarounds in the same month share one crew pool and one crane (`taGroupDays`): the outages really run longer. BOOK shows the extra days and
   MUSD ("Overlaps the ammonia turnaround in month 6 ... 26 d instead of 15 d ... 11 extra plant-days, about 1.60 MUSD"), the yearly turnaround/crew cards carry an `overlap`
   term, and the board (card, lever, `suggestTaMonth`) suggests the first month with no other turnaround.
@@ -15,7 +28,15 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
   end that would sell the Works or shut the site; simultaneous overdue inspections are one stop listing every plant.
 - **Annual review as a card** at each year end with "last year's card": the card replayed against the option not taken (same later decisions, same seed) gives what it realised and why.
 - **Suggestion follower** policy (`followerDecisions`, `playCareerFollower`): does what the board says. Twelve seeds, Steady or better everywhere.
+- **Career: one Flagship** (140 MUSD) everywhere; the third flask is the "reference flask" with this seed's own number. Each yearly card carries a forecast cut to the review
+  year and its stated uncertainty, and the review itemises forecast against realised per term and names the term that moved (the year-4 contract replay drew different
+  offers: fixed). A booked turnaround covers its plant's inspection warning; BOOK stamps "BOOKED month N"; every cash purchase asks twice; settled offers fold to one line;
+  handheld banners are two lines with "more"; benefit lines stop at month 60; offers state the month's capacity and why; INSPECT says what it does not reset.
 ### Changed
+- The intercom starts each new line at its first word, then reads down like a teleprinter; a coach line yields to the step; lines quoted at commission say so.
+- L11's contract feeds are never offered for deletion as "unconnected"; a re-placed feed returns as the contract. Compressor POWER IN, Eq Window "@ N bar", L11 lamps,
+  L14's knob and 400 K stated in both units, L13 staircase spoiler hidden, the L13 sinter lamp reads "BED NEAR SINTER" in amber; L10 states K once; L12 says the game's
+  thermodynamics are heat-capacity corrected; "This cooler does 0 kW".
 - BUY CATALYST stays armed until pressed again or CANCELled; BOOK without a charge answers in red; STRIKE AHEAD only when the projected overdue passes 6 months; "due now" clears
   once a booking resets it; one penalty number on offers; the outage with and without the catalyst charge is explained; the card button and its Expected line share one rounding.
 - Victor's score now uses the 28 MUSD yearly target (was 40).

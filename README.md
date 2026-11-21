@@ -1,12 +1,12 @@
 # ⚗️ EQUILIBRIUM — run a chemical plant where the chemistry is real
 
-**[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.6.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
+**[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.7.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
 
 **Build a chemical plant, then find out whether it works.** Place feed banks, heaters, exchangers, burners, reactors, columns and recycle loops, pipe them together, and commission the plant. Then real equilibrium, real kinetics and real heat balances decide what happens: the ammonia you can reach at 450 °C and 200 bar, the catalyst that falls asleep below 410 °C, the glycol reactor that crosses its Semenov point and runs away, the argon that builds up in a loop with no purge. The campaign climbs from std-9 stoichiometry to the work of a junior process engineer: PID tuning, interlocks, HAZOP, data reconciliation, and a five-year career running a whole Works.
 
 The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator windows, a chart recorder, Bakelite knobs, a DESIGN / COMMISSION / RUN key switch, a green-bar printout. Every rule (thermodynamics, equilibrium, kinetics, flowsheet solving, dynamics, economics) runs in a deterministic TypeScript engine on [cobanana-core](https://github.com/ixaxaar/cobanana-core) that Godot drives through a headless Node sidecar.
 
-> **Alpha (0.6.0).** Playable on desktop Linux; that is the only platform really supported so far. An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/ixaxaar/equilibrium/issues).
+> **Alpha (0.7.0).** Playable on desktop Linux; that is the only platform really supported so far. An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/ixaxaar/equilibrium/issues).
 
 ![Three adiabatic beds with interstage coolers in the contact plant, with molecule critters in the pipes and the X-T staircase top right](docs/readme/staircase.png)
 
@@ -106,15 +106,15 @@ src/
   levels/    one file per level (L00-L38, Career) with its tests; locales/en holds the text
   oracle/    JANAF and analytic fixtures
 godot/       the game: main.gd, world/ (plant, pipes, critters, models), ui/ (console, faceplates, boards, instruments), tests/
-docs/        DESIGN, DECISIONS, CRITIQUE-0.3 … CRITIQUE-0.6, readme screenshots, research
+docs/        DESIGN, DECISIONS, CRITIQUE-0.3 … CRITIQUE-0.7, readme screenshots, research
 ```
 
 ## Status and known gaps
 
-0.6 ("Every level, every persona") is tagged. In play-test round 7 the four personas (a std-9 novice, a ChemE student, a teacher and a Steam Deck player) attempted all 39 levels and the Career, and every level was won from the in-game guidance at least once. Two fresh testers won the L24 runaway on their first try, and every call-it now shows the data it needs ("What you have"). Still open, from the [critique](docs/CRITIQUE-0.6.md) and `.work/backlog.md`:
+0.7 ("The Works you run") is tagged. In play-test rounds 8 and 9 a careful teacher won the Career at Flagship on the first try, and a Steam Deck player was on Flagship pace at month 59. Feedback truth on chapters 0-3 rose from 4 to 8 (novice) and 7 (ChemE student). The ChemE student's hand calculations agreed with the game in 6 of 6 levels. A coach audit now replays every level's reference build and fails on any stale or early intercom line. Wiring has snap-to-port, a "dropped on nothing" message, pan, zoom, frame-the-plant and chained piping. Still open, from the [critique](docs/CRITIQUE-0.7.md) and `.work/backlog.md`:
 
-- **Career**: the yearly decision cards and NEXT DECISION work, but a careful human player can still lose (overlapping turnarounds are not priced; an emissions strike can land with no warning). This is the 0.7 layer.
-- **Wiring and camera**: ports are small at far zoom, a missed drag says nothing, and there is no pan.
-- **Early chapters**: some intercom lines and values lag a step behind the plant.
+- **Career**: card forecasts and year reviews now itemise against each other (F24), but no human has re-played it since. The plants are text only: an incident does not open a plant to fix. This is the 0.8 layer.
+- **Depth**: pump, line and relief sizing and PID tuning are not in the game yet.
+- **Speed**: 30-minute shifts run slowly on weak GPUs (L08 runs at about 1x real at 16x under software rendering).
 - **Phone**: checked on desktop at phone size only; the device needs the owner's adb authorisation.
 - No public release, no Windows or macOS build, and the Android APK is a debug build.
