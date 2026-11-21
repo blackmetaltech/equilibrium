@@ -48,8 +48,21 @@ func _autosave_design() -> void:
 	if chrome == null or not chrome.visible or str(b.g.get("level", "")) == "" or str(b.g.get("status", "playing")) != "playing": return
 	var q := quiet; quiet = true; b.act("save", ["auto"]); quiet = q
 
+## CAREER: the run is saved the frame after every change (a decision, a month advanced), not after a pause: a killed window loses nothing. See CareerSave.
+var _career_dirty := false
+func _career_flush() -> void:
+	if not _career_dirty or not started or b == null: return
+	_career_dirty = false
+	if CareerSave.is_career(self) and CareerSave.enabled(self): CareerSave.store(self)
+
+## Quitting, going to the title or losing focus saves the autosave; a Career in progress is copied to its own file too.
+func _autosave() -> void:
+	super()
+	if CareerSave.is_career(self) and CareerSave.enabled(self): CareerSave.store(self)
+
 func game_on_changed() -> void:
 	_save_dirty = true; _save_at = Time.get_ticks_msec() + 1000.0
+	if started and b != null and str(b.g.get("level", "")) == "CAREER": _career_dirty = true
 	if chrome != null: chrome.refresh()   # intercom coach, annunciator, recorder and key follow the engine
 	if lvbay != null: lvbay.refresh()
 	if bay != null and not (lvbay != null and lvbay.active()): bay.refresh()
@@ -191,6 +204,7 @@ func game_end_screen() -> bool:
 var _owed := 0.0
 func _process(dt: float) -> void:
 	_autosave_design()
+	_career_flush()
 	var t0 := int(b.g.get("tick", 0)) if started and b != null else 0
 	super(dt)
 	if started and b != null and speed >= 2 and modal() == null and str(b.g.get("status", "playing")) == "playing":
@@ -215,8 +229,38 @@ func new_game(mode: String) -> void:
 
 ## Launch aliases for CB_LEVEL / the level menu: "C", "c" and "career" all name the Career level (chapter 10), so CB_LEVEL=C opens it like CB_AUTOSTART=career does.
 const LEVEL_ALIAS := {"C": "CAREER", "CAREER": "CAREER"}
+var _from_env := false   ## true while _run_env starts CB_LEVEL: a launch resumes the saved Career by itself (CB_NEW=1 starts a new one)
+func _run_env() -> void:
+	_from_env = true; super(); _from_env = false
+
 func start_level(id: String, force := false) -> void:
-	super(LEVEL_ALIAS.get(id.strip_edges().to_upper(), id), force)
+	var rid: String = LEVEL_ALIAS.get(id.strip_edges().to_upper(), id)
+	if rid == "CAREER" and CareerSave.enabled(self):
+		var inf := CareerSave.info()
+		if not inf.is_empty() and not OS.has_environment("CB_NEW"):
+			if _from_env:
+				if CareerSave.restore(self): return
+			else:
+				_career_choice(inf, force); return
+		elif not inf.is_empty(): CareerSave.clear()   # CB_NEW: the old run is dropped
+	super(rid, force)
+
+func _career_resume() -> void:
+	if not CareerSave.restore(self): _career_fresh()
+func _career_fresh() -> void:
+	CareerSave.clear(); super.start_level("CAREER", true)
+
+## Opening the Career with a run saved: RESUME month N, or start a NEW CAREER (which drops the saved run).
+func _career_choice(inf: Dictionary, force: bool) -> void:
+	var d: Dictionary = dialog("career_resume", 640, 0.0, CbKit.ACC, 0.55)
+	var vb: VBoxContainer = d.vb; var h: Control = d.host
+	vb.add_child(CbKit.label("A CAREER IS IN PROGRESS", 24, CbKit.ACC, true))
+	vb.add_child(CbKit.label("Saved run: %s." % CareerSave.label(inf), 17, CbKit.TX, true))
+	var row_ := HFlowContainer.new(); row_.add_theme_constant_override("h_separation", 10); row_.add_theme_constant_override("v_separation", 8); vb.add_child(row_)
+	var bres := CbKit.btn("RESUME month %d" % (int(inf.month) + 1), func(): h.queue_free(); _career_resume(), "pri", 16); bres.name = "CareerResume"; row_.add_child(bres)
+	var bnew := CbKit.btn("NEW CAREER (drops the saved run)", func(): h.queue_free(); _career_fresh(), "", 16); bnew.name = "CareerNew"; row_.add_child(bnew)
+	var bx := CbKit.btn("Cancel", func(): h.queue_free(), "", 16); bx.name = "CareerCancel"; row_.add_child(bx)
+	focus_dialog()
 
 ## Manual step (Space, pad Y): inside a level it turns the key one position; free play and the auto-run clock still advance the engine.
 func next_tick() -> void:
