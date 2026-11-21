@@ -200,19 +200,39 @@ func game_end_screen() -> bool:
 	sfx("printer")
 	return Printout.open(self)
 
-## A slow frame (a phone, a busy desktop) still delivers 4 or 16 ticks every second: the shell steps once per frame, so the ticks it owes are caught up here.
+## A slow frame (a phone, software rendering, a busy desktop) still delivers 4 or 16 ticks every second. Two things used to break that on slow frames (F28):
+## Godot clamps the `dt` it hands to _process to about 8/60 s, so a 2 s frame was credited 0.13 s (L08 at 16x measured "1.1x real"); the shell stepped one tick per bridge
+## call, eight at most per frame. The ticks owed are now counted from the wall clock and run as ONE engine call of up to FF_MAX ticks (the engine's tick(n) runs the
+## same n steps as n single ticks and stops at once if the level resolves, so the result is bit-identical), and the console, recorder and plant view refresh once per call.
+const FF_MAX := 32
+const FF_PER_FRAME := 2
 var _owed := 0.0
+var _wall_us := 0
 func _process(dt: float) -> void:
 	_autosave_design()
 	_career_flush()
+	var now := Time.get_ticks_usec()
+	var wdt := clampf(float(now - _wall_us) / 1.0e6, 0.0, 4.0) if _wall_us > 0 else dt
+	_wall_us = now
 	var t0 := int(b.g.get("tick", 0)) if started and b != null else 0
 	super(dt)
 	if started and b != null and speed >= 2 and modal() == null and str(b.g.get("status", "playing")) == "playing":
-		_owed += dt * float([0, 1, 4, 16][clampi(speed, 0, 3)]) - float(int(b.g.get("tick", 0)) - t0)
+		_owed += maxf(wdt, dt) * float([0, 1, 4, 16][clampi(speed, 0, 3)]) - float(int(b.g.get("tick", 0)) - t0)
 		var n := 0
-		while _owed >= 1.0 and n < 8 and str(b.g.get("status", "playing")) == "playing": next_tick(); _owed -= 1.0; n += 1
-		_owed = clampf(_owed, -2.0, 8.0)
+		while _owed >= 1.0 and n < FF_PER_FRAME and str(b.g.get("status", "playing")) == "playing":
+			var k := mini(int(_owed), FF_MAX)
+			ticks(k); _owed -= float(k); n += 1
+		_owed = clampf(_owed, -2.0, float(FF_MAX))
 	else: _owed = 0.0
+
+## `k` ticks in one engine call (one snapshot back, one refresh). k = 1 is next_tick().
+func ticks(k: int) -> void:
+	if k <= 1: next_tick(); return
+	if not started or str(b.g.get("status", "playing")) != "playing": return
+	audio.play("tick")
+	var r := b.act("tick", [k])
+	if not r.get("ok", false): toast(str(r.get("message", "")), "bad"); return
+	_claim()
 
 ## A mode this game does not have (CB_AUTOSTART=typo) is an error you can see, not a blank board.
 const MODES := ["learner", "engineer", "sandbox"]
