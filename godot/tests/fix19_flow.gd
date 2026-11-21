@@ -11,6 +11,7 @@ func check(c: bool, msg: String) -> void:
 func frames(n := 3) -> void:
 	for i in n: await process_frame
 func level(id: String) -> void:
+	app.pinned_seed = 1003   # one seed: a random seed can shut the 110 % plant before the warning (F24 saw seed 16)
 	app.start_level(id, true); await frames(4)
 	Notebook.close(app); await frames(3)
 func act(name: String, args: Array) -> Dictionary:
