@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Slug / repo | `equilibrium` (`/home/ixaxaar/src/ORGS/cobanana/equilibrium`, core as `core/` submodule) |
+| Slug / repo | `equilibrium` (core as `core/` submodule) |
 | Android id | `in.ixaxaar.cobanana.equilibrium` · engine port 47903 · Xvfb `:240-:259` |
 | Stack | cobanana-core deterministic TS engine (Node sidecar / nodejs-mobile) + Godot 4.7 GDScript front-end |
 | Teaches | Class 11-12 Chemistry (NCERT XI ch 1 Some Basic Concepts, ch 5 Thermodynamics, ch 6 Equilibrium; XII ch 3 Chemical Kinetics; rationalised 2023+ numbering, old numbering XI ch 1/6/7, XII ch 4), JEE Main/Advanced and NEET; first- and second-year chemical engineering (material and energy balances, reactors, separations, recycle, process safety) |

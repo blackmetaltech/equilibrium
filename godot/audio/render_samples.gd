@@ -1,7 +1,7 @@
 extends SceneTree
 ## Render every EQUILIBRIUM sound to WAV for listening checks, and assert basic sanity.
 ## godot --headless --path godot -s audio/render_samples.gd [-- out_dir]
-const OUT := "/home/ixaxaar/src/ORGS/cobanana/.qa/equilibrium/audio/"
+const OUT := "user://audio_samples/"   # pass an out_dir after -- to write elsewhere
 const EA = preload("res://audio/eq_audio.gd")
 var fails := 0
 
