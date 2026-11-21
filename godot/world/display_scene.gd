@@ -141,7 +141,7 @@ func _extras(id: String) -> void:
 			_pipe(_tile(15.0, 10.0) + Vector3(0, 0.8, 0), _tile(15.0, 10.0) + Vector3(0, 7.0, 0), 0.0)
 			_pipe(_tile(15.0, 10.0) + Vector3(0, 7.0, 0), _tile(15.0, 5.0) + Vector3(0, 7.0, 0), 0.0)
 			_box(Vector3(9.0, 0.4, 6.0), _tile(18.0, 5.0) + Vector3(0, 0.2, 0), Color("#7C7466"))
-			_label("PUMP HOUSE", _tile(10.0, 9.0) + Vector3(0, 3.6, 0), Color("#FFB703"))
+			_label("PUMP HOUSE", _tile(10.0, 12.5) + Vector3(0, 0.4, 0), Color("#FFB703"))   # on the ground in front of the plinth, clear of the P-301 tag
 		"CAREER":
 			for g in [[1.0, 6.2, "PLANT A"], [13.0, 6.2, "PLANT B"], [1.0, 14.0, "PLANT C"], [13.0, 14.0, "PLANT D"]]:
 				_label(str(g[2]), _tile(float(g[0]) + 4.0, float(g[1])) + Vector3(0, 0.5, 0), Color("#FFB703"))

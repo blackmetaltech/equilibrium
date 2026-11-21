@@ -77,3 +77,16 @@ describe('R9-a: star-3 flasks state their threshold', () => {
     expect(r).toMatch(/\d/);
   });
 });
+
+// Round-10 screenshot of L39: the call-it prompt showed "{q}" and "{old}", and the note promised a star no rule gives.
+import { SPECS } from './registry';
+import { callEarnsStar } from '../engine/queries/level';
+describe('every level: no raw placeholders in notes, stars or call-its; the predict note matches the stars', () => {
+  for (const spec of SPECS.filter((x) => x.id !== 'CAREER')) it(spec.id, () => {
+    const e = new Env(GAME); e.reset({ seed: 1003, level: spec.id, mode: 'learner' } as any);
+    const li = e.engine.q('levelInfo') as any;
+    const texts: string[] = [...(li.note ?? []), ...(li.stars?.rules ?? []), li.predictNote ?? '', li.callIt?.prompt ?? '', ...((li.callIts ?? []) as any[]).map((c) => c.prompt)];
+    for (const x of texts) expect(x, x).not.toMatch(/\{[a-zA-Z_]\w*\}/);
+    if (spec.callIt) expect(/earns a star/.test(li.predictNote)).toBe(callEarnsStar(spec));
+  });
+});

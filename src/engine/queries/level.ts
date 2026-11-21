@@ -5,7 +5,7 @@ import { formatNumber } from '@core/regions';
 import { Rng, encodeSolution, fail, need, seedState } from '@core/kit';
 import type { ActionFn, QueryFn, System } from '@core/kit';
 import { SPECIES } from '../../data/species';
-import { i18n, t } from '../../i18n';
+import { LOCALES, i18n, t } from '../../i18n';
 import { FIRSTRUN_S } from '../../data/events';
 import { buildGuideOf } from '../../levels/build_guide';
 import { SPEC_BY_ID, entersFirstRun, firstRunT, madeKg, specOf } from '../../levels/registry';
@@ -73,6 +73,9 @@ export function starsOf(s: S, spec: LevelSpec, m: Measures, g: GoalEval[]): { ha
 }
 
 // ------------------------------------------------------------------------------------------------ helpers
+/** The prediction rule shown with a call-it. It promises a star only when one of the level's star rules IS the call (round-10 screenshot: L39 promised a star its rules never give). */
+export function callEarnsStar(spec: LevelSpec): boolean { return [2, 3].some((k) => /\bcall/i.test(String((LOCALES.en as Record<string, unknown>)[`lv.${spec.id}.star.${k}`] ?? ''))); }   // the raw rule text (no interpolation: a missing variable would be logged)
+function predictKey(spec: LevelSpec): string { const late = spec.callIt?.lateOk === true; return callEarnsStar(spec) ? (late ? 'lv.note.predict_late' : 'lv.note.predict') : (late ? 'lv.note.predict_late_nostar' : 'lv.note.predict_nostar'); }
 /** Sane entry bounds of a call-it (spec override, else by unit): a temperature in °C is 0-2000, a percentage 0-100. */
 export function callBounds(c: { unit: string; min?: number; max?: number }): { min: number; max: number } {
   const byUnit: Record<string, number> = { '°C': 2000, C: 1e3, K: 5000, '%': 100, MW: 1e5, bar: 1e5, 'mol/mol': 1e3 };
@@ -239,9 +242,9 @@ const levelInfo: QueryFn<EqState> = (s) => {
     id: spec.id, chapter: spec.chapter, index: spec.index, title: t(`lv.${spec.id}.title`), setter: cast,
     setterName: pack.strings[`cast.${cast}.name`] ?? '', setterTitle: pack.strings[`cast.${cast}.title`] ?? '',
     place: t(`lv.${spec.id}.place`),
-    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`, spec.textVars ? spec.textVars(s) : {}) + (spec.callIt && i === spec.notes - 1 ? ' ' + t(spec.callIt.lateOk ? 'lv.note.predict_late' : 'lv.note.predict') : '')),
+    note: Array.from({ length: spec.notes }, (_, i) => t(`lv.${spec.id}.note.${i + 1}`, spec.textVars ? spec.textVars(s) : {}) + (spec.callIt && i === spec.notes - 1 ? ' ' + t(predictKey(spec)) : '')),
     /** The prediction rule of a call-it level, also on its own for the notebook's Call it box. */
-    predictNote: spec.callIt ? t(spec.callIt.lateOk ? 'lv.note.predict_late' : 'lv.note.predict') : null,
+    predictNote: spec.callIt ? t(predictKey(spec)) : null,
     notice,
     /** The speed (1, 4 or 16) the speed dial opens at when a run of this level starts. */
     recommendedSpeed: recommendedSpeed(spec.id),
@@ -249,7 +252,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     budgetUSD: spec.budgetUSD, spentUSD: spent,
     stars: { have: st.have, earned: st.earned, rules: [1, 2, 3].map((k) => t(`lv.${spec.id}.star.${k}`, spec.textVars?.(s))) },
     callIt: call === null ? null : {
-      key: call.key, prompt: t(`lv.${spec.id}.callit`), ...givenOf(s, spec, call.key), unit: call.unit, tol: tolText(call.tol), ...callBounds(call), answered: grade.answered, locked: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
+      key: call.key, prompt: t(`lv.${spec.id}.callit`, spec.textVars ? spec.textVars(s) : {}), ...givenOf(s, spec, call.key), unit: call.unit, tol: tolText(call.tol), ...callBounds(call), answered: grade.answered, locked: grade.answered, ...(grade.value !== undefined ? { value: fin(grade.value) } : {}),
       ...(grade.ok !== undefined && (s.solved !== null || s.status !== 'playing') ? { ok: grade.ok, truth: fin(grade.truth ?? 0) } : {}),
       ...(call.named ? { named: grade.named ?? '', options: s.species.filter((x) => x === 'N2' || x === 'H2'), ...(grade.namedOk !== undefined && (s.solved !== null || s.status !== 'playing') ? { namedOk: grade.namedOk, truthNamed: grade.truthNamed } : {}) } : {}),
       ...(call.lateOk ? { late: true } : {}),

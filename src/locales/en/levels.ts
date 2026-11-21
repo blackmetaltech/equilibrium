@@ -39,6 +39,8 @@ export const levels: Record<string, string> = {
   // ---- L00 Night Shift
   'lv.call.tol': 'within ±{tol} %', 'lv.call.tol_exact': 'exactly',
   'lv.note.predict': 'Call it: predict before your first commission. The answer box locks when you commission; a right call earns a star.',
+  'lv.note.predict_nostar': 'Call it: predict before your first commission. The answer box locks when you commission; the printout marks your call right or wrong.',
+  'lv.note.predict_late_nostar': 'Call it: on this job you may call after a test burn. Burn once, read the analyser, then write your answer; it locks when you enter it, and the printout marks it right or wrong.',
   'lv.note.predict_late': 'Call it: on this job you may call after a test burn. Burn once, read the analyser, then write your answer; it locks when you enter it, and a right call earns a star.',
   'lv.L00.title': 'Night Shift', 'lv.L00.place': 'The ammonia loop, 02:40',
   'lv.L00.note.1': 'Last night shift. She is running sweet, but listen for the water.',

@@ -126,7 +126,7 @@ function textVars(s: S): Record<string, string | number> {
   return {
     q: f(s, L39_Q), dz: f(s, L39_DZ), zs: f(s, L39_ZS), pd: f(s, (L39_P_DEA - L39_P_ATM) / 1e5), rho: f(s, fl.rho), mu: String(fl.mu * 1000), pv: f(s, fl.pVap / 1000),
     old: f(s, OLD_LINE_ID_MM), L: f(s, g.Ls + g.Ld), K: f(s, g.Ks + g.Kd), eps: f(s, EPS_STEEL * 1000), ls: f(s, g.Ls), ld: f(s, g.Ld), lsf: f(s, L39_PLACES.far.Ls), ldf: f(s, L39_PLACES.far.Ld),
-    phead: f(s, (L39_P_ATM - fl.pVap) / (fl.rho * G)), elec: f(s, pricesOf(s).electricity!.value),
+    phead: f(s, (L39_P_ATM - fl.pVap) / (fl.rho * G)), elec: moneyText(s, pricesOf(s).electricity!.value),
   };
 }
 
