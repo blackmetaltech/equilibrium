@@ -386,13 +386,14 @@ function yearEnd(c: Career): void {
   const mara = clamp(Math.round(100 - 250 * Math.max(0, effRatio - 1) - 100 * Math.max(0, 0.95 - uAvg) - 80 * Math.max(0, 0.9 - catAvg)), 0, 100);
   c.years.push({ year: y + 1, rev: yt.rev ?? 0, cost: (yt.cost ?? 0) + fine, pen: yt.pen ?? 0, inv: yt.inv ?? 0, fine, margin: net, opMargin, tonnes: yt.tonnes, downDays: yt.down ?? 0, catAvg, uAvg, contractRev: yt.crev ?? 0, contractT: yt.ct ?? 0, capT: emCap(c), capOldT: EM_CAP_T_PER_YEAR * (1 - EM_CAP_STEP * y), criticals: yt.criticals, emRatio, effRatio, victor, noor, mara, strike, cash: c.cash });
   c.lossYears = opMargin < 0 ? c.lossYears + 1 : 0;
+  if (c.m < MONTHS) c.log.push({ m: c.m, kind: 'notice', code: 'cap', plant: '', n: Math.round(emCap(c) / 1000) });
+  // the ending this year end brings is decided BEFORE the review's course is read, so the review and the end card name the same ending (one enum, one label)
+  if (c.lossYears >= 2 || c.cash < 0) finish(c, 'sold');
+  else if (c.strikes >= STRIKES_MAX) finish(c, 'shut');
   c.years[c.years.length - 1]!.outlook = outlook(c);
   const cr = cardReview(c); if (cr !== undefined) c.years[c.years.length - 1]!.card = cr;
   c.snap = undefined; c.ops = undefined;
   c.ytd = { margin: 0, em: 0, gasGJ: 0, tonnes: 0, criticals: 0, eff: 0, effN: 0, rev: 0, cost: 0, pen: 0, inv: 0, down: 0, cat: 0, U: 0, pn: 0, crev: 0, ct: 0 };
-  if (c.ending === '' && c.m < MONTHS) c.log.push({ m: c.m, kind: 'notice', code: 'cap', plant: '', n: Math.round(emCap(c) / 1000) });
-  if (c.lossYears >= 2 || c.cash < 0) finish(c, 'sold');
-  else if (c.strikes >= STRIKES_MAX) finish(c, 'shut');
 }
 /** The year's card priced against the road not taken: the Works as it stood when the card was raised, run to this year end with the same later decisions and the same seed, once with option A and once with B; the difference in cash is what the card realised.
  * It is set beside the card's own forecast for the same months (`DecYear`), term by term, so a gap names the term that moved: the market (gas or spot, with the averages), the penalties, the catalyst bill, the rest. */
@@ -511,7 +512,7 @@ export function levers(c: Career, proj: number): Lever[] {
   let bo: { id: number; p: PlantId; g: number; prem: number; tpm: number } | null = null;
   for (const o of c.offers) {
     const prem = o.price / c.prices[o.p] - 1, g = (o.price - c.prices[o.p]) * o.tpm * 12;
-    if (prem > 0.03 && contracted(c, o.p) + o.tpm <= capacityT(c, o.p) && (bo === null || g > bo.g)) bo = { id: o.id, p: o.p, g, prem, tpm: o.tpm };
+    if (prem > 0.03 && contracted(c, o.p) + o.tpm <= capacityT(c, o.p) && offerTaShort(c, o) === null && (bo === null || g > bo.g)) bo = { id: o.id, p: o.p, g, prem, tpm: o.tpm };
   }
   if (bo !== null) out.push({ key: 'contract', vars: { id: bo.id, plant: bo.p, tpm: Math.round(bo.tpm / 100) / 10, prem: Math.round(bo.prem * 100), gain: Math.round(bo.g / 1e5) / 10 } });
   const due = PLANTS.filter((p) => c.plants[p].insp >= INSPECT_EVERY - INSPECT_WARN && c.plants[p].ta !== c.m && !warnHandled(c, 'insp', p));
@@ -779,6 +780,8 @@ export function offerTaShort(c: Career, o: Offer): { month: number; days: number
   return shortT > 1 ? { month, days, shortT, penaltyUSD: Math.max(0, pen - base.penaltyUSD) } : null;
 }
 
+/** True when the plant can fill the offer in every month of its term: its nominal output covers the contracts with this one AND no booked turnaround inside the term takes the plant out long enough to leave it short (the outage days of the booking count). */
+export function offerFills(c: Career, o: Offer): boolean { return exposure(c, o.p, o.tpm, o.pen).shortT === 0 && offerTaShort(c, o) === null; }
 
 // ------------------------------------------------------------------------------------------------ the yearly decision
 // One decision a year, drawn from a pool of four (rotated from the seed so all four kinds come up), each with two options and an expected effect in USD computed from the engine's own formulas on a no-noise forecast of
@@ -1005,7 +1008,7 @@ export function worthyOffer(c: Career): Offer | null {
   let best: Offer | null = null, bg = 0;
   for (const o of c.offers) {
     const g = (o.price - c.prices[o.p]) * o.tpm * 12;
-    if (c.contracts.length < 12 && o.price >= c.prices[o.p] * (1 + OFFER_STOP_PREM) && g >= OFFER_STOP_GAIN && exposure(c, o.p, o.tpm, o.pen).shortT === 0 && o.term <= MONTHS - c.m && g > bg) { best = o; bg = g; }
+    if (c.contracts.length < 12 && o.price >= c.prices[o.p] * (1 + OFFER_STOP_PREM) && g >= OFFER_STOP_GAIN && offerFills(c, o) && o.term <= MONTHS - c.m && g > bg) { best = o; bg = g; }
   }
   return best;
 }
@@ -1030,8 +1033,9 @@ export function advanceToDecision(c: Career): number {
     const fresh = openWarnings(c);
     if (fresh.length > 0) { c.stopped = fresh; const pick = fresh.find((k) => k.startsWith('end:')) ?? fresh.find((k) => k.startsWith('em:')) ?? fresh[0]!, [kind, plant] = pick.split(':'); why = { kind: kind!, plant: plant!, n: fresh.length, ev: c.last.ev, evPlant: c.last.evPlant }; break; }   // every open warning is in c.stopped; the banner lists them all
     // plants that passed their inspection date this month stop the run ONCE, all of them listed (plant names joined with commas; n = the worst count)
-    const newOd = PLANTS.filter((p) => overdue(c, p) > 0 && !od0.has(p));
-    if (newOd.length > 0) { const all = PLANTS.filter((p) => overdue(c, p) > 0); why = { kind: 'overdue', plant: all.join(','), n: Math.max(...all.map((p) => overdue(c, p))) }; break; }
+    // a plant whose booked turnaround resets the inspection clock before the strike limit is covered (the same rule as the warning): it does not stop the run
+    const newOd = PLANTS.filter((p) => overdue(c, p) > 0 && !od0.has(p) && !warnHandled(c, 'insp', p));
+    if (newOd.length > 0) { const all = PLANTS.filter((p) => overdue(c, p) > 0 && !warnHandled(c, 'insp', p)); why = { kind: 'overdue', plant: all.join(','), n: Math.max(...all.map((p) => overdue(c, p))) }; break; }
     const o = worthyOffer(c);
     if (o !== null) { why = { kind: 'offer', plant: o.p, n: o.id }; break; }
     if (Math.abs(c.gas / gas0 - 1) >= SWING_GAS) { why = { kind: 'gas', plant: '', n: Math.round((c.gas / gas0 - 1) * 100) }; break; }
