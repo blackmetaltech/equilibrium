@@ -11,6 +11,7 @@ import { scripted } from './bench';
 import { DP_RX, LOOP_SPECIES, N2_FRESH, AR_FRESH, H2_FRESH, P_LOOP, T_CW, T_RX, T_SEP, loopMeasures, outStream } from './l19';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, link, predictionOf, put, putFeed, sealSetup, shown, spentOf, unitsOfType } from './util';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
@@ -20,7 +21,8 @@ export const L20_PART_A_PCT = oracle.expected.y_Ar_reactor_inlet! * 100;
 export const AR_MAX_PCT = 10, NH3_MIN_T_H = 8.0;
 /** The reference purge of the solver and its calibrated cost per tonne (GAME, from the engine at 1 % purge; UNVERIFIED). */
 export const L20_REF = { purge: 0.01, cost: 350.91 };
-export const L20_COST_MAX = L20_REF.cost * 1.03;
+/** Star-3 cost line in the player's region: 1.03 x the reference design priced there (refdesigns.ts). L20_REF.cost is its global value, re-checked by tests. */
+export const L20_COST_MAX = (s: { region: string }): number => costStarPerT(s, 'L20');
 export const P_RX_OUT = P_LOOP - DP_RX;
 
 const PRESETS = { eq_reactor: { reactions: 'R1', mode: 'isothermal', T: T_RX, dP: DP_RX }, cooler: { T: T_SEP, utility: 'refrig' }, flash: { T: T_SEP, P: P_RX_OUT }, compressor: { P: P_LOOP, stages: 1 } };
@@ -79,7 +81,7 @@ export const L20: LevelSpec = {
   },
   extraStars: (s, m) => {
     const p = predictionOf(s, 'ar_pct');
-    return [p !== null && Math.abs(p.value - L20_PART_A_PCT) / L20_PART_A_PCT <= 0.005, m.ok && m.v.cost_per_t! <= L20_COST_MAX];
+    return [p !== null && Math.abs(p.value - L20_PART_A_PCT) / L20_PART_A_PCT <= 0.005, m.ok && m.v.cost_per_t! <= L20_COST_MAX(s)];
   },
   callIt: { key: 'ar_pct', unit: '%', tol: 0.005, truth: () => L20_PART_A_PCT },
   hero: (_s, m) => ({ key: 'nh3_t_h', unit: 't/h', value: m.v.nh3_t_h!, lo: NH3_MIN_T_H, hi: 9 }),
@@ -110,7 +112,7 @@ export const L20: LevelSpec = {
     { key: 'purge_pct', unit: '%', value: m.v.purge_pct! },
     { key: 'h2_lost_pct', unit: '%', value: m.v.h2_lost_pct! },
   ],
-  histogram: { metric: 'cost_per_t', best: () => L20_REF.cost, spread: 0.06, lowerIsBetter: true },
+  histogram: { metric: 'cost_per_t', best: (s) => refCostPerT(s, 'L20'), spread: 0.06, lowerIsBetter: true },
   card: (s, m): Record<string, string | number> => (m.ok ? { bridge_ar_pct: L20_PART_A_PCT, ar_in_pct: m.v.ar_in_pct!, loop_kmol_h: m.v.loop_kmol_h! } : {}),
   solver: () => scripted(purgeScript(L20_REF.purge, true))(),
   naive: () => scripted(purgeScript(0, false))(),

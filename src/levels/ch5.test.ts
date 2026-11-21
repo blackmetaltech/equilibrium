@@ -103,16 +103,16 @@ describe('the solver metrics and the calibrated star thresholds (GAME, UNVERIFIE
   it('L19: reference recycle, compressor kW and $/t are the solver numbers; the thresholds are x 1.05 and x 1.03', () => {
     const v = m(solve('L19'), 'L19').v;
     expect(v.recycle_kmol_h).toBeCloseTo(L19_REF.recycle, 0); expect(v.shaft_kw).toBeCloseTo(L19_REF.kw, 1); expect(v.cost_per_t).toBeCloseTo(L19_REF.cost, 0);
-    expect(L19_KW_MAX / v.shaft_kw!).toBeCloseTo(1.05, 2); expect(L19_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(L19_KW_MAX / v.shaft_kw!).toBeCloseTo(1.05, 2); expect(L19_COST_MAX({ region: 'global' }) / v.cost_per_t!).toBeCloseTo(1.03, 2);
     expect(v.conv_overall).toBeGreaterThan(99.99);
   });
   it('L20: the solver cost at the 1 % purge is the reference; threshold x 1.03', () => {
     const v = m(solve('L20'), 'L20').v;
-    expect(v.cost_per_t).toBeCloseTo(L20_REF.cost, 0); expect(L20_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(v.cost_per_t).toBeCloseTo(L20_REF.cost, 0); expect(L20_COST_MAX({ region: 'global' }) / v.cost_per_t!).toBeCloseTo(1.03, 2);
   });
   it('L21: the solver cost at the 2 % purge and -20 C is the reference; threshold x 1.03', () => {
     const v = m(solve('L21'), 'L21').v;
-    expect(v.cost_per_t).toBeCloseTo(L21_REF.cost, 0); expect(L21_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(v.cost_per_t).toBeCloseTo(L21_REF.cost, 0); expect(L21_COST_MAX({ region: 'global' }) / v.cost_per_t!).toBeCloseTo(1.03, 2);
     expect(v.nh3_purge_pct).toBeLessThan(3);
   });
 });
@@ -131,7 +131,7 @@ describe('a cold flash drum is priced as refrigeration (economics, COP path like
 describe('L22 The Methanol Loop', () => {
   it('the solver design is the reference: cost, rate and carbon efficiency; thresholds x 1.03 and the calibrated target', () => {
     const v = m(solve('L22'), 'L22').v;
-    expect(v.cost_per_t).toBeCloseTo(L22_REF.cost, 0); expect(L22_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(v.cost_per_t).toBeCloseTo(L22_REF.cost, 0); expect(L22_COST_MAX({ region: 'global' }) / v.cost_per_t!).toBeCloseTo(1.03, 2);
     expect(v.meoh_t_h!).toBeGreaterThanOrEqual(L22_MEOH_MIN_T_H); expect(v.carbon_eff!).toBeGreaterThanOrEqual(L22_CARBON_MIN);
     expect(v.hot_c! + 273.15).toBeLessThan(L22_SINTER_K); expect(v.sinter).toBe(0);
   });
@@ -168,7 +168,7 @@ describe('L22 The Methanol Loop', () => {
 describe('L23 Spirits', () => {
   it('the solver design is the reference: cost, rate, purity, the yeast at its 32 C DESIGN numbers (90 % of the sugar, 22.5 h)', () => {
     const e = solve('L23'), v = m(e, 'L23').v;
-    expect(v.cost_per_t).toBeCloseTo(L23_REF.cost, 0); expect(L23_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(v.cost_per_t).toBeCloseTo(L23_REF.cost, 0); expect(L23_COST_MAX({ region: 'global' }) / v.cost_per_t!).toBeCloseTo(1.03, 2);
     expect(v.kl_day!).toBeGreaterThanOrEqual(L23_KL_MIN); expect(v.spirit_wt!).toBeGreaterThanOrEqual(L23_SPIRIT_WT * 100);
     expect(v.conv!).toBeGreaterThan(0.895); expect(v.conv!).toBeLessThan(0.915); expect(v.time_h).toBeCloseTo(22.5, 9);
   });

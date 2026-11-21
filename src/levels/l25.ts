@@ -10,6 +10,7 @@ import type { EqState } from '../state';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, fedOf, flowOf, inStream, link, markPrebuilt, molarMass, none, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped } from './util';
 import { scripted } from './bench';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 export const L25_SPECIES = ['N2', 'O2', 'SO2', 'SO3', 'H2SO4(l)', 'H2O(l)'];
@@ -26,7 +27,8 @@ export const L25_UNITS: LevelSpec['units'] = {
 };
 export const L25_BUDGET = 450000;
 /** GAME: the star cost line is the solver's cost per tonne x 1.03 (UNVERIFIED, pinned by ch6.test.ts). */
-export const L25_COST_STAR = 4.09;
+/** Star-3 cost line, 1.03 x the solver design priced in the player's region (refdesigns.ts; global 4.09). */
+export const L25_COST_STAR = (s: { region: string }): number => costStarPerT(s, 'L25');
 const PRESETS = { packed_bed: { mode: 'adiabatic', W: 1000 } };
 
 /** kg of SO2 per tonne of 100 % acid at an overall conversion c. */
@@ -103,7 +105,7 @@ export const L25: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, L25_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L25_BUDGET, value: sp, target: L25_BUDGET }); }
     return g;
   },
-  extraStars: (_s, m) => [m.ok && m.v.kg_t! <= m.v.strict!, m.ok && m.v.kg_t! <= m.v.strict! && m.v.cost! <= L25_COST_STAR],
+  extraStars: (s, m) => [m.ok && m.v.kg_t! <= m.v.strict!, m.ok && m.v.kg_t! <= m.v.strict! && m.v.cost! <= L25_COST_STAR(s)],
   callIt: { key: 'so2_kg_t', unit: 'kg/t', tol: L25_CALL_TOL, truth: () => so2PerTonne(L25_CONV_CALL) },
   hero: (_s, m) => ({ key: 'so2_kg_t', unit: 'kg/t', value: m.ok ? Math.min(m.v.kg_t!, 99) : 0, lo: 0, hi: m.v.limit! }),
   secondary: (_s, m) => ({ key: 'conv_pct', unit: '%', value: m.v.conv! * 100, limit: (1 - 0.003) * 100 }),
@@ -151,7 +153,7 @@ export const L25: LevelSpec = {
     { key: 'so2_kg_t', unit: 'kg/t', value: Math.min(m.v.kg_t!, 1e6) },
     { key: 'steam_t_t', unit: 't/t', value: m.v.acid_t_h! > 0 ? m.v.steam! / m.v.acid_t_h! : 0 },
   ],
-  histogram: { metric: 'cost_usd_t', best: () => L25_COST_STAR / 1.03, spread: 0.4, lowerIsBetter: true },
+  histogram: { metric: 'cost_usd_t', best: (s) => refCostPerT(s, 'L25'), spread: 0.4, lowerIsBetter: true },
   solver: () => scripted(dcdaBuild())(),
   naive: () => scripted(singleBuild())(),
 };

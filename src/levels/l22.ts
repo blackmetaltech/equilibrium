@@ -10,6 +10,7 @@ import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, flowOf, fedOf, inStream, intoType, link, predictionOf, put, putFeed, markPrebuilt, relErr, sealSetup, shown, spentOf, toKgH, toKmolH, unitsOfType } from './util';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 export const L22_SPECIES = ['H2', 'CO', 'CO2', 'N2', 'CH3OH', 'H2O'];
@@ -21,7 +22,8 @@ export const L22_CARBON_MIN = 85;
 /** Calibrated reference (GAME, UNVERIFIED: the solver's own design, re-derived in ch5.test.ts): coolant, catalyst load, purge, target rate, cost. */
 export const L22_REF = { Tc: 493.15, W: 10000, purge: 0.2, meoh: 2.4, cost: 49.27 };
 export const L22_MEOH_MIN_T_H = L22_REF.meoh;
-export const L22_COST_MAX = L22_REF.cost * 1.03;
+/** Star-3 cost line in the player's region: 1.03 x the reference design priced there (refdesigns.ts). L22_REF.cost is its global value, re-checked by tests. */
+export const L22_COST_MAX = (s: { region: string }): number => costStarPerT(s, 'L22');
 export const L22_UNITS: LevelSpec['units'] = { tubular: { max: 1, price: 90000 } };
 export const L22_BUDGET = 100000;
 const PRESETS = { heater: { T: T_IN, utility: 'fired' }, cooler: { T: T_FLASH, utility: 'cw' }, flash: { T: T_FLASH, P: P_FLASH }, compressor: { P: P_LOOP, stages: 1 }, tubular: { W: 1000, Tc: T_IN, UaW: 12 } };
@@ -110,7 +112,7 @@ export const L22: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, L22_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L22_BUDGET, value: sp, target: L22_BUDGET }); }
     return g;
   },
-  extraStars: (_s, m) => [m.ok && m.v.sinter === 0, m.ok && m.v.cost_per_t! <= L22_COST_MAX],
+  extraStars: (s, m) => [m.ok && m.v.sinter === 0, m.ok && m.v.cost_per_t! <= L22_COST_MAX(s)],
   callIt: { key: 'sn', unit: '', tol: 0.01, truth: () => L22_SN },
   hero: (_s, m) => ({ key: 'meoh_t_h', unit: 't/h', value: m.v.meoh_t_h!, lo: L22_MEOH_MIN_T_H, hi: 3 }),
   secondary: (_s, m) => ({ key: 'hot_c', unit: '°C', value: m.v.hot_c!, limit: L22_SINTER_K - 273.15 }),
@@ -141,7 +143,7 @@ export const L22: LevelSpec = {
     { key: 'hot_c', unit: '°C', value: m.v.hot_c! },
     { key: 'carbon_eff', unit: '%', value: m.v.carbon_eff! },
   ],
-  histogram: { metric: 'cost_per_t', best: () => L22_REF.cost, spread: 0.06, lowerIsBetter: true },
+  histogram: { metric: 'cost_per_t', best: (s) => refCostPerT(s, 'L22'), spread: 0.06, lowerIsBetter: true },
   solver: () => scripted(methanolScript(L22_REF.Tc, L22_REF.W, L22_REF.purge, true))(),
   naive: () => scripted(methanolScript(T_IN, 1000, 0, false))(),
 };

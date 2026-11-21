@@ -9,6 +9,7 @@ import { t } from '../i18n';
 import type { EqState } from '../state';
 import type { Annunciator, CoachStep, GoalEval, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, inStream, putFeed, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
+import { COST_STAR_FACTOR, l08Best } from './refdesigns';
 
 type S = Readonly<EqState>;
 export const L08_SPECIES = ['N2', 'H2', 'O2', 'CO2', 'H2O'];
@@ -26,8 +27,8 @@ export const L08_BUDGET = 110000;
 const PRESETS = { heater: { T: SYN_OUT_C + 273.15, utility: 'fired' }, hx: { area: 50, U: 12 } };
 /** The calibrated optimum area, m2 (GAME, UNVERIFIED): the cheapest area that keeps the stack at 120 C or more (the same in both regions; ch2.test.ts re-derives it by sweep). */
 export const OPT_AREA = 990;
-/** Star-3 cost thresholds per region: the sweep minimum x 1.03, USD/h (GAME, UNVERIFIED; ch2.test.ts re-derives them). */
-export const COST_STAR: Readonly<Record<string, number>> = { global: 78.27, in: 763.25 };
+/** Star-3 cost line, region currency per hour: 1.03 x the cheapest feasible exchanger area priced in the player's region (refdesigns.ts L08_SWEEP: US$ plant x capexFx plus the pack's own fuel price; the cheapest area is region-dependent). No per-region table: ch2.test.ts re-derives it for every registered region as the sweep minimum x 1.03 (global 78.27). */
+export const costStar = (s: { region: string }): number => l08Best(s).perH * COST_STAR_FACTOR;
 const C = (K: number): number => K - 273.15;
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
@@ -35,7 +36,7 @@ const has = (s: S, type: string): boolean => unitsOfType(s, type).length >= 1;
 export function pinchMeasures(s: S): Measures {
   const v: Record<string, number> = {
     syn_fed: SYN_KMOL_H, area: 0, syn_out_K: 0, flue_out_K: 0, hx_mw: 0, fuel_mw: 0, dt_min: 0, recover: 0, cost_usd_h: 0, fuel_usd_h: 0, capex_usd: 0,
-    shift_t: 0, shift_len: L08_LEN_S, ended: 0, fuel_up: 0, duty_mw: 0, cost_ref_star: COST_STAR[s.region] ?? COST_STAR.global!,
+    shift_t: 0, shift_len: L08_LEN_S, ended: 0, fuel_up: 0, duty_mw: 0, cost_ref_star: costStar(s),
   };
   const sh = s.shift;
   if (sh) { v.shift_t = sh.t; v.shift_len = sh.len; v.ended = sh.ended === 'time' ? 1 : 0; v.fuel_up = sh.act.some((e) => e.type === 'fuel_price') ? 1 : 0; }
@@ -87,7 +88,7 @@ const naive = () => {
 };
 
 export const L08: LevelSpec = {
-  textVars: (s) => ({ costStar: `${fmtNumber(Math.round(COST_STAR[s.region] ?? COST_STAR.global!), s.region)} ${REGIONS.get(s.region).currency.code}` }),   // R9-a: flask 3 states its number
+  textVars: (s) => ({ costStar: `${fmtNumber(Math.round(costStar(s)), s.region)} ${REGIONS.get(s.region).currency.code}` }),   // R9-a: flask 3 states its number
   id: 'L08', chapter: 2, index: 8, setter: 'manager', budgetUSD: L08_BUDGET, units: L08_UNITS, notes: 2, shiftLen: L08_LEN_S, maxTicks: L08_LEN_S + 600,
   setup: (s) => {
     baseSetup(s, L08_SPECIES, L08_UNITS, PRESETS);

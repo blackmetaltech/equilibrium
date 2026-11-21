@@ -5,7 +5,7 @@ import { SPECIES } from '../data/species';
 import { REGIONS } from '../regions';
 import type { EqRegionData } from '../regions/data';
 import { DISPLAY_PAIRS } from '../sim/si';
-import { capexItem, annualCost, co2eTotalKgPerH, costPerTonne, gjPerTonne, opexPerHour, steamPricePerT, type CapexSpec, type Prices } from '../sim/econ';
+import { capexItem, annualCost, co2eTotalKgPerH, costPerTonne, gjPerTonne, opexPerHour, steamPricePerT, type CapexSpec, type OpexInput, type Prices } from '../sim/econ';
 import { enthalpyFlow, makeMixture, massFlow, totalFlow } from '../sim/thermo';
 import { hasThermo } from '../sim/thermo/species';
 import { R_GAS } from '../sim/thermo/shomate';
@@ -27,6 +27,10 @@ export function syncFeed(u: UnitInst, f: FeedSpec, species: string[]): void {
 
 export const pricesOf = (s: Pick<EqState, 'region'>): Prices => REGIONS.get(s.region).data.prices;
 const packOf = (region: string) => REGIONS.get(region);
+/** Local currency per US$ of equipment cost in the state's region (the pack's one `capexFx`). */
+export const capexFxOf = (s: Pick<EqState, 'region'>): number => REGIONS.get(s.region).data.capexFx.value;
+/** US$ equipment cost (Turton) or a US$ game constant that meets region-priced money: converted to the region's currency, once, here. Every annual or per-tonne cost sums terms that went through this or came from a price row. */
+export const toLocal = (s: Pick<EqState, 'region'>, usd: number): number => usd * capexFxOf(s);
 
 // ---- unit helpers ----
 interface Plumbing { inPipe: (u: string, port: string) => string | undefined; outPipe: (u: string, port: string) => string | undefined }
@@ -44,7 +48,19 @@ export const massOf = (species: string[], st: StreamState): number => species.ev
 const U_HEAT = 500, DT_HEAT = 25, TAU_VESSEL = 60, TAU_BED = 5;
 const gasVolFlow = (st: StreamState): number => (totalFlow(st.n) * R_GAS * st.T) / st.P;
 
-export interface Economics { kpis: Record<string, number>; diag: DiagRec[]; capexItems: { unit: string; type: string; cbm: number }[]; opex: Record<string, number> }
+/** What a plant costs, independent of any currency: US$ equipment, hourly utility and feed quantities. `costFromParts` prices it in a region; the star lines of the cost levels are reference designs stored as parts. */
+export interface CostParts { cbmUsd: number; productTph: number; steamBoughtTph: number; opex: OpexInput }
+export interface Economics { kpis: Record<string, number>; diag: DiagRec[]; capexItems: { unit: string; type: string; cbm: number }[]; opex: Record<string, number>; parts: CostParts }
+
+/** Price a plant's parts in a region: capital (US$ x capexFx) annualised plus opex from the region's rows. Currency per hour, per year and per tonne. */
+export function costFromParts(s: Pick<EqState, 'region'>, parts: CostParts): { ok: boolean; opexH: number; annual: number; perH: number; perT: number; ox: ReturnType<typeof opexPerHour>; steamCost: number } {
+  const prices = pricesOf(s);
+  const ox = opexPerHour(parts.opex, prices);
+  const steamCost = parts.steamBoughtTph * (prices.steam_water_treatment ? steamPricePerT(prices) : 0);
+  const opexH = (ox.ok ? ox.value.total : 0) + steamCost;
+  const annual = annualCost(toLocal(s, parts.cbmUsd), opexH);
+  return { ok: ox.ok, opexH, annual: annual.total, perH: annual.total / 8000, perT: parts.productTph > 0 ? costPerTonne(annual.total, parts.productTph) : 1e9, ox, steamCost };
+}
 
 /** Generic plant KPIs from the solved streams and unit results; always finite. Per-tonne figures are 1e9 when no product tank receives anything. */
 export function economics(s: Readonly<EqState>, streams: Record<string, StreamState>, results: SolveResult['units']): Economics {
@@ -123,27 +139,29 @@ export function economics(s: Readonly<EqState>, streams: Record<string, StreamSt
     else diag.push({ code: c.code, severity: 'warn', unitId: unit, data: c.data });
   }
   const steamRaisedW = steamRaisedKgS * 2361e3;
-  const ox = opexPerHour({ shaftW: 0, electricW, firedDutyW: fuelDutyW, steamRaisedW, coolingW, refrig, feeds }, prices);
+  const opexIn: OpexInput = { shaftW: 0, electricW, firedDutyW: fuelDutyW, steamRaisedW, coolingW, refrig, feeds };
   const grid = (packOf(s.region).data as EqRegionData).limits.grid_t_co2_per_mwh;
-  const steamCost = (steamBoughtKgS * 3.6) * (prices.steam_water_treatment ? steamPricePerT(prices) : 0);
-  const opexTotal = (ox.ok ? ox.value.total : 0) + steamCost;
+  const parts: CostParts = { cbmUsd: cbm, productTph: productKgS * 3.6, steamBoughtTph: steamBoughtKgS * 3.6, opex: opexIn };
+  const cf = costFromParts(s, parts), ox = cf.ox, steamCost = cf.steamCost;
+  const opexTotal = cf.opexH;
   if (!ox.ok) diag.push({ code: ox.code, severity: 'warn', data: ox.data });
   const co2e = co2eTotalKgPerH({ fuelDutyW, electricW }, grid);
   const productTph = productKgS * 3.6;
   const prod = productTph > 0;
-  const annual = annualCost(cbm, opexTotal);
+  const annual = { total: cf.annual };
   const energyW = electricW + fuelDutyW / 0.85;
   const kpis: Record<string, number> = {
     product_t_per_h: productTph, feed_t_per_h: feedKgS * 3.6, electric_kw: electricW / 1e3, shaft_kw: shaftW / 1e3, fired_duty_kw: fuelDutyW / 1e3,
     cooling_kw: coolingW / 1e3, steam_bought_t_per_h: steamBoughtKgS * 3.6, steam_raised_t_per_h: steamRaisedKgS * 3.6,
+    // capex_usd is US$ (Turton), honestly named; the three below are in the REGION'S currency despite their legacy `_usd` names: capital x capexFx + opex from the pack's rows
     capex_usd: cbm, opex_usd_per_h: opexTotal, annual_cost_usd: annual.total, co2e_kg_per_h: co2e,
-    cost_usd_per_t: prod ? costPerTonne(annual.total, productTph) : 1e9,
+    cost_usd_per_t: prod ? cf.perT : 1e9,
     energy_gj_per_t: prod ? gjPerTonne(energyW, productKgS) : 1e9,
     co2e_t_per_t: prod ? co2e / 1000 / productTph : 1e9,
   };
   if (!prod) diag.push({ code: 'NO_PRODUCT', severity: 'info', data: {} });
   for (const k of Object.keys(kpis)) if (!Number.isFinite(kpis[k]!)) kpis[k] = 1e9;
-  return { kpis, diag, capexItems, opex: ox.ok ? { ...ox.value, steam: steamCost } : {} };
+  return { kpis, diag, capexItems, opex: ox.ok ? { ...ox.value, steam: steamCost } : {}, parts };
 }
 
 // ---- ledger ----
@@ -155,7 +173,8 @@ export interface Ledger {
   /** Largest relative atom imbalance. */
   atomRel: number;
   energy: { in: Record<string, number>; out: Record<string, number>; closure: number | null };
-  cost: { capex: { unit: string; type: string; cbm: number }[]; opex: Record<string, number>; annual: number } | null;
+  /** capex items are US$ (cbm); opex and annual are in the region's currency; capexFx converts the first to the second. */
+  cost: { capex: { unit: string; type: string; cbm: number }[]; opex: Record<string, number>; annual: number; capexFx: number } | null;
 }
 
 /** Atom balance per element (feeds + make-up water in, sinks out), energy by category (W) and the cost breakdown, from the stored solve. */
@@ -208,7 +227,7 @@ export function ledgerOf(s: Readonly<EqState>, withCost = true): Ledger | null {
     closure = Math.abs(tin - tout) / big;
   }
   const ec = withCost ? economics(s, sol.streams, sol.units) : null;
-  return { atoms, atomRel: atoms.reduce((m, a) => Math.max(m, a.rel), 0), energy: { in: eIn, out: eOut, closure }, cost: ec ? { capex: ec.capexItems, opex: ec.opex, annual: ec.kpis.annual_cost_usd ?? 0 } : null };
+  return { atoms, atomRel: atoms.reduce((m, a) => Math.max(m, a.rel), 0), energy: { in: eIn, out: eOut, closure }, cost: ec ? { capex: ec.capexItems, opex: ec.opex, annual: ec.kpis.annual_cost_usd ?? 0, capexFx: capexFxOf(s) } : null };
 }
 
 // ---- messages ----

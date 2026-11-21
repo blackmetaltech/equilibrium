@@ -9,6 +9,7 @@ import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, fedOf, flowOf, inStream, intoType, predictionOf, putFeed, relErr, sealSetup, shown, spentOf, toKgH, toKmolH, unitsOfType } from './util';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 export const L19_SPECIES = ['N2', 'H2', 'NH3'];
@@ -34,7 +35,9 @@ export const LOOP_PRESETS: Record<string, Record<string, number | string>> = {
 
 /** Compressor shaft power (kW) and cost per tonne of the reference loop (GAME, calibrated from the solver design, x 1.03 and x 1.05; UNVERIFIED). */
 export const L19_REF = { recycle: 1891.83, kw: 29.88, cost: 338.79 };
-export const L19_KW_MAX = L19_REF.kw * 1.05, L19_COST_MAX = L19_REF.cost * 1.03;
+export const L19_KW_MAX = L19_REF.kw * 1.05;
+/** Star-3 cost line in the player's region: 1.03 x the reference design priced there (refdesigns.ts). L19_REF.cost is its global value, re-checked by tests. */
+export const L19_COST_MAX = (s: { region: string }): number => costStarPerT(s, 'L19');
 
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 
@@ -114,7 +117,7 @@ export const L19: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, LOOP_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L19_BUDGET, value: sp, target: L19_BUDGET }); }
     return g;
   },
-  extraStars: (_s, m) => [m.ok && m.v.shaft_kw! <= L19_KW_MAX, m.ok && m.v.cost_per_t! <= L19_COST_MAX],
+  extraStars: (s, m) => [m.ok && m.v.shaft_kw! <= L19_KW_MAX, m.ok && m.v.cost_per_t! <= L19_COST_MAX(s)],
   callIt: { key: 'recycle_kmol_h', unit: 'kmol/h', tol: 0.02, truth: (_s, m) => (m.ok ? m.v.recycle_kmol_h! : null) },
   hero: (_s, m) => ({ key: 'nh3_t_h', unit: 't/h', value: m.v.nh3_t_h!, lo: NH3_MIN_T_H, hi: 9 }),
   secondary: (_s, m) => ({ key: 'conv_overall', unit: '%', value: m.v.conv_overall!, limit: CONV_MIN }),
@@ -150,7 +153,7 @@ export const L19: LevelSpec = {
     { key: 'recycle_kmol_h', unit: 'kmol/h', value: m.v.recycle_kmol_h! },
     { key: 'conv_overall', unit: '%', value: m.v.conv_overall! },
   ],
-  histogram: { metric: 'cost_per_t', best: () => L19_REF.cost, spread: 0.08, lowerIsBetter: true },
+  histogram: { metric: 'cost_per_t', best: (s) => refCostPerT(s, 'L19'), spread: 0.08, lowerIsBetter: true },
   solver: () => scripted(loopBuild(L19_REF.recycle, true))(),
   naive: () => scripted(loopBuild(0, false))(),
 };

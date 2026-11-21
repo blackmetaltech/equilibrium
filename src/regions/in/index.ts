@@ -42,6 +42,7 @@ export const IN = defineRegion<EqRegionData>({
   standards: { relief: 'API 520/526 (ISO 4126)', alarms: 'IEC 62682 / ISA-18.2', flammability: 'EN 1839 / ISO 10156', emissions: 'CPCB' },
   data: {
     prices,
+    capexFx: { value: FX, src: `Equipment cost is computed in US$ (Turton, CEPCI 2023) and converted once at ${FX} INR per USD, the same rate as the converted price rows` },
     limits: {
       so2_standard: 2.0, so2_strict: 1.5, so2_expert: 0.65, n2o_bat: [0.12, 0.6], grid_t_co2_per_mwh: 0.727, carbon_price: 0,
       src: {

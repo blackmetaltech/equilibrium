@@ -28,6 +28,8 @@ export interface ExamProblem { id: string; citation: string; numbers: Record<str
 export interface EqRegionData {
   /** DESIGN §4.7 rows, in the pack's own currency (no runtime FX anywhere). */
   prices: Record<PriceKey, PriceRow>;
+  /** Local currency per US$ for EQUIPMENT cost (the Turton correlations are US$): 1 for global, the one conversion of a pack whose prices are in another currency. Applied once, in the engine's economics (`toLocal`); never to a price row. Level budgets stay US$. */
+  capexFx: { value: number; src: string };
   limits: {
     /** kg SO2 per t of 100 % H2SO4 (level L25): standard, strict and expert. */
     so2_standard: number; so2_strict: number; so2_expert: number;
@@ -82,6 +84,12 @@ export function validateEqRegion(d: EqRegionData): string[] {
       if (!CONFS.includes(r.conf)) e.push(`prices.${k}.conf must be one of ${CONFS.join('|')} (got ${String(r.conf)})`);
     }
     for (const k of Object.keys(pr)) if (!(PRICE_KEYS as readonly string[]).includes(k)) e.push(`prices.${k} is not a known price key`);
+  }
+  const cf: any = d.capexFx;
+  if (!cf || typeof cf !== 'object') e.push('capexFx is missing');
+  else {
+    if (!isNum(cf.value) || !(cf.value > 0)) e.push('capexFx.value must be a finite number above zero');
+    if (!nonEmpty(cf.src)) e.push('capexFx.src must be a non-empty citation');
   }
   const l: any = d.limits;
   if (!l || typeof l !== 'object') e.push('limits is missing');

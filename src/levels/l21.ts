@@ -11,6 +11,7 @@ import { AR_MAX_PCT, NH3_MIN_T_H, P_RX_OUT, buildLoop } from './l20';
 import { DP_RX, LOOP_SPECIES, P_LOOP, T_RX, T_SEP, loopMeasures } from './l19';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, markPrebuilt, predictionOf, shown, spentOf, unitsOfType } from './util';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
@@ -18,7 +19,8 @@ const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 export const NH3_PURGE_MAX = 3;
 /** Reference design: chiller and drum at -20 C, purge 2 %. Calibrated cost (GAME, engine at the reference; UNVERIFIED). */
 export const L21_REF = { T: T_SEP, purge: 0.02, cost: 356.21 };
-export const L21_COST_MAX = L21_REF.cost * 1.03;
+/** Star-3 cost line in the player's region: 1.03 x the reference design priced there (refdesigns.ts). L21_REF.cost is its global value, re-checked by tests. */
+export const L21_COST_MAX = (s: { region: string }): number => costStarPerT(s, 'L21');
 const PRESETS = { eq_reactor: { reactions: 'R1', mode: 'isothermal', T: T_RX, dP: DP_RX }, cooler: { T: T_SEP, utility: 'refrig' }, flash: { T: T_SEP, P: P_RX_OUT }, compressor: { P: P_LOOP, stages: 1 } };
 const UNITS: LevelSpec['units'] = { cooler: { max: 2, price: 9000 }, flash: { max: 1, price: 14000 }, product: { max: 1, price: 5000 } };
 /** The pre-built loop is already paid for (not counted as spent). The reference design buys the chiller, the drum and the tank = 28 000 USD (GAME, UNVERIFIED). */
@@ -50,7 +52,7 @@ export const L21: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L21_BUDGET, value: sp, target: L21_BUDGET }); }
     return g;
   },
-  extraStars: (_s, m) => [m.ok && m.v.nh3_purge_pct! <= NH3_PURGE_MAX, m.ok && m.v.cost_per_t! <= L21_COST_MAX],
+  extraStars: (s, m) => [m.ok && m.v.nh3_purge_pct! <= NH3_PURGE_MAX, m.ok && m.v.cost_per_t! <= L21_COST_MAX(s)],
   callIt: { key: 'flash_nh3_pct', unit: '%', tol: 0.03, truth: (_s, m) => (m.ok ? m.v.flash_nh3_pct! : null) },
   hero: (_s, m) => ({ key: 'nh3_t_h', unit: 't/h', value: m.v.nh3_t_h!, lo: NH3_MIN_T_H, hi: 9 }),
   secondary: (_s, m) => ({ key: 'nh3_purge_pct', unit: '%', value: m.v.nh3_purge_pct!, limit: NH3_PURGE_MAX }),
@@ -83,7 +85,7 @@ export const L21: LevelSpec = {
     { key: 'chiller_c', unit: '°C', value: m.v.chiller_c! },
     { key: 'nh3_in_pct', unit: '%', value: m.v.nh3_in_pct! },
   ],
-  histogram: { metric: 'cost_per_t', best: () => L21_REF.cost, spread: 0.06, lowerIsBetter: true },
+  histogram: { metric: 'cost_per_t', best: (s) => refCostPerT(s, 'L21'), spread: 0.06, lowerIsBetter: true },
   solver: () => scripted(chillScript(L21_REF.T, true))(),
   naive: () => scripted(chillScript(313.15, false))(),
 };

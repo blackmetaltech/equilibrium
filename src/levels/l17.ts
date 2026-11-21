@@ -14,6 +14,7 @@ import { L16_FEED_KMOL_H, L16_FEED_X, L16_P, L16_SPECIES, L16_T_FEED, L16_TMAX_C
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { thermoAt } from './callit_data';
 import { baseSetup, commissions, put, putFeed, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 export const L17_CONV = 0.74, L17_CONV2 = 0.75;
@@ -28,8 +29,8 @@ export const L17_CALL_TOL = 0.01;
 export const k600 = (): number => dmath.exp(lnKOfReaction(reactionOf('R2'), L17_T_CALL_K, 'rigorous'));
 /** Reference: Cs catalyst at 375 C (15 K above the cold side of its light-off cliff); the old catalyst tried at its best (410 C) is the naive build. */
 export const L17_REF_T_C = 375, L17_NAIVE_T_C = 410;
-/** GAME: $/t of stream at the reference build x 1.03 (17.71 -> 18.3, the fuel of the heater dominates). UNVERIFIED. */
-export const L17_STAR3_COST = 18.3;
+/** GAME: cost per tonne of stream at the reference build x 1.03 (global 17.71 -> 18.24, the fuel of the heater dominates), priced in the player's region (refdesigns.ts). UNVERIFIED. */
+export const L17_STAR3_COST = (s: { region: string }): number => costStarPerT(s, 'L17');
 
 export function catMeasures(s: S): Measures {
   const bed = unitsOfType(s, 'packed_bed')[0], heater = unitsOfType(s, 'heater')[0];
@@ -97,7 +98,7 @@ export const L17: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, L17_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L17_BUDGET, value: sp, target: L17_BUDGET }); }
     return g;
   },
-  extraStars: (_s, m) => [m.ok && m.v.conv! >= L17_CONV2, m.ok && m.v.cost_per_t! > 0 && m.v.cost_per_t! <= L17_STAR3_COST],
+  extraStars: (s, m) => [m.ok && m.v.conv! >= L17_CONV2, m.ok && m.v.cost_per_t! > 0 && m.v.cost_per_t! <= L17_STAR3_COST(s)],
   textVars: (s) => { const x = thermoAt('R2', L17_T_CALL_K); return { dH: fmtNumber(x.dH, s.region), dS: fmtNumber(x.dS, s.region) }; },
   callIt: { key: 'k600', unit: 'bar⁻½', tol: L17_CALL_TOL, truth: () => k600() },
   hero: (_s, m) => ({ key: 'conv_pct', unit: '%', value: m.v.conv! * 100, lo: L17_CONV * 100, hi: 78 }),

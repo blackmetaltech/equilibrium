@@ -1,7 +1,7 @@
 // L11 · The Gas You Were Sold (DESIGN 2.6). Three syngas contracts (A pure 1:3, B 5 % argon + methane, C 10 %), each a pre-placed feed whose flow the player
 // sets: 1000 kmol/h in total, 450 C converter, pressure free up to 200 bar. Goal: at least 170 kmol/h of NH3 formed in one pass for the least $/t including the gas.
 // Inerts at constant P dilute the reactants (the reaction shifts left), so the cheap gas needs more pressure; the 10 % gas only just makes it at the vessel limit.
-import { fmtNumber } from '../engine/solved';
+import { fmtNumber, toLocal } from '../engine/solved';
 import { t } from '../i18n';
 import type { EqState } from '../state';
 import { scripted } from './bench';
@@ -31,7 +31,7 @@ export const L11_REF_PARTS: CostParts = { shaftKW: 1938.36, electricKW: 2040.37,
 
 const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 
-/** Gas bill, USD/h, and the bought gas, kmol/h, and its inert mole % from the three feed units' flows. */
+/** Gas bill (the contract prices are US$ game constants, converted once with the region's capexFx), region currency per h, and the bought gas, kmol/h, and its inert mole % from the three feed units' flows. */
 export function gasOf(s: S): { usdH: number; kmolH: number; inertPct: number } {
   let usd = 0, kmol = 0, inert = 0;
   unitsOfType(s, 'feed').forEach((u, i) => {
@@ -39,7 +39,7 @@ export function gasOf(s: S): { usdH: number; kmolH: number; inertPct: number } {
     const c = L11_CONTRACTS[i];
     if (!fd || !c) return;
     const k = toKmolH(fd.flow);
-    kmol += k; usd += k * c.price; inert += k * c.inert * 100;
+    kmol += k; usd += toLocal(s, k * c.price); inert += k * c.inert * 100;
   });
   return { usdH: usd, kmolH: kmol, inertPct: kmol > 0 ? inert / kmol : 0 };
 }
@@ -82,7 +82,7 @@ export const L11: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, L11_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L11_BUDGET, value: sp, target: L11_BUDGET }); }
     return g;
   },
-  extraStars: (s, m) => [m.ok && m.v.p_bar! <= L11_P_STAR + 1e-6, m.ok && m.v.cost_usd_t! <= refCost(s, L11_REF_PARTS, L11_CONTRACTS[1].price * L11_GAS_KMOL_H) * 1.03],
+  extraStars: (s, m) => [m.ok && m.v.p_bar! <= L11_P_STAR + 1e-6, m.ok && m.v.cost_usd_t! <= refCost(s, L11_REF_PARTS, toLocal(s, L11_CONTRACTS[1].price * L11_GAS_KMOL_H)) * 1.03],
   callIt: null,
   hero: (_s, m) => ({ key: 'nh3_formed', unit: 'kmol/h', value: m.v.nh3_formed!, lo: L11_NH3_MIN, hi: 400 }),
   secondary: (_s, m) => ({ key: 'inert_pct', unit: '%', value: m.v.inert_pct!, limit: 5 }),
@@ -121,7 +121,7 @@ export const L11: LevelSpec = {
     { key: 'p_bar', unit: 'bar', value: m.v.p_bar! },
     { key: 'gas_share', unit: '%', value: m.v.gas_share! },
   ],
-  histogram: { metric: 'cost_usd_t', best: (s) => refCost(s, L11_REF_PARTS, L11_CONTRACTS[1].price * L11_GAS_KMOL_H), spread: 0.15, lowerIsBetter: true },
+  histogram: { metric: 'cost_usd_t', best: (s) => refCost(s, L11_REF_PARTS, toLocal(s, L11_CONTRACTS[1].price * L11_GAS_KMOL_H)), spread: 0.15, lowerIsBetter: true },
   solver: scripted([
     ...L11_REF.flows.map((fl, i) => ({ name: 'setFeed', args: [`F-${101 + i}`, { flow: (fl * 1000) / 3600 }] })),
     ...ammoniaBuild(['F-101', 'F-102', 'F-103'], L11_T_K, L11_REF.P, L11_REF.stages, 104),

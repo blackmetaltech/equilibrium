@@ -145,7 +145,7 @@ export const levelsCh5: Record<string, string> = {
   'lv.L23.goal.purity': 'Spirit at least {target} % ethanol by mass',
   'lv.L23.star.1': 'At least 18 kL/day of 95 % spirit (92.4 % by mass)',
   'lv.L23.star.2': 'A healthy batch: the yeast fermented at least 85 % of the sugar and grew',
-  'lv.L23.star.3': 'Cost per tonne at or under the calibrated best: {costMax} USD/t',
+  'lv.L23.star.3': 'Cost per tonne at or under the calibrated best: {costMax} per tonne',
   'lv.L23.callit': 'Called it: the highest ethanol mass percent distillation can reach at 1 atm',
   'lv.L23.callit.given': "What you have: at 1 atm ethanol and water form a minimum-boiling azeotrope at 89.4 mol % ethanol (literature). M(C₂H₅OH) = 46.07 and M(H₂O) = 18.02 kg/kmol: convert to mass %. The simulator's own model sits a little lower than the literature, which the 1 % margin allows for.",
   'lv.L23.hero': 'Spirit to the tank', 'lv.L23.sec': 'Ethanol in the spirit',

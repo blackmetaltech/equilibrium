@@ -33,6 +33,7 @@ export const GLOBAL = defineRegion<EqRegionData>({
       ethanol: row(0.55, 'per L', 'F2', 'US rack, Omaha FOB about 2.07 USD/gal Oct 2025; Brazil hydrous about 0.48 USD/L (SNIP); stretch level only'),
       hydrogen: row(1.75, 'per kg', 'GAME', 'Midpoint of grey hydrogen 1.0 to 2.5 USD/kg (IEA via SNIP); L28 derives it from SMR instead'),
     },
+    capexFx: { value: 1, src: 'Equipment cost is computed in US$ (Turton, CEPCI 2023); the global pack prices in US$, so the factor is 1' },
     limits: {
       so2_standard: 2.0, so2_strict: 1.3, so2_expert: 0.65, n2o_bat: [0.12, 0.6], grid_t_co2_per_mwh: 0.47, carbon_price: 0,
       src: {

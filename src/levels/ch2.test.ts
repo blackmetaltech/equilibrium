@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { Env, Rng, TICK, checkLevel, decodeSolution, hashOf } from '@core/kit';
 import type { Action, PersonaFactory } from '@core/kit';
 import { GAME } from '../game';
+import { REGIONS } from '../regions';
 import { i18n } from '../i18n';
 import { verify } from '../verify';
 import oracleFile from '../oracle/oracles.json';
@@ -18,7 +19,8 @@ import { CH2_SPECS } from './ch2';
 import { BEST_SO2 as BEST5, REF_AIR, REF_BLOWER_KW, REF_SO2, REF_STEAM_TH, START_AIR, dhSO2, fireBuild, fireMeasures, netStar, netValue } from './l05';
 import { BEST_DIL, BEST_SO2 as BEST6, airFor, burnerTadK, lineBuild, measures as lineMeasures } from './l06';
 import { REF_COKE_T, cokeFor, hessBuild, hessMeasures, quenchBuild } from './l07';
-import { COST_STAR, OPT_AREA, pinchBuild, pinchMeasures } from './l08';
+import { l08Best } from './refdesigns';
+import { costStar, OPT_AREA, pinchBuild, pinchMeasures } from './l08';
 import { ch4Facts, truthOf } from './l09';
 import type { EqState } from '../state';
 
@@ -325,18 +327,19 @@ describe('L08 Pay Once', () => {
     for (let i = 1; i <= 3; i++) expect(c[i]!).toBeLessThan(c[i - 1]!);
     expect(c[4]!).toBeGreaterThan(c[3]!); expect(c[5]!).toBeGreaterThan(c[4]!);
   });
-  it('the calibrated optimum area is the cheapest area that keeps the stack at 120 C, in both regions, and the star thresholds are 1.03 x that cost', () => {
-    for (const region of ['global', 'in']) {
+  it('the cheapest area that keeps the stack at 120 C (990 m2 global, about 870 m2 in) sets the star threshold, in every region, and the star thresholds are 1.03 x that cost', () => {
+    for (const region of REGIONS.ids()) {
       let best = Infinity, bestA = 0;
-      for (let a = 900; a <= 1100; a += 5) {
+      for (let a = 500; a <= 1100; a += 5) {
         const r = run(a, region).v;
         if (!r.ok || C(r.v.flue_out_K!) < 120 || r.v.dt_min! < 20) continue;
         if (r.v.cost_usd_h! < best) { best = r.v.cost_usd_h!; bestA = a; }
       }
-      expect(Math.abs(bestA - OPT_AREA), region).toBeLessThanOrEqual(10);
-      expect(relErr(COST_STAR[region]!, best * 1.03), region).toBeLessThan(0.002);
-      const at = run(OPT_AREA, region).v;
-      expect(at.v.cost_usd_h!, region).toBeLessThan(COST_STAR[region]!);
+      if (region === 'global') expect(Math.abs(bestA - OPT_AREA), region).toBeLessThanOrEqual(10);   // the cheapest area depends on the region (fuel price against capexFx): 'in' is cheaper at a smaller exchanger
+      expect(Math.abs(bestA - l08Best({ region }).area), region).toBeLessThanOrEqual(10);
+      expect(relErr(costStar({ region }), best * 1.03), region).toBeLessThan(0.002);
+      const at = run(l08Best({ region }).area, region).v;
+      expect(at.v.cost_usd_h!, region).toBeLessThan(costStar({ region }));
       expect(C(at.v.flue_out_K!), region).toBeGreaterThanOrEqual(120);
     }
   });

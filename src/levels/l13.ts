@@ -2,7 +2,7 @@
 // adiabatic equilibrium beds (ideal V2O5: asleep below a 410 C inlet) with inter-bed boilers (steam credit) -> tank. Goal: 98.0 % overall SO2 conversion with no
 // bed above 630 C. One bed stalls on the equilibrium curve at about 70 %; the staircase of beds and coolers climbs it.
 import type { Action } from '@core/kit';
-import { fmtNumber, plumbing, pricesOf } from '../engine/solved';
+import { fmtNumber, plumbing, pricesOf, toLocal } from '../engine/solved';
 import { OPERATING_HOURS, annualisedCapex, steamPricePerT } from '../sim/econ';
 import { t } from '../i18n';
 import { equilibriumStage } from '../sim/units/rx_equil';
@@ -24,7 +24,7 @@ export const T_ASLEEP = V2O5_WAKE_C + 273.15;
 export const T_SINTER = V2O5_SINTER_C + 273.15;
 export const L13_T_CALL = 420 + 273.15;
 export const L13_CALL_TOL = 0.01;
-/** Catalyst and vessel bill of one bed, USD/h (GAME, UNVERIFIED), and the acid strength the SO3 is sold as. */
+/** Catalyst and vessel bill of one bed, US$/h (GAME, UNVERIFIED; converted with the region's capexFx where it meets region money), and the acid strength the SO3 is sold as. */
 export const BED_USD_H = 140;
 export const ACID_W = 0.98;
 export const L13_UNITS: LevelSpec['units'] = {
@@ -89,7 +89,7 @@ export function stairMeasures(s: S): Measures {
   v.tmax_c = C(tmax); v.asleep = asleep; v.sinter = tmax > T_SINTER + 1e-6 ? 1 : 0;
   v.last_t_c = C(st.T);
   v.steam_t_h = s.solved.kpis.steam_raised_t_per_h ?? 0;
-  const hourly = (s.solved.kpis.annual_cost_usd ?? 0) / 8000 + v.beds! * BED_USD_H;
+  const hourly = (s.solved.kpis.annual_cost_usd ?? 0) / 8000 + toLocal(s, v.beds! * BED_USD_H);
   v.cost_usd_t = v.acid_t_h! > 0 ? hourly / v.acid_t_h! : 1e9;
   return { ok: true, v };
 }
@@ -126,7 +126,7 @@ const COACH: CoachStep[] = [
 ];
 
 /** Reference $/t of acid at a state's prices: boilers annualised, minus the steam credit, plus the beds, over the acid. */
-export const refAcidCost = (s: S): number => (annualisedCapex(L13_REF_PARTS.boilerCbm) / OPERATING_HOURS - L13_REF_PARTS.steamTperH * steamPricePerT(pricesOf(s)) + L13_REF.beds * BED_USD_H) / L13_REF_PARTS.acidTperH;
+export const refAcidCost = (s: S): number => (annualisedCapex(toLocal(s, L13_REF_PARTS.boilerCbm)) / OPERATING_HOURS - L13_REF_PARTS.steamTperH * steamPricePerT(pricesOf(s)) + toLocal(s, L13_REF.beds * BED_USD_H)) / L13_REF_PARTS.acidTperH;
 
 export const L13: LevelSpec = {
   id: 'L13', firstRun: true, chapter: 3, index: 13, setter: 'safety', budgetUSD: L13_BUDGET, units: L13_UNITS, notes: 2, shiftLen: 0,

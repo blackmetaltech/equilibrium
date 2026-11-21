@@ -95,7 +95,7 @@ describe('L26 Inside the Envelope: the nitric acid line', () => {
       expect(info(e).goals.every((g: any) => g.met)).toBe(true); expect(GAME.invariants!(e.state, null)).toEqual([]);
     }
     const v = L(solve('L26'));
-    expect(v.t_gauze_c).toBeCloseTo(L26_REF.t_c, 1); expect(v.cost_per_t).toBeCloseTo(L26_REF.cost, 0); expect(L26_COST_MAX / v.cost_per_t!).toBeCloseTo(1.03, 2);
+    expect(v.t_gauze_c).toBeCloseTo(L26_REF.t_c, 1); expect(v.cost_per_t).toBeCloseTo(L26_REF.cost, 0); expect(L26_COST_MAX({ region: 'global' }) / v.cost_per_t!).toBeCloseTo(1.03, 2);
     expect(v.no_yield!).toBeGreaterThanOrEqual(L26_YIELD_MIN); expect(v.n2o_kg_t!).toBeLessThanOrEqual(L26_N2O_MAX); expect(v.n2o_raw_kg_t!).toBeGreaterThan(5.6); expect(v.n2o_raw_kg_t!).toBeLessThan(9);
   });
   it('the DESIGN incident: 19 % NH3 in air preheated to 200 C is inside the ICI envelope (14.4-31 %): EXPLOSIVE_MIXTURE, the verdict names the numbers, the lamp is critical', () => {
@@ -342,8 +342,8 @@ describe('L25 The Last 0.3 Percent: the contact plant', () => {
   });
   it('the ★★★ cost line is the solver cost x 1.03 (UNVERIFIED, GAME): the solver meets it, the star line is within 1 % of the calibration', () => {
     const m = SPEC_BY_ID.L25!.measures(solve('L25').state).v;
-    expect(m.cost!).toBeLessThanOrEqual(L25_COST_STAR);
-    expect(Math.abs(m.cost! * 1.03 - L25_COST_STAR) / L25_COST_STAR).toBeLessThan(0.01);
+    expect(m.cost!).toBeLessThanOrEqual(L25_COST_STAR({ region: 'global' }));
+    expect(Math.abs(m.cost! * 1.03 - L25_COST_STAR({ region: 'global' })) / L25_COST_STAR({ region: 'global' })).toBeLessThan(0.01);
   });
   it('single contact with water cannot pass: acid mist, and the catalyst-starved beds leave most of the SO2 (the emission alarm)', () => {
     const e = play('L25', SPEC_BY_ID.L25!.naive, { ticks: 3 });

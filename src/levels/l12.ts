@@ -2,7 +2,7 @@
 // isothermal equilibrium shift converter (R5, delta n = 0). Goal: CO at most 1.0 mol % (dry) at the outlet for the least steam + compression + catalyst per hour.
 // Catalyst windows are read off the converter temperature (the unit has no catalyst knob): HTS 320-450 C (cheap), LTS 190-250 C (dearer); in between nothing works.
 import type { Action } from '@core/kit';
-import { fmtNumber, plumbing, pricesOf } from '../engine/solved';
+import { fmtNumber, plumbing, pricesOf, toLocal } from '../engine/solved';
 import { t } from '../i18n';
 import { OPERATING_HOURS, annualisedCapex, capexItem, steamPricePerT } from '../sim/econ';
 import type { EqState } from '../state';
@@ -18,7 +18,7 @@ export const L12_CO_KMOL_H = 100;
 export const L12_CO_MAX = 1.0;
 export const L12_FEED_P = 5e5;
 export const L12_K400_TOL = 0.05;   // F14: textbook tables give about 11.7, the engine 12.25 (NIST Shomate); 5 % lets a student who reads a table pass
-/** Catalyst windows (deg C, DESIGN 4.4) and catalyst bills, USD/h (GAME, UNVERIFIED). */
+/** Catalyst windows (deg C, DESIGN 4.4) and catalyst bills, US$/h (GAME, UNVERIFIED; converted with the region's capexFx wherever they meet region money). */
 export const HTS = { lo: 320, hi: 450, usdH: 15 };
 export const LTS = { lo: 190, hi: 250, usdH: 45 };
 export const L12_UNITS: LevelSpec['units'] = {
@@ -38,7 +38,7 @@ export const K400_TRUTH = (): number => kOf('R5', 400 + 273.15);
 export const catalystAt = (tc: number): 'hts' | 'lts' | 'none' => (tc >= HTS.lo - 1e-9 && tc <= HTS.hi + 1e-9 ? 'hts' : tc >= LTS.lo - 1e-9 && tc <= LTS.hi + 1e-9 ? 'lts' : 'none');
 const catUsdH = (c: string): number => (c === 'hts' ? HTS.usdH : c === 'lts' ? LTS.usdH : 0);
 /** Hourly bill of the reference design at a state's prices (steam of the reference S/CO, LTS catalyst, no compression). */
-export const l12RefCost = (s: S): number => L12_REF.ratio * L12_CO_KMOL_H * 0.018015 * steamPricePerT(pricesOf(s)) + LTS.usdH;
+export const l12RefCost = (s: S): number => L12_REF.ratio * L12_CO_KMOL_H * 0.018015 * steamPricePerT(pricesOf(s)) + toLocal(s, LTS.usdH);
 
 export function shiftMeasures(s: S): Measures {
   const rx = unitsOfType(s, 'eq_reactor')[0], comp = unitsOfType(s, 'compressor')[0];
@@ -50,7 +50,7 @@ export function shiftMeasures(s: S): Measures {
   const steamUsd = steamKmol * 0.018015 * steamPricePerT(pricesOf(s));
   const v: Record<string, number> = {
     t_c: tc, ratio: steamKmol / L12_CO_KMOL_H, steam_kmol_h: steamKmol, cat: cat === 'hts' ? 1 : cat === 'lts' ? 2 : 0, cat_ok: cat === 'none' ? 0 : 1,
-    p_bar: 0, has_comp: comp !== undefined ? 1 : 0, co_dry_pct: 0, h2_kmol_h: 0, comp_kw: 0, steam_usd_h: steamUsd, comp_usd_h: 0, cat_usd_h: catUsdH(cat), cost_usd_h: 0,
+    p_bar: 0, has_comp: comp !== undefined ? 1 : 0, co_dry_pct: 0, h2_kmol_h: 0, comp_kw: 0, steam_usd_h: steamUsd, comp_usd_h: 0, cat_usd_h: toLocal(s, catUsdH(cat)), cost_usd_h: 0,
     k_now: Tk > 0 ? kOf('R5', Tk) : 0, active: 0,
   };
   if (s.solved === null || !s.solved.ok || rx === undefined) return { ok: false, v };
@@ -65,7 +65,7 @@ export function shiftMeasures(s: S): Measures {
     const info = s.solved.units[comp.id]?.info ?? {};
     v.comp_kw = info.shaft_kW ?? 0;
     const cap = v.comp_kw > 0 ? capexItem({ type: 'compressor', size: v.comp_kw, pBarg: Math.max(0, v.p_bar - 1.01325) }) : null;
-    v.comp_usd_h = (cap !== null && cap.ok ? annualisedCapex(cap.value.cbm) / OPERATING_HOURS : 0) + (info.electric_kW ?? 0) * pricesOf(s).electricity!.value;
+    v.comp_usd_h = (cap !== null && cap.ok ? annualisedCapex(toLocal(s, cap.value.cbm)) / OPERATING_HOURS : 0) + (info.electric_kW ?? 0) * pricesOf(s).electricity!.value;
   }
   v.cost_usd_h = v.steam_usd_h! + v.comp_usd_h! + v.cat_usd_h!;
   return { ok: true, v };

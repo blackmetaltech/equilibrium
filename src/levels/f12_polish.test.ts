@@ -43,8 +43,8 @@ describe('call results state their tolerance', () => {
 describe('calibrated-best flasks carry their number', () => {
   it('L23 and L26 star 3 name the cost per tonne', () => {
     const r23 = info(mk('L23')).stars.rules[2] as string, r26 = info(mk('L26')).stars.rules[2] as string;
-    expect(Number(/: ([0-9.]+) USD\/t/.exec(r23)![1])).toBeCloseTo(L23_COST_MAX, 0);
-    expect(Number(/: ([0-9.]+) USD\/t/.exec(r26)![1])).toBeCloseTo(L26_COST_MAX, 0);
+    expect(Number(/: ([0-9.]+) USD per tonne/.exec(r23)![1])).toBeCloseTo(L23_COST_MAX({ region: 'global' }), 0);
+    expect(Number(/: ([0-9.]+) USD per tonne/.exec(r26)![1])).toBeCloseTo(L26_COST_MAX({ region: 'global' }), 0);
   });
 });
 

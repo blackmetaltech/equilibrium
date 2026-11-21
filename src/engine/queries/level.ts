@@ -81,12 +81,17 @@ export function callBounds(c: { unit: string; min?: number; max?: number }): { m
 const regionOf = (s: S) => REGIONS.get(s.region);
 const fmt = (s: S, x: number): string => fmtNumber(x, s.region);
 const money = (s: S, x: number): string => `${fmt(s, x)} ${regionOf(s).currency.code}`;
+/** Level budgets and what the player has bought are US$ in every region (bench prices of the level's own price list; never added to region-priced money), so the text says USD rather than the pack's currency. */
+/** The five scenario levels of chapter 9 (and the career) keep their own fixed US$ economy, never mixed with a pack's prices; every other money unit ('USD/t', 'USD/h') is the pack's currency. */
+const USD_ONLY = ['L33', 'L34', 'L35', 'L36', 'L37', 'L38'];
+const unitLabel = (s: S, id: string, unit: string): string => (unit.startsWith('USD') && !USD_ONLY.includes(id) ? regionOf(s).currency.code + unit.slice(3) : unit);
+const usd = (s: S, x: number): string => `${fmt(s, x)} USD`;
 const fnv = (str: string): number => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
 
 function goalText(s: S, spec: LevelSpec, g: GoalEval): string {
   const vars: Record<string, string | number> = {
     target: g.target !== undefined ? fmt(s, g.target) : '-', value: g.value !== undefined ? fmt(s, g.value) : t('lv.goal.pending'),
-    budget: g.target !== undefined ? money(s, g.target) : '-', spent: money(s, g.key === 'budget' ? spentOf(s, spec.units) : g.value ?? 0),   // one rule: the goal text and the notebook both say what the player has bought (the goal's value stays hidden until a solve)
+    budget: g.target !== undefined ? (g.key === 'budget' ? usd(s, g.target) : money(s, g.target)) : '-', spent: g.key === 'budget' ? usd(s, spentOf(s, spec.units)) : money(s, g.value ?? 0),   // one rule: the goal text and the notebook both say what the player has bought (the goal's value stays hidden until a solve)
   };
   const pendingKey = `lv.${spec.id}.goal.${g.key}.pending`;
   if (g.value === undefined && pendingKey in en) return t(pendingKey, vars);
@@ -256,8 +261,8 @@ const levelInfo: QueryFn<EqState> = (s) => {
       return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`, spec.textVars ? spec.textVars(s) : {}), ...givenOf(s, spec, c.key), unit: c.unit, tol: tolText(c.tol), ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
     }),
     allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
-    hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: hero.unit, value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },
-    secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), unit: sec.unit, value: m.ok ? fin(sec.value) : 0, limit: fin(sec.limit), pending: !m.ok },
+    hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: unitLabel(s, spec.id, hero.unit), value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },
+    secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), unit: unitLabel(s, spec.id, sec.unit), value: m.ok ? fin(sec.value) : 0, limit: fin(sec.limit), pending: !m.ok },
     /** `lit` is the honest window: true only for an alarm (high / critical) or the GOAL window met; a healthy fault window ('normal') is dark glass and must not read as lit. */
     annunciators: (m.ok || (s.solved !== null && !s.solved.ok) ? spec.annunciators(s, m, goals) : spec.annunciators(s, m, goals).map((a) => (a.key === 'solve' || spec.designLamps?.includes(a.key) ? a : { ...a, state: 'off' as const })))
       .map((a) => ({ ...a, lit: a.state === 'high' || a.state === 'critical' || (a.state === 'normal' && a.key === 'goal') })),
@@ -297,7 +302,7 @@ const resultCard: QueryFn<EqState> = (s) => {
   else ({ key: verdictKey, cause } = spec.verdict(s, m, goals));
   const own = `lv.${spec.id}.verdict.${verdictKey}`;
   const verdictText = t(own in en ? own : `lv.verdict.${verdictKey}`);
-  const metrics = spec.metrics(s, m).map((x) => ({ key: x.key, label: t(`lv.${spec.id}.metric.${x.key}`), value: fin(x.value), unit: x.unit }));
+  const metrics = spec.metrics(s, m).map((x) => ({ key: x.key, label: t(`lv.${spec.id}.metric.${x.key}`), value: fin(x.value), unit: unitLabel(s, spec.id, x.unit) }));
   const h = spec.histogram;
   const histogram = won && h && m.ok ? simulatedHistogram(spec.id, h.metric, fin(h.best(s, m)), h.spread, h.lowerIsBetter, fin(metrics.find((x) => x.key === h.metric)?.value ?? 0)) : null;
   const histMetric = metrics.find((x) => x.key === h?.metric);

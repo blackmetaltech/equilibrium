@@ -13,7 +13,8 @@ import { nh3Envelope } from '../sim/units/nitric';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
-import { fromKmolH, baseSetup, commissions, fedOf, inStream, intoType, link, markPrebuilt, predictionOf, put, putFeed, sealSetup, spentOf, toKgH, toKmolH, unitsOfType, piped } from './util';
+import { moneyText, fromKmolH, baseSetup, commissions, fedOf, inStream, intoType, link, markPrebuilt, predictionOf, put, putFeed, sealSetup, spentOf, toKgH, toKmolH, unitsOfType, piped } from './util';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 export const L26_SPECIES = ['NH3', 'O2', 'N2', 'NO', 'NO2', 'N2O', 'H2O', 'HNO3(l)', 'H2O(l)'];
@@ -23,7 +24,8 @@ export const L26_YIELD_MIN = 95, L26_NH3_MAX_PCT = 11, L26_N2O_MAX = 2.5, L26_HN
 export const L26_REF = { air: 630, preheat: 473.15, X: 0.95, t_c: 860.46, cost: 63.83, mix_c: 178.44 };
 /** The flammable envelope of NH3 in air at the temperature the gauze feed really has at the recipe (the 70 kmol/h of 27 C ammonia cools the 200 C air to about 178 C): the engine's own function, pinned against the solved plant by f12_l26.test.ts. */
 export const l26RefEnvelope = (): { lfl: number; ufl: number } => nh3Envelope(L26_REF.mix_c);
-export const L26_COST_MAX = L26_REF.cost * 1.03;
+/** Star-3 cost line in the player's region: 1.03 x the reference design priced there (refdesigns.ts). L26_REF.cost is its global value, re-checked by tests. */
+export const L26_COST_MAX = (s: { region: string }): number => costStarPerT(s, 'L26');
 /** Bench prices (GAME, UNVERIFIED). One rule for the money: the pre-built line (230 000) is already paid for (markPrebuilt) and is not counted as spent; the Engineer budget is what the player adds, the gauze burner (70 000) and the abater (40 000), with head-room. */
 export const L26_UNITS: LevelSpec['units'] = {
   gauze_burner: { max: 1, price: 70000 }, n2o_abater: { max: 1, price: 40000 }, feed: { max: 3, price: 4000 }, heater: { max: 1, price: 20000 }, mixer: { max: 2, price: 3000 }, boiler: { max: 1, price: 60000 }, cooler: { max: 1, price: 10000 },
@@ -103,7 +105,7 @@ export const L26_GUIDE: BuildStep[] = [
 
 export const L26: LevelSpec = {
   id: 'L26', firstRun: true, chapter: 6, index: 26, setter: 'safety', budgetUSD: L26_BUDGET, units: L26_UNITS, notes: 3, shiftLen: 0,
-  textVars: (s) => { const e = l26RefEnvelope(); return { costMax: f(s, Math.round(L26_COST_MAX * 100) / 100), lfl: Math.round(e.lfl * 10) / 10, ufl: Math.round(e.ufl * 10) / 10, mixc: Math.round(L26_REF.mix_c), gap: Math.round((e.lfl - (L26_NH3_KMOL_H / (L26_NH3_KMOL_H + L26_REF.air)) * 100) * 10) / 10 }; },
+  textVars: (s) => { const e = l26RefEnvelope(); return { costMax: moneyText(s, Math.round(L26_COST_MAX(s) * 100) / 100), lfl: Math.round(e.lfl * 10) / 10, ufl: Math.round(e.ufl * 10) / 10, mixc: Math.round(L26_REF.mix_c), gap: Math.round((e.lfl - (L26_NH3_KMOL_H / (L26_NH3_KMOL_H + L26_REF.air)) * 100) * 10) / 10 }; },
   setup: (s) => { baseSetup(s, L26_SPECIES, L26_UNITS, PRESETS); buildNitric(s); },
   measures: nitricMeasures,
   goals: (s, m) => {
@@ -116,7 +118,7 @@ export const L26: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, L26_UNITS); g.push({ key: 'budget', met: sp <= L26_BUDGET, value: sp, target: L26_BUDGET }); }
     return g;
   },
-  extraStars: (_s, m) => [m.ok && m.v.n2o_kg_t! <= m.v.bat_hi!, m.ok && m.v.cost_per_t! <= L26_COST_MAX],
+  extraStars: (s, m) => [m.ok && m.v.n2o_kg_t! <= m.v.bat_hi!, m.ok && m.v.cost_per_t! <= L26_COST_MAX(s)],
   callIt: { key: 't_gauze_c', unit: '°C', tol: 0.03, truth: (_s, m) => (m.ok ? m.v.t_gauze_c! : null) },
   hero: (_s, m) => ({ key: 'no_yield', unit: '%', value: m.v.no_yield!, lo: L26_YIELD_MIN, hi: 98 }),
   secondary: (_s, m) => ({ key: 'y_nh3', unit: '%', value: m.v.y_nh3!, limit: L26_NH3_MAX_PCT }),
@@ -150,7 +152,7 @@ export const L26: LevelSpec = {
     { key: 'no_yield', unit: '%', value: m.v.no_yield! },
     { key: 'n2o_kg_t', unit: 'kg/t', value: m.v.n2o_kg_t! },
   ],
-  histogram: { metric: 'cost_per_t', best: () => L26_REF.cost, spread: 0.06, lowerIsBetter: true },
+  histogram: { metric: 'cost_per_t', best: (s) => refCostPerT(s, 'L26'), spread: 0.06, lowerIsBetter: true },
   solver: () => scripted(nitricScript(L26_REF.air, L26_REF.preheat, L26_REF.X, L26_REF.t_c, true))(),
   naive: () => scripted(nitricScript(300, 473.15, 0, 0, false))(),
 };

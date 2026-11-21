@@ -6,7 +6,7 @@
 import type { Action } from '@core/kit';
 import { dmath } from '@core/numerics';
 import { reactionOf } from '../data/reactions';
-import { fmtNumber, plumbing, pricesOf } from '../engine/solved';
+import { fmtNumber, plumbing, pricesOf, toLocal } from '../engine/solved';
 import { t } from '../i18n';
 import { lnKOfReaction } from '../sim/chem/reactions';
 import { OPERATING_HOURS, PRESSURE_CLASSES, annualisedCapex, capexItem } from '../sim/econ';
@@ -52,11 +52,11 @@ export function outStream(s: S, unitId: string, port = 'out'): StreamState | und
 }
 
 export interface CostParts { shaftKW: number; electricKW: number; compCbm: number; vesselCbm: number; nh3TperH: number }
-/** Cost per tonne of NH3: annualised compressor and converter-vessel capital plus the compressor's electricity, over the annual NH3 (8000 h). USD/t. */
+/** Cost per tonne of NH3: annualised compressor and converter-vessel capital (US$ parts x the region's capexFx) plus the compressor's electricity (region price), over the annual NH3 (8000 h). Region currency per t. `extraUsdH` is already in the region's currency. */
 export function costPerT(s: S, p: CostParts, extraUsdH = 0): number {
   if (!(p.nh3TperH > 0)) return 1e9;
   const elec = pricesOf(s).electricity!.value;
-  const perH = annualisedCapex(p.compCbm + p.vesselCbm) / OPERATING_HOURS + p.electricKW * elec + extraUsdH;
+  const perH = annualisedCapex(toLocal(s, p.compCbm + p.vesselCbm)) / OPERATING_HOURS + p.electricKW * elec + extraUsdH;
   return perH / p.nh3TperH;
 }
 

@@ -12,7 +12,8 @@ import { glucoseFeed } from '../sim/units/fermenter';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, BuildStep, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, inStream, intoType, predictionOf, putFeed, put, sealSetup, spentOf, toKmolH, unitsOfType, piped } from './util';
+import { moneyText, baseSetup, commissions, inStream, intoType, predictionOf, putFeed, put, sealSetup, spentOf, toKmolH, unitsOfType, piped } from './util';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 export const L23_SPECIES = ['C6H12O6', 'H2O(l)', 'C2H5OH(l)', 'CO2'];
@@ -30,7 +31,8 @@ export const L23_KL_MIN = L23_REF.kl_day;
 const L23_NOT_SPIRIT_WT = 50;
 /** Fermenter 60 000 + column 80 000 at bench prices, with headroom (GAME). */
 export const L23_BUDGET = 150000;
-export const L23_COST_MAX = L23_REF.cost * 1.03;
+/** Star-3 cost line in the player's region: 1.03 x the reference design priced there (refdesigns.ts). L23_REF.cost is its global value, re-checked by tests. */
+export const L23_COST_MAX = (s: { region: string }): number => costStarPerT(s, 'L23');
 export const L23_UNITS: LevelSpec['units'] = { fermenter: { max: 1, price: 60000 }, column: { max: 1, price: 80000 } };
 const PRESETS = { fermenter: { T: 305.15, time: 81000 }, column: { xD: 0.8, rec: 0.99, rr: 1.3 } };
 
@@ -103,7 +105,7 @@ export const L23_GUIDE: BuildStep[] = [
 
 export const L23: LevelSpec = {
   id: 'L23', firstRun: true, chapter: 5, index: 23, setter: 'safety', budgetUSD: L23_BUDGET, units: L23_UNITS, notes: 2, shiftLen: 0,
-  textVars: (s) => ({ costMax: f(s, Math.round(L23_COST_MAX * 100) / 100) }),
+  textVars: (s) => ({ costMax: moneyText(s, Math.round(L23_COST_MAX(s) * 100) / 100) }),
   setup: (s) => { baseSetup(s, L23_SPECIES, L23_UNITS, PRESETS); buildDistillery(s); },
   measures: spiritsMeasures,
   goals: (s, m) => {
@@ -114,7 +116,7 @@ export const L23: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, L23_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L23_BUDGET, value: sp, target: L23_BUDGET }); }
     return g;
   },
-  extraStars: (_s, m) => [m.ok && m.v.stall === 0 && m.v.x_gl! >= 5, m.ok && m.v.cost_per_t! <= L23_COST_MAX],
+  extraStars: (s, m) => [m.ok && m.v.stall === 0 && m.v.x_gl! >= 5, m.ok && m.v.cost_per_t! <= L23_COST_MAX(s)],
   callIt: { key: 'wall_wt', unit: '%', tol: 0.01, truth: () => azeotrope('C2H5OH', 'H2O', L23_P)!.wt * 100 },
   hero: (_s, m) => ({ key: 'kl_day', unit: 'kL/day', value: m.v.kl_day!, lo: L23_KL_MIN, hi: L23_KL_MIN * 1.3 }),
   secondary: (_s, m) => ({ key: 'spirit_wt', unit: 'wt %', value: m.v.spirit_wt!, limit: L23_SPIRIT_WT * 100 }),
@@ -149,7 +151,7 @@ export const L23: LevelSpec = {
     { key: 'steam_kg_per_l', unit: 'kg/L', value: m.v.steam_kg_per_l! },
     { key: 'time_h', unit: 'h', value: m.v.time_h! },
   ],
-  histogram: { metric: 'cost_per_t', best: () => L23_REF.cost, spread: 0.06, lowerIsBetter: true },
+  histogram: { metric: 'cost_per_t', best: (s) => refCostPerT(s, 'L23'), spread: 0.06, lowerIsBetter: true },
   solver: () => scripted(spiritsScript(L23_REF.T, L23_REF.time, L23_REF.xD, L23_REF.rr, true))(),
   naive: () => scripted(spiritsScript(L23_REF.T, L23_REF.time, wtToMole(L23_FUEL_WT), 3, false))(),
 };

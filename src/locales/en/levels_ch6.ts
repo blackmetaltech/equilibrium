@@ -132,7 +132,7 @@ export const levelsCh6: Record<string, string> = {
   'lv.L26.goal.acid': 'HNO₃ to the tank at least {target} t/h',
   'lv.L26.star.1': 'NO yield 95 % or better, at most 11 % NH₃, N₂O at most 2.5 kg/t and 3.8 t/h of HNO₃',
   'lv.L26.star.2': 'N₂O inside the BAT band (at most the pack\'s upper limit, kg per t)',
-  'lv.L26.star.3': 'Cost per tonne at or under the calibrated best: {costMax} USD/t',
+  'lv.L26.star.3': 'Cost per tonne at or under the calibrated best: {costMax} per tonne',
   'lv.L26.callit': 'Called it: the gauze exit temperature, °C',
   'lv.L26.callit.given': "What you have: the checklist settings (70 kmol/h NH₃ in 630 kmol/h of air at 200 °C preheat; the feed reaches the gauze at {mixc} °C). 4 NH₃ + 5 O₂ → 4 NO + 6 H₂O releases 905.2 kJ per 4 NH₃; the side route 4 NH₃ + 3 O₂ → 2 N₂ + 6 H₂O releases 1,267.2 kJ per 4 NH₃. Take 96 % of the ammonia to NO and 4 % to N₂; the gas through the gauze has a mean heat capacity of 33.7 J/(mol·K). Adiabatic: the heat released warms the whole flow from the feed temperature.",
   'lv.L26.hero': 'NO yield at the gauze', 'lv.L26.sec': 'Ammonia in the gauze feed',

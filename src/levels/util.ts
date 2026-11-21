@@ -3,13 +3,17 @@
 import { SPECIES } from '../data/species';
 import { designActions } from '../engine/actions/design';
 import { openPortsOf } from '../engine/queries/plant';
-import { plumbing, pricesOf } from '../engine/solved';
+import { fmtNumber, plumbing, pricesOf } from '../engine/solved';
+import { REGIONS } from '../regions';
 import type { PriceKey } from '../regions/data';
 import type { EqState, FeedSpec } from '../state';
 import type { StreamState, UnitInst } from '../sim/types';
 import type { Measures } from './spec';
 
 type S = Readonly<EqState>;
+
+/** A region-currency amount as text for a flask line: the number in the pack's grouping and the pack's currency code (never a hard-coded 'USD'). */
+export const moneyText = (s: { region: string }, x: number): string => `${fmtNumber(x, s.region)} ${REGIONS.get(s.region).currency.code}`;
 
 /** mol/s to kmol/h and back. */
 export const toKmolH = (molS: number): number => (molS * 3600) / 1000;

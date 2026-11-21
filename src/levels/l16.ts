@@ -10,6 +10,7 @@ import { readUnit, convOf, toC, C0, type BedRead } from './ch4_common';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
 import { baseSetup, commissions, putFeed, put, sealSetup, shown, spentOf, unitsOfType, piped } from './util';
 import { V2O5_LIMIT_C, V2O5_SINTER_C, V2O5_WAKE_C } from './v2o5';
+import { costStarPerT, refCostPerT } from './refdesigns';
 
 type S = Readonly<EqState>;
 export const L16_SPECIES = ['SO2', 'O2', 'SO3', 'N2'];
@@ -113,7 +114,7 @@ export const L16: LevelSpec = {
     if (s.mode === 'engineer') { const sp = spentOf(s, L16_UNITS); g.push({ key: 'budget', met: m.ok && sp > 0 && sp <= L16_BUDGET, value: sp, target: L16_BUDGET }); }
     return g;
   },
-  extraStars: (_s, m) => [m.ok && m.v.heater_kw! <= L16_TRIM_KW, m.ok && m.v.cost_per_t! > 0 && m.v.cost_per_t! <= L16_STAR3_COST],
+  extraStars: (s, m) => [m.ok && m.v.heater_kw! <= L16_TRIM_KW, m.ok && m.v.cost_per_t! > 0 && m.v.cost_per_t! <= L16_STAR3_COST(s)],
   callIt: null,
   hero: (_s, m) => ({ key: 'conv_pct', unit: '%', value: m.v.conv! * 100, lo: L16_CONV * 100, hi: 72 }),
   secondary: (_s, m) => ({ key: 'tmax_c', unit: '°C', value: m.v.tmax_c!, limit: L16_TMAX_C }),
@@ -149,5 +150,5 @@ export const L16: LevelSpec = {
   solver: l16Player(L16_REF_T_C, L16_REF_AREA),
   naive: l16Player(L16_NAIVE_T_C, L16_REF_AREA),
 };
-/** GAME: $/t of stream at the reference build x 1.03 (14.45 -> 14.9). UNVERIFIED. */
-export const L16_STAR3_COST = 14.9;
+/** GAME: cost per tonne of stream at the reference build x 1.03 (global 14.45 -> 14.88), priced in the player's region (refdesigns.ts). UNVERIFIED. */
+export const L16_STAR3_COST = (s: { region: string }): number => costStarPerT(s, 'L16');
