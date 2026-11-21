@@ -11,6 +11,7 @@ import {
   CHIEF_MARGIN, EM_WARN_MONTHS, MARGIN_TARGET_YEAR, MONTHS, PLANTS, ackWarning, advance, advanceToDecision, answerDecision, decide, emWarn, endAhead, initCareer, levers, offerTaShort, openWarnings, pendingDecision, pace, score,
   strikeAhead, suggestTaMonth, taDays, taGroupDays, taOverlap, taWeigh, stepMonth, type Career,
 } from '../sim/career/model';
+import { pendingIncident } from '../sim/career/model';
 import { followerDecisions, playCareerFollower } from '../sim/career/human';
 import { playCareer, type Decision } from '../sim/career/policy';
 import type { EqState } from '../state';
@@ -114,6 +115,8 @@ describe('F19: overlapping turnarounds are priced where they are booked', () => 
 describe('F19: the emissions strike is warned, with its levers, before the year end', () => {
   /** every plant at 110 %: the Works runs over the cap */
   const hot = (seed: number): Career => { const c = initCareer(seed, 'engineer'); decide(c, 'answer', 1); for (const p of PLANTS) decide(c, 'setRate', p, 1.1); return c; };
+  /** Six months at once; a plant incident (F29) stops the run and is answered with the contractor, as the careful players do. */
+  const six = (c: Career): void => { while (c.m < 6 && c.ending === '') { if (pendingIncident(c) !== null) decide(c, 'incident', 'contractor'); advance(c, 6 - c.m); } };
   it('with every plant at 110 % the warning lights at least two months before the check, in a stop that lists it, and the strike still comes if it is ignored', () => {
     let stops = 0;
     for (const seed of [1, 2, 3]) {
@@ -133,7 +136,7 @@ describe('F19: the emissions strike is warned, with its levers, before the year 
   });
   it('the warning text names the projection, the cap, the strike and both levers with numbers; setting the rates it names clears it, and the year ends under the cap', () => {
     const c = hot(1);
-    advance(c, 6); expect(c.m).toBe(6);
+    six(c); expect(c.m).toBe(6);
     const w = emWarn(c)!; expect(w).not.toBeNull(); expect(w.toCheck).toBe(6); expect(w.ratio).toBeGreaterThan(1);
     const text = emText(c);
     expect(text).toMatch(/^EMISSIONS AHEAD: at today's run rate the year ends at \d+ kt, \d+ % of the \d+ kt cap\. Over the cap at the year-end check \(month 12, 6 months away\) is a regulator strike\./);
@@ -145,7 +148,7 @@ describe('F19: the emissions strike is warned, with its levers, before the year 
     expect(c.years[0]!.emRatio).toBeLessThanOrEqual(1.0); expect(c.years[0]!.strike).toBe(0);
   });
   it('the abatement lever works too', () => {
-    const c = hot(2); advance(c, 6);
+    const c = hot(2); six(c);
     const w = emWarn(c)!; if (w.abateEnough) { decide(c, 'invest', 'abate'); expect(emWarn(c)).toBeNull(); }
   });
   it('careful play is not warned for nothing: the follower sees the warning only where the projection is over the cap', () => {

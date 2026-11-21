@@ -21,6 +21,7 @@ import { levelsCh6 } from './locales/en/levels_ch6';
 import { levelsCh8 } from './locales/en/levels_ch8';
 import { levelsCh9 } from './locales/en/levels_ch9';
 import { levelsCareer } from './locales/en/levels_career';
+import { levelsF29 } from './locales/en/levels_f29';
 import { ui } from './locales/en/ui';
 import { why } from './locales/en/why';
 import { REGIONS } from './regions';
@@ -31,7 +32,7 @@ describe('locales', () => {
   });
   it('en is the union of the family files, with no key defined twice', () => {
     const parts = [ui, briefs, coach, why, codex, events, errors, levels];
-    const chapters = [levelsCh2, levelsCh3, levelsCh4, levelsCh5, levelsCh6, levelsCh8, levelsCh9, levelsCareer];
+    const chapters = [levelsCh2, levelsCh3, levelsCh4, levelsCh5, levelsCh6, levelsCh8, levelsCh9, levelsCareer, levelsF29];
     expect(Object.keys(en).length).toBe([...parts, ...chapters].reduce((n, p) => n + Object.keys(p).length, 0));
     for (const p of parts) expect(Object.keys(p).length).toBeGreaterThan(0);
   });

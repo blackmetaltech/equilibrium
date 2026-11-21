@@ -9,7 +9,7 @@ import { levelsCareer } from '../locales/en/levels_career';
 import { SPEC_BY_ID, SPECS, levelOf } from './registry';
 import { CAREER, careerOf, referenceCareer, starMargin } from './career';
 import { cpm, schedule } from '../sim/ops/turnaround';
-import { answerDecision, PLANTS, MONTHS, CHIEF_MARGIN, score, advance, decide, initCareer, riskOf, taJobs, taDays, CareerError } from '../sim/career/model';
+import { answerDecision, PLANTS, MONTHS, CHIEF_MARGIN, score, advance, decide, initCareer, riskOf, taJobs, taDays, CareerError, pendingIncident } from '../sim/career/model';
 import { naiveDecisions, solverDecisions } from '../sim/career/policy';
 import type { EqState } from '../state';
 
@@ -65,7 +65,7 @@ describe('model', () => {
   it('plants only age: catalyst and U fall, wear and the inspection clock rise, until a turnaround resets them; risk rises with the overdue inspection', () => {
     const c = initCareer(1, 'engineer');
     answerDecision(c, 1);   // a pending yearly decision blocks the multi-month advance
-    advance(c, 6);
+    while (c.m < 6) { if (pendingIncident(c) !== null) decide(c, 'incident', 'contractor'); advance(c, 6 - c.m); }   // F29: a plant incident stops the run until it is answered
     const x = c.plants.nh3;
     expect(x.cat).toBeLessThan(1); expect(x.U).toBeLessThan(1); expect(x.wear).toBeGreaterThan(0); expect(x.insp).toBe(6);
     const r0 = riskOf(c, 'nh3');

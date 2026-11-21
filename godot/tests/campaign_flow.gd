@@ -95,12 +95,13 @@ func _map_nodes() -> void:
 	WorksMap.open(app); await frames(4)
 	var lm := app.root.get_node_or_null("levels")
 	check(lm != null, "the Works map opens")
-	var n_lv := 0; var n_locked := 0
+	var n_lv := 0; var n_locked := 0; var n_board := 0
 	for l in app.b.levels():
+		if str(l.id).begins_with("CAREER_FIX"): n_board += 1; continue   # F29: an incident level is reached from the Career board, not the map
 		var nb := lm.find_child("Level_" + str(l.id), true, false) as WorksMap.NodeBtn
 		check(nb != null, "node for %s" % l.id)
 		if nb != null: n_lv += 1; if nb.state == "locked": n_locked += 1
-	check(n_lv == app.b.levels().size() and n_locked > 10, "every engine level has a node, most still locked (%d locked)" % n_locked)
+	check(n_lv == app.b.levels().size() - n_board and n_locked > 10, "every engine level has a node, most still locked (%d locked)" % n_locked)
 	var sites := 0
 	for n in 10: if lm.find_child("Site_%d" % n, true, false) != null: sites += 1
 	check(sites == 10, "ten sites: the gate and chapters 1-9")

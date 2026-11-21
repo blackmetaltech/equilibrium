@@ -4,6 +4,7 @@
 // Decisions are plain functions (`accept`, `setRate`, `turnaround`, `inspect`, `buyCatalyst`, `hireCrew`, `invest`) and `advance` runs months until the next year end.
 import { EVENTS, LEARNER_GENTLE, type EventType } from '../../data/events';
 import { schedule, type Job } from '../ops/turnaround';
+import { INCIDENT_DEFS, INERT_STEPS, checkResult, effectOf, incidentForEvent, monthlyLossUSD, statedLoop, type Incident, type IncidentChoice, type LoopResult } from './incident';
 
 export const PLANTS = ['nh3', 'acid', 'meoh', 'etoh'] as const;
 export type PlantId = (typeof PLANTS)[number];
@@ -53,7 +54,7 @@ export interface Offer { id: number; p: PlantId; tpm: number; price: number; ter
 export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; /** operating margin: net margin before investments (catalyst, inspections, programmes) */ opMargin: number; tonnes: number; /** plant-days of lost output */ downDays: number; /** mean catalyst activity and exchanger U over the year (0..1) */ catAvg: number; uAvg: number; contractRev: number; contractT: number; /** where the Works is heading after this review (see `outlook`) */ outlook?: Outlook; capT: number; capOldT: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number; /** what the year's card said and what the year realised (see `cardReview`) */ card?: CardReview }
 export interface CardTermReview { key: string; /** what the card forecast for this term over the same months as the year (USD, signed) */ fc: number; /** what the year realised for it, A less B (USD, signed) */ real: number; /** for the term made of the forecast terms not measured on their own: their keys */ parts?: string[] }
 export interface CardReview { kind: string; plant: string; choice: number; lapsed: boolean; /** what the card said option A earns against B over `months` (its own full horizon) */ cardUSD: number; months: number; /** the same forecast cut to the months the review can show (the year after the card): comparable with `realisedUSD` */ fcUSD: number; fcMonths: number; /** the card's own stated uncertainty on that forecast (USD): realised inside +-spread is "as forecast" */ spreadUSD: number; within: boolean; /** the year's cash with A less the year's cash with B (the same later decisions, the same seed) */ realisedUSD: number; /** forecast and realised, term by term (they sum to fcUSD and realisedUSD) */ terms: CardTermReview[]; /** the term that moved most against its forecast, and by how much (realised less forecast, USD) */ moved: { key: string; delta: number }; /** what the market did: gas (USD/GJ) or the plant's spot price (USD/t) averaged over the year, expected and realised; 0 when the card is not about a market */ market: { kind: 'gas' | 'spot' | ''; exp: number; real: number; fixed: number }; /** A less B, by line */ diff: { rev: number; cost: number; pen: number; inv: number; down: number }; /** the month of the booking (turnaround and crew cards) */ taMonth: number }
-export interface LogRow { m: number; kind: 'event' | 'notice' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty' | 'decision'; code: string; plant: string; n: number; /** set on the rows that cost a regulator strike: the strike count after this one */ s?: number }
+export interface LogRow { m: number; kind: 'event' | 'notice' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty' | 'decision' | 'fix'; code: string; plant: string; n: number; /** set on the rows that cost a regulator strike: the strike count after this one */ s?: number; /** sentence numbers of a plant incident row (F29): purge %, argon %, output %, gas %, USD */ x?: Record<string, number> }
 export interface Hist { m: number; margin: number; cash: number; gas: number }
 export type Ending = '' | 'chief' | 'steady' | 'sold' | 'shut';
 export interface Career {
@@ -78,6 +79,8 @@ export interface Career {
   why?: StopWhy | null;
   /** The Works as JSON when this year's card was raised, and the decisions taken since (month, name, args): the year-end review replays them to price the card against the option not taken. Absent in older saves and in replays. */
   snap?: string; ops?: [number, string, ...unknown[]][]; replay?: boolean;
+  /** The plant incident (F29): open (choice '') or the last one answered, with its effect on the plant's output and gas for its months (absent in older saves). */
+  inc?: Incident | null;
 }
 
 // ------------------------------------------------------------------------------------------------ seeded draws
@@ -270,12 +273,14 @@ function applyEvents(c: Career): Mods {
   }
   c.last.ev = ev; c.last.evPlant = p;
   c.log.push({ m: c.m, kind: 'event', code: ev, plant: p, n: 0 });
+  openIncident(c, ev, g);
   return mods;
 }
 
 export function stepMonth(c: Career): void {
   need(c.ending === '', 'over');
-  const seed = c.seed, m = c.m, mods = applyEvents(c);
+  if (pendingIncident(c) !== null) setIncident(c, 'ignore', null, true);   // a month run with the incident unanswered: the loop keeps its old purge ("ignore"), stated on the card
+  const seed = c.seed, m = c.m, mods = applyEvents(c), ie = incidentNow(c, m);
   const gasP = c.hedge !== undefined && c.hedge !== null && m < c.hedge.until ? c.hedge.price : c.gas * mods.gasPrice;
   let revenue = 0, cost = OVERHEAD_USD + c.crews * CREW_USD_PER_MONTH * CREW_STEP, penalty = 0, margin = 0;
   let em = 0, gasGJ = 0, tonnes = 0, effNum = 0, effDen = 0;
@@ -296,7 +301,8 @@ export function stepMonth(c: Career): void {
   for (const p of PLANTS) {
     const x = c.plants[p], d = DEFS[p];
     const days = Math.min(30, x.down); x.down -= days; c.ytd.down = (c.ytd.down ?? 0) + days; c.ytd.cat = (c.ytd.cat ?? 0) + x.cat; c.ytd.U = (c.ytd.U ?? 0) + x.U; c.ytd.pn = (c.ytd.pn ?? 0) + 1;
-    const o = outputOf(c, p) * mods.out[p] * (1 - days / 30);
+    const io = ie !== null && ie.plant === p ? ie : null;
+    const o = outputOf(c, p) * mods.out[p] * (1 - days / 30) * (io !== null ? io.outF : 1);
     out[p] = o; x.out = o; tonnes += o;
     const need_ = contracted(c, p), deliver = Math.min(o, need_), short = Math.max(0, need_ - o);
     let rev = 0, pen = 0;
@@ -305,7 +311,7 @@ export function stepMonth(c: Career): void {
     const spotQty = Math.max(0, o - deliver);
     spot[p] = c.prices[p] * mods.spot[p] * (1 - 0.15 * (spotQty / d.cap));
     rev += spotQty * spot[p]!;
-    const gj = o * d.gasGJ * gasMul(c, p) * mods.gas;
+    const gj = o * d.gasGJ * gasMul(c, p) * mods.gas * (io !== null ? io.gasF : 1);
     const cst = d.varUSD * o + d.fixUSD + gj * gasP;
     const e = (gj * GJ_CO2 + o * d.proc) * (1 - 0.12 * c.invest.abate);
     revenue += rev; cost += cst; penalty += pen; em += e; gasGJ += gj;
@@ -314,6 +320,7 @@ export function stepMonth(c: Career): void {
     if (short > 0) c.log.push({ m, kind: 'penalty', code: 'short', plant: p, n: Math.round(short) });
   }
   margin = revenue - cost - penalty;
+  if (c.inc != null && c.inc.choice !== '' && m === c.inc.until - 1) c.log.push({ m, kind: 'fix', code: 'over', plant: c.inc.plant, n: Math.round(c.inc.outF * 100) });
   // integrity: risk, incidents, fines, strikes
   let fines = 0;
   for (const p of PLANTS) {
@@ -621,16 +628,17 @@ export function attention(c: Career): string[] {
     if (x.cat < CAT_WORN) out.push(`cat:${p}`);
     if (x.U < U_FOULED) out.push(`foul:${p}`);
   }
+  if (c.inc != null && c.inc.choice === '') out.push(`inc:${c.inc.plant}`);   // a plant incident waits (F29): go to the plant, call the contractor or ignore it
   return out;
 }
 /** The inspection due month (1-based) of a plant: fixed while the plant is not inspected, however many months pass. */
 export const inspDueMonth = (c: Career, p: PlantId): number => c.m + (INSPECT_EVERY - c.plants[p].insp) + 1;
 /** The key of one warning: kind, plant and the episode (inspection: its due month; catalyst or exchanger: the turnaround count). An acknowledgement covers exactly one such key. */
-export const warnKey = (c: Career, kind: string, p: PlantId): string => `${kind}:${p}:${kind === 'insp' ? inspDueMonth(c, p) : (c.plants[p].gen ?? 0)}`;
+export const warnKey = (c: Career, kind: string, p: PlantId): string => `${kind}:${p}:${kind === 'insp' ? inspDueMonth(c, p) : kind === 'inc' ? (c.inc?.m ?? 0) : (c.plants[p].gen ?? 0)}`;
 /** True when a booked turnaround already takes care of the warning before it can matter: it resets the inspection clock (if it comes before the plant is a strike: no more than INSPECT_STRIKE_OVER months past due, or before the coming year-end check), the exchanger, and the catalyst (when a charge is in stock). A plant already a month or two overdue is still covered by a turnaround booked soon: the card says OVERDUE, the strike warning stays off, and the run is not stopped for it again. */
 export function warnHandled(c: Career, kind: string, p: PlantId): boolean {
   const x = c.plants[p];
-  if (x.ta < c.m) return false;
+  if (x.ta < c.m || kind === 'inc') return false;   // a turnaround does not answer a plant incident
   if (kind === 'insp') return x.insp + (x.ta - c.m) <= INSPECT_EVERY + INSPECT_STRIKE_OVER || x.ta < c.m + (12 - (c.m % 12));
   if (kind === 'cat') return x.stock === 1;
   return true;
@@ -686,6 +694,8 @@ export function decide(c: Career, name: string, ...a: unknown[]): void {
     case 'advance': advance(c, a[0]); return;
     case 'advanceToDecision': advanceToDecision(c); return;
     case 'answer': return answerDecision(c, a[0]);
+    case 'incident': return answerIncident(c, a[0]);
+    case 'incidentFix': return incidentFix(c, a[0]);
     default: throw new CareerError('action');
   }
 }
@@ -751,7 +761,7 @@ export function taWeigh(c: Career, p: PlantId, month: number, crane = 1, extraCr
   return { bookUSD, outageUSD, penaltyUSD, hireUSD, overlapDays: ov.extraDays, overlapUSD, skipUSD, afterUSD, saveUSD, gainUSD, months: H, gainMonths, netUSD: saveUSD + gainUSD - bookUSD };
 }
 /** Alerts the office shows at the top: an inspection due or overdue, a worn catalyst, a fouled exchanger. Each names its plant (the board jumps to its card). */
-export interface Alert { kind: 'insp' | 'cat' | 'foul'; plant: PlantId }
+export interface Alert { kind: 'insp' | 'cat' | 'foul' | 'inc'; plant: PlantId }
 export function alerts(c: Career): Alert[] {
   return attention(c).map((k) => { const [kind, plant] = k.split(':') as [Alert['kind'], PlantId]; return { kind, plant }; });
 }
@@ -1045,3 +1055,51 @@ export function advanceToDecision(c: Career): number {
   c.why = why;
   return n;
 }
+
+// ------------------------------------------------------------------------------------------------ plant incidents (F29: an event opens a real plant; see ./incident.ts)
+/** The incident waiting for the manager (null when none). */
+export const pendingIncident = (c: Career): Incident | null => (c.inc != null && c.inc.choice === '' ? c.inc : null);
+/** The incident's effect in month `m` (null outside its months). */
+export function incidentNow(c: Career, m: number): { plant: PlantId; outF: number; gasF: number } | null {
+  const i = c.inc;
+  if (i == null || i.choice === '' || m < i.from || m >= i.until) return null;
+  return { plant: i.plant, outF: i.outF, gasF: i.gasF };
+}
+/** An event that has a plant incident opens it (unless one is still open or running): the inerts drawn from the table's steps (gentler in Learner), the catalyst as it is now, and the prices it will be judged at. */
+function openIncident(c: Career, ev: string, g: number): void {
+  const def = incidentForEvent(ev);
+  if (def === undefined || (c.inc != null && (c.inc.choice === '' || c.m < c.inc.until))) return;
+  const k = Math.min(INERT_STEPS.length - 1, Math.floor(draw(c.seed, c.m, 5) * INERT_STEPS.length * g)), y = INERT_STEPS[k]!, p = def.plant, x = c.plants[p];
+  const cat = Math.round(x.cat * 1000) / 1000;
+  const pre = { id: def.id, m: c.m, y, k, cat, price: Math.round(c.prices[p] * 100) / 100, gas: Math.round(c.gas * 1000) / 1000, outT: Math.round(outputOf(c, p)), gjT: Math.round(DEFS[p].gasGJ * gasMul(c, p) * 1000) / 1000, varUSD: DEFS[p].varUSD, capT: DEFS[p].cap, contractT: contracted(c, p), months: def.months, contractorUSD: def.contractorUSD };
+  const ig = effectOf(statedLoop('ignore', k, cat), cat);
+  c.inc = { id: def.id, plant: p, m: c.m, from: c.m + 1, until: c.m + 1 + def.months, y, k, cat, choice: '', lapsed: false, outF: ig.outF, gasF: ig.gasF, purge: 0, ar: 0, pre };
+  c.log.push({ m: c.m, kind: 'fix', code: 'open', plant: p, n: Math.round(y * 1000) / 10 });
+}
+/** Book a cost that is operating (the contractor's bill): it counts in the score, unlike an investment. */
+function opCost(c: Career, usd: number): void { c.cash -= usd; c.ytd.margin -= usd; c.ytd.cost = (c.ytd.cost ?? 0) + usd; c.total.cost += usd; c.total.margin -= usd; }
+function setIncident(c: Career, choice: Exclude<IncidentChoice, ''>, loop: LoopResult | null, lapsed = false): void {
+  const i = c.inc!;
+  const r = loop ?? statedLoop(choice === 'contractor' ? 'contractor' : 'ignore', i.k, i.cat), e = effectOf(r, i.cat);
+  i.choice = choice; i.lapsed = lapsed; i.outF = e.outF; i.gasF = e.gasF; i.purge = r.purge; i.ar = r.ar;
+  if (choice === 'contractor') opCost(c, i.pre.contractorUSD);
+  const usd = i.pre.months * monthlyLossUSD(i.pre, e) + (choice === 'contractor' ? i.pre.contractorUSD : 0);
+  c.log.push({ m: c.m, kind: 'fix', code: lapsed ? 'lapsed' : choice, plant: i.plant, n: Math.round(e.outF * 100), x: { purge: Math.round(r.purge * 1000) / 10, ar: Math.round(r.ar * 10) / 10, out: Math.round(e.outF * 1000) / 10, gas: Math.round(e.gasF * 1000) / 10, usd: Math.round(usd / 1e4) * 1e4, months: i.pre.months } });
+}
+/** CALL THE CONTRACTOR or IGNORE IT. */
+export function answerIncident(c: Career, choice: unknown): void {
+  alive(c);
+  need(pendingIncident(c) !== null, 'incident');
+  need(choice === 'contractor' || choice === 'ignore', 'incchoice');
+  setIncident(c, choice as 'contractor' | 'ignore', null); rec(c, 'incident', choice);
+}
+/** Back from the plant: the loop the player commissioned (as the incident level measured it) sets the plant's output and gas for the incident's months. The month does not move. */
+export function incidentFix(c: Career, result: unknown): void {
+  alive(c);
+  const i = pendingIncident(c);
+  need(i !== null, 'incident');
+  const r = checkResult(i!, result);
+  need(r !== null, 'fix');
+  setIncident(c, 'plant', r); rec(c, 'incidentFix', result);
+}
+void INCIDENT_DEFS;

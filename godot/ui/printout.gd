@@ -168,7 +168,11 @@ static func open(app) -> bool:
 				if app.lvbay != null: app.lvbay.refresh(true)
 				return
 			await app.get_tree().process_frame; BuildKeeper.restart(app, true)); row.add_child(kp)
+	if won and CareerIncident.can_back(app):   # F29: the fixed loop goes back to the Career, at the month it left
+		var bk := EqTheme.key_button("BACK TO THE CAREER", true, 18); bk.name = "BackToCareer"
+		bk.pressed.connect(func(): host.queue_free(); app.end_ui = null; CareerIncident.back(app)); row.add_child(bk)
 	var nxt := str(ed.get("next_level", ""))
+	if nxt.begins_with("CAREER_FIX") or str(app.b.g.get("level", "")).begins_with("CAREER_FIX"): nxt = ""   # an incident level is reached from the Career board only
 	if won and nxt != "":
 		var nb := EqTheme.key_button(PaperStrings.t("PR_NEXT"), true, 18); nb.name = "Next"; nb.pressed.connect(func(): host.queue_free(); app.end_ui = null; app.start_level(nxt, true)); row.add_child(nb)
 	var cp := EqTheme.key_button(PaperStrings.t("PR_COPY"), false, 18); cp.name = "Copy"

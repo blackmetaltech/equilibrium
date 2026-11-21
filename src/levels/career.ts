@@ -11,6 +11,8 @@ import {
   CareerError, INSPECT_STRIKE_OVER, INSPECT_USD, SKIP_MAX, emWarn, endAhead, endWhy, taOverlap, suggestTaMonth, type Review, catPrice, offerTaShort, openWarnings, offerFills, strikeAhead, warnHandled, inspDueMonth, type DecTerm, DEC_CONTRACT_DISCOUNT, DEC_ACT_MARGIN, pendingDecision, worthyOffer, type YearDecision, INSPECT_WARN, advance, alerts, attention, inspState, taWeigh, contracted, crewLimit, decide, emCap, exposure, gasMul, initCareer, investCost, outlook, outputOf, overdue, pace, previewInvest, riskOf, score, taDays, taShort, year, type Career, type EndNeed, type Lever, type LogRow, type Outlook,
 } from '../sim/career/model';
 import { naiveDecisions, solverDecisions, type Decision } from '../sim/career/policy';
+import { pendingIncident } from '../sim/career/model';
+import { INCIDENT_DEFS, effectOf, optionLossUSD, statedLoop, CONTRACTOR_PURGE, OLD_PURGE, type Incident } from '../sim/career/incident';
 import type { EqState } from '../state';
 import { CARRIER_UNITS, LATE, carrierSetup, goalLamp, lit } from './ch9_common';
 import type { Annunciator, GoalEval, LevelSpec, Measures } from './spec';
@@ -36,6 +38,7 @@ export function logLabel(l: LogRow): string {
     case 'critical': return t('lv.CAREER.log.critical', { ...sv, plant }) + (l.s === 1 ? t('lv.CAREER.log.strike_flag') : '');
     case 'fine': return t('lv.CAREER.log.fine', { finding: t(`lv.CAREER.fine.${l.code === 'inspection' && l.s === undefined ? 'inspection_more' : l.code}`, sv) }) + (l.s === 1 ? t('lv.CAREER.log.strike_flag') : '');
     case 'strike': return t('lv.CAREER.log.strike', { ending: t(`lv.CAREER.endlog.${l.code}`) });
+    case 'fix': return t(`lv.CAREER.log.fix.${l.code}`, { plant, n: l.n, ...(l.x ?? {}), musd: ((l.x?.usd ?? 0) / 1e6).toFixed(2) });
     default: return t(`lv.CAREER.log.${l.kind}`, { plant, n: l.n });
   }
 }
@@ -113,6 +116,7 @@ const investText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
 const attentionNote = (c: Career, k: string): string => {
   if (k.startsWith('em:')) return emText(c);
   if (k.startsWith('end:')) return endAheadText(c);
+  if (k.startsWith('inc:')) { const i = pendingIncident(c); return i === null ? '' : t('lv.CAREER.attn.inc', { plant: plantLabel(i.plant), y: (i.y * 100).toFixed(1) }); }
   const [kind, p] = k.split(':') as [string, (typeof PLANTS)[number]], x = c.plants[p];
   return t(`lv.CAREER.attn.${kind}`, { plant: plantLabel(p), when: withinMonths(Math.max(0, INSPECT_EVERY - x.insp)), pct: Math.round((kind === 'cat' ? x.cat : x.U) * 100) });
 };
@@ -265,6 +269,7 @@ function whyNote(c: Career): string {
     case 'em': return openWarnings(c).some((k) => k.startsWith('em:')) ? `Stopped: ${emText(c)}` : '';
     case 'end': return c.ending !== '' ? t('lv.CAREER.why.end', base) : openWarnings(c).some((k) => k.startsWith('end:')) ? `Stopped: ${endAheadText(c)}` : '';
     case 'decision': return pendingDecision(c) !== null ? t('lv.CAREER.why.decision', base) : '';
+    case 'inc': return pendingIncident(c) !== null ? t('lv.CAREER.why.inc', { ...base, y: (pendingIncident(c)!.y * 100).toFixed(1) }) : '';
     case 'gas': return t(w.n < 0 ? 'lv.CAREER.why.gas_down' : 'lv.CAREER.why.gas_up', base);
     case 'critical': return t('lv.CAREER.why.critical', { ...base, s: c.strikes, flag: c.strikes === 1 ? t('lv.CAREER.warn.strike_flag') : '' });
     default: return t(`lv.CAREER.why.${w.kind}`, base);
@@ -401,6 +406,7 @@ export const CAREER: LevelSpec = {
   actions: {
     accept: byName('accept'), decline: byName('decline'), setRate: byName('setRate'), inspect: byName('inspect'), buyCatalyst: byName('buyCatalyst'), ackWarning: byName('ackWarning'),
     turnaround: byName('turnaround'), cancelTurnaround: byName('cancelTurnaround'), hireCrew: byName('hireCrew'), invest: byName('invest'), advance: byName('advance'), advanceToDecision: byName('advanceToDecision'), answer: byName('answer'),
+    incident: byName('incident'), incidentFix: byName('incidentFix'),
   },
   view: (s) => {
     const c = careerOf(s);
@@ -408,7 +414,7 @@ export const CAREER: LevelSpec = {
     const spot = (p: (typeof PLANTS)[number]): number => c.prices[p];
     return {
       kind: 'career',
-      dashboard: { emWarn: emText(c), emProjectedT: emWarn(c)?.projT ?? 0, endAhead: endAheadText(c), endingWhy: endingWhyText(c), targetYearUSD: CHIEF_MARGIN / 5, decision: ((): Record<string, unknown> | null => { const ds = c.decisions ?? [], d = pendingDecision(c) ?? ds[ds.length - 1]; return d !== undefined ? decisionView(c, d) : null; })(), decisionsDone: (c.decisions ?? []).filter((d) => d.choice >= 0).length, nextNote: nextNote(c), whyNote: whyNote(c), skipMax: SKIP_MAX, hasWorthyOffer: worthyOffer(c) !== null, month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), paceNote: paceText(c), ledgerNote: t('lv.CAREER.ledger.note', { inv: ((c.total.inv ?? 0) / 1e6).toFixed(1), score: (score(c) / 1e6).toFixed(1), net: (c.total.margin / 1e6).toFixed(1) }), attentionNotes: attention(c).filter((k) => { const [kd, p] = k.split(':') as [string, (typeof PLANTS)[number]]; return !warnHandled(c, kd, p); }).map((k) => attentionNote(c, k)), alerts: alerts(c).map((a) => { const h = warnHandled(c, a.kind, a.plant), x = c.plants[a.plant]; return { ...a, label: plantLabel(a.plant), handled: h, text: attentionNote(c, `${a.kind}:${a.plant}`) + (h ? ` ${t('lv.CAREER.attn.handled', { month: x.ta + 1 })}` : '') }; }), strikeRule: t('lv.CAREER.rule.strike', { over: INSPECT_STRIKE_OVER }), strikeHead: ((): string => { const a = strikeAhead(c); return a.length === 0 ? '' : t('lv.CAREER.warn.strike_head', { check: a[0]!.checkMonth, over: INSPECT_STRIKE_OVER, no: a[0]!.strikeNo, max: STRIKES_MAX, flag: c.strikes === 0 && c.criticals === 0 ? t('lv.CAREER.warn.strike_flag') : '' }); })(), strikeLines: strikeAhead(c).map((a) => t('lv.CAREER.warn.strike_line', { plant: plantLabel(a.plant), due: a.dueMonth, n: a.over })), strikeFix: t('lv.CAREER.warn.strike_fix'), strikeWarn: strikeAhead(c).map((a) => t('lv.CAREER.warn.strike_ahead', { plant: plantLabel(a.plant).toLowerCase(), due: a.dueMonth, n: a.over, past: a.checkMonth - a.dueMonth, check: a.checkMonth, over: INSPECT_STRIKE_OVER, no: a.strikeNo, max: STRIKES_MAX, flag: c.strikes === 0 && c.criticals === 0 ? t('lv.CAREER.warn.strike_flag') : '' })), needsAck: openWarnings(c).length > 0, stoppedNotes: openWarnings(c).map((k) => attentionNote(c, k)).filter((x) => x !== ''), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
+      dashboard: { incident: incidentView(c), emWarn: emText(c), emProjectedT: emWarn(c)?.projT ?? 0, endAhead: endAheadText(c), endingWhy: endingWhyText(c), targetYearUSD: CHIEF_MARGIN / 5, decision: ((): Record<string, unknown> | null => { const ds = c.decisions ?? [], d = pendingDecision(c) ?? ds[ds.length - 1]; return d !== undefined ? decisionView(c, d) : null; })(), decisionsDone: (c.decisions ?? []).filter((d) => d.choice >= 0).length, nextNote: nextNote(c), whyNote: whyNote(c), skipMax: SKIP_MAX, hasWorthyOffer: worthyOffer(c) !== null, month: c.m, /** The month now in progress, 1-based (month = months already run; highlight monthNow, not month). */ monthNow: Math.min(MONTHS, c.m + 1), monthOfYear: (c.m % 12) + 1, months: MONTHS, year: Math.min(5, year(c) + 1), cashUSD: c.cash, marginTotalUSD: c.total.margin, marginYtdUSD: c.ytd.margin, opMarginTotalUSD: score(c), paceUSD: pace(c), paceNote: paceText(c), ledgerNote: t('lv.CAREER.ledger.note', { inv: ((c.total.inv ?? 0) / 1e6).toFixed(1), score: (score(c) / 1e6).toFixed(1), net: (c.total.margin / 1e6).toFixed(1) }), attentionNotes: attention(c).filter((k) => { const [kd, p] = k.split(':') as [string, (typeof PLANTS)[number]]; return !warnHandled(c, kd, p); }).map((k) => attentionNote(c, k)), alerts: alerts(c).map((a) => { const h = warnHandled(c, a.kind, a.plant), x = c.plants[a.plant]; return { ...a, label: plantLabel(a.plant), handled: h, text: attentionNote(c, `${a.kind}:${a.plant}`) + (h ? ` ${t('lv.CAREER.attn.handled', { month: x.ta + 1 })}` : '') }; }), strikeRule: t('lv.CAREER.rule.strike', { over: INSPECT_STRIKE_OVER }), strikeHead: ((): string => { const a = strikeAhead(c); return a.length === 0 ? '' : t('lv.CAREER.warn.strike_head', { check: a[0]!.checkMonth, over: INSPECT_STRIKE_OVER, no: a[0]!.strikeNo, max: STRIKES_MAX, flag: c.strikes === 0 && c.criticals === 0 ? t('lv.CAREER.warn.strike_flag') : '' }); })(), strikeLines: strikeAhead(c).map((a) => t('lv.CAREER.warn.strike_line', { plant: plantLabel(a.plant), due: a.dueMonth, n: a.over })), strikeFix: t('lv.CAREER.warn.strike_fix'), strikeWarn: strikeAhead(c).map((a) => t('lv.CAREER.warn.strike_ahead', { plant: plantLabel(a.plant).toLowerCase(), due: a.dueMonth, n: a.over, past: a.checkMonth - a.dueMonth, check: a.checkMonth, over: INSPECT_STRIKE_OVER, no: a.strikeNo, max: STRIKES_MAX, flag: c.strikes === 0 && c.criticals === 0 ? t('lv.CAREER.warn.strike_flag') : '' })), needsAck: openWarnings(c).length > 0, stoppedNotes: openWarnings(c).map((k) => attentionNote(c, k)).filter((x) => x !== ''), opMarginYtdUSD: c.ytd.margin + (c.ytd.inv ?? 0), investmentsTotalUSD: c.total.inv ?? 0, investmentsYtdUSD: c.ytd.inv ?? 0, lastMonthUSD: c.last.margin, gasUSDPerGJ: c.gas, criticals: c.criticals, strikes: c.strikes, strikesMax: STRIKES_MAX, ending: c.ending, over: c.ending !== '', lastEvent: c.last.ev, lastEventPlant: c.last.evPlant, lastEventLabel: c.last.ev === '' ? '' : t(`event.${c.last.ev}.title`), lastEventPlantLabel: plantLabel(c.last.evPlant), emissionsYtdT: c.ytd.em, emissionsCapT: emCap(c), emCapStep: EM_CAP_STEP, chiefMarginUSD: CHIEF_MARGIN, startCashUSD: START_CASH },
       prices: PLANTS.map((p) => ({ plant: p, label: t(`lv.CAREER.plant.${p}`), spotUSDPerT: spot(p) })),
       plants: PLANTS.map((p) => {
         const x = c.plants[p];
@@ -427,6 +433,27 @@ export const CAREER: LevelSpec = {
   solver: (() => scripted(solverDecisions)) as PersonaFactory<EqState>,
   naive: (() => scripted(naiveDecisions)) as PersonaFactory<EqState>,
 };
+
+/** The plant incident card (F29): the open incident with its three answers (GO TO THE PLANT, CALL THE CONTRACTOR, IGNORE IT), each with what it does to the plant for the incident's months and
+ * about what it costs against the clean loop; or the incident answered, while its months run, with what was done and what it realises. Null when there is none to show. */
+export function incidentView(c: Career): Record<string, unknown> | null {
+  const i: Incident | null | undefined = c.inc;
+  if (i == null || (i.choice !== '' && c.m >= i.until)) return null;
+  const def = INCIDENT_DEFS[i.id], pre = i.pre, plant = plantLabel(i.plant);
+  const opt = (kind: 'contractor' | 'ignore'): Record<string, unknown> => {
+    const r = statedLoop(kind, i.k, i.cat), e = effectOf(r, i.cat), usd = optionLossUSD(pre, e, kind);
+    return { key: kind, purgePct: r.purge * 100, arPct: r.ar, outPct: e.outF * 100, gasPct: e.gasF * 100, lossUSD: usd, costUSD: kind === 'contractor' ? pre.contractorUSD : 0,
+      label: t(`lv.CAREER.inc.${kind}.key`, { usd: (pre.contractorUSD / 1e6).toFixed(2), out: Math.round(e.outF * 100) }),
+      text: t(`lv.CAREER.inc.${kind}.text`, { purge: (r.purge * 100).toFixed(0), ar: Math.round(r.ar), out: Math.round(e.outF * 100), gas: Math.round((e.gasF - 1) * 100), months: pre.months, usd: (pre.contractorUSD / 1e6).toFixed(2), loss: (usd / 1e6).toFixed(1), plant: plant.toLowerCase() }) };
+  };
+  const vars = { plant, y: (i.y * 100).toFixed(1), cat: Math.round(i.cat * 100), months: pre.months, month: i.m + 1, from: i.from + 1, until: i.until, oldp: (OLD_PURGE * 100).toFixed(0), conp: (CONTRACTOR_PURGE * 100).toFixed(0) };
+  const done = i.choice !== '' ? t(`lv.CAREER.inc.done.${i.lapsed ? 'lapsed' : i.choice}`, { ...vars, purge: (i.purge * 100).toFixed(1), ar: i.ar.toFixed(1), out: Math.round(i.outF * 100), gas: Math.round((i.gasF - 1) * 100) }) : '';
+  return {
+    id: i.id, plant: i.plant, plantLabel: plant, pending: i.choice === '', choice: i.choice, lapsed: i.lapsed, month: i.m, from: i.from, until: i.until, yPct: i.y * 100, cat: i.cat, outF: i.outF, gasF: i.gasF,
+    title: t(`lv.CAREER.inc.${i.id}.title`, vars), body: t(`lv.CAREER.inc.${i.id}.body`, vars), done, level: def.level, pre,
+    plantKey: t('lv.CAREER.inc.plant.key'), plantText: t('lv.CAREER.inc.plant.text', vars), options: [opt('contractor'), opt('ignore')],
+  };
+}
 
 /** A persona that plays one month per turn: its decisions, then `advance 1`. */
 function scripted(policy: (c: Career) => Decision[]) {
