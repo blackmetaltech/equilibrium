@@ -142,13 +142,13 @@ func _fresh_levels() -> void:
 
 func _map() -> void:
 	WorksMap.Campaign.set_levels(app.b.levels())
-	check(WorksMap.Campaign.chapter_of("CAREER") == 10 and WorksMap.Campaign.num("CAREER") == 39, "CAREER is its own chapter, not the gate")
-	check(WorksMap.CHAPTERS.size() == 11 and int(WorksMap.PREREQ[10]) == 5, "the Works Map has a Career node that opens after chapter 5")
+	check(WorksMap.Campaign.chapter_of("CAREER") == 11 and WorksMap.Campaign.num("CAREER") == 40, "CAREER is its own chapter, not the gate (node 40 since F30 put L39 in chapter 10)")
+	check(WorksMap.CHAPTERS.size() == 12 and int(WorksMap.PREREQ[11]) == 5, "the Works Map has a Career node that opens after chapter 5")
 	WorksMap.Campaign.stars.clear(); WorksMap.Campaign.stars["L38"] = 3; WorksMap.Campaign.stars["L00"] = 2
 	check(WorksMap.Campaign.total_stars() == 2, "a star on a locked node does not count (%d)" % WorksMap.Campaign.total_stars())
 	WorksMap.Campaign.stars.clear()
 	WorksMap.open(app); await frames(4)
-	check(app.root.find_child("Site_10", true, false) != null and app.root.find_child("Level_CAREER", true, false) != null, "the map shows the Career site and node")
+	check(app.root.find_child("Site_11", true, false) != null and app.root.find_child("Level_CAREER", true, false) != null, "the map shows the Career site and node")
 	var nb = app.root.find_child("Level_L38", true, false)
 	check(nb != null and nb.stars == 0, "a locked node draws no stars")
 	app.root.get_node("levels").queue_free(); await frames(2)
