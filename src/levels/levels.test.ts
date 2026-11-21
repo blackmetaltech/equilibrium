@@ -68,7 +68,7 @@ describe('registry', () => {
   it('the five chapter-1 levels open the game, in order, and every level has a title, brief and solver', () => {
     expect(LEVELS.map((l) => l.id).slice(0, 5)).toEqual(['L00', 'L01', 'L02', 'L03', 'L04']);
     const ids = LEVELS.map((l) => l.id); expect(new Set(ids).size).toBe(ids.length);
-    const lids = ids.filter((x) => /^L\d\d$/.test(x)); expect([...lids].sort()).toEqual(lids); expect(ids[ids.length - 1]).toBe('CAREER');
+    const lids = ids.filter((x) => /^L\d\d$/.test(x)); expect([...lids].sort()).toEqual(lids); expect(ids.filter((x) => !x.startsWith('CAREER_FIX_')).pop()).toBe('CAREER');   // F29: the incident levels come after the Career and are reached from its board only
     for (const l of LEVELS) { expect(l.title.length).toBeGreaterThan(3); expect(l.brief.length).toBeGreaterThan(10); expect(l.solver).toBeTypeOf('function'); }
     expect(Object.keys(NAIVE)).toEqual(SPECS.map((s) => s.id));
   });

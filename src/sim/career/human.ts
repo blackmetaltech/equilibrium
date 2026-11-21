@@ -1,5 +1,5 @@
 // The human careful player: what a tester did on the real board (+3 MONTHS key, card defaults), as a pure policy for tests.
-import { CareerError, MONTHS, pendingDecision, PLANTS, ackWarning, openWarnings, advance, advanceToDecision, attention, decide, emWarn, exposure, initCareer, levers, pace, previewInvest, suggestTaMonth, warnHandled, worthyOffer, INSPECT_MIN_GAP, type Career, type PlantId } from './model';
+import { CareerError, MONTHS, pendingDecision, pendingIncident, PLANTS, ackWarning, openWarnings, advance, advanceToDecision, attention, decide, emWarn, exposure, initCareer, levers, pace, previewInvest, suggestTaMonth, warnHandled, worthyOffer, INSPECT_MIN_GAP, type Career, type PlantId } from './model';
 import type { Decision } from './policy';
 
 /** Follows the payback advice and maxes heat recovery, takes the contracts above spot that the card says the plant can fill, books turnarounds with the card's defaults (two months ahead, one crane, no extra
@@ -7,6 +7,7 @@ import type { Decision } from './policy';
 export function humanCarefulDecisions(c: Career): Decision[] {
   const d: Decision[] = [], booked: number[] = [];
   const pd = pendingDecision(c); if (pd !== null) d.push(['answer', pd.best]);   // the yearly decision card: take the option with the better expected MUSD
+  if (pendingIncident(c) !== null) d.push(['incident', 'contractor']);   // the incident card (F29): the contractor, the stated safe answer
   if (c.m === 0) for (const p of PLANTS) d.push(['setRate', p, 0.95]);
   if (c.cash > 25e6) {
     for (const k of ['heat', 'safety', 'abate'] as const) {
@@ -54,6 +55,7 @@ export function playCareerSteps(seed: number, pol: (c: Career) => Decision[], st
 export function followerDecisions(c: Career): Decision[] {
   const d: Decision[] = [], taken: number[] = [];
   const pd = pendingDecision(c); if (pd !== null) d.push(['answer', pd.best]);
+  if (pendingIncident(c) !== null) d.push(['incident', 'contractor']);
   const ew = emWarn(c);
   if (ew !== null) {
     if (!ew.short) for (const p of PLANTS) d.push(['setRate', p, ew.rates[p]]);
@@ -82,8 +84,11 @@ export function followerDecisions(c: Career): Decision[] {
   }
   const lv = levers(c, pace(c));
   const ta = lv.find((l) => l.key === 'turnaround'); if (ta !== undefined) book(ta.vars.plant as PlantId);
-  const co = lv.find((l) => l.key === 'contract'); if (co !== undefined) d.push(['accept', co.vars.id]);
-  const wo = worthyOffer(c); if (wo !== null && co?.vars.id !== wo.id) d.push(['accept', wo.id]);
+  // the board shows the exposure after the yearly card's contract is signed: an offer the plant can no longer fill on top of it is not taken the same month
+  const signed = pd !== null && pd.kind === 'contract' && pd.best === 0 ? { p: pd.plant, t: Number(pd.vars.tpm ?? 0) } : null;
+  const fits = (id: unknown): boolean => { const o = c.offers.find((x) => x.id === id); return o === undefined || signed === null || o.p !== signed.p || exposure(c, o.p, o.tpm + signed.t, o.pen).shortT === 0; };
+  const co = lv.find((l) => l.key === 'contract'); if (co !== undefined && fits(co.vars.id)) d.push(['accept', co.vars.id]);
+  const wo = worthyOffer(c); if (wo !== null && co?.vars.id !== wo.id && fits(wo.id)) d.push(['accept', wo.id]);
   return d;
 }
 /** Play a whole career as the follower: decide, acknowledge the stop (CONTINUE ANYWAY), then NEXT DECISION. */

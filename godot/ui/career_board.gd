@@ -120,6 +120,8 @@ func _build() -> void:
 	var dc: Variant = d.get("decision", null)
 	var dpend := dc is Dictionary and bool((dc as Dictionary).get("pending", false))
 	if dpend: pin.add_child(_decision_card(dc as Dictionary, bool(d.over)))
+	var icv: Variant = d.get("incident", null)
+	if icv is Dictionary and not bool(d.over): (pin if bool((icv as Dictionary).get("pending", false)) else body).add_child(_incident_card(icv as Dictionary))
 	var ewt := str(d.get("emWarn", ""))
 	if ewt != "" and ewt.find(" Levers:") >= 0 and not bool(d.over):
 		var el := lbl("EMISSIONS LEVERS:" + ewt.substr(ewt.find(" Levers:") + 8), 12, AMBER_INK, "sans"); el.name = "EmLevers"; el.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; el.custom_minimum_size = Vector2(200, 0); body.add_child(_paper(el, Color("#F8EBD0")))
@@ -283,6 +285,33 @@ func _decision_card(dc: Dictionary, over: bool) -> Control:
 			var hi := lbl(str(dc.hint), 12, OKGREEN, "sans"); hi.name = "DecisionHint"; hi.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hi.custom_minimum_size = Vector2(220, 0); hi.visible = det; v.add_child(hi)
 		var bl := lbl(str(dc.blocks), 11, AMBER_INK, "sans"); bl.name = "DecisionBlocks"; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size = Vector2(220, 0); bl.visible = det; v.add_child(bl)
 	return _paper(v, Color("#F6E7B8") if pending else Color("#F4EEDC"))
+
+## F29: the plant incident card. Waiting: red paper pinned above the scroll with GO TO THE PLANT (the incident level, pre-loaded with this plant's state; the month does not move), CALL THE CONTRACTOR (cash) and
+## IGNORE IT, each with what it does to the plant and about what it costs. Answered: what was done and what it realises, until the incident's months are over.
+func _incident_card(ic: Dictionary) -> Control:
+	var pending := bool(ic.get("pending", false))
+	var v := VBoxContainer.new(); v.name = "IncidentCard"; v.add_theme_constant_override("separation", 4)
+	var t := lbl(str(ic.get("title", "")), 14, STAMP_RED if pending else PENCIL, "mono_bold"); t.name = "IncidentTitle"; t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; t.custom_minimum_size = Vector2(220, 0); v.add_child(t)
+	if not pending:
+		var dn := lbl(str(ic.get("done", "")), 12, PENCIL, "sans"); dn.name = "IncidentDone"; dn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; dn.custom_minimum_size = Vector2(220, 0); v.add_child(dn)
+		return _paper(v)
+	var b := lbl(str(ic.get("body", "")), 12, PENCIL, "sans"); b.name = "IncidentBody"; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; b.custom_minimum_size = Vector2(220, 0); b.visible = not _compact() or _more.has("IncidentBody"); v.add_child(b)
+	var rows := [["IncidentPlant", str(ic.get("plantKey", "GO TO THE PLANT")), str(ic.get("plantText", "")), func(): _go_plant(ic), true]]
+	for o in ic.get("options", []):
+		var kk := str(o.key)
+		rows.append(["Incident" + kk.capitalize(), str(o.label), str(o.text), func(): emit_act("incident", [kk]), false])
+	for r in rows:
+		var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
+		var k := key(str(r[1]), r[3], bool(r[4]), 13); k.name = str(r[0]); k.disabled = _busy; k.tooltip_text = str(r[2]); h.add_child(k)
+		var tx := lbl(str(r[2]), 12, PENCIL, "sans"); tx.name = str(r[0]) + "Text"; tx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tx.custom_minimum_size = Vector2(220, 0); tx.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tx.visible = not _compact() or _more.has("IncidentBody"); h.add_child(tx)
+	if _compact():
+		var km := key("less" if _more.has("IncidentBody") else "more", func(): _toggle_more("IncidentBody"), false, 11); km.name = "IncidentMore"; v.add_child(km)
+	return _paper(v, Color("#F8D9CF"))
+
+## GO TO THE PLANT: the run is saved, the incident remembered, and the incident level opens with this plant's state (see CareerIncident).
+func _go_plant(ic: Dictionary) -> void:
+	if _busy or app_ref == null: return
+	CareerIncident.go(app_ref, ic)
 
 func _musd_short(x: float) -> String: return "%s%.1f MUSD" % ["+" if x >= 0.0 else "-", absf(x) / 1e6]
 

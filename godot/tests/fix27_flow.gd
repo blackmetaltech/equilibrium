@@ -138,7 +138,9 @@ func _layout(sz: Vector2i) -> void:
 		await press("Decline_%d" % o_id)
 		await create_timer(1.0).timeout; await frames(4)
 		b = board()
-		check(absf(b.scroll.scroll_vertical - s0) < 2.0, "DECLINE keeps the scroll position (%d -> %d)%s" % [s0, b.scroll.scroll_vertical, tag])
+		# what the reader sees must not move (checked on screen below); the raw scroll value may shift by exactly what shrank ABOVE the view (F29: the alert strip
+		# loses its offer line on a decline), so it is only bounded here
+		check(absf(b.scroll.scroll_vertical - s0) <= 80.0, "DECLINE keeps the scroll near where it was (%d -> %d)%s" % [s0, b.scroll.scroll_vertical, tag])
 		check(absf(gy("Accept_%d" % int(offers[1].id)) - y_next) < 2.0, "the next offer stays where it was (%.0f -> %.0f)%s" % [y_next, gy("Accept_%d" % int(offers[1].id)), tag])
 		check(absf(gy("Invest_heat") - y_inv) < 2.0 and absf(gy("Catalyst_nh3") - y_book) < 2.0, "nothing else on the board reflowed after DECLINE" + tag)
 		check(b.find_child("OfferSettled", true, false) != null, "the declined offer is one settled row" + tag)

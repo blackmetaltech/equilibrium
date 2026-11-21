@@ -6,7 +6,7 @@ import { CAREER, careerOf } from './career';
 import { SPEC_BY_ID, SPECS } from './registry';
 import { Env } from '@core/kit';
 import { GAME } from '../game';
-import { answerDecision, pendingDecision, INSPECT_EVERY, INSPECT_STRIKE_OVER, PLANTS, CareerError, ackWarning, advance, alerts, attention, decide, initCareer, inspState, stepMonth, taWeigh } from '../sim/career/model';
+import { answerDecision, pendingDecision, INSPECT_EVERY, INSPECT_STRIKE_OVER, PLANTS, CareerError, ackWarning, advance, alerts, attention, decide, initCareer, inspState, stepMonth, taWeigh, pendingIncident } from '../sim/career/model';
 import type { EqState } from '../state';
 import { en } from '../locales/en';
 
@@ -48,6 +48,7 @@ describe('+3 MONTHS after a stop at a warning', () => {
   it('a stop whose warning has since been dealt with needs no acknowledgement', () => {
     const c = stoppedCareer();
     for (const k of attention(c).filter((x) => x.startsWith('insp:'))) { const p = k.split(':')[1] as 'nh3'; if (c.plants[p].insp >= 6) decide(c, 'inspect', p); }
+    if (pendingIncident(c) !== null) decide(c, 'incident', 'contractor');   // F29: a plant incident is dealt with by answering it
     if (!attention(c).some((k) => c.stopped!.includes(k))) expect(() => advance(c, 3)).not.toThrow();
   });
 });
