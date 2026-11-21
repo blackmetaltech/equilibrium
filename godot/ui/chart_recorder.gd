@@ -116,10 +116,15 @@ func feed(li: Dictionary, run_list: Array, tick: int) -> void:
 	var hv := _num(hero.get("value", 0.0)); var sv := _num(sec.get("value", 0.0)); var tv := _num(third.get("value", 0.0))
 	if phase == "shift":
 		if tick != _last_tick:
+			# a fast-forward call advances several ticks at once (F28): the paper still gets one sample per plant second, the in-between ones interpolated
+			var d := clampi(tick - _last_tick, 1, 32) if _last_tick >= 0 and tick > _last_tick else 1
 			_last_tick = tick
-			samples.append({"h": hv, "s": sv, "t": tv})
-			if samples.size() > 900: samples.pop_front()
-			_target += SAMPLE_W
+			var prev: Dictionary = samples.back() if not samples.is_empty() else {"h": hv, "s": sv, "t": tv}
+			for i in range(1, d + 1):
+				var f := float(i) / float(d)
+				samples.append({"h": lerpf(_num(prev.h), hv, f), "s": lerpf(_num(prev.s), sv, f), "t": lerpf(_num(prev.t), tv, f)})
+			while samples.size() > 900: samples.pop_front()
+			_target += SAMPLE_W * float(d)
 	elif phase != "design" and phase != "lost":
 		# every commission is one point on the paper, kept for the whole level: recorded the moment the plant leaves design (a first run counts too);
 		# a game loaded mid-level records its last run once
