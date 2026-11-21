@@ -16,9 +16,10 @@ import { CH5_SPECS } from './ch5';
 import { CH6_SPECS } from './ch6';
 import { CH8_SPECS } from './ch8';
 import { CH9_SPECS } from './ch9';
+import { CH10_SPECS } from './ch10';
 import { CAREER } from './career';
 
-export const SPECS: LevelSpec[] = [L00, L01, L02, L03, L04, ...CH2_SPECS, ...CH3_SPECS, ...CH4_SPECS, ...CH5_SPECS, ...CH6_SPECS, ...CH8_SPECS, ...CH9_SPECS, CAREER];
+export const SPECS: LevelSpec[] = [L00, L01, L02, L03, L04, ...CH2_SPECS, ...CH3_SPECS, ...CH4_SPECS, ...CH5_SPECS, ...CH6_SPECS, ...CH8_SPECS, ...CH9_SPECS, ...CH10_SPECS, CAREER];
 export const SPEC_BY_ID: Readonly<Record<string, LevelSpec>> = Object.fromEntries(SPECS.map((x) => [x.id, x]));
 /** The spec of the level a state is playing (undefined in free play or for a level this file does not own). */
 export const specOf = (s: { level: string | null }): LevelSpec | undefined => (s.level === null ? undefined : SPEC_BY_ID[s.level]);

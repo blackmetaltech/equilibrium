@@ -32,15 +32,16 @@ const CHAPTERS := [
 	[7, "The Works", "Integrated Works", "works", 28, 28],
 	[8, "The Control Room", "Control room", "control", 29, 33],
 	[9, "Turnaround", "Turnaround yard", "turnaround", 34, 38],
-	[10, "Career", "Plant manager's office", "career", 39, 39],
+	[10, "Hydraulics", "Pump house", "pumps", 39, 39],
+	[11, "Career", "Plant manager's office", "career", 40, 40],
 ]
 const BRIDGES := [4, 9, 14, 18]
 ## Which chapter must be done before this one opens (-1: open from the start).
-const PREREQ := {0: -1, 1: -1, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 5, 10: 5}   # Career opens after chapter 5 like chapters 8 and 9
+const PREREQ := {0: -1, 1: -1, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 5, 10: 5, 11: 5}   # Hydraulics and Career open after chapter 5 like chapters 8 and 9
 ## Total stars for each Engineer rank.
 const RANKS := [["Trainee", 0], ["Shift Engineer", 6], ["Senior Engineer", 20], ["Process Engineer", 40], ["Plant Manager", 65], ["Chief Engineer", 90]]
 ## Grid order of the chapters (landscape): row 1 left to right, row 2 right to left, so the pipe snakes along the coast.
-const GRID := [0, 1, 2, 3, 4, 9, 8, 7, 6, 5, 10]
+const GRID := [0, 1, 2, 3, 4, 9, 8, 7, 6, 5, 10, 11]
 
 static func number(id: String) -> String: return "C" if id == "CAREER" else id.trim_prefix("L").trim_prefix("l")
 
@@ -88,9 +89,9 @@ class Campaign:
 		ids = []
 		for l in levels: ids.append(str((l as Dictionary).get("id", "")))
 
-	## CAREER has no L-number: it is node 39, after the last numbered job (it used to read as 0 and sit on the gate).
+	## CAREER has no L-number: it is node 40, after the last numbered job (it used to read as 0 and sit on the gate; L39 is the pump house).
 	static func num(id: String) -> int:
-		if id == "CAREER": return 39
+		if id == "CAREER": return 40
 		return int(id.trim_prefix("L").trim_prefix("l")) if id.length() > 1 and id.trim_prefix("L").trim_prefix("l").is_valid_int() else -1
 
 	static func chapter_of(id: String) -> int:
@@ -291,7 +292,7 @@ class MapView extends RefCounted:
 		start_btn.pressed.connect(func(): if WorksMap.sel_id != "": WorksMap.start(app, host, WorksMap.sel_id))
 		ibh.add_child(start_btn)
 		if not (compact and narrow):
-			var lg := EqTheme.label(WorksMap.T("MAP_LEGEND") + ("   ·   swipe up for chapters 5-9 and Career" if CbLayout.phone else ""), 13, EqTheme.DIM, "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
+			var lg := EqTheme.label(WorksMap.T("MAP_LEGEND") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 13, EqTheme.DIM, "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
 		# first focus: the first open, unstarred node (else the first open one)
 		var pick: NodeBtn = null
 		for id in WorksMap.Campaign.ids:
@@ -419,7 +420,7 @@ class Bay extends VBoxContainer:
 			else: _pipe([_anchor(a, "r"), _anchor(b, "l")], laid, false, flow)
 		# signal lines (dashed) from the loop to the control room and the turnaround yard, along the trench under the second row
 		var yb := maxf(_anchor(5, "b").y, _anchor(8, "b").y) + 20.0
-		for target in [8, 9, 10]:
+		for target in [8, 9, 10, 11]:
 			var s0 := _anchor(5, "b"); var s1 := _anchor(target, "b" if target < 10 else "t")
 			_pipe([s0, Vector2(s0.x, yb), Vector2(s1.x, yb), s1], C.ch_done(5), true, flow)
 
@@ -648,6 +649,15 @@ class Glyph extends Control:
 				draw_rect(Rect2(w * 0.74, gy - 56, w * 0.16, 44), Color("#F4EEE2") if state != "locked" else dark)
 				draw_rect(Rect2(w * 0.74, gy - 56, w * 0.16, 9), Color("#B33A2E") if state != "locked" else dark.darkened(0.2))
 				for r in 3: for c in 3: draw_rect(Rect2(w * 0.755 + c * w * 0.045, gy - 42 + r * 9, w * 0.03, 5), dark)
+			"pumps":   # the pump house: a low shed, a tank, a pump on its plinth and a riser to a drum on a deck
+				draw_rect(Rect2(w * 0.08, gy - 26, w * 0.2, 26), body); draw_rect(Rect2(w * 0.06, gy - 30, w * 0.24, 5), dark)
+				draw_rect(Rect2(w * 0.62, gy - 52, w * 0.3, 52), Color(0, 0, 0, 0), false, 1.0)
+				draw_line(Vector2(w * 0.6, gy - 52), Vector2(w * 0.94, gy - 52), body, 4.0); draw_line(Vector2(w * 0.64, gy), Vector2(w * 0.64, gy - 52), body, 3.0); draw_line(Vector2(w * 0.9, gy), Vector2(w * 0.9, gy - 52), body, 3.0)
+				draw_rect(Rect2(w * 0.66, gy - 66, w * 0.22, 13), dark); draw_circle(Vector2(w * 0.66, gy - 59.5), 6.5, dark); draw_circle(Vector2(w * 0.88, gy - 59.5), 6.5, dark)
+				draw_line(Vector2(w * 0.28, gy - 7), Vector2(w * 0.42, gy - 7), dark, 4.0); draw_circle(Vector2(w * 0.45, gy - 8), 7.0, Color("#2D5DA8") if state != "locked" else dark)
+				draw_line(Vector2(w * 0.45, gy - 15), Vector2(w * 0.45, gy - 40), dark, 4.0); draw_line(Vector2(w * 0.45, gy - 40), Vector2(w * 0.7, gy - 40), dark, 4.0); draw_line(Vector2(w * 0.7, gy - 40), Vector2(w * 0.7, gy - 53), dark, 4.0)
+				draw_rect(Rect2(w * 0.12, gy - 18, w * 0.06, 8), wcol)
+				if win_on: draw_circle(Vector2(w * 0.45, gy - 8), 2.5, Color("#E4E8E3") if fmod(t, 0.6) < 0.3 else Color("#2D5DA8"))
 			"turnaround":
 				for i in 3:
 					var x0 := w * (0.1 + i * 0.22)

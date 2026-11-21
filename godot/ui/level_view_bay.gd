@@ -86,12 +86,13 @@ func refresh(force := false) -> void:
 				var cp := ControlPanel.new(); cp.app_ref = app; panel = cp; add_child(cp)
 				cp.dial_set.connect(_on_dial)
 				layout()
-			"hazop", "sop", "permit", "reconcile", "gantt", "career":
+			"hazop", "sop", "permit", "reconcile", "gantt", "career", "pumps":
 				match k:
 					"hazop": panel = Ch9Hazop.new()
 					"sop", "permit": panel = Ch9Cards.new()
 					"reconcile": panel = Ch9Recon.new()
 					"career": var cb := CareerBoard.new(); cb.app_ref = app; panel = cb
+					"pumps": panel = HydBoard.new()
 					_: panel = Ch9Gantt.new()
 				add_child(panel); (panel as Ch9Board).act.connect(_on_act)
 				layout()

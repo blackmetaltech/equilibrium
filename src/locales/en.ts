@@ -14,8 +14,9 @@ import { levelsCh5 } from './en/levels_ch5';
 import { levelsCh6 } from './en/levels_ch6';
 import { levelsCh8 } from './en/levels_ch8';
 import { levelsCh9 } from './en/levels_ch9';
+import { levelsCh10 } from './en/levels_ch10';
 import { levelsCareer } from './en/levels_career';
 import { ui } from './en/ui';
 import { why } from './en/why';
 
-export const en: Record<string, string> = { ...ui, ...briefs, ...coach, ...why, ...codex, ...events, ...errors, ...levels, ...levelsCh2, ...levelsCh3, ...levelsCh4, ...levelsCh5, ...levelsCh6, ...levelsCh8, ...levelsCh9, ...levelsCareer };
+export const en: Record<string, string> = { ...ui, ...briefs, ...coach, ...why, ...codex, ...events, ...errors, ...levels, ...levelsCh2, ...levelsCh3, ...levelsCh4, ...levelsCh5, ...levelsCh6, ...levelsCh8, ...levelsCh9, ...levelsCh10, ...levelsCareer };

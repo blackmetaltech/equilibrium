@@ -173,8 +173,8 @@ func _map() -> void:
 		await drag(from, from - Vector2(0, 160)); await frames(2)
 		check(sc.scroll_vertical > y0, "a swipe that starts on a lamp scrolls the map (%d -> %d)" % [y0, sc.scroll_vertical])
 		check(str(app.b.g.get("level", "")) != "L00" or lm.is_inside_tree(), "the swipe did not start a job")
-		for i in 6: await drag(sc.get_global_rect().get_center() + Vector2(300, 100), sc.get_global_rect().get_center() + Vector2(300, -100)); await frames(1)
-		var last := lm.find_child("Site_10", true, false) as Control
+		for i in 8: await drag(sc.get_global_rect().get_center() + Vector2(300, 100), sc.get_global_rect().get_center() + Vector2(300, -100)); await frames(1)
+		var last := lm.find_child("Site_11", true, false) as Control
 		check(last != null and sc.get_global_rect().intersects(last.get_global_rect()) and sc.get_global_rect().intersection(last.get_global_rect()).size.y > 40.0, "the Career site can be swiped into view")
 		await drag(sc.get_global_rect().get_center(), sc.get_global_rect().get_center() + Vector2(0, 400), 10); await frames(1)
 		await drag(sc.get_global_rect().get_center(), sc.get_global_rect().get_center() + Vector2(0, 400), 10); await frames(2)

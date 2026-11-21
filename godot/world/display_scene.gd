@@ -18,6 +18,7 @@ const UNITS := {
 	"L36": [["feed", 4, 6, 0, "F-100"], ["hx", 10, 6, 0, "E-101"], ["product", 17, 6, 0, "T-102"]],
 	"L37": [["feed", 2, 3, 0, "F-100"], ["converter", 9, 2, 0, "R-101"], ["flash", 16, 3, 0, "D-102"], ["product", 19, 10, 0, "T-103"]],
 	"L38": [["feed", 2, 4, 0, "F-100"], ["converter", 8, 3, 0, "R-101"], ["hx", 14, 4, 0, "E-102"], ["flash", 19, 3, 0, "D-103"], ["compressor", 8, 10, 0, "K-104"], ["stack", 15, 10, 0, "Z-105"], ["product", 19, 9, 0, "T-106"]],
+	"L39": [["product", 3, 8, 0, "T-301"], ["compressor", 9, 9, 0, "P-301"], ["flash", 17, 4, 0, "D-302"]],
 	"CAREER": [["feed", 1, 1, 0, "A"], ["converter", 6, 1, 0, "A"], ["product", 11, 1, 0, "A"],
 		["feed", 13, 1, 0, "B"], ["cstr", 18, 1, 0, "B"],
 		["feed", 1, 9, 0, "C"], ["flash", 6, 9, 0, "C"], ["product", 9, 9, 0, "C"],
@@ -134,6 +135,13 @@ func _extras(id: String) -> void:
 				_pipe(_tile(pr[0], pr[1]) + Vector3(0, y, 0), _tile(pr[2], pr[3]) + Vector3(0, y, 0), 0.0)
 			_crane(_tile(10.0, 6.0))   # the plant under maintenance
 			_label("TURNAROUND", _tile(10.0, 6.0) + Vector3(0, 12.5, 0), Color("#FFB703"))
+		"L39":   # the condensate return: tank at grade, the pump on its plinth, a riser up to the deaerator on the boiler-house deck
+			_pipe(_tile(6.0, 10.0) + Vector3(0, 0.6, 0), _tile(9.0, 10.0) + Vector3(0, 0.6, 0), 0.0)
+			_pipe(_tile(11.0, 10.0) + Vector3(0, 0.8, 0), _tile(15.0, 10.0) + Vector3(0, 0.8, 0), 0.0)
+			_pipe(_tile(15.0, 10.0) + Vector3(0, 0.8, 0), _tile(15.0, 10.0) + Vector3(0, 7.0, 0), 0.0)
+			_pipe(_tile(15.0, 10.0) + Vector3(0, 7.0, 0), _tile(15.0, 5.0) + Vector3(0, 7.0, 0), 0.0)
+			_box(Vector3(9.0, 0.4, 6.0), _tile(18.0, 5.0) + Vector3(0, 0.2, 0), Color("#7C7466"))
+			_label("PUMP HOUSE", _tile(10.0, 9.0) + Vector3(0, 3.6, 0), Color("#FFB703"))
 		"CAREER":
 			for g in [[1.0, 6.2, "PLANT A"], [13.0, 6.2, "PLANT B"], [1.0, 14.0, "PLANT C"], [13.0, 14.0, "PLANT D"]]:
 				_label(str(g[2]), _tile(float(g[0]) + 4.0, float(g[1])) + Vector3(0, 0.5, 0), Color("#FFB703"))
