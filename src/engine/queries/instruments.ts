@@ -114,7 +114,7 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
     const curve = eqCurve({ species: s.species, n0: firstIn.n, P: firstIn.P, reactions: rxns, detail: s.thermoDetail }, grid, refSp);
     const eq = curve.ok ? curve.value.T.map((T, i) => ({ T, X: curve.value.X[i]! })) : [];
     const w = windowOf(first);
-    return { eq, beds, coolers, lightOffT: w.Tmin ?? null, sinterT: w.Tmax ?? null };
+    return { eq, beds, coolers, lightOffT: w.Tmin ?? null, sinterT: w.Tmax ?? null, estimate: !s.solved?.ok };   // F25: no stored run behind it = a design estimate, not a measurement
   },
 
   /** Semenov plot of a jacketed CSTR: heat generated G(T) and removed R(T) in W, the steady states with stability, and the operating point (under a running shift: live jacket and the vessel's current T). */
@@ -157,7 +157,7 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
     if (!c.ok) return none(c.code);
     const w = windowOf(u);
     return {
-      window: { T: c.value.T, X: c.value.X, ref: c.value.ref }, pBar: st.P / 1e5, point: { T: Tout, X: fin(info.X), TIn: Tin },
+      window: { T: c.value.T, X: c.value.X, ref: c.value.ref }, ref: c.value.ref ?? (key >= 0 ? s.species[key] : null), estimate: !s.solved?.ok, pBar: st.P / 1e5, point: { T: Tout, X: fin(info.X), TIn: Tin },
       beam: { out: fin(info.QK_out), in: fin(info.QK_in) }, lightOffT: w.Tmin ?? null, sinterT: w.Tmax ?? null, reason: null,
     };
   },
@@ -166,7 +166,8 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
   heatLedger: (s) => {
     const sol = liveOf(s);
     const labels = { ribbon: t('ledger.ribbon'), release: t('ledger.release'), recovered: t('ledger.recovered'), lost: t('ledger.lost'), duty: t('ledger.duty'), exchanger: t('ledger.exchanger'), efficiency: t('ledger.efficiency'), total: t('ledger.total') };
-    if (!sol || !s.species.every(hasThermo) || callWithheld(s)) return { items: [], totalMW: 0, exchangerMW: 0, heaters: [], labels };
+    // F25: an aborted run leaves no figures on the paper (they were the dead plant's), and a ledger with no stored run behind it is a design estimate
+    if (!sol || !s.species.every(hasThermo) || callWithheld(s) || s.status === 'lost') return { items: [], totalMW: 0, exchangerMW: 0, heaters: [], labels, estimate: false };
     const mx = makeMixture(s.species);
     const H = (n: readonly number[]): number => enthalpyFlowAt(mx, n, T_REF);
     const sum = (ids: string[]): number[] => s.species.map((_, i) => ids.reduce((a, id) => a + (sol.streams[id]?.n[i] ?? 0), 0));
@@ -191,6 +192,6 @@ export const instrumentQueries: Record<string, QueryFn<EqState>> = {
       else if (u.type === 'cooler' || u.type === 'compressor' || u.type === 'nh3_sep') add(-fin(r.duty) / 1e6, 'lost');
     }
     /** exchangerMW: heat the exchangers move between process streams (a recovered line of its own); heaters: duty against the fuel burnt, efficiency = duty / fuel; labels: every word the ledger prints. */
-    return { items: items.filter((i) => i.MW > 0), totalMW: total, exchangerMW, heaters, labels };
+    return { items: items.filter((i) => i.MW > 0), totalMW: total, exchangerMW, heaters, labels, estimate: !s.solved?.ok };
   },
 };

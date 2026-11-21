@@ -14,6 +14,7 @@ var _scroll: ScrollContainer
 var _list: VBoxContainer
 var _sig := ""
 var _auto := ""                    ## the line the guide is pointing at now
+var _armed_level := ""             ## the level whose first part row has been put in hand
 
 class Row extends PanelContainer:
 	signal picked(id: String)
@@ -128,6 +129,10 @@ func _guide() -> void:
 	# plot places it (testers clicked the plot and nothing happened: the tile only pulsed). Only on an advance, never on opening a level.
 	if _auto != prev_auto and prev_auto != "" and str(tg.get("kind", "")) == "place" and bool(line_of(prev_auto).get("done", false)):
 		_auto_arm.call_deferred(str(tg.get("id", "")))   # deferred: the placement that ticked the row is still in hand until its handler drops it
+	# F25: the very first part row of a level is put in hand too (once per level, while nothing is ticked): one click on the plot places it, which saves the arming click
+	if _auto != "" and _armed_level != _level and str(tg.get("kind", "")) == "place" and not lines.any(func(l): return bool(l.get("done", false))):
+		_armed_level = _level
+		_auto_arm.call_deferred(_auto)
 	var ports: Array = []; var tile := ""; var sug := Vector2i(-1, -1); var stype := ""
 	if not tg.is_empty():
 		match str(tg.kind):

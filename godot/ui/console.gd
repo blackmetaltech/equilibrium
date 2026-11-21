@@ -268,6 +268,7 @@ func _explain_run(li: Dictionary, runs: Array) -> void:
 	var who := str(li.get("setter", "mara"))
 	if missed:
 		var lesson := str(li.get("lesson", ""))
+		if lesson != "" and float(li.get("shiftLen", 0)) > 0.0 and ph == "commissioned": lesson = PaperStrings.t("IC_LESSON_AT_COMMISSION") % lesson   # F25: a shift's printout carries the end-of-shift numbers; this line is the commission-time basis, and says so
 		if lesson != "": intercom.say(who, lesson, "info"); _outcome_said = true
 		return
 	intercom.say("MARA", PaperStrings.t("IC_GOAL_MET") % "; ".join(met), "info"); _outcome_said = true

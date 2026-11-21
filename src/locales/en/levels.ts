@@ -9,6 +9,8 @@ export const levels: Record<string, string> = {
   'lv.goal.pending': 'pending',
   'lv.lesson.not_run': 'The lesson quotes your own numbers: build the missing unit, commission, and it appears here.',
   'lv.build.place': 'Place {part}',
+  'lv.coach.checklist.text': 'Next on the build checklist: {row}.',
+  'lv.coach.checklist.why': 'Why: the checklist is the build order; each row ticks when the plant has it, and the plant is only ready to commission when every row is ticked.',
   'lv.build.pipe': 'Pipe {from} {fport} to {to} {tport}',
   'lv.needs_unit': 'No {unit} in the plant yet: place one and pipe it in, then commission again.',
   'lv.goal.needs_unit': 'needs a {unit}',

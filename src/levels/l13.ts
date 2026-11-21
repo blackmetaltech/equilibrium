@@ -154,7 +154,7 @@ export const L13: LevelSpec = {
     const conv = g.find((x) => x.key === 'conv')!;
     return [
       { key: 'conv', legend: t('lv.L13.ann.conv'), state: !m.ok ? 'off' : conv.met ? 'normal' : m.v.conv_pct! < 90 ? 'critical' : 'high' },
-      { key: 'sinter', legend: t('lv.L13.ann.sinter'), state: !m.ok ? 'off' : m.v.sinter ? 'critical' : m.v.tmax_c! > C(T_SINTER) - 10 ? 'high' : 'normal' },
+      { key: 'sinter', legend: t(!m.v.sinter && m.ok && m.v.tmax_c! > C(T_SINTER) - 10 ? 'lv.L13.ann.sinter_near' : 'lv.L13.ann.sinter'), state: !m.ok ? 'off' : m.v.sinter ? 'critical' : m.v.tmax_c! > C(T_SINTER) - 10 ? 'high' : 'normal' },
       { key: 'asleep', legend: t('lv.L13.ann.asleep'), state: !m.ok ? 'off' : m.v.asleep! > 0 ? 'high' : 'normal' },
       { key: 'stall', legend: t('lv.L13.ann.stall'), state: !m.ok ? 'off' : m.v.beds_in_line! <= 1 && !conv.met ? 'high' : 'normal' },
       { key: 'beds', legend: t('lv.L13.ann.beds'), state: m.v.beds! > 3 ? 'high' : 'normal' },

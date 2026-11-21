@@ -48,6 +48,7 @@ var _why_card: PanelContainer
 var _cat_box: VBoxContainer
 var _boxes: Array = []
 var _cat_note: Label
+var _cat_all: Button                ## F25: "apply catalyst and charge to all beds" (shown when another unit of this type exists and this one has a catalyst)
 static var _seq := 0
 const MAX_PLATES := 2
 
@@ -394,8 +395,33 @@ func _add_catalyst(cat: Dictionary) -> void:
 		bt.pressed.connect(func(): _commit_catalyst(oid)); fl.add_child(bt); m[oid] = bt
 	pickers["catalyst"] = m
 	_cat_note = EqTheme.label("", 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "mono"); _cat_note.name = "CatalystNote"; _cat_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _cat_note.custom_minimum_size = Vector2(190, 0); box.add_child(_cat_note)
+	_cat_all = EqTheme.key_button(PaperStrings.t("FP_CAT_ALL"), false, 13); _cat_all.name = "CatalystAll"; _cat_all.custom_minimum_size = Vector2(190, 28)
+	_cat_all.tooltip_text = PaperStrings.t("FP_CAT_ALL_TIP"); _cat_all.pressed.connect(_apply_catalyst_all); _cat_all.visible = false; box.add_child(_cat_all)
 	_hook_pulse(box, "catalyst")
 	_knob_box.add_child(box)
+
+## The other units of this type on the plot.
+func _same_type_ids() -> Array:
+	var out: Array = []
+	for u in app.b.g.get("units", []):
+		if str(u.get("type", "")) == str(card.get("type", "")) and str(u.get("id", "")) != unit_id: out.append(str(u.id))
+	return out
+
+## F25: this bed's catalyst and its charge (the W knob) go to every other unit of the same type in one press.
+func _apply_catalyst_all() -> void:
+	if _tripped(): app.toast(PaperStrings.t("FP_TRIPPED"), "warn"); refresh(); return
+	var cat = card.get("catalyst")
+	if not (cat is Dictionary) or cat.get("id") == null: return
+	var w_si = null
+	for k in card.knobs: if str(k.key) == "W": w_si = float(k.value)
+	var n := 0
+	for id in _same_type_ids():
+		var r: Dictionary = app.b.act("setCatalyst", [id, str(cat.id)])
+		if bool(r.get("ok", false)) and w_si != null: r = app.b.act("setParam", [id, "W", w_si])
+		if bool(r.get("ok", false)): n += 1
+		else: app.toast(str(r.get("message", "")), "warn"); break
+	if n > 0: app.toast(PaperStrings.t("FP_CAT_ALL_DONE") % [n, str(cat.id)], "good")
+	refresh()
 
 func _cat_line(o: Dictionary) -> String:
 	if o.has("kText"): return "%s · k %s (25 °C)" % [str(o.name), str(o.kText)]   # a bench rig's catalyst: the rate constant, not a price
@@ -565,7 +591,7 @@ func _update() -> void:
 		var wrong := ""
 		if str(card.type) == "heater" and (utl == "cw" or utl == "refrig"): wrong = PaperStrings.t("UT_COLD")   # a heater on cooling water cannot heat: say so loudly
 		elif str(card.type) == "cooler" and (utl == "fired" or utl == "steam"): wrong = PaperStrings.t("UT_HOT")
-		_warn.text = wrong if wrong != "" else (PaperStrings.t("UT_ZERO") if zero else "")
+		_warn.text = wrong if wrong != "" else (PaperStrings.t("UT_ZERO") % str(card.get("label", card.get("type", "unit"))).to_lower() if zero else "")
 		(_warn.get_meta("box") as Control).modulate.a = 1.0 if (zero or wrong != "") else 0.0
 	_lens.disabled = app == null or not app.has_method("open_lens"); _win.disabled = app == null or not app.has_method("open_window")
 	reset_size()
@@ -588,6 +614,7 @@ func _update_catalyst() -> void:
 					line += "\n" + (PaperStrings.t("RIG_OK") if bool(r.fastEnough) else PaperStrings.t("RIG_SLOW")) % str(lv.get("kNeededText", ""))
 	elif line == "": pass
 	if _cat_note != null: _cat_note.text = line
+	if _cat_all != null: _cat_all.visible = cur != "" and not (rig is Dictionary) and not _same_type_ids().is_empty()
 	readouts["catalyst"] = {"text": cur, "si": 0.0, "unit": "", "cap": "catalyst"}
 
 const RC_CAP := {"T": "T", "Tmax": "T max", "Tmin": "T min", "Tin": "T in", "Tout": "T out", "Thot": "T hot", "Tcold": "T cold", "Tc": "T cool"}
@@ -768,6 +795,8 @@ class Hub extends Node:
 	var from_inlet := false
 	var legal: Array = []
 	var hover_id := ""
+	var chained := false          ## F25: the pipe in hand was re-armed by the chain (a pipe dropped on an inlet carries on from that unit's next free outlet)
+	static var chain_hint_said := false
 
 	func connect_world() -> void:
 		var w = app.world
@@ -775,6 +804,7 @@ class Hub extends Node:
 		if w.has_signal("unit_clicked") and not w.unit_clicked.is_connected(_on_unit): w.unit_clicked.connect(_on_unit)
 		if w.has_signal("port_clicked") and not w.port_clicked.is_connected(_on_port): w.port_clicked.connect(_on_port)
 		if w.has_signal("place_requested") and not w.place_requested.is_connected(_on_place): w.place_requested.connect(_on_place)
+		if w.has_signal("chain_ended") and not w.chain_ended.is_connected(_on_chain_end): w.chain_ended.connect(_on_chain_end)
 		if w.has_signal("unit_hover") and not w.unit_hover.is_connected(_on_unit_hover): w.unit_hover.connect(_on_unit_hover)
 		if app.b != null and not app.b.changed.is_connected(_on_changed): app.b.changed.connect(_on_changed)
 		StreamTag.attach(app)
@@ -828,6 +858,7 @@ class Hub extends Node:
 			_holding = e.pressed; _hold = 0.0
 
 	func _process(dt: float) -> void:
+		if from_unit != "" and app != null and app.world != null and app.world.placing != "": clear_pipe()   # F25: a part taken from the rack drops the pipe in hand
 		if not _holding: return
 		_hold += dt
 		if _hold >= 0.8:
@@ -981,7 +1012,8 @@ class Hub extends Node:
 	func show_free_ports(id: String) -> void: app.world.show_ports(_free_ports(id))
 
 	func clear_pipe() -> void:
-		from_unit = ""; from_port = ""; legal = []
+		from_unit = ""; from_port = ""; legal = []; chained = false
+		if app != null and app.world != null: app.world.pipe_chained = false
 		if app != null and app.world != null and app.world.has_method("set_pipe_ghost"): app.world.set_pipe_ghost("", "", false)
 
 	func _light_targets() -> void:
@@ -994,6 +1026,7 @@ class Hub extends Node:
 				if str(id) == from_unit and str(m.port) == from_port: m.hot = true
 				elif bool(m.inlet) != from_inlet:   # the opposite kind is a candidate; legal ones glow
 					for t in legal: if t.unit == m.unit and t.port == m.port: m.hot = true
+				elif chained: marks.append(m); seen[str(m.unit) + ":" + str(m.port)] = true; continue   # F25: with the chain's pipe in hand every free outlet stays clickable (a click on one restarts the pipe from it, as before the chain)
 				else: continue
 				marks.append(m); seen[str(m.unit) + ":" + str(m.port)] = true
 		app.world.show_ports(marks)
@@ -1006,11 +1039,38 @@ class Hub extends Node:
 			if legal.is_empty(): app.toast(PaperStrings.t("PIPE_NONE") % [unit, port], "warn"); clear_pipe(); show_free_ports(unit); return
 			app.world.set_pipe_ghost(unit, port, inlet)
 			app.toast((PaperStrings.t("PIPE_FROM") if not inlet else PaperStrings.t("PIPE_FROM_IN")) % unit, "info"); return
-		if unit == from_unit and port == from_port: clear_pipe(); show_free_ports(unit); return
+		if unit == from_unit and port == from_port:
+			if chained: return   # the chain armed this port for you: a click on it again keeps the pipe in hand
+			clear_pipe(); show_free_ports(unit); return
 		if inlet == from_inlet:   # same kind: restart from this port
 			clear_pipe(); _on_port(unit, port, inlet); return
 		var a: Array = [from_unit, from_port, unit, port] if not from_inlet else [unit, port, from_unit, from_port]
 		var r: Dictionary = app.b.act("connect", a)
 		if not bool(r.get("ok", false)): app.toast(str(r.get("message", "")), "warn"); return   # the engine's teaching refusal
 		app.toast(PaperStrings.t("PIPE_DONE") % [a[0], a[2]], "good")
+		var was_outlet := not from_inlet
 		clear_pipe(); show_free_ports(unit)
+		if was_outlet: _chain_on(unit)
+
+	## F25 chained piping: the pipe tool re-arms from the first free outlet of the unit the pipe was just dropped on (the main "out" first, then the others), so a train is
+	## piped with one move per link. A unit with no free outlet (a tank, the stack) ends the chain. The first chain says so on the intercom.
+	func _chain_on(unit: String) -> void:
+		var outs: Array = _free_ports(unit).filter(func(m): return not bool(m.inlet))
+		outs.sort_custom(func(a, b): return (0 if str(a.port) == "out" else 1) < (0 if str(b.port) == "out" else 1))
+		for m in outs:
+			from_unit = unit; from_port = str(m.port); from_inlet = false; chained = true
+			_light_targets()
+			if legal.is_empty(): clear_pipe(); continue
+			app.world.pipe_chained = true
+			app.world.set_pipe_ghost(unit, from_port, false)
+			if not Hub.chain_hint_said:
+				Hub.chain_hint_said = true
+				app.toast(PaperStrings.t("PIPE_CHAIN_HINT"), "info")
+			else: app.toast(PaperStrings.t("PIPE_FROM") % unit, "info")
+			return
+
+	## The world answered a click on empty ground while a chained pipe was in hand: the chain ends.
+	func _on_chain_end() -> void:
+		if from_unit == "": return
+		var u := from_unit
+		clear_pipe(); show_free_ports(u)

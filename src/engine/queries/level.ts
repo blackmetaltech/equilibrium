@@ -125,6 +125,17 @@ function coachOf(s: S, spec: LevelSpec): { step: number; total: number; speaker:
   }
   const c = spec.coach[i]!;
   let focus: { unit?: string; rack?: string; key?: boolean; knob?: string } | null = null;
+  // F25: on a level with a build checklist the coach never runs ahead of it. While the design has open rows the intercom gives the next unticked row.
+  const guide = s.phase === 'design' ? buildGuideOf(s, spec) : null;
+  const row = guide?.find((l) => !l.done);
+  const focusType = c.focus !== undefined && c.focus !== 'key' ? c.focus.split(':')[0] : undefined;
+  // a coach step that talks about the very row (a setting on that unit type; the pipes while a pipe row is next) is the checklist's own words; anything else is ahead of it or coarser than it
+  const aligned = row !== undefined && ((row.kind === 'set' && focusType !== undefined && focusType === row.type) || (row.kind === 'pipe' && c.id === 'pipe_up'));
+  const doable = row !== undefined && (row.kind !== 'set' || row.type !== undefined);   // a row with no unit to point at (L24's "start the shift") is not a design-time row
+  if (row !== undefined && doable && !aligned) {
+    const rf: { unit?: string; rack?: string } | null = row.kind === 'place' ? (row.type ? { rack: row.type } : null) : row.kind === 'pipe' ? (row.from?.unit ? { unit: row.from.unit } : null) : (row.unit ? { unit: row.unit } : null);
+    return { step: i + 1, total: spec.coach.length, speaker: regionOf(s).data.cast[c.role], text: t('lv.coach.checklist.text', { row: row.text }), why: t('lv.coach.checklist.why', {}), focus: rf, redo: i !== i0 };
+  }
   if (c.focus === 'key') focus = { key: true };
   else if (c.focus) {
     const [type, knob] = c.focus.split(':');

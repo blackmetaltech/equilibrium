@@ -60,7 +60,7 @@ func _wiring() -> void:
 	check(w.snap_legal(p1 + Vector2(400, 300)).is_empty(), "nothing snaps 500 px away")
 	var n0 := nstreams()
 	await click_at(p1 + off); await frames(2)
-	check(nstreams() == n0 + 1 and hub.from_unit == "", "the near-miss click piped feed -> mixer (%d -> %d)" % [n0, nstreams()])
+	check(nstreams() == n0 + 1 and (hub.from_unit == "" or hub.chained), "the near-miss click piped feed -> mixer (%d -> %d); F25: the mixer's outlet is armed by the chain" % [n0, nstreams()])
 	# a missed drop: the pipe stays in hand, the message names the nearest free inlet
 	w.select(f2); hub._refresh_ports(); await frames(2)
 	await click_at(pip(f2, "out", false))

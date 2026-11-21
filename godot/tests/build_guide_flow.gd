@@ -168,8 +168,13 @@ func do_pipe(id: String, l: Dictionary) -> void:
 	check(a.unit != null and b.unit != null, "%s: both ends of %s exist" % [id, sid])
 	check(w.guiding().size() == 2, "%s: clicking %s pulses its two ports (%s)" % [id, sid, str(w.guiding())])
 	var pa: Vector2 = w.port_screen(str(a.unit), str(a.port), false); var pb: Vector2 = w.port_screen(str(b.unit), str(b.port), true)
+	if OS.get_environment("CB_BG_DBG") == sid:
+		var hb = app.root.get_node("PaperHub")
+		print("  dbg BEFORE pa: hub from ", hb.from_unit, ".", hb.from_port, " chained ", hb.chained, " pa ", pa, " pick ", str(w._pick_port(pa)), " marks ", str(w._marks.map(func(m): return str(m.unit) + "." + str(m.port) + (" hot" if m.get("hot", false) else ""))))
 	await click_at(pa, 3)
 	if OS.get_environment("CB_BG_DBG") == sid:
+		var hb2 = app.root.get_node("PaperHub")
+		print("  dbg AFTER pa: hub from ", hb2.from_unit, ".", hb2.from_port, " chained ", hb2.chained)
 		pb = w.port_screen(str(b.unit), str(b.port), true)
 		print("  dbg ghost=", w.pipe_ghost_active(), " pb=", pb, " marks=", w._marks.size(), " nodes=", w._mark_nodes.size(), " pick=", str(w._pick_port(pb)))
 		for i in w._mark_nodes.size():

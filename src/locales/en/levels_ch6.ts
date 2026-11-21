@@ -71,7 +71,7 @@ export const levelsCh6: Record<string, string> = {
   'lv.L25.ann.so2': 'SO2 EMISSION', 'lv.L25.ann.mist': 'ACID MIST', 'lv.L25.ann.hot': 'BED OVERTEMP', 'lv.L25.ann.one': 'ONE ABSORBER', 'lv.L25.ann.solve': 'SOLVE FAIL', 'lv.L25.ann.goal': 'GOAL MET',
   'lv.L25.build.catalyst': 'Click each of the four beds: catalyst V₂O₅, 8000 kg',
   'lv.L25.build.temps': 'Set both coolers and the heater to 420 °C (693.15 K)',
-  'lv.L25.coach.place_beds.text': 'Place three catalyst beds with a cooler between each.',
+  'lv.L25.coach.place_beds.text': 'Place four catalyst beds with a cooler between the first three, an absorber after the third and a second one after the fourth.',
   'lv.L25.coach.place_beds.why': 'Why: the reaction heats the gas toward its equilibrium; a cooler pulls it back so it can go on converting.',
   'lv.L25.coach.catalyst.text': 'Click a bed, then on its card choose the V₂O₅ vanadium catalyst in the catalyst selector and set the catalyst mass. Do this for every bed.',
   'lv.L25.coach.catalyst.why': 'Why: the bed is only as fast as its catalyst: no catalyst, no rate.',

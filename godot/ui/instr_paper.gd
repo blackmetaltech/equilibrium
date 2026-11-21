@@ -13,7 +13,7 @@ var _tw: Tween
 
 const S := {
 	"INS_EQWIN": "Equilibrium window", "INS_XT": "X-T staircase", "INS_SEM": "Semenov plot", "INS_LEDGER": "Heat ledger",
-	"INS_X": "conversion %", "INS_T": "T °C", "INS_NOW": "actual", "INS_ASLEEP": "catalyst asleep", "INS_SINTER": "sinters",
+	"INS_X": "conversion %", "INS_X_OF": "conversion of %s (limiting reactant) %%", "INS_ESTIMATE": "design estimate", "INS_T": "T °C", "INS_NOW": "actual", "INS_ASLEEP": "catalyst asleep", "INS_SINTER": "sinters",
 	"INS_G": "heat made", "INS_AT_FEED": "states at the current feed %s kmol/h", "INS_R": "heat removed", "INS_STABLE": "stable", "INS_UNSTABLE": "unstable", "INS_KW": "kW",
 	"INS_RELEASED": "released", "INS_RECOVERED": "recovered", "INS_LOST": "lost", "INS_DUTY": "duty", "INS_MW": "MW",
 	"INS_BED": "bed %d", "INS_XT_NONE": "Commission the plant: the staircase\ndraws itself, bed by bed.", "INS_COOL": "cooler", "INS_EQ": "equilibrium ceiling", "INS_BEAM_LEVEL": "level", "INS_QK_HI": "too much product", "INS_QK_LO": "too little product",

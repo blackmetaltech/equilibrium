@@ -16,6 +16,7 @@ func _lab(key: String, fallback: String) -> String:
 ## Lines under the bars: heat the exchangers swap, and each heater's duty against the fuel it burns (efficiency).
 func _extra_lines() -> Array:
 	var out: Array = []
+	if bool(data.get("estimate", false)): out.append(InstrPaper.T("INS_ESTIMATE") + " (no run yet)")   # F25: figures off a throw-away solve of the current design are a prediction, and say so
 	var ex := num(data.get("exchangerMW", 0.0))
 	if ex > 0.0: out.append("%s  %s %s" % [_lab("exchanger", "exchangers"), _fmt(ex), InstrPaper.T("INS_MW")])
 	for h in arr(data.get("heaters", [])):

@@ -131,6 +131,12 @@ export function ammoniaBuild(feedIds: string[], T: number, P: number, stages: nu
 /** Call-it truth: K of N2 + 3H2 = 2NH3 at 450 C (rigorous), in units of 1e-5 bar^-2. */
 export const K450_E5 = (): number => kOf('R1', 450 + 273.15) * 1e5;
 
+/** F25: "K here and K at 380 °C" is said once when the converter sits at 380 °C (the two numbers are the same one). */
+const k380Tails = (s: { region: string }, m: Measures): { tailK: string; tailK2: string } => {
+  const same = Math.abs((m.v.t_c ?? 0) - 380) < 0.05;
+  return { tailK: same ? t('lv.L10.k380.same_a') : t('lv.L10.k380.diff_a', { K380: f(s, m.v.k_380!) }), tailK2: same ? t('lv.L10.k380.same_b') : t('lv.L10.k380.diff_b', { K380: f(s, m.v.k_380!) }) };
+};
+
 export const L10: LevelSpec = {
   id: 'L10', firstRun: true, chapter: 3, index: 10, setter: 'manager', budgetUSD: L10_BUDGET, units: L10_UNITS, notes: 2, shiftLen: 0,
   setup: (s) => {
@@ -171,7 +177,7 @@ export const L10: LevelSpec = {
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
     if (m.v.relief) return { key: 'relief', cause: t('lv.L10.cause.relief', { P: f(s, m.v.p_bar!), max: P_VESSEL_MAX }) };
     if (!m.v.active) return { key: 'asleep', cause: t('lv.L10.cause.asleep', { T: f(s, m.v.t_c!), min: f(s, C(T_LIGHT_OFF)) }) };
-    const vars = { y: f(s, m.v.y_pct!), T: f(s, m.v.t_c!), P: f(s, m.v.p_bar!), K: f(s, m.v.k_now!), K380: f(s, m.v.k_380!), want: L10_Y_MIN };
+    const vars = { y: f(s, m.v.y_pct!), T: f(s, m.v.t_c!), P: f(s, m.v.p_bar!), K: f(s, m.v.k_now!), K380: f(s, m.v.k_380!), want: L10_Y_MIN, ...k380Tails(s, m) };
     return m.v.t_c! >= 450 ? { key: 'wall', cause: t('lv.L10.cause.wall', vars) } : { key: 'low_p', cause: t('lv.L10.cause.low_p', vars) };
   },
   equation: (s, m) => {
@@ -183,7 +189,7 @@ export const L10: LevelSpec = {
     if (!(pA > 0 && pN > 0 && pH > 0)) return null;
     return `${f(s, pA)} × ${f(s, pA)} ÷ (${f(s, pN)} × ${f(s, pH)} × ${f(s, pH)} × ${f(s, pH)}) × 100000 = ${f(s, shown(((pA * pA) / (pN * pH * pH * pH)) * 1e5))} (K in 10⁻⁵ bar⁻²)`;
   },
-  lessonVars: (s, m) => ({ y: f(s, m.v.y_pct!), T: f(s, m.v.t_c!), P: f(s, m.v.p_bar!), K: f(s, m.v.k_now!), K380: f(s, m.v.k_380!), kw: f(s, m.v.shaft_kw!) }),
+  lessonVars: (s, m) => ({ y: f(s, m.v.y_pct!), T: f(s, m.v.t_c!), P: f(s, m.v.p_bar!), K: f(s, m.v.k_now!), K380: f(s, m.v.k_380!), kw: f(s, m.v.shaft_kw!), ...k380Tails(s, m) }),
   metrics: (_s, m) => [
     { key: 'cost_usd_t', unit: 'USD/t', value: m.v.cost_usd_t! },
     { key: 'comp_mw', unit: 'MW', value: m.v.comp_mw! },

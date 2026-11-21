@@ -67,7 +67,7 @@ func _draw_body() -> void:
 		draw_string(EqTheme.font("mono_bold"), (a + b) * 0.5 + Vector2(6, 14), "%d" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, 20.0, EqTheme.fs(12), EqTheme.INK)
 	# readout on tape: the last bed's conversion, and the Tmax
 	var last: Dictionary = beds[n - 1]
-	var ly := tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), "%s %.1f %%" % [InstrPaper.T("INS_BED") % n, num(last.outX) * 100.0], EqTheme.PEN_RED, pl.size.x - 8.0)
+	var ly := tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), "%s %.1f %%%s" % [InstrPaper.T("INS_BED") % n, num(last.outX) * 100.0, (" " + InstrPaper.T("INS_ESTIMATE")) if bool(data.get("estimate", false)) else ""], EqTheme.PEN_RED, pl.size.x - 8.0)
 	if lo != null and px.call(num(lo)) > pl.position.x + 70.0: tape(Vector2(pl.position.x + 4.0, pl.end.y - 20.0), InstrPaper.T("INS_ASLEEP"), Color("#6B7C76"), px.call(num(lo)) - pl.position.x - 6.0, 11)
 	if hi != null and pl.end.x - px.call(num(hi)) > 60.0: tape(Vector2(px.call(num(hi)) + 4.0, pl.end.y - 20.0), InstrPaper.T("INS_SINTER"), EqTheme.PEN_RED, pl.end.x - px.call(num(hi)) - 6.0, 11)
 	frame()

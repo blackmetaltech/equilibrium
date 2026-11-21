@@ -70,7 +70,7 @@ func _piping() -> void:
 	hub().clear_pipe(); await show_ports_of([f1, mx])
 	await drag(a, b)
 	check(piped(f1, "out", mx, "in1"), "drag OUT->IN pipes feed to the mixer's in1"); check(nstreams() == 1, "exactly one pipe after the drag: %d" % nstreams())
-	check(hub().from_unit == "", "no half pipe is left in hand after a drag")
+	check(hub().from_unit == "" or hub().chained, "no half pipe is left in hand after a drag (F25: only the chain's re-armed pipe from the mixer)")
 	# letting go over a unit's body takes its one lit inlet
 	await show_ports_of([f2, mx]); var a2 := pip(f2, "out")
 	var body: Vector2 = app.world.unit_screen_pos(mx) + Vector2(0, 8)
@@ -90,7 +90,7 @@ func _piping() -> void:
 	await click_at(ca); check(hub().from_unit == mx, "a click on OUT takes the pipe in hand")
 	var cb := pip(rx, "in")
 	await click_at(cb)
-	check(piped(mx, "out", rx, "in"), "click OUT then click IN pipes mixer to reactor"); check(hub().from_unit == "", "click-click leaves no pipe in hand (its release starts nothing)")
+	check(piped(mx, "out", rx, "in"), "click OUT then click IN pipes mixer to reactor"); check(hub().from_unit == "" or hub().chained, "click-click leaves no half pipe in hand (F25: only the chain's re-armed pipe; its release starts nothing)")
 	check(nstreams() == 3, "three pipes: %d" % nstreams())
 	# click OUT then click the body of the target unit
 	await show_ports_of([rx, tail]); var da := pip(rx, "out")

@@ -15,6 +15,7 @@ signal unit_clicked(id: String)
 signal pipe_hover(id: String, pos: Vector2)
 signal pipe_clicked(id: String)
 signal port_clicked(unit: String, port: String, inlet: bool)
+signal chain_ended()               ## a click or drop on empty ground while a chained pipe (F25) was in hand: the hub drops it
 signal unit_hover(id: String)   ## the unit under the cursor ("" = none); the paper layer lights its free ports
 var _hover_unit := ""
 const GRID := 2.0
@@ -325,8 +326,13 @@ func snap_legal(p: Vector2, anywhere := false) -> Dictionary:
 	return best
 
 var last_pipe_msg := ""
+var pipe_chained := false          ## the pipe in hand was re-armed by the piping chain: empty ground ends it (a plain half-made pipe stays and names the nearest inlet)
 ## A click or drop with a pipe in hand that reached no legal port: say so, name the nearest one, keep the pipe in hand (Esc drops it).
 func pipe_missed(p: Vector2) -> void:
+	if pipe_chained:
+		pipe_chained = false; last_pipe_msg = PaperStrings.t("PIPE_CHAIN_END")
+		if app != null and app.has_method("toast"): app.toast(last_pipe_msg, "info")
+		chain_ended.emit(); return
 	var near := snap_legal(p, true)
 	var kind := PaperStrings.t("PIPE_KIND_OUT") if bool(_ghost_from.get("inlet", false)) else PaperStrings.t("PIPE_KIND_IN")
 	if near.is_empty(): last_pipe_msg = PaperStrings.t("PIPE_MISS_NONE")
@@ -815,14 +821,14 @@ func _click_at(p: Vector2) -> void:
 	if finger and not pk.is_empty() and not pipe_ghost_active() and str(pk.unit) != selected_id: pk = {}
 	if not pk.is_empty():
 		# a pipe already half made: this press finishes it (click, click) and its release must do nothing; else this press starts a pipe and the release may finish it (drag)
-		if not pipe_ghost_active(): _press_port = pk; _press_at = p
+		if not pipe_ghost_active() or (pipe_chained and bool(pk.inlet) == bool(_ghost_from.get("inlet", false)) and not (str(pk.unit) == str(_ghost_from.get("unit", "")) and str(pk.port) == str(_ghost_from.get("port", "")))): _press_port = pk; _press_at = p   # F25: a press on another outlet while the chain's pipe is in hand starts a fresh pipe there, so a drag from it still works
 		port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
 	if pipe_ghost_active():   # a pipe in hand: the nearest legal port within the snap radius takes the click
 		var sn := snap_legal(p)
 		if not sn.is_empty(): port_clicked.emit(str(sn.mark.unit), str(sn.mark.port), bool(sn.mark.inlet)); return
 	var id := _pick_unit(p)
 	if CbLayout.touch or CbLayout.phone: id = _touch_pick(p, id)
-	if pipe_ghost_active() and id == "" and pipes.pick(p, cam, 12.0) == "": pipe_missed(p); return
+	if pipe_ghost_active() and id == "": pipe_missed(p); return   # F25: a click that is on no port and no unit always answers, even when a pipe's line runs under it (a dense plant: L25 never said "Dropped on nothing" there)
 	var pid := pipes.pick(p, cam, 12.0 if id == "" else 6.0)   # over a unit only a click right on the pipe's line picks the pipe: ports, then units, then loose pipes
 	if pid != "": select(""); pipes.select(pid); pipe_clicked.emit(pid); return
 	pipes.select(""); select(id); unit_clicked.emit(id)
