@@ -36,19 +36,21 @@ func _prune() -> void:
 	var tk: Dictionary = app.b.act("placeUnit", ["product", 20, 0, 0]); check(bool(tk.get("ok", false)), "tank placed")
 	var tid := str(tk.get("id", ""))
 	check(bool(app.b.act("connect", ["F-101", "out", tid, "in"]).get("ok", false)), "F-101 piped to the tank")
+	# the level's contract feeds are never strays (F23: a mixer inlet needs them), so place two spare units of our own
+	var fa := str(app.b.act("placeUnit", ["mixer3", 14, 10, 0]).get("id", "")); var fb := str(app.b.act("placeUnit", ["nh3_sep", 18, 10, 0]).get("id", ""))
 	app.game_on_changed(); await frames(3)
 	var strays: Array = app.b.q("strayUnits")
-	check(strays.size() == 2 and strays.has("F-102") and strays.has("F-103"), "strayUnits names both spare feeds: %s" % str(strays))
+	check(strays.size() == 2 and strays.has(fa) and strays.has(fb), "strayUnits names both spare units: %s" % str(strays))
 	var r: Dictionary = app.chrome.turn_key(true); await frames(4)
 	var msg := str(r.get("message", ""))
-	check(not bool(r.get("ok", true)) and msg.contains("F-102") and msg.contains("F-103"), "the refusal lists ALL unpiped units at once: " + msg)
+	check(not bool(r.get("ok", true)) and msg.contains(fa) and msg.contains(fb), "the refusal lists ALL unpiped units at once: " + msg)
 	var l: Dictionary = app.chrome.intercom.last()
 	check(l.has("action") and str(l.get("action_label", "")) == "Delete all unconnected", "the refusal carries a Delete all unconnected key")
 	var btn: Button = app.chrome.intercom._act
 	check(btn != null and btn.visible and btn.text == "Delete all unconnected", "the key is on the intercom")
 	var n0: int = (app.b.q("plant").units as Array).size()
 	btn.pressed.emit(); await frames(4)
-	check((app.b.q("plant").units as Array).size() == n0 - 2, "pressing it deletes both spare feeds")
+	check((app.b.q("plant").units as Array).size() == n0 - 2, "pressing it deletes both spare units")
 	check((app.b.q("strayUnits") as Array).is_empty() and not btn.visible, "no strays remain and the key is spent")
 
 ## In DESIGN every unit's free ports are on the sheet without a hover or a selection.

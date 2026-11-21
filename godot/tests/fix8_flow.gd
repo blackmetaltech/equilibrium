@@ -319,6 +319,9 @@ func _intercom() -> void:
 		var lh := t.get_line_height()
 		check(t.max_lines_visible * lh <= t.size.y + 1.5, "%s: the shown lines fit the box height (%d x %.0f <= %.0f)" % [str(sz), t.max_lines_visible, lh, t.size.y])
 		check(t.visible_characters == -1, "%s: the whole line is revealed" % str(sz))
+		for _i in 40:   # a new line starts at its first word, then reads itself down like a teleprinter (F23)
+			if t.get_line_count() <= t.max_lines_visible or t.lines_skipped > 0: break
+			await create_timer(0.25).timeout
 		check(t.get_line_count() <= t.max_lines_visible or t.lines_skipped > 0, "%s: a line longer than the box scrolls by whole lines" % str(sz))
 	root.size = Vector2i(1920, 1080); await frames(4)
 

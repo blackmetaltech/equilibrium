@@ -222,11 +222,11 @@ func _career() -> void:
 	p.open_all(); await frames(3)   # a handheld board folds its plant cards
 	var books: Array = p.find_children("Book_*", "Button", true, false)
 	check(books.size() == 4, "four BOOK keys, one per plant (%d)" % books.size())
-	var all_off := true
-	for b in books: if not (b as Button).disabled: all_off = false
-	check(all_off, "BOOK is disabled while no catalyst is in stock")
+	var tips := true   # BOOK stays pressable without a catalyst charge (F22: it says why when pressed, never silent); the key and a line beside it say what it waits for
+	for b in books: if not (b as Button).tooltip_text.contains("BUY CATALYST"): tips = false
+	check(tips, "BOOK without a catalyst charge says on its key that it needs one")
 	var whys: Array = p.find_children("BookWhy_*", "Label", true, false)
-	check(whys.size() == 4 and (whys[0] as Label).text.contains("BUY CATALYST") and (whys[0] as Label).text.contains("locked"), "each locked BOOK says why: %s" % (whys[0] as Label).text if not whys.is_empty() else "none")
+	check(whys.size() == 4 and (whys[0] as Label).text.contains("BUY CATALYST") and (whys[0] as Label).text.contains("waits"), "each waiting BOOK says why: %s" % (whys[0] as Label).text if not whys.is_empty() else "none")
 	var t := all_text(p)
 	check(t.contains("HEAT RECOVERY") and t.contains("EMISSIONS ABATEMENT") and t.contains("SAFETY SYSTEMS") and t.contains("TURNAROUND CREWS") and t.contains("HIRE CREW"), "the four investment cards each carry a name and a key")
 	check(t.contains("Hired crews are the hands"), "the crew card says what it is for")
