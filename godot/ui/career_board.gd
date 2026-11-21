@@ -17,6 +17,10 @@ var _open := {}               ## plant id -> bool: the player's choice to open o
 var _armed := {}              ## plant id -> true: BUY CATALYST was pressed once and waits (no timeout) for the confirming press or a CANCEL
 var _book_msg := {}           ## plant id -> why BOOK did nothing (no catalyst charge yet), shown until the charge is bought
 var _dec_open := -1           ## the pending card's DETAILS: -1 default (open unless compact), 0 folded, 1 open
+var _more := {}               ## banner or note name -> true: the player opened it past its two lines ("more")
+var _hold_h := {}             ## plant id -> the card height before a purchase or a booking: the card never gets shorter under the cursor until the next month or until the player folds or opens a card
+var _hold_month := -1
+var _offer_lock_until := 0    ## msec: after an ACCEPT or DECLINE the other offers stay dark for under a second, so the next click cannot sign what slid up into the spot
 var _last_run := "3"          ## the last multi-month key pressed ("3" or "next"): CONTINUE ANYWAY acknowledges and runs it again
 
 func _init() -> void:
@@ -31,6 +35,7 @@ func _compact() -> bool: return fit_h < 700.0 or fit_w < 600.0
 
 ## Open every plant card (tests and the player's "show all"): the choice sticks until a card is folded again.
 func open_all() -> void:
+	_hold_h.clear()
 	for p in view.get("plants", []): _open[str(p.id)] = true
 	_refresh_keep()
 
@@ -56,6 +61,7 @@ func _build() -> void:
 	var d: Dictionary = view.get("dashboard", {})
 	if d.is_empty(): body.add_child(lbl("The office is closed.", 14, PENCIL)); return
 	var month := int(d.get("monthNow", int(d.month) + 1)); var yr := int(d.year)   # the month now in progress, 1-based (the engine's monthNow)
+	if month != _hold_month: _hold_h.clear(); _armed.clear(); _hold_month = month
 	body.add_child(head("PLANT MANAGER'S OFFICE", "YEAR %d of 5  ·  MONTH %d / %d" % [yr, month, int(d.months)]))
 	_cards.clear()
 	for c0 in pin.get_children(): pin.remove_child(c0); c0.queue_free()
@@ -63,13 +69,13 @@ func _build() -> void:
 	pin.add_child(_advance_row(d))
 	var sw: Array = d.get("strikeWarn", [])
 	if not sw.is_empty() and not bool(d.over):
-		var swl := lbl("\n".join(PackedStringArray(sw)), 12, STAMP_RED, "mono_bold"); swl.name = "StrikeWarn"; swl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; swl.custom_minimum_size = Vector2(200, 0); pin.add_child(swl)
+		pin.add_child(_banner("StrikeWarn", "\n".join(PackedStringArray(sw)), STAMP_RED, "mono_bold", 12))
 	if not bool(d.over):
 		for bn in [["emWarn", "EmWarn"], ["endAhead", "EndAhead"]]:
 			var bt := str(d.get(bn[0], ""))
 			if bt == "": continue
 			var cut := bt.find(" Levers:")
-			var bl := lbl(bt.substr(0, cut) if cut >= 0 else bt, 12, STAMP_RED, "mono_bold"); bl.name = bn[1]; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size = Vector2(200, 0); pin.add_child(bl)
+			pin.add_child(_banner(str(bn[1]), bt.substr(0, cut) if cut >= 0 else bt, STAMP_RED, "mono_bold", 12))
 	var dc: Variant = d.get("decision", null)
 	var dpend := dc is Dictionary and bool((dc as Dictionary).get("pending", false))
 	if dpend: pin.add_child(_decision_card(dc as Dictionary, bool(d.over)))
@@ -141,12 +147,20 @@ func _calendar(d: Dictionary) -> Control:
 var _busy := false            ## a month advance is running: input is ignored (never queued and replayed later)
 func emit_act(name: String, args: Array = []) -> void:
 	if _busy and name != "advance" and name != "advanceToDecision": return
+	if name in ["buyCatalyst", "turnaround", "cancelTurnaround", "inspect", "setRate", "invest", "hireCrew", "accept", "decline"]: _hold_layout()
 	super(name, args)
+
+## Remember how tall every plant card is now: a purchase or a booking changes the text inside a card, and a card that got shorter would slide the next one under the cursor, so a card keeps its height until the next month.
+func _hold_layout() -> void:
+	for id in _cards.keys():
+		var c = _cards[id]
+		if c != null and is_instance_valid(c): _hold_h[id] = maxf(float(_hold_h.get(id, 0.0)), (c as Control).size.y)
 
 ## One advance: show WORKING, let it draw, run the months, then keep ignoring input for a few frames so keys pressed during a long advance are dropped, not replayed.
 func advance_months(n: int) -> void:
 	if _busy: return
 	if n > 1: _last_run = "3"
+	_armed.clear()
 	var rv0 := (view.get("review", []) as Array).size()
 	_busy = true; _render()
 	await get_tree().process_frame; await get_tree().process_frame
@@ -171,7 +185,7 @@ func continue_anyway() -> void:
 ## NEXT DECISION: run months until something needs the manager (the engine says why it stopped); same busy/lock handling as advance_months.
 func advance_to_decision() -> void:
 	if _busy: return
-	_last_run = "next"
+	_last_run = "next"; _armed.clear()
 	var rv0 := (view.get("review", []) as Array).size()
 	_busy = true; _render()
 	await get_tree().process_frame; await get_tree().process_frame
@@ -231,6 +245,31 @@ func _decision_card(dc: Dictionary, over: bool) -> Control:
 
 func _musd_short(x: float) -> String: return "%s%.1f MUSD" % ["+" if x >= 0.0 else "-", absf(x) / 1e6]
 
+## A warning banner. On a handheld it is cut at two lines with the full text in its tooltip and a "more" key that opens it in full (and "less" to fold it again); on a desktop it is shown whole.
+func _banner(nm: String, text: String, col: Color, kind := "mono_bold", size := 12) -> Control:
+	var l := lbl(text, size, col, kind); l.name = nm; l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.custom_minimum_size = Vector2(200, 0); l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if not _compact(): return l
+	var v := VBoxContainer.new(); v.name = nm + "Box"; v.add_theme_constant_override("separation", 0)
+	var open := _more.has(nm)
+	if not open: l.max_lines_visible = 2; l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	l.tooltip_text = text; l.mouse_filter = Control.MOUSE_FILTER_PASS
+	v.add_child(l)
+	var k := key("less ▴" if open else "more ▾", func(): _toggle_more(nm), false, 11); k.name = nm + "More"; k.tooltip_text = "Show the whole warning." if not open else "Fold the warning back to two lines."
+	k.custom_minimum_size = Vector2(0, 24); k.size_flags_horizontal = Control.SIZE_SHRINK_END; k.visible = open; v.add_child(k)
+	_show_more_key.call_deferred(l, k, open)
+	return v
+
+func _toggle_more(nm: String) -> void:
+	if _more.has(nm): _more.erase(nm)
+	else: _more[nm] = true
+	_refresh_keep()
+
+## The "more" key shows only when the text really runs past two lines (known once the label has been laid out).
+func _show_more_key(l: Label, k: Button, open: bool) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(l) or not is_instance_valid(k): return
+	k.visible = open or l.get_line_count() > 2
+
 ## The action row, pinned: ADVANCE 1 MONTH, NEXT DECISION, +3 MONTHS and CONTINUE ANYWAY with what stopped the last run (the banners are about the keys, so they sit under them).
 func _advance_row(d: Dictionary) -> Control:
 	var v := VBoxContainer.new(); v.name = "ActionRow"; v.add_theme_constant_override("separation", 3)
@@ -252,10 +291,10 @@ func _advance_row(d: Dictionary) -> Control:
 		var w := lbl("WORKING... running the months, input is paused", 13, AMBER_INK, "mono_bold"); w.name = "Working"; h.add_child(w)
 	var wn := str(d.get("whyNote", ""))
 	if wn != "" and not over:
-		var wl := lbl(wn, 12, STAMP_RED, "mono_bold"); wl.name = "WhyStopped"; wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; wl.custom_minimum_size = Vector2(200, 0); v.add_child(wl)
+		v.add_child(_banner("WhyStopped", wn, STAMP_RED, "mono_bold", 12))
 	var sn: Array = d.get("stoppedNotes", [])
 	if ack and not over:
-		var sl := lbl("Open warning: " + "; ".join(PackedStringArray(sn)) + ". Deal with it (or book its turnaround), or press CONTINUE ANYWAY.", 12, STAMP_RED, "mono_bold"); sl.name = "Stopped"; sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; sl.custom_minimum_size = Vector2(200, 0); v.add_child(sl)
+		v.add_child(_banner("Stopped", "Open warning: " + "; ".join(PackedStringArray(sn)) + ". Deal with it (or book its turnaround), or press CONTINUE ANYWAY.", STAMP_RED, "mono_bold", 12))
 	return v
 
 ## The notes that go with the keys but need not stay in view: what NEXT DECISION will stop at, last month, the flags +3 MONTHS stops at.
@@ -332,14 +371,18 @@ func _plant_card(p: Dictionary, d: Dictionary) -> Control:
 	if int(p.downDays) > 0:
 		var db := stamp("DOWN %dd" % int(p.downDays), STAMP_RED, 11); db.tooltip_text = str(p.get("downNote", "")); db.mouse_filter = Control.MOUSE_FILTER_PASS; hh.add_child(db)
 		var dl := lbl(str(p.get("downNote", "")), 11, STAMP_RED, "sans"); dl.name = "DownNote"; dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; dl.custom_minimum_size = Vector2(160, 0); v.add_child(dl)
+	if int(p.turnaroundMonth) >= 0:   # the booking, stamped on the card itself (folded or open): BOOK is never silent
+		var bs := stamp("BOOKED month %d" % (int(p.turnaroundMonth) + 1), OKGREEN, 11); bs.name = "Booked_" + id; bs.tooltip_text = "The turnaround of this plant is booked. CANCEL is on the open card."; bs.mouse_filter = Control.MOUSE_FILTER_PASS; hh.add_child(bs)
 	var open := _plant_open(id, d)
-	var kt := key("▾ FOLD" if open else "▸ OPEN", func(): _open[id] = not open; _refresh_keep(), false, 11); kt.name = "PlantToggle_" + id; kt.tooltip_text = "Fold or open this plant card."; hh.add_child(kt); hh.move_child(kt, 1)
+	var kt := key("▾ FOLD" if open else "▸ OPEN", func(): _open[id] = not open; _hold_h.clear(); _refresh_keep(), false, 11); kt.name = "PlantToggle_" + id; kt.tooltip_text = "Fold or open this plant card."; hh.add_child(kt); hh.move_child(kt, 1)
 	if not open:   # folded: the numbers that matter, the inspection state and the booking in two lines
 		var ist0 := str(p.get("inspectionState", "ok")); var icol0: Color = STAMP_RED if ist0 == "overdue" else (AMBER_INK if ist0 == "due" else PENCIL)
 		var sm := lbl("catalyst %d%% · exchanger U %d%% · wear %d%% · rate ×%.2f · risk %s%%" % [int(round(float(p.catalyst) * 100.0)), int(round(float(p.exchangerU) * 100.0)), int(round(float(p.compressorWear) * 100.0)), float(p.rate), fnum(float(p.risk) * 100.0, 1)], 11, PENCIL, "mono"); sm.name = "Summary_" + id; sm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; sm.custom_minimum_size = Vector2(160, 0); v.add_child(sm)
 		var il0 := lbl("INSPECTION %s" % str(p.get("inspectionNote", "")), 11, icol0, "mono_bold"); il0.name = "InspNote_" + id; il0.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; il0.custom_minimum_size = Vector2(160, 0); v.add_child(il0)
 		if int(p.turnaroundMonth) >= 0: v.add_child(lbl("TURNAROUND booked: month %d" % (int(p.turnaroundMonth) + 1), 11, OKGREEN, "mono_bold"))
-		return _paper(v)
+		var fc := _paper(v)
+		if _hold_h.has(id): fc.custom_minimum_size = Vector2(0, float(_hold_h[id]))
+		return fc
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 6); v.add_child(top)
 	var bars := VBoxContainer.new(); bars.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bars.add_theme_constant_override("separation", 2); top.add_child(bars)
 	for r in [["CATALYST ACTIVITY", float(p.catalyst), 0.7, true], ["EXCHANGER U", float(p.exchangerU), 0.75, true], ["COMPRESSOR WEAR", float(p.compressorWear), 0.5, false]]:
@@ -352,22 +395,34 @@ func _plant_card(p: Dictionary, d: Dictionary) -> Control:
 	il.name = "InspNote_" + id; il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; il.custom_minimum_size = Vector2(160, 0); v.add_child(il)
 	var ol := lbl("output %s t/mo of %s nominal%s · risk %s%%" % [fnum(float(p.outputT)), fnum(float(p.nominalT)), (" · contracted %s t" % fnum(float(p.contractedT))) if float(p.contractedT) > 0.0 else "", fnum(float(p.risk) * 100.0, 1)], 11, PENCIL, "sans"); ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; v.add_child(ol)
 	var keys := HFlowContainer.new(); keys.add_theme_constant_override("h_separation", 6); keys.add_theme_constant_override("v_separation", 4); v.add_child(keys)
-	var ki := key("INSPECT $150k", func(): emit_act("inspect", [id]), false, 11); ki.disabled = over or ist == "locked"; ki.tooltip_text = "Needs six months since the last one. The plant is down a day."; keys.add_child(ki)
+	var iarm := _armed.has("inspect:" + id)
+	var ki := key(("PRESS AGAIN: INSPECT $150k" if iarm else "INSPECT $150k"), func(): _confirm("inspect:" + id, "inspect", [id]), iarm, 11); ki.name = "Inspect_" + id; ki.disabled = over or ist == "locked"; ki.tooltip_text = "Needs six months since the last one. The plant is down a day. It pays $150k, so the key asks twice. " + str(p.get("inspectDoes", "")); keys.add_child(ki)
 	if ist == "locked": ki.tooltip_text = str(p.get("inspectionNote", ""))
+	if iarm:
+		var kix := key("CANCEL", func(): _armed.erase("inspect:" + id); _refresh_keep(), false, 11); kix.name = "InspectCancel_" + id; keys.add_child(kix)
 	var price := "$" + fnum(float(p.catalystPriceUSD) / 1e6, 1) + "M"
 	var armed := _armed.has(id) and int(p.catalystStock) == 0
 	var kc := key(("CATALYST: 1 CHARGE IN STOCK" if int(p.catalystStock) > 0 else (("PRESS AGAIN TO BUY %s" % price) if armed else "BUY CATALYST " + price)), func(): _buy_catalyst(id), armed, 11); kc.disabled = over or int(p.catalystStock) > 0; kc.name = "Catalyst_" + id
 	kc.tooltip_text = "A charge in the warehouse is what a turnaround loads. Buy it before you BOOK. It cannot be taken back, so the key asks twice: press it again to pay %s, or CANCEL." % price; keys.add_child(kc)
 	if armed:
 		var kcx := key("CANCEL", func(): _armed.erase(id); _refresh_keep(), false, 11); kcx.name = "CatalystCancel_" + id; kcx.tooltip_text = "Do not buy the catalyst."; keys.add_child(kcx)
+	var idn := str(p.get("inspectDoes", ""))
+	if idn != "": v.add_child(_banner("InspectDoes_" + id, idn, PENCIL, "sans", 11))
 	v.add_child(_ta_row(p, m, over))
-	return _paper(v)
+	var card := _paper(v)
+	if _hold_h.has(id): card.custom_minimum_size = Vector2(0, float(_hold_h[id]))
+	return card
 
 ## BUY CATALYST asks twice: the first press arms the key (it says so and stays armed, with a CANCEL key beside it), the second press pays. A stray click, or a click that lands where a layout shift put the key, buys nothing, and nothing re-arms or disarms it on a timer.
 func _buy_catalyst(id: String) -> void:
 	if _armed.has(id):
 		_armed.erase(id); emit_act("buyCatalyst", [id]); return
-	_armed[id] = true; _refresh_keep()
+	_armed.clear(); _armed[id] = true; _refresh_keep()
+
+## Every purchase that costs cash asks twice: the first press arms the key (it says what it will pay, stays armed, and a CANCEL key appears beside it), the second press pays. Arming one key disarms the others; nothing disarms it on a timer, and the next month clears it.
+func _confirm(akey: String, act_name: String, args: Array) -> void:
+	if _armed.has(akey): _armed.erase(akey); emit_act(act_name, args); return
+	_armed.clear(); _armed[akey] = true; _refresh_keep()
 
 ## Open by the player's choice; otherwise open on a desktop, and on a handheld only where the plant has an alert that a booked turnaround does not already cover.
 func _plant_open(id: String, d: Dictionary) -> bool:
@@ -386,11 +441,13 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 		var bo := str(p.get("bookedOverlapNote", ""))
 		if bo != "": var bol := lbl(bo, 11, AMBER_INK, "sans"); bol.name = "BookedOverlap_" + id; bol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bol.custom_minimum_size = Vector2(220, 0); h.add_child(bol)
 		return h
-	var dr: Dictionary = _ta.get(id, {"m": m + 2, "crane": 1, "crew": 0}); dr.m = maxi(int(dr.m), m); _ta[id] = dr
+	var dr: Dictionary = _ta.get(id, {"m": m + 2, "crane": 1, "crew": 0, "touched": false})
+	if not bool(dr.get("touched", false)): dr.m = int(p.get("suggestedTaMonth", m + 2))   # until the player picks a month, the draft sits on the first month with no other turnaround: booking one plant never makes the next card grow an overlap warning
+	dr.m = maxi(int(dr.m), m); _ta[id] = dr
 	h.add_child(lbl("TURNAROUND", 11, PENCIL, "semi"))
-	var dn := key("◀", func(): dr.m = maxi(m, int(dr.m) - 1); _refresh_keep(), false, 11); dn.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(26.0, Ch9Board.tmin())); h.add_child(dn)
+	var dn := key("◀", func(): dr.m = maxi(m, int(dr.m) - 1); dr.touched = true; _refresh_keep(), false, 11); dn.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(26.0, Ch9Board.tmin())); h.add_child(dn)
 	h.add_child(lbl("month %d" % (int(dr.m) + 1), 12, EqTheme.INK, "mono_bold"))
-	var up := key("▶", func(): dr.m = mini(59, int(dr.m) + 1); _refresh_keep(), false, 11); up.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(26.0, Ch9Board.tmin())); h.add_child(up)
+	var up := key("▶", func(): dr.m = mini(59, int(dr.m) + 1); dr.touched = true; _refresh_keep(), false, 11); up.custom_minimum_size = Vector2(maxf(26.0, Ch9Board.tmin()), maxf(26.0, Ch9Board.tmin())); h.add_child(up)
 	var kc := key("CRANE %d" % int(dr.crane), func(): dr.crane = 2 if int(dr.crane) == 1 else 1; _refresh_keep(), false, 11); kc.tooltip_text = "Second crane: faster, extra hire cost."; h.add_child(kc)
 	var kw := key("+4 CREW" if int(dr.crew) == 0 else "NO EXTRA CREW", func(): dr.crew = 4 if int(dr.crew) == 0 else 0; _refresh_keep(), false, 11); h.add_child(kw)
 	var stock := int(p.catalystStock) > 0
@@ -408,6 +465,8 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 		kb.tooltip_text = str(p.get("bookLockedNote", "BOOK needs a catalyst charge in the warehouse: press BUY CATALYST first."))
 		var wl := lbl("BOOK waits for a catalyst charge: press BUY CATALYST first (the outage would take %s d)." % fnum(days), 11, AMBER_INK, "sans"); wl.name = "BookWhy_" + id; wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wl.custom_minimum_size = Vector2(180, 0); h.add_child(wl)
 		if _book_msg.has(id): var wm := lbl(str(_book_msg[id]), 12, STAMP_RED, "mono_bold"); wm.name = "BookMsg_" + id; wm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; wm.custom_minimum_size = Vector2(220, 0); h.add_child(wm)
+	else:   # the same slot, filled: the charge is in stock, so BOOK is ready (the card keeps its shape when the catalyst is bought)
+		var rl := lbl("BOOK is ready: a catalyst charge is in stock (the outage would take %s d). Press BOOK to book month %d." % [fnum(days), int(dr.m) + 1], 11, OKGREEN, "sans"); rl.name = "BookReady_" + id; rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.custom_minimum_size = Vector2(180, 0); h.add_child(rl)
 	return h
 
 ## BOOK: with a catalyst charge it books; without one it shows, in red where the player is looking, why nothing was booked.
@@ -416,6 +475,11 @@ func _book(p: Dictionary, dr: Dictionary) -> void:
 	if int(p.catalystStock) <= 0:
 		_book_msg[id] = str(p.get("bookLockedNote", "BOOK needs a catalyst charge in the warehouse: press BUY CATALYST first.")); _refresh_keep(); return
 	emit_act("turnaround", [id, int(dr.m), int(dr.crane), int(dr.crew)])
+	for q in view.get("plants", []):   # BOOK is never silent: the stamp on the card, and one line on the intercom and a toast
+		if str(q.id) == id and int(q.turnaroundMonth) == int(dr.m):
+			var msg := "BOOKED: the %s turnaround is booked for month %d (crane %d%s)." % [str(PLANT_TAG.get(id, id)).to_lower(), int(dr.m) + 1, int(dr.crane), (", +%d crew" % int(dr.crew)) if int(dr.crew) > 0 else ""]
+			if app_ref != null:
+				if app_ref.chrome != null: app_ref.chrome.toast(msg, "info")   # the toast is an intercom line too
 
 ## What the BOOK key would do to the Works in month `m`: when another turnaround falls in the same month, the extra outage days and MUSD of sharing the crews and the crane (the engine prices them), and which month has no overlap.
 func _book_warnings(p: Dictionary, m: int) -> Array:
@@ -426,14 +490,15 @@ func _book_warnings(p: Dictionary, m: int) -> Array:
 # ---- inbox --------------------------------------------------------------------------------------------------------------------------------
 var _settled := {}            ## offer id -> {idx, h, text, col}: the slot an accepted or declined offer leaves, kept until the next month so the list never reflows under the cursor
 var _settled_month := -1
-## ACCEPT / DECLINE: act on THIS offer's own id, and keep its slot (same height) as a "signed" / "declined" row, so a second click at the same spot can never sign the offer that slid up into it.
+## ACCEPT / DECLINE: act on THIS offer's own id. The offer collapses to a one-line "signed" / "declined" row (no empty card is left), nothing is reordered, and for under a second the offers below are dark, so a second click at the same spot can never sign the offer that slid up into it.
 func _settle(o: Dictionary, idx: int, holder: Array, verdict: String) -> void:
-	if _busy: return
+	if _busy or Time.get_ticks_msec() < _offer_lock_until: return
 	var h := 0.0
-	if holder[0] != null and is_instance_valid(holder[0]): h = (holder[0] as Control).size.y
 	var tag := "%s  %s t/mo  @ $%s/t" % [str(PLANT_TAG.get(str(o.plant), str(o.plant))), fnum(float(o.tpm)), fnum(float(o.priceUSD))]
 	_settled[int(o.id)] = {"idx": idx, "h": h, "text": ("SIGNED: " if verdict == "accept" else "DECLINED: ") + tag + ("  (now under ACTIVE CONTRACTS)" if verdict == "accept" else ""), "col": OKGREEN if verdict == "accept" else PENCIL}
+	_offer_lock_until = Time.get_ticks_msec() + 700   # the offers below slide up now: they stay dark until the cursor has had time to leave
 	emit_act(verdict, [o.id])
+	get_tree().create_timer(0.75).timeout.connect(func(): if is_inside_tree() and not _busy: _refresh_keep())
 
 func _offers() -> void:
 	var offers: Array = view.get("offers", []); var over := bool(view.get("dashboard", {}).get("over", false))
@@ -454,7 +519,7 @@ func _offers() -> void:
 	for idx in rows.size():
 		var row: Dictionary = rows[idx]
 		if row.has("ph"):
-			var pl := lbl(str(row.ph.text), 13, row.ph.col, "mono_bold"); pl.name = "OfferSettled"; pl.clip_text = true; pl.custom_minimum_size = Vector2(0, maxf(0.0, float(row.ph.h) - 16.0))
+			var pl := lbl(str(row.ph.text), 13, row.ph.col, "mono_bold"); pl.name = "OfferSettled"; pl.clip_text = true
 			body.add_child(_paper(pl)); continue
 		var o: Dictionary = row.o
 		var holder := [null]
@@ -462,8 +527,9 @@ func _offers() -> void:
 		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8); v.add_child(h)
 		var prem := float(o.premium); var pc: Color = PLANT_COL.get(str(o.plant), PENCIL)
 		var t := lbl("%s  %s t/mo  @ $%s/t" % [str(PLANT_TAG.get(str(o.plant), str(o.plant))), fnum(float(o.tpm)), fnum(float(o.priceUSD))], 13, pc, "mono_bold"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.clip_text = true; h.add_child(t)
-		var ka := key("ACCEPT", func(): _settle(o, idx, holder, "accept"), true, 12); ka.disabled = over; ka.name = "Accept_%d" % int(o.id); h.add_child(ka)
-		var kd := key("DECLINE", func(): _settle(o, idx, holder, "decline"), false, 12); kd.name = "Decline_%d" % int(o.id); h.add_child(kd)
+		var olock := Time.get_ticks_msec() < _offer_lock_until
+		var ka := key("ACCEPT", func(): _settle(o, idx, holder, "accept"), true, 12); ka.disabled = over or olock; ka.name = "Accept_%d" % int(o.id); h.add_child(ka)
+		var kd := key("DECLINE", func(): _settle(o, idx, holder, "decline"), false, 12); kd.disabled = olock; kd.name = "Decline_%d" % int(o.id); h.add_child(kd)
 		v.add_child(lbl("%+.0f%% vs spot ($%s)  ·  %d months  ·  %s of this plant's nominal output (%s t/mo)  ·  penalty $%s/t short" % [prem * 100.0, fnum(float(o.spotUSD)), int(o.term), fnum(float(o.get("shareOfNominal", o.shareOfCap)) * 100.0) + "%", fnum(float(o.get("nominalT", 0))), fnum(float(o.penaltyUSDPerT))], 11, OKGREEN if prem > 0 else STAMP_RED, "sans"))
 		var ex := lbl(str(o.get("exposureNote", "")), 11, STAMP_RED if bool(o.get("overCapacity", false)) else PENCIL, "sans"); ex.name = "Exposure"; ex.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ex.custom_minimum_size = Vector2(220, 0); v.add_child(ex)
 		var tn := str(o.get("taNote", ""))
@@ -489,7 +555,10 @@ func _invest() -> void:
 		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6)
 		var nm := lbl(str(INV_NAME[k]), 12, EqTheme.INK, "mono_bold"); nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(nm)
 		h.add_child(lbl("LEVEL %d/%d" % [lvl, mx], 12, OKGREEN, "mono_bold"))
-		var kb := key("MAXED" if lvl >= mx else "BUY " + _m(float(o.get("nextUSD", 0))), func(): emit_act("invest", [k]), false, 12); kb.disabled = over or lvl >= mx; h.add_child(kb)
+		var iarm := _armed.has("invest:" + str(k)) and lvl < mx; var ipr := _m(float(o.get("nextUSD", 0)))
+		var kb := key("MAXED" if lvl >= mx else (("PRESS AGAIN TO BUY " + ipr) if iarm else "BUY " + ipr), func(): _confirm("invest:" + str(k), "invest", [k]), iarm, 12); kb.name = "Invest_" + str(k); kb.disabled = over or lvl >= mx; kb.tooltip_text = "A programme costs real cash and cannot be taken back, so the key asks twice: press it again to pay %s, or CANCEL." % ipr; h.add_child(kb)
+		if iarm:
+			var kbx := key("CANCEL", func(): _armed.erase("invest:" + str(k)); _refresh_keep(), false, 12); kbx.name = "InvestCancel_" + str(k); h.add_child(kbx)
 		var iv := VBoxContainer.new(); iv.add_theme_constant_override("separation", 1); iv.add_child(h)
 		var rl := str(o.get("realised", ""))
 		if rl != "": var rll := lbl(rl, 11, OKGREEN, "sans"); rll.name = "Realised_" + str(k); rll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rll.custom_minimum_size = Vector2(200, 0); iv.add_child(rll)
@@ -499,7 +568,10 @@ func _invest() -> void:
 	var cr: Dictionary = opt.get("crews", {})
 	var h2 := HBoxContainer.new(); h2.add_theme_constant_override("separation", 6)
 	var nm2 := lbl("TURNAROUND CREWS  %d of %d hired (limit %d people)" % [int(cr.get("hired", 0)), int(cr.get("max", 3)), int(cr.get("limit", 0))], 12, EqTheme.INK, "mono_bold"); nm2.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm2.clip_text = true; h2.add_child(nm2)
-	var kh := key("HIRE CREW", func(): emit_act("hireCrew"), false, 12); kh.disabled = over or int(cr.get("hired", 0)) >= int(cr.get("max", 3)); h2.add_child(kh)
+	var harm := _armed.has("crew") and int(cr.get("hired", 0)) < int(cr.get("max", 3)); var hpr := "$%s" % fnum(float(cr.get("nextMonthlyUSD", 3.2e5)) / 1e6, 2) + "M a month"
+	var kh := key(("PRESS AGAIN TO HIRE: %s" % hpr) if harm else "HIRE CREW", func(): _confirm("crew", "hireCrew", []), harm, 12); kh.name = "HireCrew"; kh.disabled = over or int(cr.get("hired", 0)) >= int(cr.get("max", 3)); kh.tooltip_text = "Four more hands cost %s for the rest of the game, so the key asks twice: press it again to hire, or CANCEL." % hpr; h2.add_child(kh)
+	if harm:
+		var khx := key("CANCEL", func(): _armed.erase("crew"); _refresh_keep(), false, 12); khx.name = "HireCancel"; h2.add_child(khx)
 	var cv := VBoxContainer.new(); cv.add_theme_constant_override("separation", 1); cv.add_child(h2)
 	var cl := lbl("Hired crews are the hands a turnaround can draw on: the +4 CREW key on a plant card adds four of them to its outage.", 11, PENCIL, "sans"); cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cl.custom_minimum_size = Vector2(200, 0); cv.add_child(cl)
 	g.add_child(_paper(cv))

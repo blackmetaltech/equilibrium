@@ -196,7 +196,7 @@ describe('F22: the numbers are labelled', () => {
   });
   it('flask 3 shows the reference engineer\'s number', () => {
     const e = start(2), rule = t('lv.CAREER.star.3', CAREER.textVars!(e.state));
-    expect(rule).toMatch(/^Five-year operating margin of at least [\d.]+ MUSD \(within 3 % of the reference engineer's [\d.]+ MUSD on this seed\), with zero critical alarms$/);
+    expect(rule).toMatch(/^Reference flask: five-year operating margin of at least [\d.]+ MUSD, within 3 % of the reference engineer's [\d.]+ MUSD on this seed \(this seed's own mark, not the 140 MUSD Flagship line\), with zero critical alarms$/);
     expect(rule).not.toContain('{');
   });
 });

@@ -109,10 +109,10 @@ func _book_accept_heat() -> void:
 	check(app.lvbay.panel.find_children("Exposure", "Label", true, false).size() == (v.offers as Array).size(), "and the card shows it")
 	act("buyCatalyst", ["nh3"]); act("buyCatalyst", ["acid"]); act("turnaround", ["nh3", 5, 1, 0])
 	await refresh()
-	var b := board(); b.open_all(); await frames(3); b._ta["acid"] = {"m": 5, "crane": 1, "crew": 0}; b._render(); await frames(2)
+	var b := board(); b.open_all(); await frames(3); b._ta["acid"] = {"m": 5, "crane": 1, "crew": 0, "touched": true}; b._render(); await frames(2)
 	var w: Array = b.find_children("BookWarn_acid", "Label", true, false)
 	check(w.size() >= 1 and (w[0] as Label).text.contains("Overlaps"), "BOOK warns when another turnaround is in the same month: %s" % ((w[0] as Label).text if not w.is_empty() else "none"))
-	b._ta["acid"] = {"m": 9, "crane": 1, "crew": 0}; b._render(); await frames(2)
+	b._ta["acid"] = {"m": 9, "crane": 1, "crew": 0, "touched": true}; b._render(); await frames(2)
 	check(b.find_children("BookWarn_acid", "Label", true, false).is_empty(), "a clear month shows no overlap warning")
 	# heat recovery: realised and next level on separate lines
 	check(app.lvbay.panel.find_child("Realised_heat", true, false) == null, "before the purchase there is no realised line")
