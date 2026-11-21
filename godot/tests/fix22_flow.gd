@@ -64,19 +64,23 @@ func _offers(sz: Vector2i) -> void:
 	check(b.find_child("OfferSettled", true, false) != null and all_text(b).contains("SIGNED:"), "the slot stays as a SIGNED row" + tag)
 	var hit: Array = []; buttons_at(b, pt, hit)
 	var names := hit.map(func(x): return str(x.name))
-	check(not names.any(func(nm): return nm.begins_with("Accept_") or nm.begins_with("Decline_")), "a second click at the same spot lands on no ACCEPT or DECLINE: %s%s" % [str(names), tag])
+	# F24: the settled offer collapses to a one-line row, so the next offer slides up; its keys are dark (disabled) for under a second, and a click on them is ignored
+	check(not hit.any(func(x): return (str(x.name).begins_with("Accept_") or str(x.name).begins_with("Decline_")) and not (x as Button).disabled), "a second click at the same spot lands on no live ACCEPT or DECLINE: %s%s" % [str(names), tag])
 	# and clicking whatever is there (nothing to press) leaves the contracts as they were
 	for x in hit: if x is Button and not (x as Button).disabled: (x as Button).pressed.emit()
 	await frames(3)
 	check((view().get("contracts", []) as Array).size() == n_contracts + 1, "the second click signed nothing more" + tag)
 	# DECLINE keeps its slot the same way
+	await create_timer(0.9).timeout; await frames(3)   # the lock after a signing is under a second
 	b = board(); var kd := b.find_child("Decline_%d" % second_id, true, false) as Button
 	check(kd != null, "the next offer can still be declined" + tag)
 	if kd != null:
 		var pt2 := kd.get_global_rect().get_center(); kd.pressed.emit(); await frames(4); b = board()
 		check(all_text(b).contains("DECLINED:"), "a declined offer leaves a DECLINED row" + tag)
 		var h2: Array = []; buttons_at(b, pt2, h2)
-		check(not h2.any(func(x): return str(x.name).begins_with("Accept_")), "no ACCEPT slid under the DECLINE click" + tag)
+		check(not h2.any(func(x): return str(x.name).begins_with("Accept_") and not (x as Button).disabled), "no live ACCEPT slid under the DECLINE click" + tag)
+		var settled := b.find_children("OfferSettled", "Label", true, false)
+		check(settled.size() >= 2 and (settled[0] as Control).size.y < 30.0, "settled offers are one line, not an empty card (%d rows, %.0f px)%s" % [settled.size(), (settled[0] as Control).size.y if settled.size() > 0 else -1.0, tag])
 	# the next month clears the placeholders
 	act("advance", [1]); await refresh(); b = board(); b.open_all(); await frames(3)
 	check(b.find_child("OfferSettled", true, false) == null, "a new month clears the settled rows" + tag)

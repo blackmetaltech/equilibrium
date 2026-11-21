@@ -44,13 +44,13 @@ func _overlap(sz: Vector2i) -> void:
 	var tag := " (%dx%d)" % [sz.x, sz.y]
 	act("buyCatalyst", ["nh3"]); act("buyCatalyst", ["meoh"]); act("turnaround", ["nh3", 5, 1, 0])
 	await refresh()
-	var b := board(); b.open_all(); await frames(3); b._ta["meoh"] = {"m": 5, "crane": 1, "crew": 0}; b._render(); await frames(2)
+	var b := board(); b.open_all(); await frames(3); b._ta["meoh"] = {"m": 5, "crane": 1, "crew": 0, "touched": true}; b._render(); await frames(2)
 	var w: Array = b.find_children("BookWarn_meoh", "Label", true, false)
 	var t := (w[0] as Label).text if not w.is_empty() else ""
 	check(t.begins_with("Overlaps the ammonia turnaround in month 6") and t.contains("extra plant-days") and t.contains("MUSD") and t.contains("Month 7 has no other turnaround"), "BOOK prices the overlap: %s%s" % [t.left(140), tag])
 	var wg := b.find_child("BookWeigh_meoh", true, false) as Label
 	check(wg != null and wg.text.contains("overlap "), "and the weigh line carries it in its cost" + tag)
-	b._ta["meoh"] = {"m": 6, "crane": 1, "crew": 0}; b._render(); await frames(2)
+	b._ta["meoh"] = {"m": 6, "crane": 1, "crew": 0, "touched": true}; b._render(); await frames(2)
 	check(b.find_children("BookWarn_meoh", "Label", true, false).is_empty(), "month 7 shows no overlap note" + tag)
 	act("buyCatalyst", ["meoh"]); act("turnaround", ["meoh", 5, 1, 0]); await refresh(); b = board(); b.open_all(); await frames(3)
 	check(b.find_child("BookedOverlap_meoh", true, false) != null, "a booked overlap is flagged on the plant card" + tag)

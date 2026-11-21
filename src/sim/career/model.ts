@@ -51,7 +51,8 @@ export interface Plant { /** decay multiplier of the installed catalyst grade (1
 export interface Contract { id: number; p: PlantId; tpm: number; price: number; left: number; pen: number }
 export interface Offer { id: number; p: PlantId; tpm: number; price: number; term: number; pen: number; exp: number }
 export interface Review { year: number; rev: number; cost: number; pen: number; inv: number; fine: number; margin: number; /** operating margin: net margin before investments (catalyst, inspections, programmes) */ opMargin: number; tonnes: number; /** plant-days of lost output */ downDays: number; /** mean catalyst activity and exchanger U over the year (0..1) */ catAvg: number; uAvg: number; contractRev: number; contractT: number; /** where the Works is heading after this review (see `outlook`) */ outlook?: Outlook; capT: number; capOldT: number; criticals: number; emRatio: number; effRatio: number; victor: number; noor: number; mara: number; strike: number; cash: number; /** what the year's card said and what the year realised (see `cardReview`) */ card?: CardReview }
-export interface CardReview { kind: string; plant: string; choice: number; lapsed: boolean; /** what the card said option A earns against B over `months` */ cardUSD: number; months: number; /** the year's cash with A less the year's cash with B (the same later decisions, the same seed) */ realisedUSD: number; /** A less B, by line */ diff: { rev: number; cost: number; pen: number; inv: number; down: number }; /** the month of the booking (turnaround and crew cards) */ taMonth: number }
+export interface CardTermReview { key: string; /** what the card forecast for this term over the same months as the year (USD, signed) */ fc: number; /** what the year realised for it, A less B (USD, signed) */ real: number; /** for the term made of the forecast terms not measured on their own: their keys */ parts?: string[] }
+export interface CardReview { kind: string; plant: string; choice: number; lapsed: boolean; /** what the card said option A earns against B over `months` (its own full horizon) */ cardUSD: number; months: number; /** the same forecast cut to the months the review can show (the year after the card): comparable with `realisedUSD` */ fcUSD: number; fcMonths: number; /** the card's own stated uncertainty on that forecast (USD): realised inside +-spread is "as forecast" */ spreadUSD: number; within: boolean; /** the year's cash with A less the year's cash with B (the same later decisions, the same seed) */ realisedUSD: number; /** forecast and realised, term by term (they sum to fcUSD and realisedUSD) */ terms: CardTermReview[]; /** the term that moved most against its forecast, and by how much (realised less forecast, USD) */ moved: { key: string; delta: number }; /** what the market did: gas (USD/GJ) or the plant's spot price (USD/t) averaged over the year, expected and realised; 0 when the card is not about a market */ market: { kind: 'gas' | 'spot' | ''; exp: number; real: number; fixed: number }; /** A less B, by line */ diff: { rev: number; cost: number; pen: number; inv: number; down: number }; /** the month of the booking (turnaround and crew cards) */ taMonth: number }
 export interface LogRow { m: number; kind: 'event' | 'notice' | 'incident' | 'critical' | 'fine' | 'strike' | 'turnaround' | 'contract' | 'penalty' | 'decision'; code: string; plant: string; n: number; /** set on the rows that cost a regulator strike: the strike count after this one */ s?: number }
 export interface Hist { m: number; margin: number; cash: number; gas: number }
 export type Ending = '' | 'chief' | 'steady' | 'sold' | 'shut';
@@ -393,25 +394,56 @@ function yearEnd(c: Career): void {
   if (c.lossYears >= 2 || c.cash < 0) finish(c, 'sold');
   else if (c.strikes >= STRIKES_MAX) finish(c, 'shut');
 }
-/** The year's card priced against the road not taken: the Works as it stood when the card was raised, run to this year end with the same later decisions and the same seed, once with option A and once with B; the difference in cash is what the card realised. */
+/** The year's card priced against the road not taken: the Works as it stood when the card was raised, run to this year end with the same later decisions and the same seed, once with option A and once with B; the difference in cash is what the card realised.
+ * It is set beside the card's own forecast for the same months (`DecYear`), term by term, so a gap names the term that moved: the market (gas or spot, with the averages), the penalties, the catalyst bill, the rest. */
 function cardReview(c: Career): CardReview | undefined {
   if (c.snap === undefined || c.replay === true) return undefined;
   const d = (c.decisions ?? []).find((x) => x.year === c.years.length);
   if (d === undefined || d.choice < 0) return undefined;
-  const target = c.m, ops = c.ops ?? [];
-  const world = (choice: number): Career => {
+  const target = c.m, ops = c.ops ?? [], plant = d.plant === '' ? null : d.plant;
+  const world = (choice: number): { w: Career; spot: number[] } => {
     const w = JSON.parse(c.snap!) as Career; w.replay = true;
+    const spot: number[] = [];
     try { answerDecision(w, choice); } catch (e) { if (!(e instanceof CareerError)) throw e; }
     while (w.ending === '' && w.m < target) {
+      if (plant !== null) spot.push(w.prices[plant]);
       for (const o of ops) if (o[0] === w.m) { try { decide(w, o[1], ...o.slice(2)); } catch (e) { if (!(e instanceof CareerError)) throw e; } }
       stepMonth(w);
     }
-    return w;
+    return { w, spot };
   };
-  const alt = world(1 - d.choice), A = d.choice === 0 ? c : alt, B = d.choice === 0 ? alt : c;
+  const other = world(1 - d.choice), alt = other.w, A = d.choice === 0 ? c : alt, B = d.choice === 0 ? alt : c;
   const ya = A.years[c.years.length - 1], yb = B.years[c.years.length - 1];
   if (ya === undefined || yb === undefined) return undefined;
-  return { kind: d.kind, plant: d.plant, choice: d.choice, lapsed: d.lapsed, cardUSD: d.options[0]!.effectUSD, months: Number(d.vars.months ?? 12), realisedUSD: A.cash - B.cash, diff: { rev: ya.rev - yb.rev, cost: ya.cost - yb.cost, pen: ya.pen - yb.pen, inv: ya.inv - yb.inv, down: ya.downDays - yb.downDays }, taMonth: Number(d.vars.taMonth ?? -1) };
+  const real = A.cash - B.cash, yr = d.yr ?? yearOf(Number(d.vars.months ?? 12), d.options[0]!.terms, halfTerms(d.options[0]!.terms));
+  const diff = { rev: ya.rev - yb.rev + 0, cost: ya.cost - yb.cost + 0, pen: ya.pen - yb.pen + 0, inv: ya.inv - yb.inv + 0, down: ya.downDays - yb.downDays + 0 };
+  // what the market did over the year (it does not depend on the player: the world that replays has it): gas as the unhedged world paid it, or the plant's spot price
+  const unhedged = d.kind === 'hedge' ? (d.choice === 0 ? alt : c) : alt, last12 = unhedged.hist.slice(-DEC_YEAR);
+  const market: CardReview['market'] = d.kind === 'hedge' ? { kind: 'gas', exp: yr.exp, fixed: Number(d.vars.price), real: last12.length > 0 ? last12.reduce((a, r) => a + r.gas, 0) / last12.length : 0 }
+    : d.kind === 'contract' && other.spot.length > 0 ? { kind: 'spot', exp: yr.exp, fixed: Number(d.vars.price), real: other.spot.slice(0, yr.months).reduce((a, x) => a + x, 0) / Math.min(yr.months, other.spot.length) } : { kind: '', exp: 0, real: 0, fixed: 0 };
+  // the terms the ledger measures on their own (penalties, the catalyst or build bill, the emissions fine, the fixed price against the spot walk); the rest of the forecast terms are one lump
+  const measured: Record<string, number> = {};
+  if (d.kind === 'hedge') measured.gas = real;
+  else {
+    if (yr.terms.some((x) => x.key === 'penalty')) measured.penalty = -diff.pen;
+    if (yr.terms.some((x) => x.key === 'catalyst')) measured.catalyst = -diff.inv;
+    if (yr.terms.some((x) => x.key === 'saving')) measured.saving = -diff.inv;
+    if (yr.terms.some((x) => x.key === 'build')) measured.build = -diff.inv;
+    if (yr.terms.some((x) => x.key === 'fine')) measured.fine = -(ya.fine - yb.fine);
+    if (d.kind === 'contract' && market.kind === 'spot') { const n = Math.min(yr.months, other.spot.length), dE = yr.aux.dE ?? 0, price = Number(d.vars.price); measured.price = other.spot.slice(0, n).reduce((a, x) => a + dE * (price - x), 0); }
+  }
+  const terms: CardTermReview[] = []; let fcRest = 0, realRest = real; const rest: string[] = [];
+  for (const x of yr.terms) {
+    if (measured[x.key] !== undefined) { terms.push({ key: x.key, fc: x.usd, real: measured[x.key]! }); realRest -= measured[x.key]!; } else { fcRest += x.usd; rest.push(x.key); }
+  }
+  if (rest.length > 0) terms.push({ key: 'rest', fc: fcRest, real: realRest, parts: rest });
+  else if (Math.abs(realRest) > 1) terms.push({ key: 'rest', fc: 0, real: realRest, parts: [] });
+  let moved = { key: terms[0]?.key ?? '', delta: 0 };
+  for (const x of terms) if (Math.abs(x.real - x.fc) >= Math.abs(moved.delta)) moved = { key: x.key, delta: x.real - x.fc };
+  const nz = (x: number): number => x + 0;   // never -0 (it does not survive JSON)
+  for (const x of terms) { x.fc = nz(x.fc); x.real = nz(x.real); }
+  moved.delta = nz(moved.delta);
+  return { kind: d.kind, plant: d.plant, choice: d.choice, lapsed: d.lapsed, cardUSD: d.options[0]!.effectUSD, months: Number(d.vars.months ?? 12), fcUSD: nz(yr.effectUSD), fcMonths: yr.months, spreadUSD: yr.spreadUSD, within: Math.abs(real - yr.effectUSD) <= yr.spreadUSD, realisedUSD: nz(real), terms, moved, market, diff, taMonth: Number(d.vars.taMonth ?? -1) };
 }
 /** THE five-year score everywhere (ledger, ENDINGS, course line, Flagship test, end card, histogram): operating margin = revenue less operating cost, penalties and fines. Investments (catalyst, inspections, programmes) are not charged to it; they are judged by their payback. */
 export const score = (c: Career): number => c.total.margin + (c.total.inv ?? 0);
@@ -452,13 +484,13 @@ export function taShort(c: Career, p: PlantId, month: number, crane = 1, extraCr
 }
 export interface Lever { key: 'gap' | 'turnaround' | 'contract' | 'inspect'; vars: Record<string, number | string> }
 const unitMargin = (c: Career, p: PlantId): number => c.prices[p] - DEFS[p].varUSD - DEFS[p].gasGJ * gasMul(c, p) * c.gas;
-/** USD a year a turnaround would add to this plant, as its two terms: `gross` (catalyst and exchanger back to new: more output and less gas) and `outage` (the contribution lost while the plant is out). The catalyst is taken at `catAt` if it is still above it. */
-export function renewalParts(c: Career, p: PlantId, catAt = 1): { gross: number; outage: number } {
+/** USD a turnaround would add to this plant over `months` months (a year unless the game ends sooner), as its two terms: `gross` (catalyst and exchanger back to new: more output and less gas) and `outage` (the contribution lost while the plant is out). The catalyst is taken at `catAt` if it is still above it. */
+export function renewalParts(c: Career, p: PlantId, catAt = 1, months = 12): { gross: number; outage: number } {
   const x = c.plants[p], d = DEFS[p], cat = Math.min(x.cat, catAt), keep = 1 - 0.15 * x.wear;
   const dOut = d.cap * x.rate * 0.6 * (1 - cat) * keep, out = outputOf(c, p);
   const um = unitMargin(c, p), mulNow = ((1 + 0.5 * (1 - x.U)) / (0.6 + 0.4 * cat)) * (1 - 0.07 * c.invest.heat), mulNew = 1 - 0.07 * c.invest.heat;
   const gas = out * d.gasGJ * (mulNow - mulNew) * c.gas;
-  return { gross: 12 * dOut * Math.max(0, um) + 12 * Math.max(0, gas), outage: (taDays(true, 1, 0) / 30) * out * Math.max(0, um) };
+  return { gross: months * dOut * Math.max(0, um) + months * Math.max(0, gas), outage: (taDays(true, 1, 0) / 30) * out * Math.max(0, um) };
 }
 /** USD a year a turnaround would add to this plant, net of its outage (gross less outage of `renewalParts`). */
 export function renewalGain(c: Career, p: PlantId, catAt = 1): number { const r = renewalParts(c, p, catAt); return r.gross - r.outage; }
@@ -474,7 +506,7 @@ export function levers(c: Career, proj: number): Lever[] {
   for (const p of PLANTS) if (c.plants[p].ta < 0 && renewalGain(c, p) > 2e5) { const m = suggestTaMonth(c, p), g = taWeigh(c, p, m).netUSD; if (g > 2e5 && (best === null || g > best.g)) best = { p, g, m }; }
   if (best !== null && c.m < MONTHS - 8) {
     const w = taWeigh(c, best.p, best.m), f = (v: number): string => (v / 1e6).toFixed(2);
-    out.push({ key: 'turnaround', vars: { plant: best.p, month: best.m + 1, cat: Math.round(c.plants[best.p].cat * 100), u: Math.round(c.plants[best.p].U * 100), gross: f(w.gainUSD), incident: f(w.saveUSD), cost: f(w.bookUSD), outage: f(w.outageUSD), gain: f(w.netUSD), net: w.netUSD } });
+    out.push({ key: 'turnaround', vars: { plant: best.p, month: best.m + 1, cat: Math.round(c.plants[best.p].cat * 100), u: Math.round(c.plants[best.p].U * 100), gross: f(w.gainUSD), incident: f(w.saveUSD), cost: f(w.bookUSD), outage: f(w.outageUSD), gain: f(w.netUSD), net: w.netUSD, months: w.months } });
   }
   let bo: { id: number; p: PlantId; g: number; prem: number; tpm: number } | null = null;
   for (const o of c.offers) {
@@ -594,11 +626,11 @@ export function attention(c: Career): string[] {
 export const inspDueMonth = (c: Career, p: PlantId): number => c.m + (INSPECT_EVERY - c.plants[p].insp) + 1;
 /** The key of one warning: kind, plant and the episode (inspection: its due month; catalyst or exchanger: the turnaround count). An acknowledgement covers exactly one such key. */
 export const warnKey = (c: Career, kind: string, p: PlantId): string => `${kind}:${p}:${kind === 'insp' ? inspDueMonth(c, p) : (c.plants[p].gen ?? 0)}`;
-/** True when a booked turnaround already takes care of the warning before it can matter: it resets the inspection clock (if it comes before the plant is overdue), the exchanger, and the catalyst (when a charge is in stock). */
+/** True when a booked turnaround already takes care of the warning before it can matter: it resets the inspection clock (if it comes before the plant is a strike: no more than INSPECT_STRIKE_OVER months past due, or before the coming year-end check), the exchanger, and the catalyst (when a charge is in stock). A plant already a month or two overdue is still covered by a turnaround booked soon: the card says OVERDUE, the strike warning stays off, and the run is not stopped for it again. */
 export function warnHandled(c: Career, kind: string, p: PlantId): boolean {
   const x = c.plants[p];
   if (x.ta < c.m) return false;
-  if (kind === 'insp') return x.insp + (x.ta - c.m) <= INSPECT_EVERY;
+  if (kind === 'insp') return x.insp + (x.ta - c.m) <= INSPECT_EVERY + INSPECT_STRIKE_OVER || x.ta < c.m + (12 - (c.m % 12));
   if (kind === 'cat') return x.stock === 1;
   return true;
 }
@@ -696,7 +728,7 @@ export function inspState(c: Career, p: PlantId): InspState {
 /** Expected cost of the incidents of one month at risk `r`: the chance of an incident times (a fine plus the outage days at `perDayUSD`), critical 40 % and minor 60 % of them. */
 const incidentUSD = (r: number, perDayUSD: number): number => clamp((r - 0.35) * 0.6, 0, 0.9) * (0.4 * (CRIT_FINE_USD + CRIT_DOWN_D * perDayUSD) + 0.6 * (MINOR_FINE_USD + MINOR_DOWN_D * perDayUSD));
 export const TA_HORIZON = 12;
-export interface TaWeigh { /** cost of booking: outage lost contribution + contract penalty + crane and crew hire + the overlap with other booked turnarounds */ bookUSD: number; outageUSD: number; penaltyUSD: number; hireUSD: number; /** extra plant-days and USD an overlap with turnarounds booked the same month adds (the stretch of this outage and of theirs); 0 without overlap */ overlapDays: number; overlapUSD: number; /** expected incident cost over the horizon if the plant is not renewed / if it is */ skipUSD: number; afterUSD: number; saveUSD: number; /** a year of output and gas back to new (`renewalParts` gross): the same term the yearly card and the Endings lever count */ gainUSD: number; /** incidents avoided + output and gas back to new - bookUSD */ netUSD: number }
+export interface TaWeigh { /** cost of booking: outage lost contribution + contract penalty + crane and crew hire + the overlap with other booked turnarounds */ bookUSD: number; outageUSD: number; penaltyUSD: number; hireUSD: number; /** extra plant-days and USD an overlap with turnarounds booked the same month adds (the stretch of this outage and of theirs); 0 without overlap */ overlapDays: number; overlapUSD: number; /** expected incident cost over the horizon if the plant is not renewed / if it is */ skipUSD: number; afterUSD: number; saveUSD: number; /** a year of output and gas back to new (`renewalParts` gross): the same term the yearly card and the Endings lever count */ gainUSD: number; /** months of the game left to earn the benefits in: the horizon of the incident and gain terms, at most TA_HORIZON (a year), fewer at the end of the game */ months: number; /** months of output and gas back to new after the outage month, at most a year */ gainMonths: number; /** incidents avoided + output and gas back to new - bookUSD */ netUSD: number }
 /** Booking a turnaround in `month` against not booking: what it costs now (outage, penalty, hire) and the expected incident cost it removes over the next TA_HORIZON months (risk grows with wear and fouling). */
 export function taWeigh(c: Career, p: PlantId, month: number, crane = 1, extraCrew = 0): TaWeigh {
   const x = c.plants[p], d = DEFS[p], ov = taOverlap(c, p, month, crane, extraCrew), sh = taShort(c, p, month, crane, extraCrew, ov.days);
@@ -708,14 +740,14 @@ export function taWeigh(c: Career, p: PlantId, month: number, crane = 1, extraCr
   const outageUSD = solo.days * perDay, hireUSD = (extraCrew > 0 ? TA_CREW_HIRE_USD : 0) + (crane > 1 ? TA_CRANE_HIRE_USD : 0), penaltyUSD = solo.penaltyUSD;
   const age = (j: number, from: { wear: number; U: number; insp: number }): { wear: number; U: number; insp: number; rate: number } =>
     ({ wear: Math.min(1, from.wear + d.wear * x.rate * x.rate * j), U: Math.max(0.5, from.U - d.foul * x.rate * j), insp: from.insp + j, rate: x.rate });
-  const t = clamp(month - c.m, 0, TA_HORIZON - 1);
+  const t = clamp(month - c.m, 0, TA_HORIZON - 1), H = clamp(MONTHS - c.m, 0, TA_HORIZON), gainMonths = clamp(MONTHS - 1 - month, 0, TA_HORIZON);
   let skipUSD = 0, afterUSD = 0;
-  for (let j = 0; j < TA_HORIZON; j++) {
+  for (let j = 0; j < H; j++) {
     skipUSD += incidentUSD(riskAt(c, age(j, x)), perDay);
     afterUSD += incidentUSD(riskAt(c, j < t ? age(j, x) : age(j - t, { wear: 0, U: 1, insp: 0 })), perDay);
   }
-  const bookUSD = outageUSD + penaltyUSD + hireUSD + overlapUSD, saveUSD = skipUSD - afterUSD, gainUSD = renewalParts(c, p).gross;
-  return { bookUSD, outageUSD, penaltyUSD, hireUSD, overlapDays: ov.extraDays, overlapUSD, skipUSD, afterUSD, saveUSD, gainUSD, netUSD: saveUSD + gainUSD - bookUSD };
+  const bookUSD = outageUSD + penaltyUSD + hireUSD + overlapUSD, saveUSD = skipUSD - afterUSD, gainUSD = renewalParts(c, p, 1, gainMonths).gross;
+  return { bookUSD, outageUSD, penaltyUSD, hireUSD, overlapDays: ov.extraDays, overlapUSD, skipUSD, afterUSD, saveUSD, gainUSD, months: H, gainMonths, netUSD: saveUSD + gainUSD - bookUSD };
 }
 /** Alerts the office shows at the top: an inspection due or overdue, a worn catalyst, a fouled exchanger. Each names its plant (the board jumps to its card). */
 export interface Alert { kind: 'insp' | 'cat' | 'foul'; plant: PlantId }
@@ -756,7 +788,9 @@ export const DEC_KINDS: readonly DecKind[] = ['contract', 'turnaround', 'debottl
 /** One term of an option's expected effect (USD, signed): the terms of an option add up to its `effectUSD` exactly. */
 export interface DecTerm { key: string; usd: number }
 export interface DecOption { id: 'a' | 'b'; /** expected effect against doing nothing, USD over `YearDecision.vars.months`: the sum of `terms` */ effectUSD: number; /** what the effect is made of, each in USD, summing to `effectUSD` */ terms: DecTerm[]; /** cash paid now */ costUSD: number; vars: Record<string, number | string> }
-export interface YearDecision { year: number; m: number; kind: DecKind; plant: PlantId | ''; options: DecOption[]; /** index of the option with the better expected effect (the careful pick) */ best: number; vars: Record<string, number | string>; /** -1 pending, else the option taken */ choice: number; lapsed: boolean }
+/** Option A's forecast over the first `months` months (at most twelve: the year to the next review), by term, and the uncertainty the card states on it (USD); `aux` carries what the review needs to measure the terms (market average expected, tonnes). */
+export interface DecYear { months: number; effectUSD: number; terms: DecTerm[]; spreadUSD: number; exp: number; aux: Record<string, number> }
+export interface YearDecision { year: number; m: number; kind: DecKind; plant: PlantId | ''; options: DecOption[]; /** index of the option with the better expected effect (the careful pick) */ best: number; vars: Record<string, number | string>; /** -1 pending, else the option taken */ choice: number; lapsed: boolean; /** the forecast of option A cut to the year the review looks at, with the card's stated uncertainty (absent in older saves) */ yr?: DecYear }
 export interface StopWhy { kind: string; plant: string; n: number; /** the event of the month the run stopped in (code, plant), so the stop can name what happened */ ev?: string; evPlant?: string }
 /** Victor recommends acting (option A) only when A's expected effect beats doing nothing by more than this: the forecast is a no-noise mean, so a sliver of expected gain does not pay for the risk of being wrong. */
 export const DEC_ACT_MARGIN = 3e5;
@@ -782,6 +816,26 @@ const r2 = (x: number): number => Math.round(x / 1e4) / 100;
 const sumTerms = (t: DecTerm[]): number => t.reduce((a, x) => a + x.usd, 0);
 /** An option whose effect IS the sum of its terms. */
 const mkOpt = (id: 'a' | 'b', terms: DecTerm[], costUSD: number, vars: Record<string, number | string>): DecOption => ({ id, effectUSD: sumTerms(terms), terms, costUSD, vars });
+/** The review horizon of a card: it is looked at again at the next year end, so at most twelve months of its forecast can be shown. */
+export const DEC_YEAR = 12;
+/** A card's forecast cut to the review's year, with the uncertainty stated for it. */
+const yearOf = (months: number, terms: DecTerm[], spreadUSD: number, exp = 0, aux: Record<string, number> = {}): DecYear => ({ months, effectUSD: sumTerms(terms), terms, spreadUSD, exp, aux });
+/** Half the size of the terms a no-noise forecast is made of (at least 1 MUSD): events, outages and the market make a card's realised effect wander by about that much. */
+const halfTerms = (terms: DecTerm[]): number => Math.max(1e6, 0.5 * terms.reduce((a, x) => a + Math.abs(x.usd), 0));
+/** Two standard deviations (USD) of the gas bill over `h` months against its own forecast: the gas walk (mean reversion 0.2, shock 0.8 a month) and the fuel-price event, for a burn of `gj` GJ a month. */
+export function gasSpread(c: Career, gj: number, h: number, gasMean: number): number {
+  const g = c.mode === 'learner' ? LEARNER_GENTLE : 1, total = (Object.keys(EVENTS) as EventType[]).reduce((a, t) => a + EVENTS[t].weight, 0), pe = 0.5 * (EVENTS.fuel_price.weight / total);
+  let v = 0;
+  for (let j = 1; j < h; j++) { let a = 0; for (let k = j; k < h; k++) { let r = 1; for (let i = 0; i < k - j; i++) r *= 0.8; a += 0.8 * r; } v += a * a; }
+  v += h * pe * (1 - pe) * (0.8 * g * gasMean) * (0.8 * g * gasMean);
+  return 2 * gj * Math.sqrt(v);
+}
+/** Two standard deviations (USD) of the fixed-price term of a contract of `tpm` t/month over `h` months: the spot walk (reversion 0.15, shock 4 % of the mean price a month, plus its gas coupling), every month treated as moving together. */
+export function spotSpread(p: PlantId, tpm: number, h: number): number {
+  const d = DEFS[p]; let sum = 0, v = 0;
+  for (let k = 0; k < h; k++) { sum += Math.sqrt(v + (d.gasCoupling * 1.3 / GAS0 * d.price0) * (d.gasCoupling * 1.3 / GAS0 * d.price0) * Math.min(1, k / 6)); v = v * 0.85 * 0.85 + (0.04 * d.price0) * (0.04 * d.price0); }
+  return 2 * tpm * sum;
+}
 
 function contractDecision(c: Career, p: PlantId): YearDecision | null {
   const d = DEFS[p], o = outputOf(c, p), tpm = Math.round((d.cap * DEC_CONTRACT_FRAC) / 100) * 100, have = contracted(c, p);
@@ -790,15 +844,19 @@ function contractDecision(c: Career, p: PlantId): YearDecision | null {
   if (term < 6) return null;
   const f = forecast(c, term);
   // the effect on the Works, term by term: the fixed price against spot on the contracted tonnes; what the spot tonnes left over fetch (selling fewer of them lifts their price); the penalty on tonnes the plant cannot deliver
-  let tPrice = 0, tDepth = 0, tPen = 0;
+  let tPrice = 0, tDepth = 0, tPen = 0, yPrice = 0, yDepth = 0, yPen = 0, ySpot = 0;
+  const yMonths = Math.min(term, DEC_YEAR), free0 = Math.max(0, o - have), dE0 = Math.min(tpm, free0);
   for (let k = 0; k < term; k++) {
     const s = f.price[p][k]!, free = Math.max(0, o - have), dE = Math.min(tpm, free), spotBefore = free * s * (1 - 0.15 * (free / d.cap)), spotAfter = (free - dE) * s * (1 - 0.15 * ((free - dE) / d.cap));
-    tPrice += dE * (price - s); tDepth += dE * s + spotAfter - spotBefore; tPen -= Math.max(0, have + tpm - o) * pen;
+    const a = dE * (price - s), b = dE * s + spotAfter - spotBefore, e = -Math.max(0, have + tpm - o) * pen;
+    tPrice += a; tDepth += b; tPen += e;
+    if (k < yMonths) { yPrice += a; yDepth += b; yPen += e; ySpot += s; }
   }
   const terms: DecTerm[] = [{ key: 'price', usd: tPrice }, { key: 'depth', usd: tDepth }, { key: 'penalty', usd: tPen }];
+  const yr = yearOf(yMonths, [{ key: 'price', usd: yPrice }, { key: 'depth', usd: yDepth }, { key: 'penalty', usd: yPen }], spotSpread(p, dE0, yMonths) + 0.9 * tpm * pen, ySpot / yMonths, { dE: dE0 });
   const avgSpot = f.price[p].reduce((a, x) => a + x, 0) / term, mean = d.price0;
   const vars = { plant: p, tpm, price, spot: Math.round(c.prices[p]), term, months: term, expSpot: Math.round(avgSpot), pen, mean };
-  return { year: 0, m: 0, kind: 'contract', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', terms, 0, { price, tpm, term }), mkOpt('b', [], 0, { spot: Math.round(c.prices[p]), expSpot: Math.round(avgSpot) })] };
+  return { year: 0, m: 0, kind: 'contract', plant: p, vars, best: 0, choice: -1, lapsed: false, yr, options: [mkOpt('a', terms, 0, { price, tpm, term }), mkOpt('b', [], 0, { spot: Math.round(c.prices[p]), expSpot: Math.round(avgSpot) })] };
 }
 function turnaroundDecision(c: Career): YearDecision | null {
   if (c.m > MONTHS - 12) return null;
@@ -807,13 +865,13 @@ function turnaroundDecision(c: Career): YearDecision | null {
     const x = c.plants[p]; if (x.ta >= 0) continue;
     const tm = suggestTaMonth(c, p, c.m + DEC_TA_LEAD), w = taWeigh(c, p, tm), cat = x.stock === 0 ? catPrice(c, p) : 0, gr = renewalParts(c, p);
     // incident cost removed + a year of output and gas back to new - the outage - contract penalty - hire - the catalyst charge
-    const terms: DecTerm[] = [{ key: 'incident', usd: w.saveUSD }, { key: 'gain', usd: gr.gross }, { key: 'outage', usd: -gr.outage }, { key: 'penalty', usd: -w.penaltyUSD }, { key: 'overlap', usd: -w.overlapUSD }, { key: 'hire', usd: -w.hireUSD }, { key: 'catalyst', usd: -cat }];
+    const terms: DecTerm[] = [{ key: 'incident', usd: w.saveUSD }, { key: 'gain', usd: w.gainUSD }, { key: 'outage', usd: -gr.outage }, { key: 'penalty', usd: -w.penaltyUSD }, { key: 'overlap', usd: -w.overlapUSD }, { key: 'hire', usd: -w.hireUSD }, { key: 'catalyst', usd: -cat }];
     if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms, w, cat, gr, m: tm };
   }
   if (best === null) return null;
   const { p, w, gr } = best, x = c.plants[p], days = taDays(true, 1, 0);
   const vars = { plant: p, month: best.m + 1, taMonth: best.m, shifted: best.m > c.m + DEC_TA_LEAD ? 1 : 0, days, cat: Math.round(x.cat * 100), u: Math.round(x.U * 100), months: 12 };
-  return { year: 0, m: 0, kind: 'turnaround', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [
+  return { year: 0, m: 0, kind: 'turnaround', plant: p, vars, best: 0, choice: -1, lapsed: false, yr: yearOf(12, best.terms, halfTerms(best.terms)), options: [
     mkOpt('a', best.terms, best.cat, { skip: r2(w.skipUSD), after: r2(w.afterUSD), outage: r2(gr.outage), pen: r2(w.penaltyUSD), cat: r2(best.cat) }),
     mkOpt('b', [], 0, { risk: Math.round(riskOf(c, p) * 100) })] };
 }
@@ -833,13 +891,14 @@ function debottleneckDecision(c: Career): YearDecision | null {
   for (const q of PLANTS) { const um = DEFS[q].price0 - DEFS[q].varUSD - DEFS[q].gasGJ * GAS0, v = outputOf(c, q) * um; if (v > bestM) { bestM = v; p = q; } }
   const q = p!, d = DEFS[q], dO = (outputOf(c, q) / (1 + (c.boost?.[q] ?? 0))) * DEC_BOOST, refUm = d.price0 - d.varUSD - d.gasGJ * GAS0;
   const cost = Math.round((DEC_BOOST_PAYBACK_YEARS * 12 * d.cap * DEC_BOOST * 0.9 * refUm) / 1e5) * 1e5, f = forecast(c, h);
-  let gain = 0;
-  for (let k = 0; k < h; k++) gain += dO * (f.price[q][k]! - d.varUSD - d.gasGJ * gasMul(c, q) * f.gas[k]! * f.evGas);
+  let gain = 0, yGain = 0;
+  for (let k = 0; k < h; k++) { const g1 = dO * (f.price[q][k]! - d.varUSD - d.gasGJ * gasMul(c, q) * f.gas[k]! * f.evGas); gain += g1; if (k < DEC_YEAR) yGain += g1; }
   // the extra tonnes emit: the card states the emissions against the cap, and a plant pushed over it risks the year-end fine and a regulator strike
   const em0 = emissionsYear(c), em1 = emissionsYear(c, q, DEC_BOOST), cap = emCap(c), ratio = em1 / cap;
   const fine = ratio > DEC_EM_SAFE ? EM_CAP_MONTHLY_USD * (Math.max(0, ratio - 1) * 12 + 1) : 0;
   const perYear = (gain / h) * 12, vars = { plant: q, pct: Math.round(DEC_BOOST * 100), dT: Math.round(dO), months: h, perYear: r1(perYear / 1e6), price: r1(cost / 1e6), dEm: Math.round((em1 - em0) / 1000), ratio: Math.round(ratio * 100), safe: Math.round(DEC_EM_SAFE * 100), fine: r1(fine / 1e6) };
-  return { year: 0, m: 0, kind: 'debottleneck', plant: q, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', [{ key: 'gain', usd: gain }, { key: 'build', usd: -cost }, { key: 'fine', usd: -fine }], cost, { gain: r1(gain / 1e6), price: r1(cost / 1e6), fine: r1(fine / 1e6) }), mkOpt('b', [], 0, {})] };
+  const yTerms: DecTerm[] = [{ key: 'gain', usd: yGain }, { key: 'build', usd: -cost }, { key: 'fine', usd: -fine }];
+  return { year: 0, m: 0, kind: 'debottleneck', plant: q, vars, best: 0, choice: -1, lapsed: false, yr: yearOf(Math.min(h, DEC_YEAR), yTerms, halfTerms(yTerms)), options: [mkOpt('a', [{ key: 'gain', usd: gain }, { key: 'build', usd: -cost }, { key: 'fine', usd: -fine }], cost, { gain: r1(gain / 1e6), price: r1(cost / 1e6), fine: r1(fine / 1e6) }), mkOpt('b', [], 0, {})] };
 }
 function hedgeDecision(c: Career): YearDecision | null {
   const h = Math.min(12, MONTHS - c.m);
@@ -848,27 +907,27 @@ function hedgeDecision(c: Career): YearDecision | null {
   let eff = 0, stress = 0;
   for (let k = 0; k < h; k++) { eff += gj * (f.gas[k]! * f.evGas - strike); stress += gj * (DEC_HEDGE_STRESS_GAS - strike); }
   const avg = (f.gas.reduce((a, x) => a + x, 0) / h) * f.evGas, vars = { price: strike, gas: Math.round(c.gas * 100) / 100, expGas: Math.round(avg * 100) / 100, gj: Math.round(gj / 1000), months: h, stress: r1(stress / 1e6), stressGas: DEC_HEDGE_STRESS_GAS };
-  return { year: 0, m: 0, kind: 'hedge', plant: '', vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', [{ key: 'gas', usd: eff }], 0, { price: strike, stress: r1(stress / 1e6) }), mkOpt('b', [], 0, { gas: Math.round(c.gas * 100) / 100, expGas: Math.round(avg * 100) / 100 })] };
+  return { year: 0, m: 0, kind: 'hedge', plant: '', vars, best: 0, choice: -1, lapsed: false, yr: yearOf(h, [{ key: 'gas', usd: eff }], gasSpread(c, gj, h, avg), avg), options: [mkOpt('a', [{ key: 'gas', usd: eff }], 0, { price: strike, stress: r1(stress / 1e6) }), mkOpt('b', [], 0, { gas: Math.round(c.gas * 100) / 100, expGas: Math.round(avg * 100) / 100 })] };
 }
 /** Economy catalyst grade: half the price of every charge, but it decays faster. Effect over the horizon: the saving on the next charge against the output and gas the faster decay costs on the forecast walk. */
 function catgradeDecision(c: Career): YearDecision | null {
   const h = Math.min(DEC_BOOST_HORIZON, MONTHS - c.m);
   if (h < 12) return null;
   const f = forecast(c, h);
-  let best: { p: PlantId; terms: DecTerm[] } | null = null;
+  let best: { p: PlantId; terms: DecTerm[]; yTerms: DecTerm[] } | null = null;
   for (const p of PLANTS) {
     if (c.eco?.[p] === true) continue;
     const x = c.plants[p], d = DEFS[p], heat = 1 - 0.07 * c.invest.heat;
     const margin = (cat: number, k: number): number => d.cap * (1 + (c.boost?.[p] ?? 0)) * x.rate * (0.4 + 0.6 * cat) * (f.price[p][k]! - d.varUSD - d.gasGJ * (heat / (0.6 + 0.4 * cat)) * f.gas[k]! * f.evGas);
-    let loss = 0, cs = 1, ce = 1;
-    for (let k = DEC_TA_LEAD; k < h; k++) { loss += margin(cs, k) - margin(ce, k); cs *= 1 - d.decay * x.rate; ce *= 1 - d.decay * x.rate * ECO_DECAY; }
+    let loss = 0, yLoss = 0, cs = 1, ce = 1;
+    for (let k = DEC_TA_LEAD; k < h; k++) { const l1 = margin(cs, k) - margin(ce, k); loss += l1; if (k < DEC_YEAR) yLoss += l1; cs *= 1 - d.decay * x.rate; ce *= 1 - d.decay * x.rate * ECO_DECAY; }
     const terms: DecTerm[] = [{ key: 'saving', usd: d.catUSD * (1 - ECO_PRICE) }, { key: 'loss', usd: -loss }];
-    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms };
+    if (best === null || sumTerms(terms) > sumTerms(best.terms)) best = { p, terms, yTerms: [{ key: 'saving', usd: d.catUSD * (1 - ECO_PRICE) }, { key: 'loss', usd: -yLoss }] };
   }
   if (best === null) return null;
   const { p, terms } = best, d = DEFS[p];
   const vars = { plant: p, price: r2(d.catUSD), eco: r2(d.catUSD * ECO_PRICE), pct: Math.round((1 - ECO_PRICE) * 100), decay: Math.round((ECO_DECAY - 1) * 100), months: h, save: r2(terms[0]!.usd), loss: r2(-terms[1]!.usd) };
-  return { year: 0, m: 0, kind: 'catgrade', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', terms, 0, { eco: vars.eco, save: vars.save, loss: vars.loss }), mkOpt('b', [], 0, { price: vars.price })] };
+  return { year: 0, m: 0, kind: 'catgrade', plant: p, vars, best: 0, choice: -1, lapsed: false, yr: yearOf(Math.min(h, DEC_YEAR), best.yTerms, halfTerms(best.yTerms)), options: [mkOpt('a', terms, 0, { eco: vars.eco, save: vars.save, loss: vars.loss }), mkOpt('b', [], 0, { price: vars.price })] };
 }
 /** A worn plant's turnaround, booked either way: with contractors (a second crane and four extra hands, hired) or with the Works' own crew and one crane. Option A's effect is the outage and penalty it saves less the hire; B is the baseline. */
 function crewDecision(c: Career): YearDecision | null {
@@ -885,7 +944,7 @@ function crewDecision(c: Career): YearDecision | null {
   if (best === null) return null;
   const { p, terms, days, month } = best, x = c.plants[p], cat = x.stock === 0 ? catPrice(c, p) : 0;
   const vars = { plant: p, month: month + 1, taMonth: month, shifted: month > c.m + DEC_TA_LEAD ? 1 : 0, cat: Math.round(x.cat * 100), u: Math.round(x.U * 100), daysA: days[0], daysB: days[1], hire: r2(TA_CREW_HIRE_USD + TA_CRANE_HIRE_USD), catUSD: r2(cat), months: 12 };
-  return { year: 0, m: 0, kind: 'crew', plant: p, vars, best: 0, choice: -1, lapsed: false, options: [mkOpt('a', terms, cat, { daysA: days[0], hire: vars.hire }), mkOpt('b', [], cat, { daysB: days[1] })] };
+  return { year: 0, m: 0, kind: 'crew', plant: p, vars, best: 0, choice: -1, lapsed: false, yr: yearOf(12, terms, halfTerms(terms)), options: [mkOpt('a', terms, cat, { daysA: days[0], hire: vars.hire }), mkOpt('b', [], cat, { daysB: days[1] })] };
 }
 const dkind = (c: Career, kind: DecKind): YearDecision | null => {
   switch (kind) {
@@ -935,7 +994,8 @@ function answerInner(c: Career, choice: unknown): void {
       case 'catgrade': (c.eco ??= {})[d!.plant as PlantId] = true; break;
       case 'crew': { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, (v.taMonth as number | undefined) ?? c.m + DEC_TA_LEAD, 2, CREW_STEP); break; }
     }
-  } else if (d!.kind === 'crew') { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, (d!.vars.taMonth as number | undefined) ?? c.m + DEC_TA_LEAD, 1, 0); }
+  } else if (d!.kind === 'contract') { c.nextId++; }   // option B takes the id option A would have used: the offers that come later carry the same ids in both worlds, so the review's replay accepts the same offers
+  else if (d!.kind === 'crew') { const p = d!.plant as PlantId; if (c.plants[p].stock === 0) buyCatalyst(c, p); turnaround(c, p, (d!.vars.taMonth as number | undefined) ?? c.m + DEC_TA_LEAD, 1, 0); }
   d!.choice = choice as number;
 }
 
