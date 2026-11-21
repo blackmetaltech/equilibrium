@@ -101,6 +101,7 @@ const naive = () => {
 };
 
 export const L06: LevelSpec = {
+  textVars: () => ({ so2Star: (Math.round(STAR_SO2 * 10) / 10).toFixed(1) }),   // R9-a: flask 3 states its number
   id: 'L06', chapter: 2, index: 6, setter: 'safety', budgetUSD: L06_BUDGET, units: L06_UNITS, requires: ['burner', 'boiler', 'stack'], notes: 3, shiftLen: L06_LEN_S, maxTicks: L06_LEN_S + 120,
   setup: (s) => {
     baseSetup(s, FIRE_SPECIES, L06_UNITS, PRESETS);

@@ -4,6 +4,7 @@
 // Rules stated in the brief (GAME): approach at least 20 K, stack at least 120 C. A shift (fuel_price, cw_hot_day) follows; the area is fixed during it.
 import type { Action } from '@core/kit';
 import { fmtNumber } from '../engine/solved';
+import { REGIONS } from '../regions';
 import { t } from '../i18n';
 import type { EqState } from '../state';
 import type { Annunciator, CoachStep, GoalEval, LevelSpec, Measures } from './spec';
@@ -55,7 +56,7 @@ export function pinchMeasures(s: S): Measures {
 
 const COACH: CoachStep[] = [
   { id: 'place_hx', role: 'manager', focus: 'hx', done: (s) => has(s, 'hx') },
-  { id: 'pipe_up', role: 'manager', done: (s) => piped(s, 6) },
+  { id: 'pipe_up', role: 'manager', done: (s) => piped(s, 5) },   // five pipes: flue in/out of the exchanger, gas in/out, heater to the reactor (R9-a: 6 kept the step up after the last pipe)
   { id: 'size_area', role: 'manager', focus: 'hx', done: (s) => commissions(s) >= 1 },
   { id: 'sweep', role: 'manager', focus: 'key', done: (s) => commissions(s) >= 2 },
 ];
@@ -86,6 +87,7 @@ const naive = () => {
 };
 
 export const L08: LevelSpec = {
+  textVars: (s) => ({ costStar: `${fmtNumber(Math.round(COST_STAR[s.region] ?? COST_STAR.global!), s.region)} ${REGIONS.get(s.region).currency.code}` }),   // R9-a: flask 3 states its number
   id: 'L08', chapter: 2, index: 8, setter: 'manager', budgetUSD: L08_BUDGET, units: L08_UNITS, notes: 2, shiftLen: L08_LEN_S, maxTicks: L08_LEN_S + 600,
   setup: (s) => {
     baseSetup(s, L08_SPECIES, L08_UNITS, PRESETS);

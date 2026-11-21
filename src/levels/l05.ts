@@ -5,6 +5,7 @@
 import type { Action } from '@core/kit';
 import { findReaction } from '../data/reactions';
 import { fmtNumber, plumbing, pricesOf } from '../engine/solved';
+import { REGIONS } from '../regions';
 import { t } from '../i18n';
 import { rxnDH } from '../sim/chem/reactions';
 import { steamPricePerT } from '../sim/econ';
@@ -160,6 +161,7 @@ const naive = () => {
 };
 
 export const L05: LevelSpec = {
+  textVars: (s) => ({ netStar: `${fmtNumber(Math.round(netStar(s)), s.region)} ${REGIONS.get(s.region).currency.code}` }),   // R9-a: flask 3 states its number
   id: 'L05', chapter: 2, index: 5, setter: 'manager', budgetUSD: L05_BUDGET, units: L05_UNITS, requires: ['burner', 'boiler', 'stack'], notes: 3, shiftLen: L05_LEN_S, maxTicks: L05_LEN_S + 120,
   setup: (s) => {
     baseSetup(s, FIRE_SPECIES, L05_UNITS, PRESETS);

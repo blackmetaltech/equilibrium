@@ -34,6 +34,7 @@ describe('F23 coach audit: every level, solver replay', () => {
         const id = ids[c.step - 1]!;
         if (!c.redo && spec.coach[c.step - 1]!.done(s)) problems.push(`${after}: step ${id} is shown but already done`);
         if (NEEDS_PIPES.includes(id) && s.flowsheet.streams.length > 0 && openPortsOf(s).length > 0) problems.push(`${after}: ${id} shown with open ports`);
+        if (id === 'pipe_up' && s.flowsheet.streams.length > 0 && openPortsOf(s).length === 0) problems.push(`${after}: pipe_up shown with every port piped`);   // R9-a: L08 asked for pipes on a fully piped plant
         if (NEEDS_RUN(id) && !ran(s)) problems.push(`${after}: ${id} shown before a run`);
         if (id === 'pin_window' && changedSinceRun(s)) problems.push(`${after}: pin_window shown after the dials were turned`);
         if (id === 'read_inert' && (li(e).secondary?.value ?? 0) < 0.05) problems.push(`${after}: read_inert shown with no inerts`);

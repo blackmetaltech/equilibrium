@@ -67,3 +67,13 @@ describe('F14 feed knob', () => {
     expect(k.disp.value).toBeCloseTo(182, 3);
   });
 });
+
+// R9-a: the star-3 flask states its number (no "calibrated threshold"), in every region.
+describe('R9-a: star-3 flasks state their threshold', () => {
+  for (const id of ['L05', 'L06', 'L08']) for (const region of ['global', 'in']) it(`${id} (${region})`, () => {
+    const e = new Env(GAME); e.reset({ seed: 1003, level: id, mode: 'learner', region } as any);
+    const r = (e.engine.q('levelInfo') as any).stars.rules[2] as string;
+    expect(r).not.toMatch(/calibrated|\{/);
+    expect(r).toMatch(/\d/);
+  });
+});
