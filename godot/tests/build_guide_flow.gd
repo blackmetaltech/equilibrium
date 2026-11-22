@@ -118,8 +118,10 @@ func call_it(id: String) -> void:
 	ans = nb.find_child("Answer", true, false)
 	if ans == null: return
 	var v := {"L23": "94.8", "L25": "1.97", "L26": "860"}[id] as String
-	await click_at(ans.get_global_rect().get_center(), 3)
-	check(app.modal() != null and app.modal().name == "keypad", "%s: tapping the Call it line opens the keypad" % id)
+	var at := ans.get_global_rect().get_center()
+	await click_at(at, 3)
+	var top := root.gui_get_hovered_control()
+	check(app.modal() != null and app.modal().name == "keypad", "%s: tapping the Call it line opens the keypad (modal %s, hovered %s, answer rect %s visible %s, root %s)" % [id, str(app.modal().name if app.modal() != null else null), str(top.get_path() if top != null else null), str(ans.get_global_rect()), str(ans.is_visible_in_tree()), str(root.size)])
 	await type_number(v)
 	check(bool(li().callIt.answered), "%s: the Call it answer is locked in from the notebook" % id)
 	var go: Control = nb.find_child("Start", true, false)
