@@ -63,7 +63,9 @@ func _l35() -> void:
 func _l37() -> void:
 	await level("L37"); lact(["reconcile"]); app.lvbay.refresh(true); await frames(4)
 	var t := all_text(app.lvbay.panel)
-	check(t.contains("7.81") and not t.contains("7.82"), "one chi-square notation (7.81)")
+	var other := RegEx.create_from_string("(?<![\\d.])7\\.8(?:2|15)(?!\\d)")   # the chi-square limit written another way (7.82, 7.815); a meter reading such as 117.82 is not one
+	var hit := other.search(t)
+	check(t.contains("7.81") and hit == null, "one chi-square notation (7.81)%s" % ("" if hit == null else ": also " + hit.get_string()))
 	check(t.contains("degrees of freedom"), "line explains the degrees of freedom")
 	lact(["flag", 1]); app.lvbay.refresh(true); await frames(4)
 	t = all_text(app.lvbay.panel)

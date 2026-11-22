@@ -118,7 +118,7 @@ function measures(s: S): Measures {
     annual: a.total, energy: a.energy, capexAnn: a.capexAnn, capex: toLocal(s, e.capexUsd), curve: e.curveOk ? 1 : 0, reason: REASON[e.op.reason], pct: (100 * e.op.Qh) / L39_Q } };
 }
 
-const oneOf = <T extends string>(xs: readonly T[], x: unknown, what: string): T => { need(typeof x === 'string' && (xs as readonly string[]).includes(x), t('lv.err.L39_pick', { what, x: String(x) })); return x as T; };
+const oneOf = <T extends string>(xs: readonly T[], x: unknown, what: string): T => { const v = typeof x === 'number' ? String(x) : x; need(typeof v === 'string' && (xs as readonly string[]).includes(v), t('lv.err.L39_pick', { what, x: String(x) })); return v as T; };   // a number is its name ("4" or 4: a pad or the QA camera sends numbers)
 
 /** "What you have" numbers (textVars): the Call-it data and the scenario, written once. */
 function textVars(s: S): Record<string, string | number> {

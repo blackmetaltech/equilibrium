@@ -1,14 +1,22 @@
 # ⚗️ EQUILIBRIUM — run a chemical plant where the chemistry is real
 
-**[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.7.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
+**[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.8.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
 
 **Build a chemical plant, then find out whether it works.** Place feed banks, heaters, exchangers, burners, reactors, columns and recycle loops, pipe them together, and commission the plant. Then real equilibrium, real kinetics and real heat balances decide what happens: the ammonia you can reach at 450 °C and 200 bar, the catalyst that falls asleep below 410 °C, the glycol reactor that crosses its Semenov point and runs away, the argon that builds up in a loop with no purge. The campaign climbs from std-9 stoichiometry to the work of a junior process engineer: PID tuning, interlocks, HAZOP, data reconciliation, and a five-year career running a whole Works.
 
-The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator windows, a chart recorder, Bakelite knobs, a DESIGN / COMMISSION / RUN key switch, a green-bar printout. Every rule (thermodynamics, equilibrium, kinetics, flowsheet solving, dynamics, economics) runs in a deterministic TypeScript engine on [cobanana-core](https://github.com/ixaxaar/cobanana-core) that Godot drives through a headless Node sidecar.
+The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator windows, a chart recorder, Bakelite knobs, a DESIGN / COMMISSION / RUN key switch, a green-bar printout. Every rule (thermodynamics, equilibrium, kinetics, flowsheet solving, dynamics, economics) runs in a deterministic TypeScript engine (on the shared COBANANA core) that Godot drives through a headless Node sidecar.
 
-> **Alpha (0.7.0).** Playable on desktop Linux; that is the only platform really supported so far. An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/ixaxaar/equilibrium/issues).
+> **Alpha (0.8.0).** Playable on desktop Linux; that is the only platform really supported so far (a Windows zip is built but untested). An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/ixaxaar/equilibrium/issues).
 
 ![Three adiabatic beds with interstage coolers in the contact plant, with molecule critters in the pipes and the X-T staircase top right](docs/readme/staircase.png)
+
+## What's new in 0.8
+
+| An incident fixed in the plant: the Career's ammonia loop with inerts in its feed, re-purged and running | L39 Size the Line: the pump settles where its curve crosses the system curve |
+|---|---|
+| ![incident loop](docs/readme/incident-loop.png) | ![size the line](docs/readme/size-the-line.png) |
+
+The Career now sends you into a real plant when inerts reach the ammonia feed, and the purge you set there changes the next three months. Chapter 10 adds hydraulics. Money is one currency per number in every region, long shifts at 16x run at 16x even under software rendering, and the Career autosaves and resumes. Details in the [changelog](CHANGELOG.md).
 
 ## What you actually do
 
@@ -20,9 +28,10 @@ The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator
 | **Call it** | Predict a number before you commission (the H₂ you must buy, K at 450 °C, the adiabatic rise). The printout compares your call with the engine's. |
 | **Instruments** | The **Equilibrium Window** and balance beam, the **X-T staircase**, the **Semenov plot**, the **heat ledger** and the **loop panel** with a green-bar strip chart, tuning knobs and a Nixie readout. |
 | **Turnaround boards** | A HAZOP worksheet, start-up SOP cards, permit to work, a data-reconciliation logsheet and a planning board with crew and crane levelling. |
-| **Career** | Five seeded years running the Works: contracts, price walks, catalyst decay, fouling, wear, inspections, turnarounds, incidents, emissions caps, investments, and an annual review. |
+| **Hydraulics** | Size a pipe and pick a pump: the system curve against the pump curve, NPSH and cavitation, and the cheapest line over a year. |
+| **Career** | Five seeded years running the Works: contracts, price walks, catalyst decay, fouling, wear, inspections, turnarounds, incidents, emissions caps, investments, and an annual review. When inerts creep into the ammonia feed you can go to the plant and fix the purge yourself, call a contractor or ignore it. |
 
-**The campaign.** Eleven stops on the **Works Map**, 39 levels plus the Career. **Night Shift** is a cold open at 02:40 on an ammonia loop. **The Bench** (L01-L04) is moles, not kilograms, air is mostly nitrogen, the unknown fuel, and a lab-notebook exam bridge. **Fire** (L05-L09) is waste-heat boilers, a burner lining limit, Hess's road, paying once for heat, and bomb vs flow calorimeter. **The Wall** (L10-L14) is Le Chatelier with the rigorous K, gas contracts with inerts, a water-gas shift where pressure does nothing, the SO₂ staircase and the brown N₂O₄ gas. **Speed** (L15-L18) is rate vs ceiling, light-off, a faster road to the same destination, and an oxygen rig. **The Loop** (L19-L23) is recycle, purge, refrigerated flash, the methanol loop and a distillery. **Containment** (L24-L27) is runaway, the last 0.3 percent, the nitric acid gauze deck and a blocked outlet. **The Works** (L28) feeds the world with ammonia from natural gas. **The Control Room** (L29-L33) is PID, a bump test and IMC tuning, ratio, cascade and an interlock with voting. **Turnaround** (L34-L38) is HAZOP, start-up, permit to work, reconciliation and a 20-day planning window. **Career** (C) is five years in charge. Exam bridges sit at the end of chapters 1 to 4.
+**The campaign.** Twelve stops on the **Works Map**, 40 levels plus the Career. **Night Shift** is a cold open at 02:40 on an ammonia loop. **The Bench** (L01-L04) is moles, not kilograms, air is mostly nitrogen, the unknown fuel, and a lab-notebook exam bridge. **Fire** (L05-L09) is waste-heat boilers, a burner lining limit, Hess's road, paying once for heat, and bomb vs flow calorimeter. **The Wall** (L10-L14) is Le Chatelier with the rigorous K, gas contracts with inerts, a water-gas shift where pressure does nothing, the SO₂ staircase and the brown N₂O₄ gas. **Speed** (L15-L18) is rate vs ceiling, light-off, a faster road to the same destination, and an oxygen rig. **The Loop** (L19-L23) is recycle, purge, refrigerated flash, the methanol loop and a distillery. **Containment** (L24-L27) is runaway, the last 0.3 percent, the nitric acid gauze deck and a blocked outlet. **The Works** (L28) feeds the world with ammonia from natural gas. **The Control Room** (L29-L33) is PID, a bump test and IMC tuning, ratio, cascade and an interlock with voting. **Turnaround** (L34-L38) is HAZOP, start-up, permit to work, reconciliation and a 20-day planning window. **Hydraulics** (L39) is a condensate line to size, with five pumps and a cavitating suction to avoid. **Career** (C) is five years in charge. Exam bridges sit at the end of chapters 1 to 4.
 
 **Modes.** **Learner** (coach, auto-explanations, gentler events, costs never fail a goal), **Engineer** (rigorous, costs and emissions can fail goals) and **Sandbox** (all units and species, no goals). Stars on the map count toward an Engineer rank.
 
@@ -111,10 +120,9 @@ docs/        DESIGN, DECISIONS, CRITIQUE-0.3 … CRITIQUE-0.7, readme screenshot
 
 ## Status and known gaps
 
-0.7 ("The Works you run") is tagged. In play-test rounds 8 and 9 a careful teacher won the Career at Flagship on the first try, and a Steam Deck player was on Flagship pace at month 59. Feedback truth on chapters 0-3 rose from 4 to 8 (novice) and 7 (ChemE student). The ChemE student's hand calculations agreed with the game in 6 of 6 levels. A coach audit now replays every level's reference build and fails on any stale or early intercom line. Wiring has snap-to-port, a "dropped on nothing" message, pan, zoom, frame-the-plant and chained piping. Still open, from the [critique](docs/CRITIQUE-0.7.md) and `.work/backlog.md`:
+0.8 ("The plant behind the numbers") is tagged. A Career incident now opens a real plant to fix, chapter 10 adds pump and line sizing, money uses one currency per number in every region, and long shifts are fast on weak hardware. In round 11 a careful teacher went to the plant for the incident and beat the contractor (2.51 against 2.83 MUSD), and the Career resumed intact after a crash. Still open, from the [critique](docs/CRITIQUE-0.8.md) and `.work/backlog.md`:
 
-- **Career**: card forecasts and year reviews now itemise against each other (F24), but no human has re-played it since. The plants are text only: an incident does not open a plant to fix. This is the 0.8 layer.
-- **Depth**: pump, line and relief sizing and PID tuning are not in the game yet.
-- **Speed**: 30-minute shifts run slowly on weak GPUs (L08 runs at about 1x real at 16x under software rendering).
+- **Career**: after a resume the board can be wider than the window, the incident's prediction is graded against the last purge rather than the first, and some commitments are one click while others ask twice. No careful human has finished all 60 months on this build yet.
+- **Gamepad**: the controller works on the main screens but has not had a pad-only pass on every screen.
 - **Phone**: checked on desktop at phone size only; the device needs the owner's adb authorisation.
-- No public release, no Windows or macOS build, and the Android APK is a debug build.
+- Releases are pre-releases: a Linux build (smoke-tested) and a Windows zip (untested); no macOS build, and the Android APK is a debug build.

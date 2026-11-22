@@ -143,6 +143,7 @@ func game_camera(spec: String) -> void:
 		elif part.begins_with("tag="):
 			var st := StreamTag.attach(self); st._pin_t = 6.0; st.show_for(part.substr(4), Vector2(vw() * 0.5, vs_h() * 0.5))
 		elif part == "menu": game_menu()
+		elif part == "nbclose": Notebook.close(self)   # QA: put the notebook away (screenshots of the plant and its board)
 		elif part == "recorder":
 			if chrome != null: chrome.open_recorder()
 		elif part == "log":

@@ -3,6 +3,31 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [0.8.0] - 2026-11-22 · "The plant behind the numbers" (an incident you fix in the plant, a new trade, one currency, fast shifts)
+### Added
+- **Incidents you fix in the plant (F29).** When inerts creep into the ammonia feed, the Career board pins an incident card with three honest answers and their stated
+  output, gas per tonne and MUSD: GO TO THE PLANT, CALL THE CONTRACTOR (0.30 MUSD, a safe 4 % purge) or IGNORE IT. GO TO THE PLANT opens the L20 synthesis loop pre-loaded
+  with the Career plant's inerts, catalyst activity and prices (`CAREER_FIX_NH3_INERTS`: notes, coach, a call-it on the argon at the converter inlet, goals, printout);
+  BACK TO THE CAREER applies the purge you chose to the ammonia plant for three months and logs it ("Purge set to 2.5 % at the plant: inerts …, output back to … %").
+  A good purge beats the contractor; a bad one can be worse. A crash inside the plant loses nothing.
+- **Chapter 10 · Hydraulics: L39 "Size the Line" (F30).** 60 m³/h of 90 °C condensate up 14 m to a deaerator: pick schedule-40 sizes for both legs, one of five centrifugal
+  pumps (head, efficiency and NPSHr curves), an impeller trim and where the pump stands. Darcy-Weisbach with Colebrook friction, the system curve against the pump curve,
+  affinity laws, NPSH available against required, and an economic-diameter star (pipe capital against electricity in the region's currency). A side-view picture of the job
+  with pipes coloured by velocity and cavitation bubbles, and a live H-Q plot with the operating point and BEP.
+- **Career save and resume (F27).** The Career autosaves each month and on every decision and resumes the same month and seed after a crash or quit.
+### Changed
+- **One currency per money number (F26).** Equipment capital (USD in the cost correlations) is converted once by the region pack's `capexFx` wherever it meets
+  region-priced money; L08's star line is derived from the engine for every region, and a test checks that a region with every price x83 gives exactly 83x every money goal.
+- **Fast shifts on weak hardware (F28).** Owed ticks are counted from the wall clock and run as one batched engine call (bit-identical results): L08's 30-minute shift at 16x
+  takes 110 s under software rendering (was 140-290 s).
+- **Career board (F27):** the scroll anchors to what you are reading, keys keep their width through arm/confirm, one strike banner with one line per plant, a booked
+  turnaround covers the overdue stop, ending names agree between review and end card, every moved review term is named, and the accept-time capacity check counts booked
+  turnaround days.
+- The Career is chapter 11 on the Works map.
+### Fixed
+- Call-it prompts get their level's numbers (L39 showed "{q}"); the prediction note promises a star only on the 18 levels whose star rule is the call; L24's star line had
+  lost its 6.6 kmol; a test now fails on any raw placeholder in any level's notes, stars or call-its.
+
 ## [0.7.0] - 2026-11-21 · "The Works you run" (rounds 8-9: the Career keeps careful players; what the game says is what the plant does)
 ### Added
 - **Coach audit** (`f23_truth.test.ts`): every coached level is replayed with its reference solver, action by action; a coach step is never shown after it is done,
