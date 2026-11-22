@@ -108,12 +108,12 @@ func _gen_sync(lid: String) -> void:
 		gen.visible = true; app.plant_world.visible = false; app.plant_world.set_blocked(true)
 		if _parked.is_empty(): _park_env(true)
 		gen.make_current()
-		_banner_lbl.text = "New look: your plant in the hall.  B: the drafting table" if phase != "design" else "New look: the hall (nothing built yet).  B: back to the drafting table"
+		_banner_lbl.text = "New look: your plant in the hall.  B or pad X: the drafting table" if phase != "design" else "New look: the hall (nothing built yet).  B or pad X: back to the drafting table"
 	else:
 		gen.visible = false; app.plant_world.visible = true; app.plant_world.set_blocked(false)
 		if not _parked.is_empty(): _park_env(false)
 		if app.plant_world.cam != null: app.plant_world.cam.make_current()
-		_banner_lbl.text = "Drafting table (classic view). Commission and your plant stands in the hall.  B: the hall"
+		_banner_lbl.text = "Drafting table (classic view). Commission and your plant stands in the hall.  B or pad X: the hall"
 	_banner_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8)); _banner_lbl.add_theme_constant_override("outline_size", 6)
 
 func _gen_off() -> void:

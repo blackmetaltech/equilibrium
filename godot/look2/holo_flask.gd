@@ -70,7 +70,7 @@ func _build_cmd() -> void:
 	run_btn = HoloTheme.button("RUN", "go", 20); run_btn.name = "Run"; run_btn.custom_minimum_size = Vector2(0, 52); run_btn.pressed.connect(run); right.add_child(run_btn)
 	row.add_child(right)
 	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 6); col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(row); col.add_child(HoloTheme.label("Fixed P off holds the volume. Argon off is a closed valve. Keys: 1 to 6 views, Q and E turn", 16, HoloTheme.MUTED, 400))
+	col.add_child(row); col.add_child(HoloTheme.label("Keys: 1 to 6 views, Q and E turn. Pad: D-pad picks a control, up/down turns it, A presses", 16, HoloTheme.MUTED, 400))
 	h._cmd = HoloPanel.new(col, 14); h._cmd.name = "Command"; h.add_child(h._cmd)
 
 func _build_list() -> void:
