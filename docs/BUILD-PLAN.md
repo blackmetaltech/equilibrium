@@ -10,7 +10,7 @@ Scope is the **must-ship** column of DESIGN §10.1:
 Stretch items (L17, L21, L22, L23, L26, L27, L28 and the non-level stretch list) are scheduled only after the M3 exit review.
 
 ## Conventions for every task
-- **Repo and paths.** The repo is `equilibrium/` inside the COBANANA workspace, with `core/` as a submodule. Paths below are relative to the repo.
+- **Repo and paths.** The repo is `equilibrium/` inside the games workspace, with `core/` as a submodule. Paths below are relative to the repo.
 - **Brief template.** Each worker brief contains:
   1. files to read: DESIGN § + the named research file + `core/CORE.md`;
   2. exact files to create;
