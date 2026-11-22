@@ -10,7 +10,7 @@ extends Control
 const SPEEDS := [0, 1, 4, 16]
 const ANN_TEXT := {"cw": "Cooling water pump", "hi": "Converter temperature high", "hh": "Converter temperature very high", "ilk": "Interlock", "flare": "Flare"}
 const CARD_ROLES := ["converter", "cooler", "separator", "compressor", "flare"]
-const ROLE_ALIAS := {"gauge": "flask"}   ## FlaskLab's gauge pick opens the flask card
+const ROLE_ALIAS := {"gauge": "flask", "wheel_v": "flask", "wheel_t": "flask"}   ## FlaskLab: picking the flask gauge or wheels opens the flask card
 const KEY_HINT := "Keys: 1 to 6 views, X x-ray, Q and E turn, [ ] dial"
 const M_NH3 := 17.0305
 
@@ -305,7 +305,7 @@ func _pos_fixed() -> void:
 	if _alarm != null: _alarm.pos = Vector2(vp.x - _alarm.size.x - m, m); top_r = m + _alarm.size.y + 12.0
 	if _dg_panel != null: _dg_panel.pos = Vector2(vp.x - _dg_panel.size.x - m, top_r)
 	_cmd.pos = Vector2((vp.x - _cmd.size.x) * 0.5, vp.y - _cmd.size.y - m)
-	_brief.pos = (vp - _brief.size) * 0.5
+	_brief.pos = Vector2(m, vp.y - _brief.size.y - m)   # lower left: the hero stays in view
 	if _end != null: _end.pos = (vp - _end.size) * 0.5
 	for p in [_alarm, _cmd, _brief, _coach, _dg_panel] + ([_end] if _end != null else []): if p != null: p.fit()
 
