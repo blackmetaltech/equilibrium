@@ -637,7 +637,7 @@ func _process(dt: float) -> void:
 	# converter: shell glow climbs from the bottom (hot outlet at the bottom bed), shimmer and a red light on the floor
 	if m_shell:
 		var h := maxf(heat - 0.12, 0.0)
-		m_shell.set_shader_parameter("heat_lo", minf(h, 0.62)); m_shell.set_shader_parameter("heat_hi", minf(h, 0.62) * 0.3)   # a bare shell at ~620 C is dull red, never white
+		m_shell.set_shader_parameter("heat_lo", minf(h, 0.42)); m_shell.set_shader_parameter("heat_hi", minf(h, 0.42) * 0.3)   # a bare shell at ~620 C is dull red, never white
 		m_shell_x.set_shader_parameter("heat_lo", h * 1.05); m_shell_x.set_shader_parameter("heat_hi", h * 0.35)
 		m_beds.set_shader_parameter("heat", 0.16 + heat * 0.55); m_peep.set_shader_parameter("heat", 0.4 + heat * 0.6)
 		m_shimmer.set_shader_parameter("strength", clampf(heat, 0.0, 1.2) * 0.02)

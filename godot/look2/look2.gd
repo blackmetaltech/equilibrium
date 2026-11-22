@@ -112,3 +112,7 @@ func _park_env(park: bool) -> void:
 		for w in _parked:
 			if is_instance_valid(w): (w as WorldEnvironment).environment = _parked[w]
 		_parked = {}
+
+## The notebook tab and the paper hub can appear a frame after the last engine change: keep them hidden while the slice is on.
+func _process(_dt: float) -> void:
+	if on: _hide_paper(true)
