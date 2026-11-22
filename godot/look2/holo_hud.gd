@@ -276,8 +276,8 @@ func _build_alarm() -> void:
 
 func _build_brief() -> void:
 	_dim = ColorRect.new(); _dim.color = Color(0.01, 0.03, 0.04, 0.0); _dim.set_anchors_preset(Control.PRESET_FULL_RECT); _dim.mouse_filter = Control.MOUSE_FILTER_IGNORE; _dim.visible = false; add_child(_dim)
-	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 10); vb.custom_minimum_size.x = 520; vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vb.add_child(HoloTheme.label("", 16, HoloTheme.TEAL_HI, 600)); vb.add_child(HoloTheme.label("", 40, HoloTheme.INK, 700))
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 10); vb.custom_minimum_size.x = 470; vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(HoloTheme.label("", 16, HoloTheme.TEAL_HI, 600)); var ttl := HoloTheme.label("", 36, HoloTheme.INK, 700); ttl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(ttl)
 	for i in 2:
 		var n := HoloTheme.label("", 18, HoloTheme.INK, 400); n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(n)
 	var b := HoloTheme.button("Begin", "go", 18); b.name = "Begin"; b.custom_minimum_size = Vector2(150, 44); b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; b.pressed.connect(_begin_shift); vb.add_child(b)
@@ -386,6 +386,7 @@ func _refresh_flask(g: Dictionary, _t: float) -> void:
 	_fl.refresh(_li, g)
 	_sync_coach()
 	if not _brief_done and not _brief.shown and _status == "playing": _open_brief()
+	if _brief.shown and not _brief_done and int(app.speed) > 0: _begin_shift(false)   # a scripted or resumed start
 	if _end != null and _end.shown and _status == "playing": _close_end()
 
 func _sync_ann(anns: Array) -> void:
