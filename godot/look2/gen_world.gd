@@ -9,7 +9,9 @@ var plant: Node3D
 var _sig := ""
 var _out := {}                ## unit id -> outlet stream id
 var _glow := {}               ## unit id -> {mat, light, kind}
-var _steam := {}              ## unit id -> particles
+var _steam := {}
+var _kind := {}   ## steam id -> "boiler" (plume by the engine's steam kg/s) or "vent"
+var _duty := {}   ## boiler id -> steam kg/s from the engine (the plume follows it)              ## unit id -> particles
 var _types := {}              ## unit id -> type
 var _tmax := {}               ## unit id -> sinter limit K (beds), 0 if none
 var _tmin := {}               ## unit id -> light-off K, 0 if none
@@ -56,8 +58,8 @@ func rebuild() -> void:
 			"product": _tank(c)
 			"vent", "stack", "flare": _vent(id, c)
 			_: _box(Vector3(1.0, 1.0, 1.0), c + Vector3(0, 0.5, 0), M.steel_dull, plant)
-		var lab := Label3D.new(); lab.text = id; lab.font_size = 64; lab.pixel_size = 0.004; lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lab.modulate = Color(0.9, 0.95, 1.0, 0.85)
-		lab.outline_size = 8; lab.position = c + Vector3(0, _height(ty) + 0.6, 0); plant.add_child(lab)
+		var lab := Label3D.new(); lab.text = id; lab.font_size = 36; lab.pixel_size = 0.0009; lab.fixed_size = true; lab.no_depth_test = true; lab.render_priority = 10; lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lab.modulate = Color(0.9, 0.95, 1.0, 0.95)
+		lab.outline_size = 12; lab.outline_modulate = Color(0, 0, 0, 0.85); lab.position = c + Vector3(0, _height(ty) + 0.6, 0); plant.add_child(lab)
 		anchors[id] = c + Vector3(0, _height(ty) * 0.6, 0); radius[id] = 1.0
 	var k := 0
 	for s in p.get("streams", []):
@@ -96,8 +98,9 @@ func _feed(c: Vector3, i: int) -> void:
 	_box(Vector3(1.3, 0.1, 0.9), c + Vector3(0, 0.05, 0), M.plate, plant)
 
 func _mixer(c: Vector3) -> void:
-	var cy := _cyl(0.4, 1.6, c + Vector3(0, 0.9, 0), M.steel, plant); cy.rotation_degrees.z = 90
-	for x in [-0.8, 0.8]: _sph(0.4, c + Vector3(x, 0.9, 0), M.steel, plant)
+	var pm := _paint(Color(0.55, 0.56, 0.56))
+	var cy := _cyl(0.4, 1.6, c + Vector3(0, 0.9, 0), pm, plant); cy.rotation_degrees.z = 90
+	for x in [-0.8, 0.8]: _sph(0.4, c + Vector3(x, 0.9, 0), pm, plant)
 	for x in [-0.5, 0.5]: _box(Vector3(0.12, 0.7, 0.6), c + Vector3(x, 0.35, 0), M.yellow, plant)
 
 func _compressor(c: Vector3) -> void:
@@ -111,7 +114,10 @@ func _glowmat() -> StandardMaterial3D:
 	return m
 
 func _converter(id: String, c: Vector3) -> void:
-	_cyl(1.0, 6.2, c + Vector3(0, 3.6, 0), M.steel, plant, -1.0, 40); _sph(1.0, c + Vector3(0, 6.7, 0), M.steel, plant, true)
+	var sh := _shader("steel", {"rough_base": 0.3, "metallic": 0.8, "blotch": 0.15, "streak": Vector3(140.0, 6.0, 140.0)})
+	_cyl(1.0, 6.2, c + Vector3(0, 3.6, 0), sh, plant, -1.0, 40); _sph(1.0, c + Vector3(0, 6.7, 0), sh, plant, true)
+	for k in 6: _cyl(1.025, 0.07, c + Vector3(0, 1.0 + k * 0.95, 0), M.clad, plant, -1.0, 40)   # cladding bands, as R-106 in L00
+	_flange(c + Vector3(0, 6.95, 0), Vector3.UP, 0.25, plant)
 	_cyl(1.05, 0.5, c + Vector3(0, 0.25, 0), M.steel_dull, plant, -1.0, 40)
 	for k in 3: _torus(1.02, 0.04, c + Vector3(0, 1.6 + k * 1.8, 0), M.steel_dull, plant)
 	_cyl(1.6, 0.08, c + Vector3(0, 6.0, 0), M.plate, plant); _torus(1.58, 0.03, c + Vector3(0, 7.0, 0), M.yellow, plant)
@@ -120,21 +126,31 @@ func _converter(id: String, c: Vector3) -> void:
 	_glow[id] = {"mat": gm, "light": l, "kind": "converter"}
 
 func _bed(id: String, c: Vector3) -> void:
-	_cyl(0.9, 2.8, c + Vector3(0, 1.8, 0), M.steel, plant, -1.0, 36); _sph(0.9, c + Vector3(0, 3.2, 0), M.steel, plant, true); _sph(0.9, c + Vector3(0, 0.4, 0), M.steel, plant)
+	var sh := _shader("steel", {"rough_base": 0.32, "metallic": 0.8, "blotch": 0.2})
+	_cyl(0.9, 2.8, c + Vector3(0, 1.8, 0), sh, plant, -1.0, 36); _sph(0.9, c + Vector3(0, 3.2, 0), sh, plant, true); _sph(0.9, c + Vector3(0, 0.4, 0), sh, plant)
+	for y in [1.2, 2.4]: _cyl(0.93, 0.06, c + Vector3(0, y, 0), M.clad, plant, -1.0, 36)
+	_flange(c + Vector3(0, 4.05, 0), Vector3.UP, 0.18, plant)
 	for a in 3: _seg(c + Vector3(cos(a * TAU / 3.0) * 0.7, 0, sin(a * TAU / 3.0) * 0.7), c + Vector3(cos(a * TAU / 3.0) * 0.7, 0.6, sin(a * TAU / 3.0) * 0.7), 0.06, M.black, plant)
 	var gm := _glowmat(); _cyl(0.91, 0.9, c + Vector3(0, 1.8, 0), gm, plant, -1.0, 36)   # the catalyst band you can read: dark when cold, orange when working, red-white when sintering
 	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.45, 0.15); l.light_energy = 0.0; l.omni_range = 4.0; l.position = c + Vector3(0, 1.8, 1.3); plant.add_child(l)
 	_glow[id] = {"mat": gm, "light": l, "kind": "bed"}
 
 func _boiler(id: String, c: Vector3) -> void:
-	var d := _cyl(0.7, 2.6, c + Vector3(0, 1.2, 0), _paint(Color(0.55, 0.15, 0.1)), plant); d.rotation_degrees.z = 90
-	for x in [-1.3, 1.3]: _sph(0.7, c + Vector3(x, 1.2, 0), _paint(Color(0.55, 0.15, 0.1)), plant)
+	# waste-heat boiler: aluminium-clad shell on saddles with a steam drum above (Sigrid: not red toy drums)
+	var d := _cyl(0.7, 2.6, c + Vector3(0, 1.1, 0), M.clad, plant); d.rotation_degrees.z = 90
+	for x in [-1.3, 1.3]: _sph(0.7, c + Vector3(x, 1.1, 0), M.steel_dull, plant)
+	for k in 5: (_cyl(0.72, 0.05, c + Vector3(-1.0 + k * 0.5, 1.1, 0), M.steel_dull, plant)).rotation_degrees.z = 90
+	for x in [-0.8, 0.8]: _box(Vector3(0.3, 0.6, 1.1), c + Vector3(x, 0.3, 0), _paint(Color(0.3, 0.32, 0.34)), plant)
+	var dr := _cyl(0.35, 1.8, c + Vector3(0, 2.4, 0), _paint(Color(0.32, 0.42, 0.36)), plant); dr.rotation_degrees.z = 90
+	for x in [-0.4, 0.4]: _seg(c + Vector3(x, 1.75, 0), c + Vector3(x, 2.1, 0), 0.06, M.steel_dull, plant)
 	_cyl(0.18, 1.6, c + Vector3(0.6, 2.4, 0), M.steel_dull, plant)
+	_kind[id] = "boiler"
 	_steam[id] = _particles(c + Vector3(0.6, 3.3, 0), 30, 3.0, Vector3(0, 1.6, 0), 12.0, 0.6, Color(0.92, 0.94, 0.96, 0.4), plant, 3.0)
 
 func _separator(c: Vector3) -> void:
 	_cyl(0.6, 3.4, c + Vector3(0, 2.1, 0), _shader("steel", {"rough_base": 0.4, "frost": 0.5, "frost_h": 1.2, "metallic": 0.6}), plant)
-	_sph(0.6, c + Vector3(0, 3.8, 0), M.steel, plant, true); _sph(0.6, c + Vector3(0, 0.4, 0), M.steel, plant)
+	_sph(0.6, c + Vector3(0, 3.8, 0), M.steel_dull, plant, true); _sph(0.6, c + Vector3(0, 0.4, 0), M.steel_dull, plant)
+	for y in [1.2, 2.2, 3.2]: _cyl(0.62, 0.05, c + Vector3(0, y, 0), M.clad, plant)
 
 func _tank(c: Vector3) -> void:
 	var w := _flat(Color(0.86, 0.87, 0.85), 0.1, 0.35)
@@ -162,7 +178,15 @@ func set_snapshot(g: Dictionary) -> void:
 		(gw.mat as StandardMaterial3D).emission = col
 		(gw.mat as StandardMaterial3D).emission_energy_multiplier = heat * 2.2
 		(gw.light as OmniLight3D).light_energy = heat * 2.0
-	for id in _steam: (_steam[id] as GPUParticles3D).emitting = running
+	var info := {}
+	for u in g.get("units", []): info[str(u.get("id", ""))] = u.get("info", {}) if u.get("info", {}) is Dictionary else {}
+	for id in _steam:
+		var ps := _steam[id] as GPUParticles3D
+		if str(_kind.get(id, "")) == "boiler":   # Mateo: the plume follows the boiler's duty, not just "running"
+			var kg := float((info.get(id, {}) as Dictionary).get("steam_kg_s", 0.0))
+			ps.emitting = running and kg > 0.0
+			ps.amount_ratio = clampf(kg / 0.6, 0.15, 1.0); ps.speed_scale = 0.6 + clampf(kg / 0.6, 0.0, 1.0) * 0.8
+		else: ps.emitting = running
 
 func _process(dt: float) -> void:
 	_t += dt

@@ -254,7 +254,7 @@ func _build_rig() -> void:
 	var a1 := 1.0 - exp(-1.1); var cc := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), a1); tg.albedo_color = Color(cc.r, cc.g, cc.b, 1.0 - exp(-2.2))
 	_cyl(0.2, 1.5, tw + Vector3(0, 0.97, 0), tg, self, -1.0, 40)
 	_cyl(0.25, 0.08, tw + Vector3(0, 1.84, 0), mats.stainless, self, -1.0, 32)
-	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 40; pl.pixel_size = 0.0022; pl.no_depth_test = true; pl.render_priority = 10; pl.outline_size = 10; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, 0.32, 0.27); add_child(pl)
+	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 40; pl.pixel_size = 0.0022; pl.no_depth_test = true; pl.render_priority = 127; pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; pl.outline_size = 10; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, -0.12, 0.45); add_child(pl)
 	anchors["twin"] = tw + Vector3(0, 1.2, 0); radius["twin"] = 0.3
 	# the RUN lever on the console: pull it to run
 	lever = Node3D.new(); lever.position = cp + Vector3(0.45, 0.95, 0.15); add_child(lever)
@@ -498,7 +498,7 @@ func pick(p: Vector2) -> String:
 
 # ---- camera -------------------------------------------------------------------------------------------------------------------------------------
 const L14_PRESETS := {
-	"wide": [Vector3(-7.0, 3.6, -4.0), -0.30, -0.26, 33.0],
+	"wide": [Vector3(-4.0, 3.0, -4.0), -0.40, -0.21, 21.0],
 	"flask": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
 	"gauge": [Vector3(1.75, 3.75, -1.6), 0.2, -0.02, 1.5],
 	"wheel": [Vector3(0, 6.2, -2.0), 0.5, -0.55, 3.6],
