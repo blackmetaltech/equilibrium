@@ -153,6 +153,8 @@ func game_camera(spec: String) -> void:
 		elif part.begins_with("tag="):
 			var st := StreamTag.attach(self); st._pin_t = 6.0; st.show_for(part.substr(4), Vector2(vw() * 0.5, vs_h() * 0.5))
 		elif part == "menu": game_menu()
+		elif part == "endclose":   # QA (phase B captures): put the end card away to see the world behind it
+			if end_ui != null and is_instance_valid(end_ui): end_ui.queue_free(); end_ui = null
 		elif part == "nbclose": Notebook.close(self); Notebook.qa_hold = true   # QA: put the notebook away (screenshots of the plant and its board); F33: also the one the watcher opens after CB_CAM ran
 		elif part.begins_with("incident"):   # QA (F33): "incident" or "incident=<seed>": a fresh Career (on that seed) run a month at a time until a plant incident waits on the board
 			if part.begins_with("incident="): pinned_seed = int(part.substr(9)); _career_fresh(); pinned_seed = -1
