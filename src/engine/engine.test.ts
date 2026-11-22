@@ -106,17 +106,21 @@ describe('saves, determinism, budgets', () => {
     expect(e.state.undo.past.length).toBeLessThanOrEqual(MAX_UNDO);
     expect(JSON.stringify(e.state).length).toBeLessThan(256 * 1024);
   });
-  it('commission time on a 12-unit loop: p95 under 25 ms (desktop), reported', () => {
-    const times: number[] = [];
+  it('commission time on a 12-unit loop: p95 under 25 ms of CPU (desktop), reported', () => {
+    const times: number[] = [], walls: number[] = [];
     for (let i = 0; i < 40; i++) {
       const e = newEngine(); const { ids } = buildLoop(e, true); expect(e.state.flowsheet.units.length).toBe(12);
       must(e, 'setParam', ids.split, 'frac', 0.03 + i / 500);
-      const t0 = performance.now(); const r = e.act('commission', []); times.push(performance.now() - t0);
+      // Phase C: the budget is compute, so time this thread's CPU (user + system), not the wall clock. Under a parallel suite the worker is
+      // descheduled and wall time counted that wait (57-936 ms seen under load, 4 ms alone). Same 25 ms bound; wall time is still reported.
+      const w0 = performance.now(), c0 = process.threadCpuUsage(); const r = e.act('commission', []);
+      const c1 = process.threadCpuUsage(c0); times.push((c1.user + c1.system) / 1000); walls.push(performance.now() - w0);
       expect(r.commissioned).toBe(true);
     }
     times.sort((a, b) => a - b);
     const p95 = times[Math.floor(times.length * 0.95)]!;
-    console.log(`commission 12-unit loop: median ${times[20]!.toFixed(2)} ms, p95 ${p95.toFixed(2)} ms, max ${times[39]!.toFixed(2)} ms`);
+    walls.sort((a, b) => a - b);
+    console.log(`commission 12-unit loop (thread CPU): median ${times[20]!.toFixed(2)} ms, p95 ${p95.toFixed(2)} ms, max ${times[39]!.toFixed(2)} ms; wall p95 ${walls[38]!.toFixed(2)} ms`);
     expect(p95).toBeLessThan(25);
   });
 });
