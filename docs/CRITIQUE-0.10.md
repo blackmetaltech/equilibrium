@@ -56,3 +56,11 @@ This was LOOK2 phase B. Chapter 3 (L10-L14) is the released new-look chapter, an
 | V where effort goes | Plan | 0.11: functionality (the drafting table by pad, then the hall as a place to inspect, with clicking a bed opening its step on the staircase); playability (T* as L14's win with a run budget); expansion (a second chapter in the new look). |
 
 — Ingrid Solheim, Game Lead
+
+## 0.10.1 (the same day): the first screens
+The manager's review of the release shots arrived after the v0.10.0 tag was pushed. I did not move a published tag; the fixes shipped as v0.10.1.
+- The title is now the night plant hall, with the camera drifting behind a glass menu. No classic geometry is on the first screen.
+- The Works Map is on glass. Chapters 00 and 03 show a picture of their new-look scene; the others say "classic".
+- L14 is brighter. The rig is framed larger, and the flask panel sits bottom-left, off the rig.
+- README and site open on new-look shots.
+- layout, look2, pad3, phone and fix4 flows pass, and the smoke test is OK. Both releases were built by CI, smoke-tested, and carry SHA256SUMS.
