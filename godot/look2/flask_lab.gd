@@ -44,7 +44,7 @@ func _demo_step() -> void:
 func _ready() -> void:
 	_build_env()
 	env.volumetric_fog_density = 0.008; env.volumetric_fog_albedo = Color(0.85, 0.85, 0.88); env.volumetric_fog_anisotropy = 0.7
-	env.ambient_light_energy = 0.7; env.tonemap_exposure = 1.3
+	env.ambient_light_energy = 1.05; env.tonemap_exposure = 1.45   # owner review: the glassware, tanks and the bay must read
 	_build_room(); _build_rig(); _build_racks()
 	cam = Camera3D.new(); cam.fov = 48.0; cam.near = 0.03; cam.far = 600.0; add_child(cam)
 	set_camera("wide"); _snap_cam()
@@ -141,7 +141,7 @@ func _build_room() -> void:
 	for z in [-8.0, 0.0, 12.0]: _box(Vector3(x1 - x0 - 2.0, 0.1, 0.6), Vector3(0, 11.0, z), mats.stainless_dull); _box(Vector3(x1 - x0 - 2.0, 0.08, 0.5), Vector3(0, 11.06, z), _flat(Color(0.1, 0.1, 0.12), 0.0, 0.7))
 	for x in [-24.0, -12.0, 12.0, 24.0]: _seg(Vector3(x + 0.5, 0.5, -8.0), Vector3(x + 0.5, 11.0, -8.0), 0.05, mats.stainless_dull)
 	# key and fill: a cool key on the hero, warm cove light, practicals; the hero is backlit by the bay
-	var key := SpotLight3D.new(); key.light_color = Color(0.92, 0.95, 1.0); key.light_energy = 20.0; key.spot_range = 24.0; key.spot_angle = 16.0; key.shadow_enabled = true
+	var key := SpotLight3D.new(); key.light_color = Color(0.92, 0.95, 1.0); key.light_energy = 28.0; key.spot_range = 24.0; key.spot_angle = 16.0; key.shadow_enabled = true
 	key.position = DAIS + Vector3(4.0, 15.0, 5.0); key.light_volumetric_fog_energy = 2.5; add_child(key); key.look_at(DAIS + Vector3(0, 2.0, 0))
 	_spot(DAIS + Vector3(-5.0, 7.0, -6.0), DAIS + Vector3(0, 2.5, 0), Color(0.5, 0.75, 1.0), 6.0, 16.0, 28.0, 1.0)
 	for f in [Vector3(-16, 6, 4), Vector3(16, 6, 4), Vector3(0, 7, 12), Vector3(0, 7, -9)]:
@@ -268,7 +268,7 @@ func _build_rig() -> void:
 	# the clamp on the crosshead: on = the piston is held (constant V); off = it floats at the gauge pressure (constant P)
 	clamp_h = Node3D.new(); clamp_h.position = Vector3(d.x + CR + 0.3, by + 3.15, d.z); add_child(clamp_h)
 	_box(Vector3(0.14, 0.16, 0.14), Vector3.ZERO, mats.anod, clamp_h); _seg(Vector3.ZERO, Vector3(0.42, 0.0, 0), 0.024, M.red, clamp_h); _sph(0.06, Vector3(0.44, 0, 0), M.red, clamp_h)
-	var cl := Label3D.new(); cl.text = "PISTON CLAMP"; cl.font_size = 30; cl.pixel_size = 0.00135; cl.fixed_size = true; cl.no_depth_test = true; cl.render_priority = 127; cl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; cl.outline_size = 8; cl.modulate = Color(1.0, 0.75, 0.6); cl.position = Vector3(0.25, 0.2, 0); clamp_h.add_child(cl)   # playtest: nobody found it
+	var cl := Label3D.new(); cl.text = "CLAMP"; cl.font_size = 30; cl.pixel_size = 0.00135; cl.fixed_size = true; cl.no_depth_test = true; cl.render_priority = 127; cl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; cl.outline_size = 8; cl.modulate = Color(1.0, 0.75, 0.6); cl.position = Vector3(0.25, 0.2, 0); clamp_h.add_child(cl)   # playtest: nobody found it
 	anchors["clamp"] = clamp_h.position + Vector3(0.22, 0, 0); radius["clamp"] = 0.3
 	# everything built since n0 moves under a pivot scaled about the dais centre (local positions stay as written)
 	pivot = Node3D.new(); pivot.name = "rig"; add_child(pivot)
@@ -505,7 +505,7 @@ func pick(p: Vector2) -> String:
 
 # ---- camera -------------------------------------------------------------------------------------------------------------------------------------
 const L14_PRESETS := {
-	"wide": [Vector3(-4.0, 3.0, -4.0), -0.40, -0.21, 21.0],
+	"wide": [Vector3(-5.0, 2.9, -3.4), -0.40, -0.17, 14.5],
 	"flask": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
 	"gauge": [Vector3(1.75, 3.75, -1.6), 0.2, -0.02, 1.5],
 	"wheel": [Vector3(0, 6.2, -2.0), 0.5, -0.55, 3.6],

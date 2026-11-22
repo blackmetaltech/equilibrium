@@ -246,7 +246,7 @@ static func open(app: CbApp) -> void:
 	var narrow := vw < 1000.0 or vh > vw * 1.1
 	var d: Dictionary = app.dialog("levels", minf(vw - (16.0 if compact else 40.0), 1860.0), vh - (16.0 if compact else 40.0), EqTheme.ENAMEL_HI, 0.55)
 	var host: Control = d.host; var vb: VBoxContainer = d.vb
-	(d.panel as PanelContainer).add_theme_stylebox_override("panel", EqTheme.enamel_sb(8, 10.0 if compact else 18.0))
+	(d.panel as PanelContainer).add_theme_stylebox_override("panel", HoloTheme.box(Color(HoloTheme.GLASS, 0.94), Color(HoloTheme.TEAL, 0.4), 1, 14, int(10.0 if compact else 18.0)))   # owner review: the glass language
 	vb.add_theme_constant_override("separation", 6 if compact else 10)
 	var view := MapView.new(); view.app = app; view.host = host; view.narrow = narrow
 	view.build(vb)
@@ -286,9 +286,9 @@ class MapView extends RefCounted:
 		bay = Bay.new(); bay.name = "Bay"; bay.view = self; bay.narrow = narrow; bay.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bay.size_flags_vertical = Control.SIZE_EXPAND_FILL; scroll.add_child(bay)
 		bay.build()
 		# info bar: the focused or tapped job and its lock rule
-		var ib := PanelContainer.new(); ib.name = "InfoBar"; ib.add_theme_stylebox_override("panel", EqTheme.dymo_sb(8.0)); vb.add_child(ib)
+		var ib := PanelContainer.new(); ib.name = "InfoBar"; ib.add_theme_stylebox_override("panel", HoloTheme.box(Color(1, 1, 1, 0.05), Color(HoloTheme.TEAL, 0.3), 1, 10, 8)); vb.add_child(ib)
 		var ibh := HBoxContainer.new(); ibh.add_theme_constant_override("separation", 12); ib.add_child(ibh)
-		info = EqTheme.label(WorksMap.T("MAP_PICK"), 15 if compact else 17, EqTheme.DYMO_TEXT, "sans"); info.name = "Info"; info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info = EqTheme.label(WorksMap.T("MAP_PICK"), 15 if compact else 17, HoloTheme.INK, "sans"); info.name = "Info"; info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; info.custom_minimum_size = Vector2(0, 46 if compact else 50); info.vertical_alignment = VERTICAL_ALIGNMENT_CENTER; ibh.add_child(info)
 		start_btn = EqTheme.key_button(WorksMap.T("MAP_START"), true, 17); start_btn.name = "Start"; start_btn.disabled = true
 		start_btn.pressed.connect(func(): if WorksMap.sel_id != "": WorksMap.start(app, host, WorksMap.sel_id))
@@ -308,7 +308,7 @@ class MapView extends RefCounted:
 		if pick != null: select(pick.lid, false)
 
 	func _rank_plate(compact: bool) -> Control:
-		var pn := PanelContainer.new(); pn.name = "Rank"; pn.add_theme_stylebox_override("panel", EqTheme.dymo_sb(8.0))
+		var pn := PanelContainer.new(); pn.name = "Rank"; pn.add_theme_stylebox_override("panel", HoloTheme.box(Color(1, 1, 1, 0.05), Color(HoloTheme.TEAL, 0.3), 1, 10, 8))
 		var h: BoxContainer = HBoxContainer.new() if not narrow else VBoxContainer.new(); h.add_theme_constant_override("separation", 14 if not narrow else 0); pn.add_child(h)
 		var h1: BoxContainer = h
 		if narrow: h1 = HBoxContainer.new(); h1.add_theme_constant_override("separation", 10); h.add_child(h1)
@@ -317,7 +317,7 @@ class MapView extends RefCounted:
 		var rn := EqTheme.label(c.rank_name().to_upper(), 20 if compact else 26, EqTheme.TEAL.lightened(0.2), "title"); rn.name = "RankName"; h1.add_child(rn)
 		var ri := c.rank_index(); var tot := c.total_stars()
 		var nxt := WorksMap.T("MAP_TOP") if ri >= WorksMap.RANKS.size() - 1 else WorksMap.T("MAP_NEXT") % [str(WorksMap.RANKS[ri + 1][0]), int(WorksMap.RANKS[ri + 1][1])]
-		var sl := EqTheme.label("%s · %s" % [WorksMap.T("MAP_STARS") % [tot, c.max_stars()], nxt], 15 if compact else 17, EqTheme.DYMO_TEXT, "sans"); sl.name = "RankStars"; sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var sl := EqTheme.label("%s · %s" % [WorksMap.T("MAP_STARS") % [tot, c.max_stars()], nxt], 15 if compact else 17, HoloTheme.INK, "sans"); sl.name = "RankStars"; sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; h.add_child(sl)
 		return pn
 
@@ -469,8 +469,9 @@ class SiteCard extends PanelContainer:
 		var done := C.ch_done(chapter) if chapter > 0 else C.starred("L00")
 		var opened := C.ch_open(chapter)
 		state = "done" if done else ("open" if opened else "locked")
-		var sb := EqTheme.enamel_sb(8, (6.0 if CbLayout.phone else 10.0) if compact else 14.0)   # F32: 16 px text made the cards taller; a phone gives the room back in padding
-		if state == "locked": sb.bg_color = EqTheme.ENAMEL.darkened(0.35)
+		var sb := HoloTheme.box(Color(0.10, 0.20, 0.24, 0.72), Color(HoloTheme.TEAL, 0.22), 1, 12, int((6.0 if CbLayout.phone else 10.0) if compact else 14.0))   # owner review: glass cards
+		if chapter in WorksMap.NEW_LOOK: sb.border_color = Color(HoloTheme.TEAL, 0.75)
+		if state == "locked": sb.bg_color = Color(0.05, 0.09, 0.11, 0.8)
 		elif state == "done": sb.border_color = EqTheme.TEAL.darkened(0.2)
 		add_theme_stylebox_override("panel", sb)
 		mouse_filter = Control.MOUSE_FILTER_PASS
@@ -479,14 +480,21 @@ class SiteCard extends PanelContainer:
 		top.add_theme_constant_override("separation", 10 if narrow else 4); top.mouse_filter = Control.MOUSE_FILTER_IGNORE; v.add_child(top)
 		glyph = Glyph.new(); glyph.clip_contents = true; glyph.kind = str(ch[3]); glyph.state = state; glyph.custom_minimum_size = Vector2(100 if (narrow or compact) else 160, 76 if compact else 92)
 		if not narrow: glyph.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		top.add_child(glyph)
+		var thumb_path := "res://look2/assets/thumb_ch%d.jpg" % chapter
+		if chapter in WorksMap.NEW_LOOK and ResourceLoader.exists(thumb_path):   # owner review: the new-look chapters show their scene
+			var tr := TextureRect.new(); tr.texture = load(thumb_path); tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			tr.custom_minimum_size = Vector2(glyph.custom_minimum_size.x, glyph.custom_minimum_size.x * 9.0 / 16.0) if not compact else glyph.custom_minimum_size; tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if not narrow: tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			top.add_child(tr)
+		else: top.add_child(glyph)
+		if glyph.get_parent() == null: glyph.free.call_deferred()
 		var tv := VBoxContainer.new(); tv.add_theme_constant_override("separation", 0); tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tv.mouse_filter = Control.MOUSE_FILTER_IGNORE; top.add_child(tv)
 		var head := ("%02d" % chapter if chapter > 0 else "00") + " · " + str(ch[1]).to_upper()
 		var tl := EqTheme.label(head, 18 if compact else 21, EqTheme.TEXT if state != "locked" else EqTheme.DIM, "title"); tl.name = "SiteTitle"; tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tl.custom_minimum_size = Vector2(40, 0); tv.add_child(tl)
 		var sub := str(ch[2])
 		var crit := C.chapter_ids(chapter)
 		if crit.is_empty() and chapter > 0: sub += " · " + WorksMap.T("MAP_SOON")
-		sub += " · " + ("NEW LOOK" if chapter in WorksMap.NEW_LOOK else "classic")
+		sub += " · " + ("New look" if chapter in WorksMap.NEW_LOOK else "classic")
 		var sl := EqTheme.label(sub, 14 if compact else 16, EqTheme.TEAL.lightened(0.25) if state != "locked" else EqTheme.DIM, "sans"); sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; sl.custom_minimum_size = Vector2(40, 0); tv.add_child(sl)
 		if not opened:
 			var p: int = int(WorksMap.PREREQ[chapter])

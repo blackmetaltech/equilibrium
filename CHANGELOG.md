@@ -3,6 +3,13 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [0.10.1] - 2026-11-23 · "The first screen" (owner review: the title and the Works Map in the new look)
+### Changed
+- **The title is the new look.** The night plant hall sits behind it, with the camera drifting slowly; the menu is on glass. There is no classic geometry on the first screen.
+- **The Works Map is on glass.** Chapters 00 and 03 show a picture of their new-look scene; the others say "classic", quietly.
+- **L14 reads better.** The hall is brighter, so the glassware, tanks and bay show. The rig is framed larger, and the flask panel sits bottom-left, off the rig. The clamp handle is labelled CLAMP.
+- README and site open on new-look shots.
+
 ## [0.10.0] - 2026-11-23 · "The Wall, in the new look" (chapter 3 and the prologue in a 3D hall and lab; the other chapters stay classic and say so)
 ### Changed
 - **L14 is Two Flasks, the player's own experiment (D-B1).** Real N₂O₄ (NIST-JANAF) sits in a piston flask on your bench, with a twin flask built to the book's numbers beside it. The controls are in the world: T and V wheels, a RUN lever, an argon valve and a piston clamp. The HUD form is retired. Heat darkens the gas. The book's K is used only for the Kp call. Win: the three Le Chatelier tests (halve V; argon at constant V; argon at constant P). Test 3 counts only at the flask's own pressure, within 0.5 %. Stars: the Kp call, and finding the book's temperature (406.5 K, where the real flask reads the book's 9.15 bar). The lesson says the book's number is invented and explains bar(a). The coach asks for a prediction before each test.

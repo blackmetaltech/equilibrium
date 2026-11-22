@@ -42,7 +42,23 @@ static func auto_tier() -> String:
 	return "ultra" if dev == RenderingDevice.DEVICE_TYPE_DISCRETE_GPU else "compat"   # measured: a 2-CU Radeon iGPU runs high at 76 ms, compat at 28 ms (1280x800)
 
 ## Called from main.gd after every engine change. Builds or tears down the slice as the level changes.
+## Owner review (11-23): the first screen is the new look. The title shows the night plant hall with the camera drifting; it goes when a level starts.
+var title_world: LabWorld
+func title_backdrop(show: bool) -> void:
+	if show and title_world == null and enabled() and app.plant_world != null:
+		title_world = LabWorld.new(); title_world.app = app; title_world.name = "TitleWorld"; app.plant_world.get_parent().add_child(title_world)
+		title_world.set_quality(auto_tier()); title_world.set_camera("wide"); title_world.drift = 0.035
+		app.plant_world.visible = false; app.plant_world.set_blocked(true); if _parked.is_empty(): _park_env(true)
+		title_world.make_current()
+	elif not show and title_world != null:
+		title_world.queue_free(); title_world = null
+		if not on and gen == null:
+			if not _parked.is_empty(): _park_env(false)
+			app.plant_world.visible = true; app.plant_world.set_blocked(false)
+			if app.plant_world.cam != null: app.plant_world.cam.make_current()
+
 func sync() -> void:
+	if title_world != null and app != null and app.started: title_backdrop(false)
 	if get_parent() != null and get_index() != get_parent().get_child_count() - 1 and (on or gen != null): get_parent().move_child.call_deferred(self, -1)   # first to see a pad button (see _input)
 	var lid := str(app.b.g.get("level", "")) if app != null and app.b != null and app.started else ""
 	var gen_want: bool = enabled() and lid in GEN_LEVELS and app.chrome != null

@@ -6,9 +6,9 @@
 
 The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator windows, a chart recorder, Bakelite knobs, a DESIGN / COMMISSION / RUN key switch, a green-bar printout. Every rule (thermodynamics, equilibrium, kinetics, flowsheet solving, dynamics, economics) runs in a deterministic TypeScript engine (on a shared core) that Godot drives through a headless Node sidecar.
 
-> **Alpha (0.10.0).** Chapter 3, The Wall, and the prologue Night Shift are in the **new look** (a 3D hall and lab, glass panels anchored to the plant); every other chapter keeps the **classic** control-room look and says so on the Works Map. Playable on desktop Linux; that is the only platform really supported so far (a Windows zip is built but untested). An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/blackmetaltech/equilibrium/issues).
+> **Alpha (0.10.1).** Chapter 3, The Wall, and the prologue Night Shift are in the **new look** (a 3D hall and lab, glass panels anchored to the plant); every other chapter keeps the **classic** control-room look and says so on the Works Map. Playable on desktop Linux; that is the only platform really supported so far (a Windows zip is built but untested). An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/blackmetaltech/equilibrium/issues).
 
-![Three adiabatic beds with interstage coolers in the contact plant, with molecule critters in the pipes and the X-T staircase top right](docs/readme/staircase.png)
+![The title: the night plant hall in the new look, the menu on glass](docs/readme/title-new-look.jpg)
 
 ## What's new in 0.10: chapter 3 in the new look
 

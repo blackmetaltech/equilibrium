@@ -304,7 +304,7 @@ func _pos_fixed() -> void:
 	var top_r := m
 	if _alarm != null: _alarm.pos = Vector2(vp.x - _alarm.size.x - m, m); top_r = m + _alarm.size.y + 12.0
 	if _dg_panel != null: _dg_panel.pos = Vector2(vp.x - _dg_panel.size.x - m, top_r)
-	_cmd.pos = Vector2((vp.x - _cmd.size.x) * 0.5, vp.y - _cmd.size.y - m)
+	_cmd.pos = Vector2(m if _fl != null else (vp.x - _cmd.size.x) * 0.5, vp.y - _cmd.size.y - m)   # owner review: on L14 the panel sits bottom-left, off the rig
 	_brief.pos = Vector2(m, vp.y - _brief.size.y - m)   # lower left: the hero stays in view
 	if _brief.pos.x + _brief.size.x > _cmd.pos.x - 8.0: _brief.pos.y = maxf(m, _cmd.pos.y - _brief.size.y - 12.0)   # narrow screens: sit above the command panel, never on it
 	if _end != null: _end.pos = (vp - _end.size) * 0.5

@@ -13,6 +13,7 @@ static func build(app: CbApp, root: Control) -> bool:
 	var k := clampf(vh / 1080.0, 0.6, 1.0)
 	var compact := CbLayout.compact and vh < 700.0
 	root.theme = CbKit.make_theme()
+	if app.get("look2") != null: app.look2.title_backdrop(true)   # owner review: the first screen is the new look (the night plant hall, drifting)
 	root.add_child(_dusk(vw, vh, app))
 	var box := VBoxContainer.new(); box.name = "EqTitleMenu"; box.add_theme_constant_override("separation", int(6 * k))
 	box.set_anchors_preset(Control.PRESET_TOP_LEFT); box.offset_left = (56.0 if compact else 80.0 * k); box.offset_top = (14.0 if compact else 52.0 * k)
@@ -25,7 +26,7 @@ static func build(app: CbApp, root: Control) -> bool:
 	var sub := EqTheme.label(T("TITLE_SUB"), 18 if compact else int(26 * k), EqTheme.TEAL.lightened(0.25), "sans"); sub.name = "tagline"; tcol.add_child(sub)
 	var gap := Control.new(); gap.custom_minimum_size = Vector2(0, (8 if compact else 26 * k)); gap.mouse_filter = Control.MOUSE_FILTER_IGNORE; box.add_child(gap)
 	var plate := PanelContainer.new(); plate.name = "Plate"; plate.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var sb := EqTheme.enamel_sb(6, 18.0 * k); sb.shadow_size = 16; plate.add_theme_stylebox_override("panel", sb); box.add_child(plate)
+	var sb := HoloTheme.box(Color(HoloTheme.GLASS, 0.62), Color(HoloTheme.TEAL, 0.35), 1, 14, int(18.0 * k)); plate.add_theme_stylebox_override("panel", sb); box.add_child(plate)   # the glass language
 	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", int((5 if compact else 9) * k)); plate.add_child(vb)
 	var saves: Array = app.b.q("saves") if app.b.q("saves") is Array else []
 	var entries: Array = []
@@ -69,8 +70,7 @@ static func _focus_later(b: Control) -> void:
 static func _dusk(vw: float, vh: float, app: CbApp) -> Control:
 	var host := Control.new(); host.name = "Dusk"; host.mouse_filter = Control.MOUSE_FILTER_IGNORE; host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	host.offset_left = -app.inset.x; host.offset_top = -app.inset.y; host.offset_right = app.inset.z; host.offset_bottom = app.inset.w
-	host.add_child(_grad(Vector2(0, 0), Vector2(0, 1), [Color("#14233A", 0.55), Color("#C9733A", 0.0), Color("#E8873A", 0.28)], [0.0, 0.6, 1.0]))
-	host.add_child(_grad(Vector2(0, 0), Vector2(1, 0), [Color(EqTheme.ENAMEL_LO, 0.88), Color(EqTheme.ENAMEL_LO, 0.0)], [0.0, 0.7], 0.62))
+	host.add_child(_grad(Vector2(0, 0), Vector2(1, 0), [Color(HoloTheme.GLASS, 0.82), Color(HoloTheme.GLASS, 0.0)], [0.0, 0.75], 0.6))   # a glass scrim behind the menu; the hall shows through
 	return host
 
 static func _grad(from: Vector2, to: Vector2, cols: Array, offs: Array, width_frac := 1.0) -> TextureRect:
@@ -119,24 +119,20 @@ class Strip extends Button:
 		focus_entered.connect(queue_redraw); focus_exited.connect(queue_redraw)
 		set_label(t)
 	func set_label(t: String) -> void:
-		cap = t.to_upper(); text = ""
+		cap = t; text = ""
 		var f := EqStrings.font("cap"); var sz := EqTheme.fs(fsize)
 		custom_minimum_size = Vector2(f.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 44.0 + 30.0, maxf(sz * 1.5 + 6.0, EqTheme.PHONE_TAP if CbLayout.phone else CbLayout.tap()))
 		queue_redraw()
 	func _draw() -> void:
-		var f := EqStrings.font("cap"); var sz := EqTheme.fs(fsize)
+		var f := HoloTheme.font(600); var sz := EqTheme.fs(fsize)
 		var lit := has_focus() or is_hovered()
-		var c := Vector2(14, size.y * 0.5)
-		draw_circle(c, 8.0, Color("#0B1413")); draw_circle(c, 6.0, EqTheme.TEAL if lit else EqTheme.TEAL.darkened(0.8))
-		if lit: draw_circle(c, 12.0, Color(EqTheme.TEAL, 0.22)); draw_circle(c + Vector2(-1.5, -1.5), 1.8, Color(1, 1, 1, 0.8))
 		var tw := f.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
-		var tape := Rect2(34, size.y * 0.5 - (sz * 0.75 + 3.0), tw + 24.0, sz * 1.5 + 6.0)
-		var tcol := Color("#1E1E1E") if dim else EqTheme.DYMO_TAPE
-		draw_rect(tape, tcol); draw_rect(Rect2(tape.position.x, tape.end.y - 1.0, tape.size.x, 1.0), Color(1, 1, 1, 0.1))
-		if lit: draw_rect(tape, EqTheme.TEAL, false, 2.0)
-		var y := tape.position.y + tape.size.y * 0.5 + sz * 0.34
-		EqTheme.ds(self, f, Vector2(tape.position.x + 12.0 + 1.0, y + 1.0), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(0, 0, 0, 0.9))      # emboss: dark offset, then the light letters
-		EqTheme.ds(self, f, Vector2(tape.position.x + 12.0, y), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, (EqTheme.DYMO_TEXT * Color(1, 1, 1, 0.7)) if dim else EqTheme.DYMO_TEXT)
+		var row := Rect2(0, size.y * 0.5 - (sz * 0.75 + 4.0), tw + 52.0, sz * 1.5 + 8.0)
+		var sb := HoloTheme.box(Color(HoloTheme.TEAL, 0.16) if lit else Color(1, 1, 1, 0.0), Color(HoloTheme.TEAL, 0.9) if lit else Color(1, 1, 1, 0.0), 1, 8, 0)
+		draw_style_box(sb, row)
+		draw_circle(Vector2(16, size.y * 0.5), 4.0, HoloTheme.TEAL_HI if lit else Color(HoloTheme.TEAL, 0.35))
+		var y := row.position.y + row.size.y * 0.5 + sz * 0.34
+		EqTheme.ds(self, f, Vector2(32.0, y), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, (HoloTheme.MUTED if dim else (HoloTheme.INK if lit else Color(HoloTheme.INK, 0.86))))
 
 ## The balance-beam logo: a beam on a fulcrum with two pans. It rocks (damped), settles level and the lock lamp lights; it is kicked again every few seconds.
 class Beam extends Control:
