@@ -30,11 +30,12 @@ var twin_plate: Label3D
 var lever: Node3D; var valve_h: Node3D; var clamp_h: Node3D; var _lever_t := 0.0
 ## QA capture hook (CB_L14DEMO=1): the coach's test 1 on a clock, for the 10 s evidence capture. Engine actions only, as the HUD sends them.
 var _demo := 0 if OS.get_environment("CB_L14DEMO") == "1" else -1
-const DEMO := [[0.8, "commission", []], [2.8, "setParam", ["V", 0.0005]], [4.8, "commission", []], [6.8, "setParam", ["V", 0.001]], [6.85, "argon", [0.15]], [6.9, "setParam", ["Pfix", 9.15e5]], [7.0, "commission", []]]   # test 3: argon at constant P dilutes the NO2 (paler)
+const DEMO := [[0.8, "commission", []], [2.8, "setParam", ["V", 0.0005]], [4.8, "commission", []], [6.8, "setParam", ["V", 0.001]], [6.85, "argon", [0.15]], [6.9, "clampown", []], [7.0, "commission", []]]   # test 3: argon at constant P dilutes the NO2 (paler)
 func _demo_step() -> void:
 	while _demo < DEMO.size() and _t >= float(DEMO[_demo][0]):
 		var st: Array = DEMO[_demo]; var args: Array = st[2]
 		if str(st[1]) == "setParam": app.b.act("setParam", [str(ids.get("flask", "")), args[0], args[1]])
+		elif str(st[1]) == "clampown": app.b.act("setParam", [str(ids.get("flask", "")), "Pfix", float(p_own.get(own_key(0.001, 400.0), 8.826)) * 1.0e5])   # the clamp holds the first run's own pressure (test 3)
 		elif str(st[1]) == "argon": app.b.act("setFeed", [str(ids.get("argon", "")), {"flow": args[0]}])
 		else: app.b.act(str(st[1]), [])
 		_demo += 1
