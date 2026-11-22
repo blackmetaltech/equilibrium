@@ -11,6 +11,8 @@ const V_BOOK := 1.0e-3
 const GAS_H := 1.5           ## m of drawn gas column at V_BOOK
 const CR := 0.42             ## m, cylinder radius
 const DAIS := Vector3(0, 0.6, -2.0)
+const RIG_S := 1.5          ## the experiment is drawn 1.5x on its dais so it reads from the doorway (the HUD carries the true litres)
+var pivot: Node3D
 var flask_V := V_BOOK; var flask_T := 400.0; var flask_Pfix := 0.0; var argon_on := false
 var c_rel := 1.0; var c_show := 1.0; var c_eq := 1.0; var _V_eq := V_BOOK; var c_book := 0.0
 var P_bar := 9.15
@@ -34,15 +36,15 @@ func _ready() -> void:
 # ---- the room: a tall private hall, dark panels, LED ribs, clerestory shafts, polished floor ---------------------------------------------------
 func _build_room() -> void:
 	var fl := PlaneMesh.new(); fl.size = Vector2(44, 28)
-	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.85, "tint": Color(0.36, 0.38, 0.42)}))
-	var panel := _paint(Color(0.12, 0.13, 0.15)); panel.metallic = 0.4; panel.roughness = 0.35
+	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 1.0, "tint": Color(0.3, 0.32, 0.36)}))
+	var panel := _paint(Color(0.2, 0.21, 0.23)); panel.metallic = 0.7; panel.roughness = 0.22
 	var H := 20.0
 	_box(Vector3(44, H, 0.5), Vector3(0, H * 0.5, -13.0), panel)
 	_box(Vector3(44, H, 0.5), Vector3(0, H * 0.5, 13.0), panel)
 	_box(Vector3(0.5, H, 26), Vector3(-21.5, H * 0.5, 0), panel)
 	_box(Vector3(0.5, H, 26), Vector3(21.5, H * 0.5, 0), panel)
 	_box(Vector3(44, 0.4, 26), Vector3(0, H, 0), _flat(Color(0.05, 0.05, 0.06), 0.3, 0.6))
-	var led := _flat(Color.WHITE, 0, 0.4, Color(0.6, 0.8, 1.0), 4.0)
+	var led := _flat(Color.WHITE, 0, 0.4, Color(0.6, 0.8, 1.0), 1.3)
 	for i in 11:   # vertical light ribs on the back and side walls
 		var x := -20.0 + i * 4.0
 		_box(Vector3(0.12, H - 2.0, 0.06), Vector3(x, H * 0.5, -12.72), led)
@@ -66,6 +68,9 @@ func _build_room() -> void:
 		_seg(Vector3(x, H, 6.0), Vector3(x, 4.2, 6.0), 0.01, M.black)
 		_cyl(0.3, 0.25, Vector3(x, 4.1, 6.0), M.black, self, 0.08)
 		var l := SpotLight3D.new(); l.light_color = Color(1.0, 0.8, 0.55); l.light_energy = 5.0; l.spot_range = 7.0; l.spot_angle = 48.0; l.position = Vector3(x, 3.95, 6.0); l.rotation_degrees.x = -90; l.light_volumetric_fog_energy = 0.8; add_child(l)
+	for x in [-16.0, -8.0, 8.0, 16.0]:   # amber wall washers under the gallery: the lab is a home, not a server room
+		var w := SpotLight3D.new(); w.light_color = Color(1.0, 0.68, 0.38); w.light_energy = 7.0; w.spot_range = 9.0; w.spot_angle = 55.0
+		w.position = Vector3(x, 6.6, -11.2); w.rotation_degrees.x = -70; w.light_volumetric_fog_energy = 1.0; add_child(w)
 	var key := SpotLight3D.new(); key.light_color = Color(0.92, 0.95, 1.0); key.light_energy = 22.0; key.spot_range = 22.0; key.spot_angle = 18.0; key.shadow_enabled = true
 	key.position = DAIS + Vector3(3.0, 14.0, 4.0); key.light_volumetric_fog_energy = 2.0; add_child(key); key.look_at(DAIS + Vector3(0, 1.2, 0))
 	var rim := SpotLight3D.new(); rim.light_color = Color(0.3, 0.85, 0.8); rim.light_energy = 6.0; rim.spot_range = 16.0; rim.spot_angle = 30.0
@@ -82,6 +87,7 @@ func _build_rig() -> void:
 	_cyl(3.2, 0.3, Vector3(d.x, 0.45, d.z), _paint(Color(0.2, 0.21, 0.23)), self, -1.0, 64)
 	_torus(3.21, 0.02, Vector3(d.x, 0.6, d.z), _flat(Color.WHITE, 0, 0.4, Color(0.18, 0.77, 0.71), 5.0))
 	_torus(4.21, 0.02, Vector3(d.x, 0.3, d.z), _flat(Color.WHITE, 0, 0.4, Color(0.18, 0.77, 0.71), 3.0))
+	var n0 := get_child_count()
 	# base plinth and the jacket: copper heating coil (glows with T) and a cooling coil (frosts when cold)
 	var by := d.y
 	_cyl(CR + 0.22, 0.35, Vector3(d.x, by + 0.175, d.z), M.steel, self, -1.0, 48)
@@ -94,7 +100,7 @@ func _build_rig() -> void:
 	var gl := _cyl(CR, 2.4, Vector3(d.x, by + 0.35 + 1.2, d.z), M.glass, self, -1.0, 64); gl.name = "cylinder"
 	m_gas = StandardMaterial3D.new(); m_gas.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m_gas.albedo_color = Color(0.55, 0.24, 0.05, 0.5)
 	m_gas.roughness = 1.0; m_gas.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL; m_gas.cull_mode = BaseMaterial3D.CULL_DISABLED; m_gas.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
-	m_gas.emission_enabled = true; m_gas.emission = Color(0.35, 0.12, 0.02); m_gas.emission_energy_multiplier = 0.3
+	m_gas.emission_enabled = true; m_gas.emission = Color(0.3, 0.13, 0.04); m_gas.emission_energy_multiplier = 0.3
 	var gm := CylinderMesh.new(); gm.top_radius = CR - 0.02; gm.bottom_radius = CR - 0.02; gm.height = 1.0; gm.radial_segments = 48
 	gas = _mi(gm, Vector3(d.x, by + 0.37, d.z), m_gas)
 	gas_light = OmniLight3D.new(); gas_light.light_color = Color(0.9, 0.45, 0.15); gas_light.light_energy = 0.6; gas_light.omni_range = 2.5; gas_light.position = Vector3(d.x, by + 1.0, d.z); add_child(gas_light)
@@ -124,7 +130,7 @@ func _build_rig() -> void:
 	# the console on the dais with the T wheel and screens
 	var cp := Vector3(d.x - 1.9, by, d.z + 1.5)
 	var desk := _box(Vector3(1.6, 0.9, 0.7), cp + Vector3(0, 0.45, 0), _paint(Color(0.14, 0.15, 0.17))); desk.rotation_degrees.y = 35
-	var scr := _box(Vector3(1.3, 0.55, 0.04), cp + Vector3(0.12, 1.25, -0.2), _flat(Color(0.02, 0.05, 0.06), 0.2, 0.15, Color(0.1, 0.42, 0.4), 0.35)); scr.rotation_degrees = Vector3(-15, 35, 0); scr.scale = Vector3(0.7, 0.7, 1)
+	var scr := _box(Vector3(1.3, 0.55, 0.04), cp + Vector3(0.12, 1.25, -0.2), _flat(Color(0.02, 0.03, 0.035), 0.2, 0.12, Color(0.1, 0.42, 0.4), 0.12)); scr.rotation_degrees = Vector3(-15, 35, 0); scr.scale = Vector3(0.7, 0.7, 1)
 	wheel_t = Node3D.new(); wheel_t.position = cp + Vector3(0.0, 1.0, 0.3); add_child(wheel_t); wheel_t.rotation_degrees = Vector3(55, 35, 0)
 	_torus(0.2, 0.02, Vector3.ZERO, M.brass, wheel_t)
 	for i in 4: _seg(Vector3.ZERO, Vector3(cos(TAU * i / 4.0), 0, sin(TAU * i / 4.0)) * 0.19, 0.012, M.brass, wheel_t)
@@ -151,15 +157,22 @@ func _build_rig() -> void:
 	_pipe([ap + Vector3(0, 1.7, 0), ap + Vector3(0, 1.85, 0), Vector3(d.x - CR - 0.1, by + 1.85, d.z - 0.2), Vector3(d.x - CR, by + 0.5, d.z - 0.2)], 0.01, M.steel, self, false)
 	_stencil("argon", ap + Vector3(0, 0.9, 0.132), Vector3(0, 0, 1), 0.0016)
 	anchors["argon"] = ap + Vector3(0, 1.9, 0); radius["argon"] = 0.4
+	# everything built since n0 moves under a pivot scaled about the dais centre (local positions stay as written)
+	pivot = Node3D.new(); pivot.name = "rig"; add_child(pivot)
+	pivot.transform = Transform3D(Basis.from_scale(Vector3.ONE * RIG_S), Vector3(d.x, 0, d.z) * (1.0 - RIG_S))
+	var kids := get_children().slice(n0, get_child_count() - 1)
+	for k in kids: remove_child(k); pivot.add_child(k)
+	for r in ["wheel_v", "wheel_t", "gauge", "feed", "argon"]: anchors[r] = pivot.transform * anchors[r]; radius[r] = float(radius[r]) * RIG_S
+	var top := pivot.transform * Vector3(d.x, by + 3.25, d.z)
 	# the vent to a fume hood on the back wall
 	var hp := Vector3(d.x, 0, -11.0)
 	_box(Vector3(3.0, 2.4, 1.2), hp + Vector3(0, 2.2, 0), M.steel)
 	_box(Vector3(2.6, 1.2, 0.02), hp + Vector3(0, 1.9, 0.61), M.glass)
 	_box(Vector3(2.6, 0.04, 0.06), hp + Vector3(0, 3.0, 0.62), _flat(Color.WHITE, 0, 0.4, Color(0.8, 0.9, 1.0), 4.0))
 	_cyl(0.35, 9.0, hp + Vector3(0, 7.9, -0.2), M.steel_dull)
-	_pipe([Vector3(d.x, by + 3.25, d.z), Vector3(d.x, 5.5, d.z), Vector3(d.x, 5.5, -10.6), Vector3(d.x, 3.4, -10.6)], 0.02, M.steel, self, false)
+	_pipe([top, Vector3(d.x, 7.2, d.z), Vector3(d.x, 7.2, -10.6), Vector3(d.x, 3.4, -10.6)], 0.03, M.steel, self, false)
 	anchors["vent"] = hp + Vector3(0, 3.6, 0); radius["vent"] = 1.2
-	anchors["flask"] = Vector3(d.x, by + 2.0, d.z); radius["flask"] = 0.7
+	anchors["flask"] = pivot.transform * Vector3(d.x, by + 2.0, d.z); radius["flask"] = 0.7 * RIG_S
 	anchors["bench"] = Vector3(-9.0, 1.4, 6.0)
 
 # ---- glassware racks, benches, a tesla-style coil, cable trays: the lab is full ----------------------------------------------------------------
@@ -267,10 +280,11 @@ func _process(dt: float) -> void:
 	if gas:
 		gas.scale = Vector3(1, _gas_h, 1); gas.position.y = DAIS.y + 0.37 + _gas_h * 0.5
 		piston.position = Vector3(DAIS.x, DAIS.y + 0.37 + _gas_h + 0.06, DAIS.z)
-		var a := 1.0 - exp(-1.35 * maxf(c_show, 0.0))
-		m_gas.albedo_color = Color(0.62, 0.27, 0.05, clampf(a * 0.92, 0.03, 0.94))
-		m_gas.emission_energy_multiplier = 0.1 + 0.4 * a
-		gas_light.light_energy = 0.2 + 0.8 * a
+		var a := 1.0 - exp(-0.75 * maxf(c_show, 0.0))   # absorbance across the cylinder ~ NO2 concentration (the notebook flask = 1): 0.53 at 1, 0.78 at 2
+		var col := Color(0.5, 0.27, 0.1).lerp(Color(0.2, 0.08, 0.025), clampf(a, 0.0, 1.0))
+		m_gas.albedo_color = Color(col.r, col.g, col.b, clampf(a * 1.05, 0.04, 0.97))   # NO2 brown: paler and thinner when it shifts to N2O4, deeper when NO2 rises
+		m_gas.emission_energy_multiplier = 0.05 + 0.15 * a
+		gas_light.light_energy = 0.1 + 0.4 * a
 	# heat and cold: the coil glows above ~330 K of set point, the cooling coil frosts below 0 C, the dewar steams cold vapour always
 	var hot := clampf((flask_T - 330.0) / 200.0, 0.0, 1.0)
 	m_coil.emission_energy_multiplier = hot * 3.0; coil_light.light_energy = hot * 2.5
@@ -310,13 +324,13 @@ func pick(p: Vector2) -> String:
 
 # ---- camera -------------------------------------------------------------------------------------------------------------------------------------
 const L14_PRESETS := {
-	"wide": [Vector3(0, 2.2, -2.5), 0.32, -0.13, 15.0],
-	"flask": [Vector3(0, 1.7, -2.0), 0.4, -0.05, 4.4],
-	"gauge": [Vector3(0.95, 2.35, -1.75), 0.2, -0.02, 0.9],
-	"wheel": [Vector3(0, 4.0, -2.0), 0.5, -0.55, 2.4],
+	"wide": [Vector3(0, 3.2, -2.0), 0.3, -0.07, 13.5],
+	"flask": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
+	"gauge": [Vector3(1.75, 3.75, -1.6), 0.2, -0.02, 1.5],
+	"wheel": [Vector3(0, 6.2, -2.0), 0.5, -0.55, 3.6],
 	"bench": [Vector3(-7.4, 1.3, 6.0), -0.5, -0.3, 2.6],
-	"dewar": [Vector3(2.0, 1.4, -3.4), 0.7, -0.2, 2.0],
-	"xray": [Vector3(0, 1.7, -2.0), 0.4, -0.05, 4.4],
+	"dewar": [Vector3(3.0, 2.2, -4.1), 0.7, -0.2, 3.2],
+	"xray": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
 }
 func set_camera(spec: String) -> void:
 	for part in spec.split(","):
