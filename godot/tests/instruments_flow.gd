@@ -23,6 +23,7 @@ func level(id: String) -> void:
 	Notebook.close(app); await frames(3)
 
 func _initialize() -> void:
+	OS.set_environment("CB_LOOK2", "0")   # LOOK2 phase A: this flow checks the 0.9 console in L00; the slice's L00 is checked by look2_flow (docs/LOOK2.md, decision record)
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0: shots = str(args[0]); DirAccess.make_dir_recursive_absolute(shots)
 	OS.set_environment("CB_NOAUTOSAVE", "1"); OS.set_environment("CB_NOCOACH", "1")

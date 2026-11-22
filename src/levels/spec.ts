@@ -90,6 +90,8 @@ export interface LevelSpec {
   goals: (s: Readonly<EqState>, m: Measures) => GoalEval[];
   /** Is the level over its goal condition? Default: every goal met on a commissioned plant. */
   won?: (s: Readonly<EqState>, m: Measures, g: GoalEval[]) => boolean;
+  /** D-B2: the level is over and lost now (a key into the strings for the reason), e.g. L00's tripped night. */
+  lost?: (s: Readonly<EqState>, m: Measures) => string | null;
   /** ★★ and ★★★ conditions (★ is `won`). */
   extraStars: (s: Readonly<EqState>, m: Measures, g: GoalEval[]) => [boolean, boolean];
   callIt: CallItSpec | null;

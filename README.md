@@ -1,16 +1,32 @@
 # ⚗️ EQUILIBRIUM — run a chemical plant where the chemistry is real
 
-**[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.9.md)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
+**[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.10.md)** · **[Site](https://equilibrium.blackmetal.tech)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
 
 **Build a chemical plant, then find out whether it works.** Place feed banks, heaters, exchangers, burners, reactors, columns and recycle loops, pipe them together, and commission the plant. Then real equilibrium, real kinetics and real heat balances decide what happens: the ammonia you can reach at 450 °C and 200 bar, the catalyst that falls asleep below 410 °C, the glycol reactor that crosses its Semenov point and runs away, the argon that builds up in a loop with no purge. The campaign climbs from std-9 stoichiometry to the work of a junior process engineer: PID tuning, interlocks, HAZOP, data reconciliation, and a five-year career running a whole Works.
 
 The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator windows, a chart recorder, Bakelite knobs, a DESIGN / COMMISSION / RUN key switch, a green-bar printout. Every rule (thermodynamics, equilibrium, kinetics, flowsheet solving, dynamics, economics) runs in a deterministic TypeScript engine (on a shared core) that Godot drives through a headless Node sidecar.
 
-> **Alpha (0.9.0).** Playable on desktop Linux; that is the only platform really supported so far (a Windows zip is built but untested). An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/blackmetaltech/equilibrium/issues).
+> **Alpha (0.10.0).** Chapter 3, The Wall, and the prologue Night Shift are in the **new look** (a 3D hall and lab, glass panels anchored to the plant); every other chapter keeps the **classic** control-room look and says so on the Works Map. Playable on desktop Linux; that is the only platform really supported so far (a Windows zip is built but untested). An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/blackmetaltech/equilibrium/issues).
 
 ![Three adiabatic beds with interstage coolers in the contact plant, with molecule critters in the pipes and the X-T staircase top right](docs/readme/staircase.png)
 
-## What's new in 0.9
+## What's new in 0.10: chapter 3 in the new look
+
+![Two Flasks: halve the volume and the brown darkens at once, then fades part of the way back as N2O4 re-forms; argon at constant pressure thins it](docs/readme/colour-shift.gif)
+
+**L14 Two Flasks** is your own experiment, after hours on your own bench. Real N₂O₄ (NIST-JANAF data) sits in a piston flask. Next to it stands a twin built to the textbook's numbers. You turn the T and V wheels, pull the RUN lever, open the argon valve and release the piston clamp. Heat really darkens the gas. The book says 9.15 bar, but your flask reads 8.83 bar(a); find the temperature at which they agree.
+
+| The lab | The rig: wheels, lever, argon valve, clamp, gauge |
+|---|---|
+| ![L14 lab](docs/readme/two-flasks-lab.jpg) | ![L14 rig](docs/readme/two-flasks-rig.jpg) |
+
+| L10-L13: the player's own commissioned plant in the hall (beds glow by outlet temperature, dark below light-off, white past sintering; boilers steam by duty) | Night Shift: leave the cooler alone (or turn it too late) and the interlock trips the loop |
+|---|---|
+| ![chapter 3 hall](docs/readme/chapter3-hall.jpg) | ![night trip](docs/readme/night-trip.gif) |
+
+**What is new and what is classic.** Chapter 3 (L10-L14) is the released new-look chapter, and the title screen opens it in one press. In L10-L13 the classic build view is your drafting table: commission the plant, and it stands in the hall (B, or X on a pad, flips between them). L14 is new look throughout. The prologue, L00 Night Shift, is new look too: the cooler is slow, so a late turn trips the plant, and a set point below the catalyst's 370 °C light-off costs a star. Every other chapter is classic. The new-look controls work from a pad alone.
+
+## What was new in 0.9
 
 | L39: the pump house is the instrument (pipes at their size and coloured by velocity, the NPSH sight-glass, the X-Y plotter, selector knobs) | The same job cavitating: a 2-inch suction from the boiler house |
 |---|---|

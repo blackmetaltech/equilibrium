@@ -2,7 +2,7 @@
 // (cooling water) -> adiabatic converter -> ammonia separator -> purge splitter (flare) and recycle valve. One scripted `cw_pump_trip` at 20 s (data/events.ts,
 // pinned seed): the cooler loses 70 % of its duty, the converter inlet and shell warm. The player turns one dial (the cooler's outlet temperature) and the
 // beam levels. If nothing is done a player-placed-style interlock on the converter outlet temperature trips the feed about 45 s after the event: the plant
-// goes down, which is the story ("That is how she went down last time"), not a failure screen. The shift ends after 600 plant seconds either way.
+// goes down ("That is how she went down last time"). D-B2 (phase B): that is now a loss with a retry; the cooler moves at 13.5 K/s, so a late turn trips too.
 import type { Action } from '@core/kit';
 import { fmtNumber } from '../engine/solved';
 import { runActions } from '../engine/actions/run';
@@ -21,7 +21,15 @@ export const L00_DECIDED_S = L00_EVENT_AT + 75;
  *  deviation, data/events.ts), so the set points sit lower there; both put the trip 40-55 s after the pump trip when nothing is done (a test asserts it). GAME numbers. */
 export const PIN_HI = 12;
 export const PINS = { learner: { crit: 25, ilk: 33 }, full: { crit: 40, ilk: 61 } };
-const T_HEAT = 900, T_COOL = 700, T_DIAL = 450;
+/** D-B5 (Anjali, phase B): the iron catalyst lights off at 643 K (370 C); below it the converter goes out. The expert saves the night at 650 K, never below. */
+export const L00_LIGHTOFF = 643;
+const T_HEAT = 900, T_COOL = 700, T_DIAL = 650;
+/** D-B2 (phase B): the cooler's temperature controller is slow on this loop, 1 % of its 150-1500 K range per plant second = 13.5 K/s (the palette default is 5 %, 67.5 K/s). Calibrated so a
+ *  turn within ~2 s of the alarm keeps the converter out of Critical, a turn by ~30 s after it saves the night with time at Critical, and a later turn
+ *  trips (learner from 58 s, engineer from 50 s of plant time; a test pins these). GAME numbers. */
+export const L00_COOLER_ACT = 0.01;
+/** Star: the dial turned within this many plant seconds of the pump trip. */
+export const L00_QUICK_S = 10;
 const PRESETS = { eq_reactor: { reactions: 'R1', mode: 'adiabatic' } };
 const UNITS: LevelSpec['units'] = {};
 
@@ -32,8 +40,8 @@ const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 function build(s: EqState): void {
   const feed = putFeed(s, 0, 0, { N2: 0.2475, H2: 0.7425, Ar: 0.01 }, 250, 300, 2e6);
   const mix = put(s, 'mixer', 3, 0), comp = put(s, 'compressor', 6, 0, { P: 1.5e7, stages: 3 });
-  const heat = put(s, 'heater', 11, 0, { T: T_HEAT, utility: 'fired' }), cool = put(s, 'cooler', 14, 0, { T: T_COOL, utility: 'cw' });
-  const rx = put(s, 'eq_reactor', 17, 0), sep = put(s, 'nh3_sep', 22, 0), split = put(s, 'splitter', 22, 4, { frac: 0.02 });
+  const heat = put(s, 'heater', 11, 0, { T: T_HEAT, utility: 'fired' }), cool = put(s, 'cooler', 14, 0, { T: T_COOL, utility: 'cw', act_T: L00_COOLER_ACT });
+  const rx = put(s, 'eq_reactor', 17, 0, { Tmin: L00_LIGHTOFF }), sep = put(s, 'nh3_sep', 22, 0), split = put(s, 'splitter', 22, 4, { frac: 0.02 });
   const valve = put(s, 'valve', 17, 8, { P: 2e6 }), flare = put(s, 'flare', 20, 10), prod = put(s, 'product', 22, 12), ilk = put(s, 'interlock', 2, 8);
   link(s, feed, 'out', mix, 'in1'); link(s, mix, 'out', comp, 'in'); link(s, comp, 'out', heat, 'in'); link(s, heat, 'out', cool, 'in'); link(s, cool, 'out', rx, 'in');
   link(s, rx, 'out', sep, 'in'); link(s, sep, 'vap', split, 'in'); link(s, sep, 'liq', prod, 'in'); link(s, split, 'purge', flare, 'in');
@@ -48,6 +56,21 @@ function build(s: EqState): void {
   rxU.params.T_hi = T0 + PIN_HI; rxU.params.T_crit = T0 + pins.crit;
   Object.assign(ilkU.params, { variable: 'T', action: 'cut_feed', watch: rx, setpoint: T0 + pins.ilk });
   s.ui.pinned = ['T:' + rx];   // the recorder keeps the converter outlet trend: the printout's peak reads it
+}
+
+/** The first cooler set point of the night came within L00_QUICK_S plant seconds of the pump trip. */
+export function quickTurn(s: S): boolean {
+  const cool = s.flowsheet.units.find((u) => u.type === 'cooler');
+  const at = cool ? s.shift?.firstEdits?.[cool.id + '.T'] : undefined;
+  return at !== undefined && at <= L00_EVENT_AT + L00_QUICK_S;
+}
+
+/** D-B5 star: the cooler was not set below the catalyst's light-off (overcooling puts the converter out: the honest cost of the dial). */
+export function catalystLit(s: S): boolean {
+  const cool = s.flowsheet.units.find((u) => u.type === 'cooler');
+  if (cool === undefined || typeof cool.params.T !== 'number') return false;
+  const low = s.shift?.lowSet?.[cool.id + '.T'];   // Mateo: the lowest set point asked all night, not the last one
+  return (cool.params.T as number) >= L00_LIGHTOFF && (low === undefined || low >= L00_LIGHTOFF);
 }
 
 export function loopMeasures(s: S): Measures {
@@ -81,7 +104,7 @@ const COACH: CoachStep[] = [
 const solver = () => {
   let acted = false;
   return (s: S): Action[] => {
-    if (acted || !s.shift || s.shift.t < L00_EVENT_AT + 5) return [];
+    if (acted || !s.shift || s.shift.t < L00_EVENT_AT + 1) return [];   // D-B2: the expert turns the slow cooler within a second of the alarm
     acted = true;
     const cool = unitsOfType(s, 'cooler')[0]!;
     return [{ name: 'setpoint', args: [cool.id, 'T', T_DIAL] }];
@@ -103,8 +126,9 @@ export const L00: LevelSpec = {
   },
   measures: loopMeasures,
   goals: (_s, m) => [{ key: 'night', met: m.v.ended === 1, value: m.v.t, target: m.v.len, unit: 's' }],   // plant seconds into the night; the night is decided at v.len (95 s), not the 600 s the shift timer is set to
-  won: (_s, m) => m.v.ended === 1,
-  extraStars: () => [false, false],
+  won: (_s, m) => m.v.ended === 1 && m.v.tripped === 0,   // D-B2: a tripped night is a loss (it still plays the story card)
+  lost: (_s, m) => (m.v.ended === 1 && m.v.tripped === 1 ? 'lv.L00.lost' : null),
+  extraStars: (s) => [catalystLit(s), quickTurn(s)],
   callIt: null,
   hero: (_s, m) => ({ key: 'conv_c', unit: '°C', value: C(m.v.conv_K!), lo: C(m.v.nom_K!) - 15, hi: C(m.v.nom_K!) + PIN_HI }),
   secondary: (_s, m) => ({ key: 'shift_s', unit: 's', value: m.v.t!, limit: m.v.len! }),

@@ -19,6 +19,7 @@ func key(code: int) -> void:
 	var r := InputEventKey.new(); r.keycode = code; r.physical_keycode = code; r.pressed = false; Input.parse_input_event(r)
 
 func _initialize() -> void:
+	OS.set_environment("CB_LOOK2", "0")   # LOOK2 phase A: this flow checks the 0.9 console in L00; the slice's L00 is checked by look2_flow (docs/LOOK2.md, decision record)
 	OS.set_environment("CB_NOAUTOSAVE", "1"); OS.set_environment("CB_NOCOACH", "1")
 	var scene: PackedScene = load("res://main.tscn")
 	app = scene.instantiate(); root.add_child(app)

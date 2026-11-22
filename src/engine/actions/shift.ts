@@ -130,8 +130,13 @@ const setpoint: Fn = (s, unitId: unknown, key: unknown, value: unknown) => {
   const cur = isFeed ? (s.feeds[u.id] as unknown as Record<string, number>)[key as string]! : typeof u.params[key as string] === 'number' ? (u.params[key as string] as number) : (typeof k?.def === 'number' ? k.def : extra![2]);
   const id = u.id + '.' + String(key);
   (sh.edits ??= {})[id] = sh.t;
+  (sh.firstEdits ??= {})[id] ??= sh.t;
+  { const lo = (sh.lowSet ??= {}); lo[id] = Math.min(lo[id] ?? Infinity, value); }   // the lowest set point ever asked (L00: overcooling below light-off costs, even if undone)
   if (cur === value) { delete sh.ramps[id]; return; }
-  sh.ramps[id] = { u: u.id, k: key as string, to: value, rate: rampRate(u.type, key as string, min, max, cur, value) };
+  // D-B2 (LOOK2 phase B): a level may give one actuator its own speed (unit param `act_<key>`, a fraction of the knob's range per plant second), e.g. L00's slow cooler
+  const own = u.params['act_' + String(key)];
+  const rate = typeof own === 'number' && own > 0 ? own * (max - min) : rampRate(u.type, key as string, min, max, cur, value);
+  sh.ramps[id] = { u: u.id, k: key as string, to: value, rate };
 };
 
 const ack: Fn = (s, alarmId: unknown) => {

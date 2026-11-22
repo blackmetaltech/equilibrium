@@ -2,23 +2,150 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EQUILIBRIUM</title>
-<meta name="description" content="EQUILIBRIUM: a learning game where real equations are the rules.">
-<style>
-  :root { --bg: #070b12; --fg: #e6f0ff; --dim: #93a7bd; --acc: #4fd1ff; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 18px/1.5 system-ui, sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 64px 16px; }
-  h1 { font-size: clamp(48px, 10vw, 96px); margin: 0; letter-spacing: 0.04em; color: var(--acc); }
-  p { color: var(--dim); }
-  a.btn { display: inline-block; margin: 8px 8px 0 0; padding: 12px 20px; border: 1px solid var(--acc); border-radius: 10px; color: var(--fg); text-decoration: none; }
-</style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EQUILIBRIUM · run a chemical plant where the chemistry is real</title>
+<meta name="description" content="EQUILIBRIUM is a free game about building and running chemical plants with real thermodynamics: equilibrium, kinetics, recycle loops, interlocks. Chapter 3 and the prologue are in a new 3D look.">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="https://equilibrium.blackmetal.tech/">
+<meta property="og:site_name" content="EQUILIBRIUM">
+<meta property="og:title" content="EQUILIBRIUM: run a chemical plant where the chemistry is real">
+<meta property="og:description" content="Build a plant, commission it, and find out whether it works. Real equilibrium constants, real kinetics, real data. Free, Linux and Windows.">
+<meta property="og:url" content="https://equilibrium.blackmetal.tech/">
+<meta property="og:image" content="https://equilibrium.blackmetal.tech/assets/og.jpg">
+<meta property="og:image:alt" content="L14 Two Flasks: a piston flask of brown N2O4 gas with its gauge, the argon bottle and the twin flask on a railed plinth">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://equilibrium.blackmetal.tech/assets/og.jpg">
+<meta name="theme-color" content="#0A1714">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoGame","name":"EQUILIBRIUM","description":"A game about building and running chemical plants with real thermodynamics.","url":"https://equilibrium.blackmetal.tech/","genre":["Simulation","Educational"],"operatingSystem":["Linux","Windows"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"publisher":{"@type":"Organization","name":"blackmetal.tech","url":"https://blackmetal.tech"}}</script>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="preload" href="assets/shots/rig.jpg" as="image" fetchpriority="high">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="home.css">
+<style>.hero h1{font-size:clamp(46px,6.4vw,96px);overflow-wrap:anywhere}</style>
 </head>
 <body>
-<main>
-  <h1>EQUILIBRIUM</h1>
-  <p>A learning game where real equations are the rules. From <a href="https://blackmetal.tech">blackmetal.tech</a>.</p>
-  <p><a class="btn" id="dl" href="https://github.com/blackmetaltech/equilibrium/releases/latest">Download</a></p>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <a class="logo" href="#top" aria-label="EQUILIBRIUM home">EQUILIBRIUM</a>
+  <nav aria-label="Primary">
+    <a href="#plays" class="hide-s">How it plays</a>
+    <a href="#newlook" class="hide-s">New look</a>
+    <a href="#campaign" class="hide-s">Campaign</a>
+    <a href="wiki/">Wiki</a>
+    <a href="#download" class="btn mini go">Download</a>
+  </nav>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <div class="lamps" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow"><b>Alpha</b><span>Free</span><span>No account</span><span>Linux</span><span>Windows (untested)</span></p>
+      <h1>EQUILIBRIUM</h1>
+      <p class="tagline">Run a chemical plant where the chemistry is real.</p>
+      <p class="lede">Place feed banks, compressors, reactors, exchangers, columns and recycle loops, pipe them together and turn the key to COMMISSION. Then real equilibrium constants, real kinetics and real property data decide whether your plant makes product, wastes money or trips at three in the morning.</p>
+      <div class="cta">
+        <a class="btn go" id="dl-main" href="https://github.com/blackmetaltech/equilibrium/releases/latest">Download <small id="dl-main-sub">latest release</small></a>
+        <a class="btn" href="wiki/">Player wiki</a>
+      </div>
+      <p class="fine" id="dl-note">Free. Source on <a href="https://github.com/blackmetaltech/equilibrium">GitHub</a>.</p>
+    </div>
+    <figure class="hero-shot">
+      <a href="assets/shots/rig.jpg" class="zoom"><img src="assets/shots/rig.jpg" alt="L14 Two Flasks: the piston flask of brown N2O4 with its gauge reading 8.83 bar, the argon bottle, the twin flask and the RUN lever" width="1600" height="900"></a>
+      <figcaption>L14 Two Flasks: real N₂O₄ in a piston flask, the textbook's twin beside it.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="band" id="plays">
+  <div class="wrap">
+    <p class="kicker">How it plays</p>
+    <h2>Build it, commission it, read what happened</h2>
+    <ol class="steps">
+      <li class="step">
+        <a href="assets/shots/title.jpg" class="zoom"><img src="assets/shots/title.jpg" alt="The title screen: Continue, New works, Works map and a strip that opens Chapter 3 in the new look" width="1600" height="900" loading="lazy"></a>
+        <h3><b>1</b> Take the job</h3>
+        <p>A place, people on the intercom, a goal with numbers, and three flasks to earn. Some jobs ask you to call the answer before you run.</p>
+      </li>
+      <li class="step">
+        <a href="assets/shots/chapter3-hall.jpg" class="zoom"><img src="assets/shots/chapter3-hall.jpg" alt="L13: three adiabatic beds in the hall glowing by outlet temperature, with waste-heat boilers between them" width="1600" height="900" loading="lazy"></a>
+        <h3><b>2</b> Build and commission</h3>
+        <p>Every part has a price and a rating. Turn the key and the engine solves your flowsheet: conversions, temperatures, duties, cost per tonne.</p>
+      </li>
+      <li class="step">
+        <a href="assets/shots/night-shift-hall.jpg" class="zoom"><img src="assets/shots/night-shift-hall.jpg" alt="Night Shift: the ammonia loop in the process hall at night, the converter R-106 between the cooler and the separator" width="1600" height="900" loading="lazy"></a>
+        <h3><b>3</b> Run the shift</h3>
+        <p>Pumps trip, catalysts sleep below light-off, beds sinter past their limit. The plant moves at the speed of real actuators.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="band dark" id="newlook">
+  <div class="wrap run-grid">
+    <figure class="gif">
+      <img src="assets/shots/colour-shift.gif" decoding="async" alt="A recording of L14: the volume is halved and the brown gas darkens at once, then fades part of the way back; argon at constant pressure thins it" width="640" height="360" loading="lazy">
+      <figcaption>An animated capture from the game: halve the volume and the brown darkens, then fades part of the way back as N₂O₄ re-forms.</figcaption>
+    </figure>
+    <div>
+      <p class="kicker">New in 0.10</p>
+      <h2>Chapter 3 in the new look</h2>
+      <p>Chapter 3, The Wall, is the first chapter in the new look: a 3D hall and lab with glass panels anchored to the plant. In L10 to L13 you build on the classic drafting table. Commission the plant, and your own flowsheet stands in the hall. Beds glow by their outlet temperature: dark below light-off, white past sintering. L14 Two Flasks is your own experiment on your own bench: wheels, a RUN lever, an argon valve and a piston clamp.</p>
+      <p>The prologue, Night Shift, is new look too. <b>Every other chapter keeps the classic control-room look</b> and is labelled so on the Works Map. Everything in the new look works from a pad.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="campaign">
+  <div class="wrap">
+    <p class="kicker">Campaign</p>
+    <h2>A prologue, ten chapters and a Career</h2>
+    <div class="gallery">
+      <figure><a href="assets/shots/lab.jpg" class="zoom"><img src="assets/shots/lab.jpg" alt="The L14 lab: benches of coloured glassware, glass columns and the rig on a railed plinth" width="1600" height="900" loading="lazy"></a><figcaption><b>Your bench, after hours.</b> The L14 lab.</figcaption></figure>
+      <figure><a href="assets/shots/l10-printout.jpg" class="zoom"><img src="assets/shots/l10-printout.jpg" alt="L10 The Wall: the player's commissioned plant in the hall, the compressor, the converter glowing at its window, the separator and the tank" width="1600" height="900" loading="lazy"></a><figcaption><b>L10 The Wall.</b> Your plant in the hall once it runs.</figcaption></figure>
+      <figure><img src="assets/shots/night-trip.gif" alt="A recording of Night Shift: the cooling water pump trips, nobody turns the cooler, and the interlock takes the loop down to the flare" width="640" height="360" loading="lazy"><figcaption><b>Night Shift.</b> Leave the cooler alone and the interlock trips the loop.</figcaption></figure>
+    </div>
+    <p class="fine"><a href="wiki/">Every level in the wiki</a>, generated from the game's own text.</p>
+  </div>
+</section>
+
+<section class="band" id="honest">
+  <div class="wrap honest">
+    <div>
+      <p class="kicker">Honest by design</p>
+      <h2>Real data, named simplifications</h2>
+    </div>
+    <ul>
+      <li><b>Thermodynamics.</b> Equilibrium constants from NIST-JANAF data, solved by Gibbs minimisation; the book's numbers appear only where a job is about a textbook problem, and the game says so.</li>
+      <li><b>Checked.</b> The engine is tested against independently computed oracle values. Every level has a naive build that must fail and a reference build that must pass.</li>
+      <li><b>Simplified, and says so.</b> Ideal-gas activities, steady state between events, typical prices. The codex names each simplification.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="band dark" id="download">
+  <div class="wrap">
+    <p class="kicker">Download</p>
+    <h2>Free. Extract and play.</h2>
+    <p class="alpha"><b>Alpha.</b> Playable on desktop Linux. The Windows build is made and smoke-tested on every release but has not yet been played on Windows. Node.js is bundled; nothing else to install.</p>
+    <div class="dl-row">
+      <a class="dl" id="dl-linux" href="https://github.com/blackmetaltech/equilibrium/releases/latest"><b>Linux</b><span>x86_64 · tar.gz</span><em>extract, then run <code>EQUILIBRIUM/equilibrium.sh</code> (needs a Vulkan-capable driver)</em></a>
+      <a class="dl" id="dl-windows" href="https://github.com/blackmetaltech/equilibrium/releases/latest"><b>Windows</b><span>x64 · zip</span><em><b class="untested">Untested build:</b> unzip, then run <code>EQUILIBRIUM\EQUILIBRIUM.exe</code> (unsigned: More info, Run anyway)</em></a>
+    </div>
+    <p class="fine"><span id="dl-ver">Latest release</span> · <a id="dl-sums" href="https://github.com/blackmetaltech/equilibrium/releases/latest">SHA256SUMS.txt</a> · <a href="https://github.com/blackmetaltech/equilibrium/releases">All releases</a> · <a href="https://github.com/blackmetaltech/equilibrium/blob/master/CHANGELOG.md">Changelog</a></p>
+  </div>
+</section>
 </main>
+
+<footer class="foot">
+  <p>EQUILIBRIUM is one of the <a href="https://blackmetal.tech">blackmetal.tech</a> learning games, where real equations are the rules. Places, people and companies are fictional.</p>
+  <p><a href="https://github.com/blackmetaltech/equilibrium">Source</a> · <a href="wiki/">Wiki</a> · <a href="https://github.com/blackmetaltech/equilibrium/issues">Issues</a></p>
+</footer>
+<dialog id="lightbox" aria-label="Screenshot"><img alt=""><button type="button" aria-label="Close">×</button></dialog>
+<script src="app.js" defer></script>
 </body>
 </html>

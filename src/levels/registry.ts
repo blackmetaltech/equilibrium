@@ -59,7 +59,11 @@ export function levelOf(spec: LevelSpec): Level<EqState> {
     goal: (s) => isWon(spec, s) && (spec.firstRun !== true || firstRunDone(s)),
     solver: spec.solver,
     /** A scripted shift that ended with its goals unmet is over now, with the reason (not silent until maxTicks). */
-    fail: (s) => (spec.shiftLen > 0 && s.shift !== null && s.shift.ended !== '' && !isWon(spec, s) ? t(s.shift.ended === 'loss' ? 'lv.shift_lost' : 'lv.shift_unmet', { id: spec.id }) : null),
+    fail: (s) => {
+      const own = spec.lost?.(s, spec.measures(s)) ?? null;
+      if (own !== null && !isWon(spec, s)) return t(own, { id: spec.id });
+      return spec.shiftLen > 0 && s.shift !== null && s.shift.ended !== '' && !isWon(spec, s) ? t(s.shift.ended === 'loss' ? 'lv.shift_lost' : 'lv.shift_unmet', { id: spec.id }) : null;
+    },
   };
   if (spec.maxTicks !== undefined) lv.maxTicks = spec.maxTicks;
   return lv;

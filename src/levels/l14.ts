@@ -1,7 +1,8 @@
-// L14 · Exam Bridge: The Brown Gas (oracles EQ-NC-024, -030, -031, -034; DESIGN 2.6, Book data). A pre-built lab bench: N2O4 feed (13.8 g = 0.15 mol, read as mol) and an argon
-// feed (closed) -> mixer -> lab flask (V knob, T knob, constant-P switch Pfix) -> vent. The flask runs on the book's own K (Kp = 85.87 bar at 400 K, R = 0.083 L bar / (mol K)),
-// so the gauge reads the book's 9.15 bar. The player Calls it Kp, reproduces the gauge, and runs the three Le Chatelier tests by doing (halve V, argon at constant V,
-// argon at constant P); the run record (the last ten setpoint sets) is the proof that the tests were done.
+// L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; DESIGN 2.6). D-B1 (LOOK2 phase B): the player's own experiment. A pre-built bench: N2O4 feed (13.8 g = 0.15 mol)
+// and an argon feed (closed) -> mixer -> lab flask (V wheel, T wheel, constant-P clamp Pfix) -> vent. The open flask runs on REAL K (NIST-JANAF, R = 8.314), so heating
+// darkens the gas; the book's own K (Kp = 85.87 bar at 400 K, R = 0.083) only answers the Call-Kp, and a twin flask at the book's numbers stands beside it (drawn by the
+// client from bookWorking). Win: the three Le Chatelier tests run (halve V, argon at constant V, argon at constant P); the run record is the proof. Stars: the Kp call,
+// and "find the book's flask": a run at 1 L, no argon, constant V whose real gauge reads the book's 9.15 bar (the T* the T wheel must find).
 import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { solveEquilibrium } from '../sim/chem/equilibrium';
@@ -32,16 +33,34 @@ export function bookWorking(s: { region: string }): { alpha: number; kp: number 
   const alpha = (p.P * p.V_L) / (p.n0 * p.R * p.T) - 1;
   return { alpha, kp: (4 * alpha * alpha * p.P) / (1 - alpha * alpha) };
 }
-/** What a real N2O4 flask (NIST-JANAF K) would read: Kp and the gauge, bar. */
-export function realFlask(s: { region: string }): { kp: number; P: number } {
+/** What a real N2O4 flask (NIST-JANAF K) would read: Kp and the gauge, bar (at the book's T unless given, 1 L). */
+export function realFlask(s: { region: string }, T?: number, V_m3?: number): { kp: number; P: number } {
   const p = problem(s);
-  const r = solveEquilibrium({ species: L14_SPECIES, n0: [p.n0, 0, 0], T: p.T, reactions: [{ N2O4: -1, NO2: 2 }], detail: 'rigorous', V: p.V_L * 1e-3, R: R_GAS, mode: 'constV' });
+  const r = solveEquilibrium({ species: L14_SPECIES, n0: [p.n0, 0, 0], T: T ?? p.T, reactions: [{ N2O4: -1, NO2: 2 }], detail: 'rigorous', V: V_m3 ?? p.V_L * 1e-3, R: R_GAS, mode: 'constV' });
   if (!r.ok) return { kp: 0, P: 0 };
   const n = r.value.n, tot = n[0]! + n[1]! + n[2]!, P = r.value.P / 1e5;
   const pa = (n[0]! / tot) * P, pb = (n[1]! / tot) * P;
   return { kp: pa > 0 ? (pb * pb) / pa : 0, P };
 }
 
+/** D-B1: the temperature at which the real 1 L flask reads the book's gauge (K), by bisection on the real gauge (it rises with T). */
+export function bookT(s: { region: string }): number {
+  const want = problem(s).P;
+  let lo = 300, hi = 600;
+  for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (realFlask(s, mid).P < want) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+}
+/** D-B1 star: some run was the notebook flask (1 L, no argon, constant V) and its real gauge read the book's pressure within the tolerance. */
+export function foundBookFlask(s: S): boolean {
+  const fl = flaskOf(s), ar = argonFeed(s);
+  if (!fl) return false;
+  const want = problem(s).P;
+  return s.runs.some((r) => {
+    const f = r.setpoints[fl.id] ?? {}, argon = ar ? (r.setpoints[ar.id]?.flow ?? 0) > 0 : false;
+    const V = f.V ?? V_BOOK, P = f.Pfix ?? 0, T = f.T ?? problem(s).T;
+    return !argon && P === 0 && Math.abs(V - V_BOOK) <= 0.005 * V_BOOK && relErr(realFlask(s, T).P, want) <= L14_GAUGE_TOL;
+  });
+}
 const flaskOf = (s: S) => s.flowsheet.units.find((u) => u.type === 'lab_flask');
 const argonFeed = (s: S) => s.flowsheet.units.find((u) => u.type === 'feed' && (s.feeds[u.id]?.x[s.species.indexOf('Ar')] ?? 0) > 0.5);
 
@@ -55,7 +74,9 @@ export function testsDone(s: S): [boolean, boolean, boolean] {
     const V = f.V ?? V_BOOK, P = f.Pfix ?? 0;
     if (!argon && P === 0 && V <= 0.55 * V_BOOK) a = true;
     if (argon && P === 0 && V >= 0.95 * V_BOOK) b = true;
-    if (argon && P > 0) c = true;
+    // test 3 is argon added at the flask's OWN pressure (Anjali, phase B): the clamp holds what the same flask reads without argon at that T and V, within 0.5 %;
+    // any other fixed pressure is a pressure change, not an inert-gas test
+    if (argon && P > 0 && relErr(P / 1e5, realFlask(s, f.T ?? problem(s).T, V).P) <= L14_GAUGE_TOL) c = true;
   }
   return [a, b, c];
 }
@@ -91,7 +112,7 @@ const COACH: CoachStep[] = [
 export const L14: LevelSpec = {
   id: 'L14', firstRun: true, chapter: 3, index: 14, setter: 'mentor', budgetUSD: 0, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => {
-    baseSetup(s, L14_SPECIES, ALL, { lab_flask: { V: V_BOOK, T: problem(s).T, Pfix: 0, book_K: bookWorking(s).kp } });
+    baseSetup(s, L14_SPECIES, ALL, { lab_flask: { V: V_BOOK, T: problem(s).T, Pfix: 0 } });
     const p = problem(s);
     const brown = putFeed(s, 0, 0, { N2O4: 1 }, (p.n0 * 3600) / 1000, p.T, 2e5);
     const argon = putFeed(s, 0, 4, { Ar: 1 }, 0, p.T, 2e5);
@@ -101,16 +122,16 @@ export const L14: LevelSpec = {
     sealSetup(s);
   },
   measures: flaskMeasures,
-  goals: (s, m) => [{ key: 'gauge', met: m.ok && m.v.book === 1 && relErr(m.v.p_bar!, problem(s).P) <= L14_GAUGE_TOL, ...(m.ok ? { value: m.v.p_bar } : {}), target: problem(s).P }],
-  extraStars: (s, m) => [m.v.tests === 3, predictionOf(s, 'kp_bar') !== null && relErr(predictionOf(s, 'kp_bar')!.value, bookWorking(s).kp) <= L14_KP_TOL],
+  goals: (_s, m) => [{ key: 'tests', met: m.v.tests === 3, value: m.v.tests!, target: 3 }],
+  extraStars: (s) => [predictionOf(s, 'kp_bar') !== null && relErr(predictionOf(s, 'kp_bar')!.value, bookWorking(s).kp) <= L14_KP_TOL, foundBookFlask(s)],
   callIt: { key: 'kp_bar', unit: 'bar', tol: L14_KP_TOL, truth: (s) => bookWorking(s).kp },
-  hero: (s, m) => ({ key: 'gauge', unit: 'bar', value: m.v.p_bar!, lo: m.ok ? problem(s).P * (1 - L14_GAUGE_TOL) : 0, hi: m.ok ? problem(s).P * (1 + L14_GAUGE_TOL) : 0 }),
+  hero: (s, m) => ({ key: 'gauge', unit: 'bar', value: m.v.p_bar!, lo: problem(s).P * (1 - L14_GAUGE_TOL), hi: problem(s).P * (1 + L14_GAUGE_TOL) }),   // the band is the twin, the book's flask (the client draws its plate and its brown from it)
   secondary: (_s, m) => ({ key: 'alpha', unit: '%', value: m.v.alpha! * 100, limit: 100 }),
   annunciators: (s, m, g): Annunciator[] => {
     const failed = s.solved !== null && !s.solved.ok;
     const lamp = (done: number): Annunciator['state'] => (done ? 'normal' : 'off');
     return [
-      { key: 'gauge', legend: t('lv.L14.ann.gauge'), state: !m.ok || m.v.book !== 1 ? 'off' : g[0]!.met ? 'normal' : 'high' },   // a deliberate Le Chatelier test (V, argon or Pfix moved) is not a gauge that has gone wrong
+      { key: 'gauge', legend: t('lv.L14.ann.gauge'), state: foundBookFlask(s) ? 'normal' : 'off' },   // D-B1: lit once a run found the book's flask (the T* star)
       { key: 'halve', legend: t('lv.L14.ann.halve'), state: lamp(m.v.t_halve!) },
       { key: 'inert_v', legend: t('lv.L14.ann.inert_v'), state: lamp(m.v.t_inert_v!) },
       { key: 'inert_p', legend: t('lv.L14.ann.inert_p'), state: lamp(m.v.t_inert_p!) },
@@ -123,7 +144,8 @@ export const L14: LevelSpec = {
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
-    return { key: 'off_gauge', cause: t('lv.L14.cause.off_gauge', { P: f(s, m.v.p_bar!), want: f(s, problem(s).P), V: f(s, m.v.v_l!), T: f(s, m.v.t_k!) }) };
+    const [a, b, c] = testsDone(s), open = [a ? '' : t('lv.L14.test.halve'), b ? '' : t('lv.L14.test.inert_v'), c ? '' : t('lv.L14.test.inert_p')].filter((x) => x !== '');
+    return { key: 'tests_open', cause: t('lv.L14.cause.tests_open', { open: open.join(', ') }) };
   },
   equation: (s, m) => {
     if (!m.ok || m.v.argon! > 0 || m.v.alpha! <= 0 || m.v.alpha! >= 0.999) return null;
@@ -132,7 +154,7 @@ export const L14: LevelSpec = {
   },
   lessonVars: (s, m) => {
     const w = bookWorking(s), real = realFlask(s);
-    return { alpha: f(s, m.ok ? m.v.alpha! : w.alpha), P: f(s, m.v.p_bar!), kp: f(s, w.kp), real: f(s, real.kp), realP: f(s, real.P), tests: m.v.tests! };
+    return { alpha: f(s, w.alpha), P: f(s, m.v.p_bar!), kp: f(s, w.kp), real: f(s, real.kp), realP: f(s, real.P), tstar: f(s, Math.round(bookT(s) * 10) / 10), tests: m.v.tests! };
   },
   metrics: (_s, m) => [
     { key: 'kp_bar', unit: 'bar', value: m.v.kp_bar! },
@@ -149,8 +171,9 @@ export const L14: LevelSpec = {
     { name: 'callIt', args: [bookWorking({ region: 'global' }).kp] },
     { name: 'setParam', args: ['U-104', 'V', 0.5 * V_BOOK] }, { name: 'commission' },
     { name: 'setParam', args: ['U-104', 'V', V_BOOK] }, { name: 'setFeed', args: ['F-102', { flow: 0.15 }] }, { name: 'commission' },
-    { name: 'setParam', args: ['U-104', 'Pfix', 9.15e5] }, { name: 'commission' },
+    { name: 'setParam', args: ['U-104', 'Pfix', Math.round(realFlask({ region: 'global' }).P * 1e5) ] }, { name: 'commission' },
     { name: 'setParam', args: ['U-104', 'Pfix', 0] }, { name: 'setFeed', args: ['F-102', { flow: 0 }] }, { name: 'commission' },
+    { name: 'setParam', args: ['U-104', 'T', Math.round(bookT({ region: 'global' }) * 100) / 100] }, { name: 'commission' },
   ])(),
   /** The slip: the flask volume typed as litres (1 m3). */
   naive: () => scripted([{ name: 'setParam', args: ['U-104', 'V', 1] }, { name: 'commission' }])(),

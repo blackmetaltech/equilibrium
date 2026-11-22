@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chapter 10 · Hydraulics · EQUILIBRIUM wiki</title><meta name="description" content="Pumps, pipe sizes, NPSH and cavitation.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="../base.css"><link rel="stylesheet" href="wiki.css"></head>
+<body><header class="nav"><a class="logo" href="../">EQUILIBRIUM</a><nav aria-label="Primary"><a href="./">Wiki</a><a href="controls.html">Controls</a><a href="codex.html">Codex</a><a href="../#download" class="btn mini go">Download</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="./">Wiki</a> / Chapter 10 · Hydraulics</p>
+<h1>Chapter 10 · Hydraulics <span class="look">Classic look</span></h1>
+<p class="lede">Pumps, pipe sizes, NPSH and cavitation.</p>
+<nav class="toc"><a href="#L39">Size the Line</a></nav>
+<article class="level card" id="L39">
+<h3><span class="wo">L39</span> Size the Line</h3>
+<p class="place">Boiler house, condensate return</p>
+<h4>Brief</h4><ul><li>The condensate return needs a new pump and line: … m³/h of … kg/m³ condensate at 90 °C from the vented collecting tank T-301 at grade to the deaerator D-302, … m up on the boiler-house deck and held at … bar g. Pick a pipe size for each leg, a pump from the catalogue and, if you like, trim its impeller.</li><li>Keep liquid velocities in the guide: 1 to 3 m/s in the discharge, at most 1.5 m/s in the suction. A small pipe is cheap to buy and dear to run: friction grows with the velocity squared and the motor pays for every metre of it. The pump runs where its curve crosses the system curve, not at its nameplate.</li><li>Mind the suction. 90 °C condensate is only … m of head away from boiling at atmospheric pressure; the tank level gives … m more, and every metre lost in the suction line comes off the top. The pump can stand near the tank (… m of suction) or at the foot of the boiler house (… m of suction, … m of discharge). Electricity costs … per kWh here.</li></ul>
+<h4>Goal</h4><ul><li>Deliver at least … m³/h (you deliver …)</li><li>Deliver at least … m³/h</li><li>Velocities in the guide: discharge 1 to 3 m/s, suction at most 1.5 m/s</li><li>NPSH margin of at least … m (NPSH available minus required: … m)</li><li>NPSH margin of at least … m (NPSH available minus required)</li><li>The pump runs on its catalogue curve (it ends at … m³/h; you run at …)</li><li>The pump runs on its catalogue curve, between its minimum flow and the end of the curve</li><li>Installed pipe and pump at most … (yours …)</li><li>Installed pipe and pump at most …</li></ul>
+<h4>Stars</h4><ol><li>Goal met: the deaerator gets its condensate without cavitation</li><li>Annual cost (capital plus electricity) within 5 % of the economic optimum</li><li>The pump runs at 70 to 110 % of its best-efficiency flow</li></ol>
+<h4>Steps</h4><ol class="steps"><li>Start with the discharge leg: pick the size that keeps … m³/h between 1 and 3 m/s.<span class="why">below 1 m/s you paid for steel you do not need; above 3 m/s friction and erosion take over.</span></li><li>Now the suction leg: at most 1.5 m/s, usually one size up from the discharge.<span class="why">the suction loss comes straight off the NPSH available, and hot condensate has little to spare.</span></li><li>Pick a pump whose curve crosses the system curve at or just past … m³/h, inside its catalogue range. Trim the impeller if it gives too much.<span class="why">the pump settles where the two curves cross. Extra flow is extra power, paid every hour of the year.</span></li><li>Turn the key to commission the line.<span class="why">the run reads the operating point, the NPSH margin and the annual cost.</span></li><li>Ask Why? and compare your annual cost with the best line.<span class="why">the economic pipe size balances steel against electricity.</span></li></ol>
+<h4>What it teaches</h4><p class="lesson">Your pump settles at … m³/h and … m, where its curve crosses the system curve (… m of static head, the rest friction). The discharge runs at … m/s, the shaft takes … kW at … % of the best-efficiency flow, and the NPSH margin is … m. A year costs …: … of capital and … of electricity, against … for the best line.</p>
+</article>
+</main>
+<footer class="foot"><p>Generated from the game's own text (scripts/wiki.ts). Places, people and companies are fictional.</p><p><a href="https://github.com/blackmetaltech/equilibrium">Source</a> · <a href="https://github.com/blackmetaltech/equilibrium/issues">Issues</a></p></footer>
+</body></html>

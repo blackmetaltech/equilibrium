@@ -48,11 +48,13 @@ func _initialize() -> void:
 	OS.set_environment("CB_NOAUTOSAVE", "1"); OS.set_environment("CB_NOCOACH", "1")
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(6); CbSettings.persist = false
+	CbSettings.last_mode = "learner"   # D-B3 (Mateo, phase B): the coach checks run in learner mode, where the coach speaks; engineer mode is checked explicitly below
 	root.size = Vector2i(1920, 1080); await frames(4)
 	await _l25_budget()
 	await _catalyst_all()
 	await _miss_and_chain_end()
 	await _zero_duty()
+	await _engineer_quiet()
 	print("FIX25-FLOW checks=%d moves=%d" % [checks, moves])
 	print("FIX25-FLOW OK" if fails == 0 else "FIX25-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
@@ -65,6 +67,8 @@ func _l25_budget() -> void:
 	w = app.world; hub = app.root.get_node("PaperHub")
 	w.set_camera("far"); await frames(4)
 	check(w.placing == "packed_bed", "the first part row is in hand when the level opens (%s)" % w.placing)
+	var li0 := app.b.q("levelInfo") as Dictionary
+	check(li0.get("coach") is Dictionary and str(li0.coach.text).contains("Next on the build checklist"), "with a part row open the coach gives the next checklist row (%s)" % str(li0.get("coach", {}).get("text", "") if li0.get("coach") is Dictionary else "no coach"))
 	moves = 0
 	var spots := [["packed_bed", 2, 0], ["cooler", 6, 0], ["packed_bed", 8, 0], ["cooler", 12, 0], ["packed_bed", 14, 0], ["absorber", 18, 0], ["heater", 22, 0], ["packed_bed", 2, 5],
 		["absorber", 6, 5], ["stack", 11, 5], ["product", 14, 5], ["product", 16, 5]]
@@ -98,7 +102,21 @@ func _l25_budget() -> void:
 	check(total < 25, "parts and pipes in under 25 moves (%d)" % total)
 	var li := app.b.q("levelInfo") as Dictionary
 	check(int(guide_done()) >= 24, "the checklist ticked every part and pipe (%d done)" % guide_done())
-	check(str(li.coach.text).contains("Next on the build checklist") if li.get("coach") is Dictionary else true, "the coach follows the checklist while rows are open")
+	# D-B3: after the parts and pipes the next open row is the catalyst on a bed, and the coach's own catalyst step names that very row (the aligned rule in
+	# src/engine/queries/level.ts), so the coach gives its own words, pointing at a bed; it must not repeat the checklist line
+	var coach_ok: bool = li.get("coach") is Dictionary
+	check(coach_ok, "the coach speaks in learner mode after the pipes")
+	if coach_ok:
+		var fu := str((li.coach.get("focus", {}) as Dictionary).get("unit", "")) if li.coach.get("focus") is Dictionary else ""
+		check(beds.has(fu), "the coach points at a packed bed (%s)" % fu)
+		check(str(li.coach.text).to_lower().contains("catalyst") and not str(li.coach.text).contains("Next on the build checklist"), "the coach gives its own catalyst step, not the checklist line (%s)" % str(li.coach.text))
+
+## D-B3: engineer mode has no coach on L25: assert it, instead of passing the learner check vacuously.
+func _engineer_quiet() -> void:
+	CbSettings.last_mode = "engineer"
+	await level("L25"); Notebook.close(app); await frames(4)
+	check((app.b.q("levelInfo") as Dictionary).get("coach") == null, "engineer mode: no coach on L25")
+	CbSettings.last_mode = "learner"
 
 func _catalyst_all() -> void:
 	var beds := ids_of("packed_bed")

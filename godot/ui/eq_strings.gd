@@ -14,7 +14,7 @@ const S := {
 	"KEY_SPEED_HINT": "Plant clock speed during a shift",
 	"KEY_NEED_COMMISSION": "Commission the plant before the shift.", "KEY_SHIFT_ON": "The shift is already running.", "KEY_SOLVE_FAIL": "The plant did not solve.",
 	"SPEED_0": "‖", "SPEED_1": "1×", "SPEED_2": "4×", "SPEED_3": "16×",
-	"TITLE_SUB": "run the plant that feeds the world", "TITLE_CONTINUE": "Continue shift", "TITLE_NEW": "New works", "TITLE_MAP": "Works map", "TITLE_SANDBOX": "Sandbox",
+	"TITLE_SUB": "run the plant that feeds the world", "TITLE_CONTINUE": "Continue shift", "TITLE_NEW": "New works", "TITLE_MAP": "Works map", "TITLE_NEWLOOK": "Chapter 3 · The Wall  (new look)", "TITLE_SANDBOX": "Sandbox",
 	"TITLE_SETTINGS": "Settings", "TITLE_QUIT": "Quit", "TITLE_FOOT": "Kestrel Bay Works",
 	"PAUSE_TITLE": "Paused", "PAUSE_RESUME": "Resume", "PAUSE_RESTART": "Restart job", "PAUSE_NOTEBOOK": "Notebook", "PAUSE_SETTINGS": "Settings",
 	"PAUSE_MAP": "Works map", "PAUSE_TITLE_BTN": "Title",

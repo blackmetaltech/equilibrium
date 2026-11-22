@@ -12,3 +12,7 @@ dist/
 __pycache__/
 *.translation
 .claude/
+
+# phase B: the 3D look's import settings (mipmaps, VRAM compression, normal maps as RGTC) must reach a fresh clone
+!godot/look2/assets/*.import
+!godot/look2/assets/tex/*.import

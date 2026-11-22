@@ -101,22 +101,36 @@ describe('solvability (the expert persona)', () => {
       expect(info(e).goals.every((g: any) => g.met), id).toBe(true);
     }
   });
-  it('L00: both the dial and doing nothing finish the night; only the dial keeps the plant running', () => {
+  it('L00 (D-B2): the dial saves the night with all three stars; doing nothing trips the loop and loses the night', () => {
     for (const mode of ['learner', 'engineer']) {
       const dial = solve('L00', { mode });
       expect(dial.state.status, mode).toBe('won');
       expect(dial.state.shift!.stat.tripN, mode).toBe(0);
-      expect(dial.state.shift!.stat.critS, mode).toBe(0);
+      if (mode === 'learner') expect(dial.state.shift!.stat.critS, mode).toBe(0);   // D-B5: engineer mode spends time at Critical even at the best lit set point (650 K)
       expect(card(dial).verdictKey).toBe('saved');
-      expect(card(dial).stars).toEqual({ have: 1, earned: [true, false, false] });
+      expect(card(dial).stars).toEqual({ have: 3, earned: [true, true, true] });
       let tripAt = -1;
       const idle = play('L00', NAIVE.L00!, { mode, ticks: 700, each: (e, t) => { if (tripAt < 0 && Object.keys(e.state.shift!.trips).length > 0) tripAt = t + 1; } });
-      expect(idle.state.status, mode).toBe('won');
+      expect(idle.state.status, mode).toBe('lost');
       expect(card(idle).verdictKey, mode).toBe('tripped');
       expect(tripAt - L00_EVENT_AT, `${mode}: the interlock trips about 45 s after the pump`).toBeGreaterThanOrEqual(40);
       expect(tripAt - L00_EVENT_AT, mode).toBeLessThanOrEqual(50);
       expect(GAME.invariants!(idle.state, null)).toEqual([]);
     }
+  });
+  it('L00 (D-B2): the cooler is slow, so the time of the turn decides the night', () => {
+    const run = (mode: string, at: number): { status: string; crit: number } => {
+      const e = start('L00', 1003, mode);
+      const cool = e.state.flowsheet.units.find((u) => u.type === 'cooler')!;
+      for (let t = 0; t < 120 && e.state.status === 'playing'; t++) { if (t === at) e.step({ name: 'setpoint', args: [cool.id, 'T', 650] } as any); e.step({ name: 'tick', args: [1] } as any); }
+      return { status: e.state.status, crit: e.state.shift!.stat.critS };
+    };
+    // D-B5 calibration at the lit set point 650 K: learner saves to ~58 s (Critical from ~46 s) and trips after; engineer saves to ~38 s and trips from ~42 s
+    expect(run('learner', 22)).toEqual({ status: 'won', crit: 0 });
+    const mid = run('learner', 50); expect(mid.status).toBe('won'); expect(mid.crit).toBeGreaterThan(0);
+    expect(run('learner', 64).status).toBe('lost');
+    expect(run('engineer', 22).status).toBe('won');
+    expect(run('engineer', 46).status).toBe('lost');
   });
   it('L00 starts mid-shift with the loop running and the pump trip scripted at 20 s', () => {
     const e = start('L00');

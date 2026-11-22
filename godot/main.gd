@@ -8,6 +8,9 @@ var chrome: EqConsole
 var lvbay: LevelViewBay   ## the level-local view (ui/level_view_bay.gd); wins the instrument bay's slot
 var bay: InstrumentBay   ## the hero instrument of the plant (ui/instrument_bay.gd)
 var audio_eq: EqAudio
+var look2: Look2   ## LOOK2 phase A: the slice level (L00) in the new look (look2/look2.gd); CB_LOOK2=0 turns it off
+var _chrome_on := false
+func chrome_shown() -> bool: return _chrome_on
 
 ## Every level start draws its seed here. A Retry / restart pins the seed of the attempt it replaces, so the level's random draw (L03's unknown fuel) is the same fuel again.
 var last_seed := 0
@@ -75,6 +78,7 @@ func game_on_changed() -> void:
 	if p is Dictionary: plant_world.set_state(p)
 	plant_world.set_snapshot(b.g)   # live looks: stream colours/flow, unit heat and alarms, Cute critters
 	_level_mood()
+	if look2 != null: look2.sync()
 
 ## Per-level mood: L00 is the 02:40 night shift (dark, lamps on), the bench levels are daytime; alarms drive the tones, the music stress
 ## and the lab cat (it hides). The engine's annunciator states are the single source.
@@ -130,6 +134,8 @@ func game_camera(spec: String) -> void:
 				else: args.append(a)
 			b.act(f[0], args)
 		elif part.begins_with("ff="): b.act("tick", [int(part.substr(3))])
+		elif part.begins_with("speed="):   # QA/captures: the speed dial position 0-3 (pause, 1x, 4x, 16x), as the console sets it
+			var si := clampi(int(part.substr(6)), 0, 3); b.act("setSpeed", [[0, 1, 4, 16][si]]); set_speed(si)
 		elif part.begins_with("key="):
 			for i in int(part.substr(4)):
 				if chrome != null: chrome.turn_key()
@@ -147,6 +153,8 @@ func game_camera(spec: String) -> void:
 		elif part.begins_with("tag="):
 			var st := StreamTag.attach(self); st._pin_t = 6.0; st.show_for(part.substr(4), Vector2(vw() * 0.5, vs_h() * 0.5))
 		elif part == "menu": game_menu()
+		elif part == "endclose":   # QA (phase B captures): put the end card away to see the world behind it
+			if end_ui != null and is_instance_valid(end_ui): end_ui.queue_free(); end_ui = null
 		elif part == "nbclose": Notebook.close(self); Notebook.qa_hold = true   # QA: put the notebook away (screenshots of the plant and its board); F33: also the one the watcher opens after CB_CAM ran
 		elif part.begins_with("incident"):   # QA (F33): "incident" or "incident=<seed>": a fresh Career (on that seed) run a month at a time until a plant incident waits on the board
 			if part.begins_with("incident="): pinned_seed = int(part.substr(9)); _career_fresh(); pinned_seed = -1
@@ -162,9 +170,11 @@ func game_camera(spec: String) -> void:
 			if chrome != null: chrome.intercom.open_full()
 		else: cam.append(part)
 	game_on_changed()
+	if not cam.is_empty() and look2 != null and look2.camera(",".join(cam)): return
 	if plant_world != null and not cam.is_empty(): plant_world.set_camera(",".join(cam))
 
 func game_unhandled_key(e: InputEventKey) -> bool:
+	if look2 != null and e.pressed and not e.echo and look2.key(e): return true
 	if chrome != null and chrome.key(e): return true
 	if plant_world == null or not e.pressed or e.echo: return false
 	match e.keycode:
@@ -179,15 +189,20 @@ func game_build_chrome(r: Control) -> void:
 	bay = InstrumentBay.new(); bay.app = self; chrome.add_child(bay); bay.build()
 	lvbay = LevelViewBay.new(); lvbay.app = self; chrome.add_child(lvbay); lvbay.build()
 	chrome.notebook_requested.connect(func(): Notebook.open(self))
+	look2 = Look2.new(); look2.app = self; look2.name = "Look2"; add_child(look2)
 func game_chrome_visible(v: bool) -> void:
+	_chrome_on = v
 	if chrome != null: chrome.set_chrome_visible(v)
 	if audio_eq != null: audio_eq.set_title(not v)
 	if plant_world != null: plant_world.set_title(not v)   # the title layout shifts the view left; a level centres it again
+	if look2 != null and b != null: look2.sync()
 func game_relayout() -> void:
 	if chrome != null: chrome.layout()
 	if bay != null: bay.layout()
 	if lvbay != null: lvbay.layout()
+	if look2 != null: look2.relayout()
 func game_toast(text: String, level: String) -> bool:
+	if look2 != null and look2.toast(text, level): return true
 	if chrome == null: return false
 	chrome.toast(text, level); return true
 func game_coach(step: Dictionary, index: int, total: int) -> bool:
@@ -210,6 +225,7 @@ func _begin() -> void:
 	if chrome != null: chrome.reset_shift_seen(); chrome.level_begun()
 	super()
 func game_end_screen() -> bool:
+	if look2 != null and look2.end_screen(): return true
 	if CareerBoard.review_first(self): return true   # CAREER: the last annual review is read before the result card
 	sfx("printer")
 	return Printout.open(self)
