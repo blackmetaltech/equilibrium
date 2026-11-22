@@ -5,7 +5,7 @@ This was LOOK2 phase B. Chapter 3 (L10-L14) is the released new-look chapter, an
 ## The gate (factory/briefs/LOOK2.md, phase B)
 | Gate item | Result |
 |---|---|
-| A playtester persona's hand play through the real input path | **Partly met.** Lena (16, new to the game) played from the title strip on the desk harness with mouse and keyboard. She won L10, L11, L12 and L13; L13 with all three flasks and a correct call. She could not finish L14: the wheels turned only on an exact grab and nothing said how. That was fixed (hover ring, name line, scroll turns a wheel) and checked on the desk. L14 replay: PENDING. |
+| A playtester persona's hand play through the real input path | **Met after three rounds.** Lena (16, new to the game) played from the title strip on the desk harness with mouse and keyboard and won L10, L11, L12 and L13 (L13 with three flasks and a correct call). L14 took three rounds. Round 1: the wheels turned only on an exact grab and nothing said how; fixed with a hover ring, a name line beside it, and scroll over a wheel. Round 2: the clamp could not be found, because the flask's own anchor stole the picks; fixed with controls-only picking (30 px targets), a red PISTON CLAMP handle and the coach saying where it is. Round 3: all three tests and the book-temperature star ticked, but no win, because L14's clock was paused and the 30 s settle never ended. That was fixed (the clock runs, with a countdown on the Call box) and checked on the desk to the end card; Lena did not replay it a fourth time. |
 | Tests and flows green | **Met, with two load-sensitive exceptions.** Vitest 2420 of 2423 pass, 2 skipped. The commission-time p95 test fails under machine load and passes alone. 46 Godot flows: `build_guide_flow` failed under load and passed alone; `phone_flow` failed once on the longer map label, which was then shortened, and now passes. New flows: pad3_flow (real joypad events), textures_flow, and look2_flow's coached order. |
 | Low tier usable on the iGPU | **Met, at the line.** Integrated Radeon, compat tier, 1280x800: L00 34.1 ms, L14 34.5 ms, L10 hall 34.0 ms. That is about 30 fps, paced by vsync; the GPU itself takes 11-16 ms. Sigrid: legible, HUD type at 16 px or more, L14 dark on compat. |
 | CHANGELOG and CRITIQUE with the owner-concerns audit | This file and CHANGELOG [0.10.0]. |
@@ -23,6 +23,7 @@ This was LOOK2 phase B. Chapter 3 (L10-L14) is the released new-look chapter, an
 | Naledi (educator) | — | The coached order broke test 3. Why? gave the answer away. The cue was a sound the build does not have. | All fixed except hiding Why? until a test has run; its wording now asks for a prediction instead. |
 
 ## Playtest findings still open
+- L14: a hover label can overlap the Call box when the camera is close. The drag rate (about 4 K per 15 px) is not stated. On the end card the coach line still shows the opening question.
 - After GOAL MET the printout takes 20-45 s to appear, with no sign of progress.
 - In the L12 and L13 briefs the flask text is clipped at "more below: scroll" (classic notebook).
 - An L13 bed warning is cut at "the catalyst starts to…".
