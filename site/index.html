@@ -47,9 +47,9 @@
       <p class="eyebrow"><b>Alpha</b><span>Free</span><span>No account</span><span>Linux</span><span>Windows (untested)</span></p>
       <h1>EQUILIBRIUM</h1>
       <p class="tagline">Run a chemical plant where the chemistry is real.</p>
-      <p class="lede">Place feed banks, compressors, reactors, exchangers, columns and recycle loops, pipe them together and turn the key to COMMISSION. Then real equilibrium constants, real kinetics and real property data decide whether your plant makes product, wastes money or trips at three in the morning.</p>
+      <p class="lede">Build it, turn the key, and see if it holds.</p>
       <div class="cta">
-        <a class="btn go" id="dl-main" href="https://github.com/blackmetaltech/equilibrium/releases/latest">Download <small id="dl-main-sub">latest release</small></a>
+        <a class="btn go" id="dl-main" href="https://github.com/blackmetaltech/equilibrium/releases/latest">Download <small id="dl-main-sub">v0.10.1</small></a>
         <a class="btn" href="wiki/">Player wiki</a>
       </div>
       <p class="fine" id="dl-note">Free. Source on <a href="https://github.com/blackmetaltech/equilibrium">GitHub</a>.</p>
@@ -69,17 +69,17 @@
       <li class="step">
         <a href="assets/shots/title.jpg" class="zoom"><img src="assets/shots/title.jpg" alt="The title screen: Continue, New works, Works map and a strip that opens Chapter 3 in the new look" width="1600" height="900" loading="lazy"></a>
         <h3><b>1</b> Take the job</h3>
-        <p>A place, people on the intercom, a goal with numbers, and three flasks to earn. Some jobs ask you to call the answer before you run.</p>
+        <p>A goal with numbers and three flasks to earn. Some jobs ask you to call the answer first.</p>
       </li>
       <li class="step">
         <a href="assets/shots/chapter3-hall.jpg" class="zoom"><img src="assets/shots/chapter3-hall.jpg" alt="L13: three adiabatic beds in the hall glowing by outlet temperature, with waste-heat boilers between them" width="1600" height="900" loading="lazy"></a>
         <h3><b>2</b> Build and commission</h3>
-        <p>Every part has a price and a rating. Turn the key and the engine solves your flowsheet: conversions, temperatures, duties, cost per tonne.</p>
+        <p>Place parts, pipe them, turn the key. The engine solves your plant.</p>
       </li>
       <li class="step">
         <a href="assets/shots/night-shift-hall.jpg" class="zoom"><img src="assets/shots/night-shift-hall.jpg" alt="Night Shift: the ammonia loop in the process hall at night, the converter R-106 between the cooler and the separator" width="1600" height="900" loading="lazy"></a>
         <h3><b>3</b> Run the shift</h3>
-        <p>Pumps trip, catalysts sleep below light-off, beds sinter past their limit. The plant moves at the speed of real actuators.</p>
+        <p>Pumps trip and catalysts go cold. You have seconds to act.</p>
       </li>
     </ol>
   </div>
@@ -94,8 +94,8 @@
     <div>
       <p class="kicker">New in 0.10</p>
       <h2>Chapter 3 in the new look</h2>
-      <p>Chapter 3, The Wall, is the first chapter in the new look: a 3D hall and lab with glass panels anchored to the plant. In L10 to L13 you build on the classic drafting table. Commission the plant, and your own flowsheet stands in the hall. Beds glow by their outlet temperature: dark below light-off, white past sintering. L14 Two Flasks is your own experiment on your own bench: wheels, a RUN lever, an argon valve and a piston clamp.</p>
-      <p>The prologue, Night Shift, is new look too. <b>Every other chapter keeps the classic control-room look</b> and is labelled so on the Works Map. Everything in the new look works from a pad.</p>
+      <p>Chapter 3 and the prologue are in a 3D hall and lab. Your plant stands in the hall once it runs.</p>
+      <p>Other chapters keep the classic look. A pad works throughout the new look.</p>
     </div>
   </div>
 </section>
@@ -120,9 +120,9 @@
       <h2>Real data, named simplifications</h2>
     </div>
     <ul>
-      <li><b>Thermodynamics.</b> Equilibrium constants from NIST-JANAF data, solved by Gibbs minimisation; the book's numbers appear only where a job is about a textbook problem, and the game says so.</li>
-      <li><b>Checked.</b> The engine is tested against independently computed oracle values. Every level has a naive build that must fail and a reference build that must pass.</li>
-      <li><b>Simplified, and says so.</b> Ideal-gas activities, steady state between events, typical prices. The codex names each simplification.</li>
+      <li><b>Real data.</b> Equilibrium from NIST-JANAF tables.</li>
+      <li><b>Checked.</b> Tested against independent oracle values.</li>
+      <li><b>Honest.</b> The codex names every simplification.</li>
     </ul>
   </div>
 </section>
@@ -131,7 +131,7 @@
   <div class="wrap">
     <p class="kicker">Download</p>
     <h2>Free. Extract and play.</h2>
-    <p class="alpha"><b>Alpha.</b> Playable on desktop Linux. The Windows build is made and smoke-tested on every release but has not yet been played on Windows. Node.js is bundled; nothing else to install.</p>
+    <p class="alpha"><b>Alpha.</b> Played on Linux. The Windows build is untested.</p>
     <div class="dl-row">
       <a class="dl" id="dl-linux" href="https://github.com/blackmetaltech/equilibrium/releases/latest"><b>Linux</b><span>x86_64 · tar.gz</span><em>extract, then run <code>EQUILIBRIUM/equilibrium.sh</code> (needs a Vulkan-capable driver)</em></a>
       <a class="dl" id="dl-windows" href="https://github.com/blackmetaltech/equilibrium/releases/latest"><b>Windows</b><span>x64 · zip</span><em><b class="untested">Untested build:</b> unzip, then run <code>EQUILIBRIUM\EQUILIBRIUM.exe</code> (unsigned: More info, Run anyway)</em></a>
