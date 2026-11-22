@@ -15,6 +15,7 @@ var _curve_to_T := PackedFloat32Array()
 var _curve_to_X := PackedFloat32Array()
 var _morph := 1.0
 var _t := 0.0
+var mini := false            ## docked in the corner: the curve, the point and the Q/K line only (click to enlarge)
 
 func _init() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE; custom_minimum_size = Vector2(340, 280)
 
@@ -79,25 +80,25 @@ func _draw() -> void:
 	if not has_reading(): return
 	var f := HoloTheme.font(500); var fb := HoloTheme.font(600); var fz := HoloTheme.fs(16)
 	var ts := _curve_now_T(); var xs := _curve_now_X()
-	var padl := 56.0; var padr := 14.0; var top := 28.0
+	var padl := 36.0 if mini else 56.0; var padr := 14.0; var top := 28.0
 	var qk_h := 48.0; var foot := 22.0; var xl := 46.0
-	var pl := Rect2(padl, top, size.x - padl - padr, maxf(size.y - top - qk_h - foot - xl, 60.0))
+	var pl := Rect2(padl, top, size.x - padl - padr, maxf(size.y - top - 50.0, 40.0)) if mini else Rect2(padl, top, size.x - padl - padr, maxf(size.y - top - qk_h - foot - xl, 60.0))
 	var tlo := HoloTheme.c_of(ts[0]); var thi := HoloTheme.c_of(ts[ts.size() - 1])
 	var px := func(tk: float) -> float: return pl.position.x + (HoloTheme.c_of(tk) - tlo) / maxf(thi - tlo, 1e-6) * pl.size.x
 	var py := func(x: float) -> float: return pl.end.y - clampf(x, 0.0, 1.0) * pl.size.y
 	# title row
 	draw_string(fb, Vector2(0, 16), "Equilibrium window", HORIZONTAL_ALIGNMENT_LEFT, -1, fz, HoloTheme.TEAL_HI)
-	if data.has("pBar"):
+	if data.has("pBar") and not mini:
 		var pt := "%s bar" % str(int(round(float(data.pBar))))
 		draw_string(f, Vector2(size.x - f.get_string_size(pt, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x, 16), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, fz, HoloTheme.MUTED)
 	# grid and axis labels
 	draw_rect(pl, Color(1, 1, 1, 0.035))
-	for yv in [0, 50, 100]:
+	for yv in ([0, 100] if mini else [0, 50, 100]):
 		var gy: float = py.call(yv / 100.0)
 		draw_line(Vector2(pl.position.x, gy), Vector2(pl.end.x, gy), Color(1, 1, 1, 0.10 if yv != 0 else 0.28), 1.0)
 		var yt := "%d" % yv
 		draw_string(f, Vector2(pl.position.x - 8.0 - f.get_string_size(yt, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x, gy + 5.0), yt, HORIZONTAL_ALIGNMENT_LEFT, -1, fz, HoloTheme.MUTED)
-	var step := _nice_step(thi - tlo, 3); var tv := ceilf(tlo / step) * step
+	var step := _nice_step(thi - tlo, 2 if mini else 3); var tv := ceilf(tlo / step) * step
 	while tv <= thi + 0.01:
 		var gx: float = pl.position.x + (tv - tlo) / (thi - tlo) * pl.size.x
 		draw_line(Vector2(gx, pl.position.y), Vector2(gx, pl.end.y), Color(1, 1, 1, 0.07), 1.0)
@@ -105,10 +106,11 @@ func _draw() -> void:
 		draw_string(f, Vector2(clampf(gx - xw * 0.5, 0.0, size.x - xw), pl.end.y + 19.0), xt, HORIZONTAL_ALIGNMENT_LEFT, -1, fz, HoloTheme.MUTED)
 		tv += step
 	var xa := "Temperature, °C"
-	draw_string(f, Vector2(pl.position.x + (pl.size.x - f.get_string_size(xa, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x) * 0.5, pl.end.y + 38.0), xa, HORIZONTAL_ALIGNMENT_LEFT, -1, fz, HoloTheme.DIM)
-	draw_set_transform(Vector2(18.0, pl.position.y + (pl.size.y + f.get_string_size("Conversion, %", HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x) * 0.5), -PI * 0.5, Vector2.ONE)
-	draw_string(f, Vector2.ZERO, "Conversion, %", HORIZONTAL_ALIGNMENT_LEFT, -1, fz, HoloTheme.DIM)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if not mini:
+		draw_string(f, Vector2(pl.position.x + (pl.size.x - f.get_string_size(xa, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x) * 0.5, pl.end.y + 38.0), xa, HORIZONTAL_ALIGNMENT_LEFT, -1, fz, HoloTheme.DIM)
+		draw_set_transform(Vector2(18.0, pl.position.y + (pl.size.y + f.get_string_size("Conversion, %", HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x) * 0.5), -PI * 0.5, Vector2.ONE)
+		draw_string(f, Vector2.ZERO, "Conversion, %", HORIZONTAL_ALIGNMENT_LEFT, -1, fz, HoloTheme.DIM)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# bands: asleep (below light-off), sinter and the trip temperature (hot end), the High line
 	var lo = data.get("lightOffT", null); var hi = data.get("sinterT", null)
 	if lo != null:
@@ -152,21 +154,22 @@ func _draw() -> void:
 		var ly := op.y - 10.0 if op.y - 10.0 > pl.position.y + 16.0 else op.y + 22.0
 		draw_string(fb, Vector2(lx, ly), lab, HORIZONTAL_ALIGNMENT_LEFT, -1, fz, Color.WHITE)
 		# inlet to outlet line
-		if pt is Dictionary and pt.has("TIn"):
+		if pt is Dictionary and pt.has("TIn") and not mini:
 			var ft := "Inlet %d °C, outlet %d °C" % [int(round(HoloTheme.c_of(float(pt.TIn)))), int(round(HoloTheme.c_of(_pt.x)))]
 			draw_string(f, Vector2(0, pl.end.y + xl + 16.0), ft, HORIZONTAL_ALIGNMENT_LEFT, size.x, fz, HoloTheme.MUTED)
 	# the Q/K needle: centre = at equilibrium
-	var by := pl.end.y + 104.0
-	var bx0 := padl - 10.0; var bx1 := size.x - padr
-	var cx := (bx0 + bx1) * 0.5; var span := (bx1 - bx0) * 0.5
 	var far := absf(_beam) > 1.0
-	var ncol := HoloTheme.AMBER if far else HoloTheme.TEAL_HI
-	draw_line(Vector2(bx0, by), Vector2(bx1, by), Color(1, 1, 1, 0.14), 4.0, true)
-	var nx := cx + clampf(_beam / 3.0, -1.0, 1.0) * span
-	draw_line(Vector2(cx, by), Vector2(nx, by), Color(ncol, 0.8), 4.0, true)
-	draw_line(Vector2(cx, by - 9.0), Vector2(cx, by + 9.0), Color(1, 1, 1, 0.55), 1.5)
-	draw_colored_polygon(PackedVector2Array([Vector2(nx, by - 4.0), Vector2(nx - 6.0, by - 15.0), Vector2(nx + 6.0, by - 15.0)]), ncol)
+	if not mini:
+		var by := pl.end.y + 104.0
+		var bx0 := padl - 10.0; var bx1 := size.x - padr
+		var cx := (bx0 + bx1) * 0.5; var span := (bx1 - bx0) * 0.5
+		var ncol := HoloTheme.AMBER if far else HoloTheme.TEAL_HI
+		draw_line(Vector2(bx0, by), Vector2(bx1, by), Color(1, 1, 1, 0.14), 4.0, true)
+		var nx := cx + clampf(_beam / 3.0, -1.0, 1.0) * span
+		draw_line(Vector2(cx, by), Vector2(nx, by), Color(ncol, 0.8), 4.0, true)
+		draw_line(Vector2(cx, by - 9.0), Vector2(cx, by + 9.0), Color(1, 1, 1, 0.55), 1.5)
+		draw_colored_polygon(PackedVector2Array([Vector2(nx, by - 4.0), Vector2(nx - 6.0, by - 15.0), Vector2(nx + 6.0, by - 15.0)]), ncol)
 	var qk := pow(10.0, _beam_to)
 	var qt := "Q/K %s" % (("%.2f" % qk) if qk >= 0.01 else "%.0e" % qk)
-	var st := "at equilibrium" if absf(_beam_to) < 0.05 else ("short of equilibrium" if _beam_to < 0.0 else "past equilibrium")
-	draw_string(fb, Vector2(0, pl.end.y + 86.0), qt + "  " + st, HORIZONTAL_ALIGNMENT_LEFT, size.x, fz, HoloTheme.INK if not far else HoloTheme.AMBER)
+	var st := ("at equilibrium" if absf(_beam_to) < 0.05 else ("short" if _beam_to < 0.0 else "past")) if mini else ("at equilibrium" if absf(_beam_to) < 0.05 else ("short of equilibrium" if _beam_to < 0.0 else "past equilibrium"))
+	draw_string(fb, Vector2(0, pl.end.y + (46.0 if mini else 86.0)), qt + "  " + st, HORIZONTAL_ALIGNMENT_LEFT, size.x, fz, HoloTheme.INK if not far else HoloTheme.AMBER)

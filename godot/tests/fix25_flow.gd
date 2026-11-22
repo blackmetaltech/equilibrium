@@ -48,6 +48,7 @@ func _initialize() -> void:
 	OS.set_environment("CB_NOAUTOSAVE", "1"); OS.set_environment("CB_NOCOACH", "1")
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(6); CbSettings.persist = false
+	CbSettings.last_mode = "engineer"   # this flow was written in engineer mode and read the saved mode; a saved "learner" made it fail (docs/LOOK2.md, round 2: fix1 and fix25)
 	root.size = Vector2i(1920, 1080); await frames(4)
 	await _l25_budget()
 	await _catalyst_all()

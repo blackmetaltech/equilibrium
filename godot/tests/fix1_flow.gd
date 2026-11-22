@@ -31,6 +31,7 @@ func _initialize() -> void:
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(6)
 	CbSettings.persist = false
+	CbSettings.last_mode = "engineer"   # this flow was written in engineer mode and read the saved mode; a saved "learner" made it fail (docs/LOOK2.md, round 2: fix1 and fix25)
 	root.size = Vector2i(1920, 1080); await frames(4)
 	print("viewport ", root.get_visible_rect().size, " layout ", CbLayout.kind)
 	await _l00()
