@@ -617,10 +617,16 @@ func _on_control(key: String, value: float) -> void:
 	_dial.value_k = value
 	_debounce(key, value, func(v: float): _dial.value_k = v; _commit_dial(v))
 
+var _ctl_fn := {}
+## Commit every control still waiting in the debounce (RUN calls this: a wheel turned just before the lever must not run the old value).
+func flush_controls() -> void:
+	for k in _ctl_pend.keys():
+		var v: float = _ctl_pend[k]; _ctl_pend.erase(k); _ctl_last[k] = Time.get_ticks_msec(); (_ctl_fn[k] as Callable).call(v)
+
 func _debounce(key: String, value: float, fn: Callable) -> void:
 	var now := Time.get_ticks_msec()
 	if now - int(_ctl_last.get(key, -1000)) >= 250: _ctl_last[key] = now; fn.call(value); return
-	var queued := _ctl_pend.has(key); _ctl_pend[key] = value
+	var queued := _ctl_pend.has(key); _ctl_pend[key] = value; _ctl_fn[key] = fn
 	if queued: return
 	get_tree().create_timer(0.25).timeout.connect(func():
 		if not _ctl_pend.has(key): return

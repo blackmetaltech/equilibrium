@@ -23,7 +23,8 @@ var coil_light: OmniLight3D; var dewar_fog: GPUParticles3D; var gas_light: OmniL
 var _gas_h := GAS_H
 var _wdrag := ""; var _wdrag_v := 0.0
 var _flask_out := ""
-var p_own := 0.0              ## bar(a): the last gauge reading without argon at constant volume (what the clamp holds when released)
+var p_own := {}               ## bar(a) by (V, T): the flask's own readings without argon at constant volume; the clamp holds the one for the current wheels (Naledi: one value broke the coached order)
+static func own_key(V: float, T: float) -> String: return "%d_%d" % [roundi(V * 1.0e6), roundi(T)]
 var V_draw := V_BOOK          ## the gas volume the engine has (at constant P with argon it grows past the V wheel)
 var twin_plate: Label3D
 var lever: Node3D; var valve_h: Node3D; var clamp_h: Node3D; var _lever_t := 0.0
@@ -383,7 +384,7 @@ func set_snapshot(g: Dictionary) -> void:
 		if P > 0.0: V_draw = float(s.get("flow", 0.0)) * R * T / P if flask_Pfix > 0.0 and float(s.get("flow", 0.0)) > 0.0 else flask_V   # Anjali: draw the engine's volume
 		if P > 0.0 and T > 0.0:
 			P_bar = P / 1e5
-			if not argon_on and flask_Pfix <= 0.0 and yar < 1e-6: p_own = P_bar
+			if not argon_on and flask_Pfix <= 0.0 and yar < 1e-6: p_own[own_key(flask_V, T)] = P_bar
 			var c := y * P / (R * T)
 			var ref := TWIN_NO2   # D-B1: the colour is read against the twin, the book's flask (its NO2 never changes)
 			c_eq = c / ref; _V_eq = flask_V; c_rel = c_eq
@@ -458,7 +459,7 @@ func press_control(r: String) -> void:
 		"lever": _lever_t = 0.6; control_changed.emit("run", 1.0)
 		"argon_valve": argon_on = not argon_on; control_changed.emit("argon", 0.15 if argon_on else 0.0)
 		"clamp":
-			var pf := 0.0 if flask_Pfix > 0.0 else (p_own if p_own > 0.0 else P_bar) * 1.0e5   # releasing the clamp holds the flask's own pressure: its last reading without argon (test 3 counts only there)
+			var pf := 0.0 if flask_Pfix > 0.0 else float(p_own.get(own_key(flask_V, flask_T), P_bar)) * 1.0e5   # releasing the clamp holds the flask's own pressure: its last reading without argon (test 3 counts only there)
 			flask_Pfix = pf; control_changed.emit("Pfix", pf)
 
 func pick(p: Vector2) -> String:

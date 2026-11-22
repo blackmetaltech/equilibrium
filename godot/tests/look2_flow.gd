@@ -154,7 +154,18 @@ func _run_l14() -> void:
 	var af := 0.0
 	for u in app.b.q("plant").units: if str(u.id) == str(hud.ids.get("argon", "?")): af = float(u.params.flow)
 	check(absf(af - 0.15) < 1e-9, "argon from the HUD field reaches the engine (%s)" % str(af))
-	# one card at most, and a pick opens the flask card
+	# Naledi (phase B): the coached order through the world's own controls must finish test 3 (the clamp holds the flask's own pressure at the current wheels)
+	fl.f_A.committed.emit(0.0); lab.control_changed.emit("T", 400.0); lab.control_changed.emit("V", 0.001); await frames(2)
+	if lab.argon_on: lab.press_control("argon_valve")
+	lab.press_control("lever"); await frames(4)            # baseline at 1 L
+	lab.control_changed.emit("V", 0.0005); await frames(2); lab.press_control("lever"); await frames(4)   # test 1: halve
+	lab.control_changed.emit("V", 0.001); await frames(2); lab.press_control("argon_valve"); await frames(2); lab.press_control("lever"); await frames(4)   # test 2
+	lab.press_control("clamp"); await frames(2); lab.press_control("lever"); await frames(4)   # test 3
+	var li3 = app.b.q("levelInfo")
+	check(int(li3.goals[0].value) == 3, "the coached order with the world's controls runs all three tests (%s of 3; clamp %.3f bar)" % [str(li3.goals[0].value), lab.flask_Pfix / 1e5])
+	if lab.flask_Pfix > 0.0: lab.press_control("clamp")
+	if lab.argon_on: lab.press_control("argon_valve")
+	await frames(2)
 	hud._on_picked("wheel_v"); await frames(8)
 	var open := 0
 	for r in hud._cards: if (hud._cards[r].p as HoloPanel).shown: open += 1

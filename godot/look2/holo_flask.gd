@@ -146,6 +146,7 @@ func call_kp(v: float) -> bool:
 ## RUN: commission the flask as it is set. The engine settles it; the gauge, dissociation and Kp of this run go on the list.
 func run() -> bool:
 	if not _playing(): return false
+	h.flush_controls()
 	var ci = h._li.get("callIt", null)
 	if ci is Dictionary and not bool(ci.get("answered", false)):
 		h.app.toast("Call Kp first. The call locks when you run.", "warn"); call_edit.grab_focus(); return false
