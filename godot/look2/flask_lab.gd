@@ -267,8 +267,9 @@ func _build_rig() -> void:
 	anchors["argon_valve"] = valve_h.position; radius["argon_valve"] = 0.16
 	# the clamp on the crosshead: on = the piston is held (constant V); off = it floats at the gauge pressure (constant P)
 	clamp_h = Node3D.new(); clamp_h.position = Vector3(d.x + CR + 0.3, by + 3.15, d.z); add_child(clamp_h)
-	_box(Vector3(0.1, 0.12, 0.1), Vector3.ZERO, mats.anod, clamp_h); _seg(Vector3.ZERO, Vector3(0.32, 0.0, 0), 0.016, M.yellow, clamp_h); _sph(0.035, Vector3(0.33, 0, 0), M.yellow, clamp_h)
-	anchors["clamp"] = clamp_h.position + Vector3(0.2, 0, 0); radius["clamp"] = 0.18
+	_box(Vector3(0.14, 0.16, 0.14), Vector3.ZERO, mats.anod, clamp_h); _seg(Vector3.ZERO, Vector3(0.42, 0.0, 0), 0.024, M.red, clamp_h); _sph(0.06, Vector3(0.44, 0, 0), M.red, clamp_h)
+	var cl := Label3D.new(); cl.text = "PISTON CLAMP"; cl.font_size = 30; cl.pixel_size = 0.0006; cl.fixed_size = true; cl.no_depth_test = true; cl.render_priority = 127; cl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; cl.outline_size = 8; cl.modulate = Color(1.0, 0.75, 0.6); cl.position = Vector3(0.25, 0.2, 0); clamp_h.add_child(cl)   # playtest: nobody found it
+	anchors["clamp"] = clamp_h.position + Vector3(0.22, 0, 0); radius["clamp"] = 0.3
 	# everything built since n0 moves under a pivot scaled about the dais centre (local positions stay as written)
 	pivot = Node3D.new(); pivot.name = "rig"; add_child(pivot)
 	pivot.transform = Transform3D(Basis.from_scale(Vector3.ONE * RIG_S), Vector3(d.x, 0, d.z) * (1.0 - RIG_S))
@@ -444,12 +445,12 @@ func _process(dt: float) -> void:
 # ---- wheels: drag to turn (left press on a wheel, drag sideways, release commits) ----------------------------------------------------------------
 func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-		var wr := pick((e as InputEventMouseButton).position)
+		var wr := pick_control((e as InputEventMouseButton).position)
 		if wr == "wheel_v" or wr == "wheel_t": pad_turn(wr, 1 if (e as InputEventMouseButton).button_index == MOUSE_BUTTON_WHEEL_UP else -1); get_viewport().set_input_as_handled(); return   # playtest: scroll over a wheel turns it
 	if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		var mb := e as InputEventMouseButton
 		if mb.pressed:
-			var r := pick(mb.position)
+			var r := pick_control(mb.position)
 			if r in ["lever", "argon_valve", "clamp"]: press_control(r); get_viewport().set_input_as_handled(); return
 			if r == "wheel_v" or r == "wheel_t":
 				_wdrag = "V" if r == "wheel_v" else "T"; _wdrag_v = flask_V if _wdrag == "V" else flask_T
@@ -492,6 +493,9 @@ func press_control(r: String) -> void:
 		"lever": _lever_t = 0.6; control_changed.emit("run", 1.0)
 		"argon_valve": argon_on = not argon_on; control_changed.emit("argon", 0.15 if argon_on else 0.0)
 		"clamp":
+			if flask_Pfix <= 0.0 and not p_own.has(own_key(flask_V, flask_T)):   # playtest: the clamp holds the flask's own reading, so it needs one at these wheels
+				if app != null: app.toast("Run once without argon at %.2f L and %.2f °C first: the released piston holds that reading." % [flask_V * 1000.0, flask_T - 273.15], "warn")
+				return
 			var pf := 0.0 if flask_Pfix > 0.0 else float(p_own.get(own_key(flask_V, flask_T), P_bar)) * 1.0e5   # releasing the clamp holds the flask's own pressure: its last reading without argon (test 3 counts only there)
 			flask_Pfix = pf; control_changed.emit("Pfix", pf)
 

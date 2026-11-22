@@ -204,7 +204,7 @@ func refresh(li: Dictionary, g: Dictionary) -> void:
 	if _answered:
 		call_edit.editable = false; call_btn.disabled = true
 		call_edit.text = ("%s" % snappedf(float(ci.get("value", 0.0)), 0.01)) if ci.get("value") != null else call_edit.text
-		call_note.text = "Called. The engine holds your answer."
+		call_note.text = "Called for the book's flask. Your real flask will read its own Kp: that gap is the experiment."
 	else:
 		call_edit.editable = live; call_btn.disabled = not live
 		call_note.text = "Call it before the first run."
@@ -215,5 +215,8 @@ func refresh(li: Dictionary, g: Dictionary) -> void:
 		if not _checks.has(k): continue
 		var on := str(a.get("state", "off")) == "normal"
 		(_checks[k].dot as HoloHud.Dot).state = "normal" if on else "off"
-		(_checks[k].label as Label).add_theme_color_override("font_color", HoloTheme.INK if on else HoloTheme.MUTED)
+		(_checks[k].label as Label).add_theme_color_override("font_color", HoloTheme.TEAL_HI if on else HoloTheme.MUTED)
+		var base := ""
+		for t in TESTS: if t[0] == k: base = t[1]
+		(_checks[k].label as Label).text = ("✓ " + base) if on else base   # playtest: the done state must be visible
 	_runs_lbl.text = "Last run" if bool(last.has) else "Last run: none yet"

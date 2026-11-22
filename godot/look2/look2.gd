@@ -172,7 +172,7 @@ func _pad_draw() -> void:
 	var w = (gen if gen != null and gen.visible else null) if gen != null else (lab if on else null)
 	var hover := ""
 	if w != null and not CbKit.pad_mode and app.modal() == null:   # playtest: point at a world control and the ring and its name line appear
-		var hp: String = w.pick(app.get_viewport().get_mouse_position())
+		var hp: String = w.pick_control(app.get_viewport().get_mouse_position())
 		for c in w.pad_controls(): if str(c[0]) == hp: hover = hp
 		if hover == "" and w.get("_wdrag") != null and str(w._wdrag) != "": hover = "wheel_v" if str(w._wdrag) == "V" else "wheel_t"
 	var show: bool = w != null and (CbKit.pad_mode or hover != "") and app.modal() == null and not (w.pad_controls() as Array).is_empty()

@@ -914,6 +914,19 @@ func key(e: InputEventKey) -> bool:
 		KEY_E: t_yaw += PI / 8.0; return true
 	return false
 
+## Only the world's controls, with a 30 px minimum target (playtest: a wheel rim or the clamp lost to the flask's own anchor).
+func pick_control(p: Vector2) -> String:
+	var best := ""; var bd := 1e9
+	for c in pad_controls():
+		var r := str(c[0])
+		if not anchors.has(r) or cam.is_position_behind(anchors[r]): continue
+		var a: Vector3 = anchors[r]
+		var sp := cam.unproject_position(a)
+		var rpx := maxf(sp.distance_to(cam.unproject_position(a + cam.global_transform.basis.x * float(radius.get(r, 0.3)))) * 1.15, 30.0)
+		var d := sp.distance_to(p)
+		if d < rpx and d < bd: bd = d; best = r
+	return best
+
 func pick(p: Vector2) -> String:
 	var best := ""; var bd := 1e9
 	for r in radius:

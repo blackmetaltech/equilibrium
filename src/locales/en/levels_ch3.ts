@@ -161,7 +161,7 @@ export const levelsCh3: Record<string, string> = {
   'lv.L14.coach.read_colour.text': 'What did the brown do in the first second, and after?',
   'lv.L14.coach.argon_v.text': 'Does argon change anything if the piston cannot move? Volume back to 1 L, open the argon valve, keep the clamp on, and run.',
   'lv.L14.coach.argon_v.why': 'Why: argon adds pressure but no N₂O₄ or NO₂. If the volume cannot change, which partial pressures change? Decide darker, same or lighter, then run.',
-  'lv.L14.coach.argon_p.text': 'And if the piston is free? Keep the argon open, release the clamp, and run.',
+  'lv.L14.coach.argon_p.text': 'And if the piston is free? Keep the argon open, release the piston clamp (the red handle on top of the flask), and run.',
   'lv.L14.coach.argon_p.why': 'Why: with the piston free, the argon has to make room. What does that do to the other gases\' partial pressures? Decide, then run.',
   'lv.L14.coach.read_colour.why': 'Why: the colour is the NO₂ concentration, a direct reading of the shift.',
   'lv.L14.coach.why.text': 'Why did the argon matter only once? Ask Why? and read Q against K.',
