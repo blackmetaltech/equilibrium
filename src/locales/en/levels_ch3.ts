@@ -168,6 +168,6 @@ export const levelsCh3: Record<string, string> = {
   'lv.L14.coach.why.why': 'Why: argon at constant volume leaves every partial pressure alone; at constant pressure it thins them.',
   'lv.L14.verdict.pass': 'All three tests done. Your flask is not the book\'s, and now you know why.', 'lv.L14.verdict.off_gauge': 'The flask is not the notebook flask.', 'lv.L14.verdict.not_run': 'Not run yet.',
   'lv.L14.cause.off_gauge': 'The gauge reads {P} bar against the notebook {want}. The flask is {V} L at {T} K: set it back to 1 L, 400 K (126.85 °C on the T dial), no argon, constant volume.',
-  'lv.L14.lesson': 'The book\'s flask: N₂O₄ dissociates {alpha} of the way at 9.15 bar, and with R = 0.083, Kp = 4α²P ÷ (1 − α²) = {kp} bar. Your flask is real N₂O₄ (NIST-JANAF): Kp = {real} bar at 400 K, so it reads {realP} bar, and it reads the book\'s 9.15 bar only near {tstar} K. Textbook problems often use rounded data; the method is what transfers. Tests run: {tests} of 3.',
+  'lv.L14.lesson': 'The book\'s flask: N₂O₄ dissociates {alpha} of the way at 9.15 bar, and with R = 0.083, Kp = 4α²P ÷ (1 − α²) = {kp} bar. Your flask is real N₂O₄ (NIST-JANAF): Kp = {real} bar at 400 K, so it reads {realP} bar(a), and it reads the book\'s 9.15 bar only near {tstar} K. The book\'s 9.15 bar is an invented number; real N₂O₄ reads {realP} bar(a). The method is what transfers. Tests run: {tests} of 3.',
   'lv.L14.metric.kp_bar': 'Kp from the run', 'lv.L14.metric.alpha': 'Degree of dissociation', 'lv.L14.metric.runs': 'Runs used',
 };

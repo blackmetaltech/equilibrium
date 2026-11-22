@@ -106,7 +106,7 @@ describe('solvability (the expert persona)', () => {
       const dial = solve('L00', { mode });
       expect(dial.state.status, mode).toBe('won');
       expect(dial.state.shift!.stat.tripN, mode).toBe(0);
-      expect(dial.state.shift!.stat.critS, mode).toBe(0);
+      if (mode === 'learner') expect(dial.state.shift!.stat.critS, mode).toBe(0);   // D-B5: engineer mode spends time at Critical even at the best lit set point (650 K)
       expect(card(dial).verdictKey).toBe('saved');
       expect(card(dial).stars).toEqual({ have: 3, earned: [true, true, true] });
       let tripAt = -1;
@@ -122,15 +122,15 @@ describe('solvability (the expert persona)', () => {
     const run = (mode: string, at: number): { status: string; crit: number } => {
       const e = start('L00', 1003, mode);
       const cool = e.state.flowsheet.units.find((u) => u.type === 'cooler')!;
-      for (let t = 0; t < 120 && e.state.status === 'playing'; t++) { if (t === at) e.step({ name: 'setpoint', args: [cool.id, 'T', 450] } as any); e.step({ name: 'tick', args: [1] } as any); }
+      for (let t = 0; t < 120 && e.state.status === 'playing'; t++) { if (t === at) e.step({ name: 'setpoint', args: [cool.id, 'T', 650] } as any); e.step({ name: 'tick', args: [1] } as any); }
       return { status: e.state.status, crit: e.state.shift!.stat.critS };
     };
-    for (const mode of ['learner', 'engineer']) {
-      expect(run(mode, 22), mode + ' turn at 22 s').toEqual({ status: 'won', crit: 0 });
-      const mid = run(mode, 38);
-      expect(mid.status, mode + ' turn at 38 s').toBe('won'); expect(mid.crit, mode + ' turn at 38 s: time at Critical').toBeGreaterThan(0);
-      expect(run(mode, 62).status, mode + ' turn at 62 s').toBe('lost');
-    }
+    // D-B5 calibration at the lit set point 650 K: learner saves to ~58 s (Critical from ~46 s) and trips after; engineer saves to ~38 s and trips from ~42 s
+    expect(run('learner', 22)).toEqual({ status: 'won', crit: 0 });
+    const mid = run('learner', 50); expect(mid.status).toBe('won'); expect(mid.crit).toBeGreaterThan(0);
+    expect(run('learner', 64).status).toBe('lost');
+    expect(run('engineer', 22).status).toBe('won');
+    expect(run('engineer', 46).status).toBe('lost');
   });
   it('L00 starts mid-shift with the loop running and the pump trip scripted at 20 s', () => {
     const e = start('L00');

@@ -379,7 +379,9 @@ describe('L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; D-B1: the open
   it('the run record proves the three tests; the order does not matter; the tests are the goal', () => {
     const e = start('L14');
     expect(testsDone(e.state)).toEqual([false, false, false]);
-    run(e, [{ name: 'setParam', args: ['U-104', 'Pfix', 9.15e5] }, { name: 'commission' }]);
+    run(e, [{ name: 'setParam', args: ['U-104', 'Pfix', 20e5] }, { name: 'setFeed', args: ['F-102', { flow: 0.15 }] }, { name: 'commission' }]);
+    expect(testsDone(e.state)).toEqual([false, false, false]);   // argon at 20 bar is a pressure change, not the inert-gas test (Anjali)
+    run(e, [{ name: 'setParam', args: ['U-104', 'Pfix', Math.round(realFlask({ region: 'global' }).P * 1e5)] }, { name: 'setFeed', args: ['F-102', { flow: 0 }] }, { name: 'commission' }]);
     expect(info(e).goals[0].met).toBe(false);
     expect(card(e).verdictKey).toBe('tests_open');
     run(e, [{ name: 'setFeed', args: ['F-102', { flow: 0.15 }] }, { name: 'commission' }]);

@@ -11,7 +11,7 @@ const V_BOOK := 1.0e-3
 const GAS_H := 1.5           ## m of drawn gas column at V_BOOK
 const CR := 0.42             ## m, cylinder radius
 const DAIS := Vector3(0, 0.6, -2.0)
-const TWIN_NO2 := 251.2       ## mol/m3 of NO2 in the book's flask: 2 x 0.8373 x 0.15 mol in 1 L (bookWorking); the twin is drawn at this
+var TWIN_NO2 := 251.2         ## mol/m3 of NO2 in the book's flask; set in setup from the engine's book gauge (the hero band) with the book's own constants
 const RIG_S := 1.5          ## the experiment is drawn 1.5x on its dais so it reads from the doorway (the HUD carries the true litres)
 var pivot: Node3D
 var flask_V := V_BOOK; var flask_T := 400.0; var flask_Pfix := 0.0; var argon_on := false
@@ -23,6 +23,9 @@ var coil_light: OmniLight3D; var dewar_fog: GPUParticles3D; var gas_light: OmniL
 var _gas_h := GAS_H
 var _wdrag := ""; var _wdrag_v := 0.0
 var _flask_out := ""
+var p_own := 0.0              ## bar(a): the last gauge reading without argon at constant volume (what the clamp holds when released)
+var V_draw := V_BOOK          ## the gas volume the engine has (at constant P with argon it grows past the V wheel)
+var twin_plate: Label3D
 var lever: Node3D; var valve_h: Node3D; var clamp_h: Node3D; var _lever_t := 0.0
 ## QA capture hook (CB_L14DEMO=1): the coach's test 1 on a clock, for the 10 s evidence capture. Engine actions only, as the HUD sends them.
 var _demo := 0 if OS.get_environment("CB_L14DEMO") == "1" else -1
@@ -239,7 +242,7 @@ func _build_rig() -> void:
 	var a1 := 1.0 - exp(-1.1); var cc := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), a1); tg.albedo_color = Color(cc.r, cc.g, cc.b, 1.0 - exp(-2.2))
 	_cyl(0.2, 1.5, tw + Vector3(0, 0.97, 0), tg, self, -1.0, 40)
 	_cyl(0.25, 0.08, tw + Vector3(0, 1.84, 0), mats.stainless, self, -1.0, 32)
-	var pl := Label3D.new(); pl.text = "The book's flask\n9.15 bar"; pl.font_size = 40; pl.pixel_size = 0.0022; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, 0.32, 0.27); add_child(pl)
+	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 40; pl.pixel_size = 0.0022; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, 0.32, 0.27); add_child(pl)
 	anchors["twin"] = tw + Vector3(0, 1.2, 0); radius["twin"] = 0.3
 	# the RUN lever on the console: pull it to run
 	lever = Node3D.new(); lever.position = cp + Vector3(0.45, 0.95, 0.15); add_child(lever)
@@ -341,6 +344,13 @@ func _build_racks() -> void:
 # ---- live state ---------------------------------------------------------------------------------------------------------------------------------
 func setup(role_ids: Dictionary) -> void:
 	ids = role_ids
+	var li = app.b.q("levelInfo") if app != null and app.b != null else null
+	var hero = li.get("hero", null) if li is Dictionary else null
+	if hero is Dictionary and float(hero.get("hi", 0.0)) > 0.0:
+		var Pb := (float(hero.lo) + float(hero.hi)) * 0.5            # the book's gauge, bar(a)
+		var alpha := Pb * 1.0 / (0.15 * 0.083 * 400.0) - 1.0          # the book's working: P V = n0 (1 + alpha) R T with its 0.15 mol, 1 L, 400 K, R = 0.083
+		TWIN_NO2 = 2.0 * alpha * 0.15 / 1.0e-3
+		if twin_plate: twin_plate.text = "The book's flask\n%.2f bar(a)" % Pb
 	for r in tags: (tags[r] as Label3D).text = "Ar" if r == "argon" else str(ids.get(r, ""))
 	var p = app.b.q("plant") if app != null and app.b != null else null
 	if p is Dictionary:
@@ -370,8 +380,10 @@ func set_snapshot(g: Dictionary) -> void:
 			if int(w[0]) == i_no2: y = float(w[1])
 			if int(w[0]) == i_ar: yar = float(w[1])
 		var P := float(s.get("P", 0.0)); var T := float(s.get("T", 400.0))
+		if P > 0.0: V_draw = float(s.get("flow", 0.0)) * R * T / P if flask_Pfix > 0.0 and float(s.get("flow", 0.0)) > 0.0 else flask_V   # Anjali: draw the engine's volume
 		if P > 0.0 and T > 0.0:
 			P_bar = P / 1e5
+			if not argon_on and flask_Pfix <= 0.0 and yar < 1e-6: p_own = P_bar
 			var c := y * P / (R * T)
 			var ref := TWIN_NO2   # D-B1: the colour is read against the twin, the book's flask (its NO2 never changes)
 			c_eq = c / ref; _V_eq = flask_V; c_rel = c_eq
@@ -392,12 +404,12 @@ func _process(dt: float) -> void:
 	c_show = lerpf(c_show, c_rel, clampf(dt * 2.5, 0, 1))
 	if _demo >= 0: _demo_step()
 	# gas: column height follows V, colour depth follows the NO2 concentration (Beer-Lambert across the cylinder)
-	var h_to := clampf(GAS_H * flask_V / V_BOOK, 0.25, 2.2)
+	var h_to := clampf(GAS_H * (V_draw if flask_Pfix > 0.0 else flask_V) / V_BOOK, 0.25, 2.2)
 	_gas_h = lerpf(_gas_h, h_to, clampf(dt * 3.0, 0, 1))
 	if gas:
 		gas.scale = Vector3(1, _gas_h, 1); gas.position.y = DAIS.y + 0.37 + _gas_h * 0.5
 		piston.position = Vector3(DAIS.x, DAIS.y + 0.37 + _gas_h + 0.06, DAIS.z)
-		var a := 1.0 - exp(-1.1 * maxf(c_show, 0.0))   # absorbance across the cylinder ~ NO2 concentration (notebook flask = 1): 0.2 cold, 0.67 at 1, 0.79 after halving V, 0.89 at the instant of compression
+		var a := 1.0 - exp(-1.1 * maxf(c_show, 0.0))   # fraction of light absorbed across the cylinder (Beer-Lambert, fixed path), c = NO2 concentration / the twin's; k = 1.1 chosen for legibility: 0.67 at the twin, 0.64 for the real flask at 400 K, 0.82 after halving V
 		var col := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), clampf(a, 0.0, 1.0))
 		var op := 1.0 - exp(-2.2 * maxf(c_show, 0.0))   # coverage: blending is linear, so a dark gas over the light box needs more than its absorbance to read
 		m_gas.albedo_color = Color(col.r, col.g, col.b, clampf(op, 0.03, 0.97))
@@ -446,7 +458,7 @@ func press_control(r: String) -> void:
 		"lever": _lever_t = 0.6; control_changed.emit("run", 1.0)
 		"argon_valve": argon_on = not argon_on; control_changed.emit("argon", 0.15 if argon_on else 0.0)
 		"clamp":
-			var pf := 0.0 if flask_Pfix > 0.0 else P_bar * 1.0e5   # releasing the clamp holds the pressure the gauge reads now
+			var pf := 0.0 if flask_Pfix > 0.0 else (p_own if p_own > 0.0 else P_bar) * 1.0e5   # releasing the clamp holds the flask's own pressure: its last reading without argon (test 3 counts only there)
 			flask_Pfix = pf; control_changed.emit("Pfix", pf)
 
 func pick(p: Vector2) -> String:
