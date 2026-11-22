@@ -137,7 +137,7 @@ func _state_row(parent: Control, label: String) -> Array:
 func _build_cards() -> void:
 	var defs := {
 		"converter": ["Converter", [["out", "Outlet", "%.0f", " °C"], ["nh3", "Ammonia out", "%.1f", " %"], ["app", "Approach", "%.0f", " %"]]],
-		"cooler": ["Cooler", [["out", "Outlet", "%.0f", " °C"], ["dial", "Dial", "%.0f", " °C"]]],
+		"cooler": ["Cooler", [["out", "Outlet", "%.0f", " °C"]]],
 		"separator": ["Separator", [["liq", "Liquid ammonia", "%.0f", " kg/h"]]],
 		"compressor": ["Compressor", [["bar", "Discharge", "%.0f", " bar"]]],
 		"flare": ["Flare", []],
@@ -166,7 +166,7 @@ func _build_cmd() -> void:
 	var mid := VBoxContainer.new(); mid.add_theme_constant_override("separation", 2); mid.mouse_filter = Control.MOUSE_FILTER_IGNORE; mid.custom_minimum_size.x = 150
 	mid.add_child(HoloTheme.label("Cooler outlet", 16, HoloTheme.MUTED, 500))
 	_out_num = HoloNum.new(30, 600); _out_num.fmt = "%.0f"; _out_num.suffix = " °C"; _out_num.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT; mid.add_child(_out_num)
-	var w := _state_row(mid, "Water"); _cw_dot = w[0]; _cw_txt = w[1]
+	_cw_dot = Dot.new(); _cw_txt = Label.new()   # the water state lives on the cooler card; these keep the refresh path simple
 	mid.add_child(HoloTheme.label("Shift clock", 16, HoloTheme.MUTED, 500))
 	var ck := HBoxContainer.new(); ck.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_clock_num = HoloTheme.label("0:00", 24, HoloTheme.INK, 600); _clock_tot = HoloTheme.label(" / 1:35", 16, HoloTheme.MUTED, 500); _clock_tot.size_flags_vertical = Control.SIZE_SHRINK_END
@@ -213,7 +213,7 @@ func _build_brief() -> void:
 	for i in 2:
 		var n := HoloTheme.label("", 18, HoloTheme.INK, 400); n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(n)
 	var b := HoloTheme.button("Begin", "go", 18); b.name = "Begin"; b.custom_minimum_size = Vector2(150, 44); b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; b.pressed.connect(_begin_shift); vb.add_child(b)
-	_brief = HoloPanel.new(vb, 22); _brief.name = "Brief"; _brief.visible = false; add_child(_brief)
+	_brief = HoloPanel.new(vb, 22); _brief.solid(); _brief.name = "Brief"; _brief.visible = false; add_child(_brief)
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 func _vp() -> Vector2: return size if size.x > 100.0 else get_viewport_rect().size
@@ -221,11 +221,15 @@ func _vp() -> Vector2: return size if size.x > 100.0 else get_viewport_rect().si
 func layout() -> void:
 	if not _built: return
 	var vp := _vp(); _compact = vp.x < 1500.0
-	var m := 16.0 if _compact else 24.0
 	_coach_text.custom_minimum_size.x = 330.0 if _compact else 420.0; _coach_why.custom_minimum_size.x = _coach_text.custom_minimum_size.x
 	_toast_lbl.custom_minimum_size.x = _coach_text.custom_minimum_size.x
+	_pos_fixed()
+
+## The fixed panels sit where their current size puts them (sizes settle a frame after the text wraps, so this runs every frame).
+func _pos_fixed() -> void:
+	var vp := _vp(); var m := 16.0 if _compact else 24.0
+	for p in [_coach, _alarm, _cmd, _brief, _end]: if p != null: p.fit()
 	_coach.pos = Vector2(m, m)
-	for p in _panels(): p.fit()
 	_alarm.pos = Vector2(vp.x - _alarm.size.x - m, m)
 	_cmd.pos = Vector2((vp.x - _cmd.size.x) * 0.5, vp.y - _cmd.size.y - m)
 	_brief.pos = (vp - _brief.size) * 0.5
@@ -283,7 +287,6 @@ func refresh() -> void:
 	if cooler_T > 0.0:
 		if _pending_k > 0.0 and absf(cooler_T - _pending_k) < 0.6: _pending_k = -1.0
 		if not _dial._drag and _pending_k < 0.0: _dial.value_k = cooler_T
-	cl.dial.set_value(HoloTheme.c_of(_dial.value_k))
 	var cc: Dictionary = _cards["cooler"]
 	cc.dot.state = "critical" if cw_bad else "normal"; cc.txt.text = "Tripped" if cw_bad else "Running"
 	cc.txt.add_theme_color_override("font_color", HoloTheme.RED if cw_bad else HoloTheme.INK)
@@ -391,6 +394,7 @@ func _process(dt: float) -> void:
 		_toast_lbl.visible = false; _coach.set_edge(HoloTheme.TEAL); _coach.size = Vector2.ZERO; _coach.fit()
 	if app != null and app.started and int(app.speed) != _last_speed: _sync_speed()
 	if size != Vector2.ZERO and _vp() != _last_vp: _last_vp = _vp(); layout()
+	_pos_fixed()
 	_place(dt)
 	for p in _panels(): if p.visible: p.fit()
 var _last_vp := Vector2.ZERO
@@ -545,7 +549,7 @@ func end_card() -> bool:
 	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 10); vb.custom_minimum_size.x = 560; vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(HoloTheme.label("%s, %s" % [str(_li.get("title", ed.get("title", ""))), str(_li.get("place", "")).to_lower()] if _li.has("title") else str(ed.get("title", "")), 16, HoloTheme.TEAL_HI, 600))
 	var verdict := str(rc.get("verdictText", ed.get("reason", "")))
-	var vt := HoloTheme.label(verdict, 22, HoloTheme.INK, 700); vt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(vt)
+	var vt := HoloTheme.label(verdict, 21, HoloTheme.INK, 600); vt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(vt)
 	for g in rc.get("goals", []):
 		var gl := HoloTheme.label(("Done: " if g.get("met", false) else "Not met: ") + str(g.get("text", "")), 16, HoloTheme.TEAL_HI if g.get("met", false) else HoloTheme.AMBER, 600); gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(gl)
 	if str(rc.get("lesson", "")) != "":
@@ -566,7 +570,7 @@ func end_card() -> bool:
 		var nb := HoloTheme.button("Next", "go", 17); nb.name = "Next"; nb.pressed.connect(func(): _close_end(); app.start_level(nxt, true)); row.add_child(nb)
 	var wm := HoloTheme.button("Works map", "", 17); wm.name = "WorksMap"; wm.pressed.connect(func(): WorksMap.open(app)); row.add_child(wm)
 	vb.add_child(row)
-	_end = HoloPanel.new(vb, 24); _end.name = "EndCard"; add_child(_end)
+	_end = HoloPanel.new(vb, 24); _end.solid(); _end.name = "EndCard"; add_child(_end)
 	_end.set_edge(HoloTheme.TEAL if (won and key != "tripped") else (HoloTheme.AMBER if won else HoloTheme.RED))
 	_end.fit(); layout(); _end.appear()
 	_dim.visible = true; create_tween().tween_property(_dim, "color:a", 0.45, 0.5)

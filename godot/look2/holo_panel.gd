@@ -33,6 +33,8 @@ func set_edge(c: Color) -> void:
 	if c == _edge: return
 	_edge = c; (glass.material as ShaderMaterial).set_shader_parameter("edge_color", c)
 
+func solid() -> void: (glass.material as ShaderMaterial).set_shader_parameter("tint_amount", 0.95)   ## cards over a dimmed scene read as a page, not a window
+
 func pulse() -> void: _pulse = 1.0
 
 func appear(delay := 0.0) -> void:
