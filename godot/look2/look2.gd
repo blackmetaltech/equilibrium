@@ -17,7 +17,7 @@ const ROLE_OF_TYPE := {"feed": "feed", "mixer": "mixer", "compressor": "compress
 
 static func enabled() -> bool: return OS.get_environment("CB_LOOK2") != "0"
 
-## The tier: ultra on a Forward+ discrete GPU, high on Forward+ otherwise (or Mobile), compat on the OpenGL compatibility renderer (Xvfb, old GPUs, web).
+## The tier: ultra on a Forward+ discrete GPU, high on the Mobile renderer (or forced), compat on integrated GPUs and the OpenGL compatibility renderer.
 static func auto_tier() -> String:
 	var forced := OS.get_environment("CB_QUALITY")
 	if forced in ["ultra", "high", "compat"]: return forced
@@ -26,7 +26,7 @@ static func auto_tier() -> String:
 	if rd == null: return "compat"
 	if method == "mobile": return "high"
 	var dev := RenderingServer.get_video_adapter_type()
-	return "ultra" if dev == RenderingDevice.DEVICE_TYPE_DISCRETE_GPU else "high"
+	return "ultra" if dev == RenderingDevice.DEVICE_TYPE_DISCRETE_GPU else "compat"   # measured: a 2-CU Radeon iGPU runs high at 76 ms, compat at 28 ms (1280x800)
 
 ## Called from main.gd after every engine change. Builds or tears down the slice as the level changes.
 func sync() -> void:
@@ -64,6 +64,7 @@ func _set_on(v: bool) -> void:
 		if hud != null: hud.queue_free(); hud = null
 		ids = {}
 		_park_env(false)
+		app.get_viewport().scaling_3d_scale = 1.0; app.get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		if app.plant_world != null: app.plant_world.set_blocked(false); app.plant_world.cam.make_current()
 		if app.chrome != null and app.chrome_shown(): app.chrome.visible = true
 		_hide_paper(false)

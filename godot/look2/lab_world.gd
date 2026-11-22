@@ -50,6 +50,7 @@ func _ready() -> void:
 	_build_env(); _build_hall(); _build_loop(); _build_bench(); _build_outside()
 	cam = Camera3D.new(); cam.fov = 50.0; cam.near = 0.05; cam.far = 3000.0; add_child(cam)
 	set_camera("wide"); _snap_cam()
+	print("LOOK2 world: %d mesh instances, %d lights" % [find_children("*", "MeshInstance3D", true, false).size(), find_children("*", "Light3D", true, false).size()])
 	if OS.get_environment("CB_FRAMETIME") == "1": _ft_start()
 
 func setup(role_ids: Dictionary) -> void:
@@ -83,6 +84,17 @@ func set_quality(t: String) -> void:
 	if attrs is CameraAttributesPractical: (attrs as CameraAttributesPractical).dof_blur_far_enabled = ultra
 	for n in [steam_cw, flare_smoke, bubbles] + tower_plumes:
 		if n != null: n.amount_ratio = 1.0 if ultra else (0.5 if t == "high" else 0.3)
+	# lights: shadows only on ultra; below it the far plant lights outside the glass go dark (their emissive bulbs stay) and the reflection probe is off on compat
+	for l in find_children("*", "Light3D", true, false):
+		var li := l as Light3D
+		if not li.has_meta("shadow0"): li.set_meta("shadow0", li.shadow_enabled)
+		li.shadow_enabled = bool(li.get_meta("shadow0")) and (ultra or (t == "high" and li is DirectionalLight3D))
+		if li is OmniLight3D and li.global_position.z < -20.0 and li != flare_light: li.visible = ultra
+	for r in find_children("*", "ReflectionProbe", true, false): (r as ReflectionProbe).visible = not compat
+	# 3D render scale: full on ultra, FSR at 77 % on high, 60 % on compat (the HUD stays at full resolution)
+	var vp := get_viewport()
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if RenderingServer.get_rendering_device() != null and not ultra else Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.6)
 
 # ---- materials -------------------------------------------------------------------------------------------------------------------------------
 const TEX := "res://look2/assets/tex/"
