@@ -189,3 +189,6 @@ func key(e: InputEventKey) -> bool:
 		KEY_Q: t_yaw -= PI / 8.0; return true
 		KEY_E: t_yaw += PI / 8.0; return true
 	return false
+
+func pad_controls() -> Array: return []
+func pad_cams() -> Array: return ["wide", "plant", "close"]

@@ -17,6 +17,11 @@ var gen: GenWorld          ## the chapter 3 plant in the hall (gen mode keeps th
 var gen_level := ""
 var gen_flip := false      ## B: look at the other view (the drafting table after commissioning, or the hall while drafting)
 var _banner: CanvasLayer
+var pad_i := 0             ## the world control under the pad cursor
+var pad_cam := 0
+var _padl: CanvasLayer
+var _pad_ring: Control
+var _pad_lbl: Label
 var _banner_lbl: Label
 
 const ROLE_OF_TYPE := {"feed": "feed", "mixer": "mixer", "compressor": "compressor", "heater": "heater", "cooler": "cooler", "eq_reactor": "converter",
@@ -38,6 +43,7 @@ static func auto_tier() -> String:
 
 ## Called from main.gd after every engine change. Builds or tears down the slice as the level changes.
 func sync() -> void:
+	if get_parent() != null and get_index() != get_parent().get_child_count() - 1 and (on or gen != null): get_parent().move_child.call_deferred(self, -1)   # first to see a pad button (see _input)
 	var lid := str(app.b.g.get("level", "")) if app != null and app.b != null and app.started else ""
 	var gen_want: bool = enabled() and lid in GEN_LEVELS and app.chrome != null
 	if gen != null and (not gen_want or lid != gen_level): _gen_off()
@@ -121,6 +127,72 @@ func _gen_off() -> void:
 	app.get_viewport().scaling_3d_scale = 1.0; app.get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 	app.get_viewport().msaa_3d = Viewport.MSAA_DISABLED; app.get_viewport().use_taa = false; app.get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 
+## Phase B: the pad works the world's own controls. D-pad left/right picks a control (a ring marks it), up/down turns a wheel, A presses a lever,
+## valve or clamp (or opens the keypad for the Call box), LB/RB step the camera presets, X flips the drafting table and the hall (gen) or the x-ray (L00).
+## Sticks and triggers move the camera (LabWorld._cam_step). Called from main._input before the shell's pad handling sees the button.
+func pad(e: InputEventJoypadButton) -> bool:
+	if not e.pressed or app.modal() != null: return false
+	if on and hud != null and ((hud._brief != null and hud._brief.shown and not hud._brief_done) or (hud._end != null and hud._end.shown)): return false   # the brief's Begin and the end card's buttons keep the pad (focus + A)
+	var w = null
+	if gen != null: w = gen if gen.visible else null
+	elif on: w = lab
+	if gen != null and e.button_index == JOY_BUTTON_X: gen_flip = not gen_flip; sync(); return true
+	if w == null: return false
+	var cams: Array = w.pad_cams()
+	match e.button_index:
+		JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER:
+			pad_cam = posmod(pad_cam + (1 if e.button_index == JOY_BUTTON_RIGHT_SHOULDER else -1), cams.size()); w.set_camera(cams[pad_cam]); return true
+		JOY_BUTTON_X:
+			if w.has_method("set_xray") and level == "L00": w.set_xray(not w.xray); return true
+			return false
+	var ctl: Array = w.pad_controls()
+	if ctl.is_empty(): return false
+	pad_i = clampi(pad_i, 0, ctl.size() - 1)
+	var id: String = ctl[pad_i][0]
+	match e.button_index:
+		JOY_BUTTON_DPAD_LEFT: pad_i = posmod(pad_i - 1, ctl.size()); return true
+		JOY_BUTTON_DPAD_RIGHT: pad_i = posmod(pad_i + 1, ctl.size()); return true
+		JOY_BUTTON_DPAD_UP: w.pad_turn(id, 1); return true
+		JOY_BUTTON_DPAD_DOWN: w.pad_turn(id, -1); return true
+		JOY_BUTTON_A:
+			if id == "call" and hud != null and hud.get("_fl") != null:
+				var fl = hud._fl
+				Knob.keypad(app, "CALL KP", "bar", "", 0.0, 100000.0, func(v: float): fl.call_kp(v), false, false); return true
+			if id in ["lever", "argon_valve", "clamp"]: w.press_control(id); return true
+	return false
+
+## Look2 keeps itself the app's last child while a new-look world is up, so it sees a pad button before the shell's pad node (Godot runs _input from
+## the last child back): LB/RB would otherwise switch the hidden console's drawers.
+func _input(e: InputEvent) -> void:
+	if not (e is InputEventJoypadButton) or app == null or not CbPad.enabled or not app.started: return
+	if (e as InputEventJoypadButton).button_index == JOY_BUTTON_A and app.chrome != null and app.chrome.annunciator.unacked() > 0: return   # A acknowledges first
+	if pad(e as InputEventJoypadButton): get_viewport().set_input_as_handled()
+
+func _pad_draw() -> void:
+	var w = (gen if gen != null and gen.visible else null) if gen != null else (lab if on else null)
+	var show: bool = w != null and CbKit.pad_mode and app.modal() == null and not (w.pad_controls() as Array).is_empty()
+	if show and _padl == null:
+		_padl = CanvasLayer.new(); _padl.layer = 6; app.add_child(_padl)
+		_pad_ring = PadRing.new(); _pad_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE; _padl.add_child(_pad_ring)
+		_pad_lbl = HoloTheme.label("", 18, HoloTheme.INK, 600); _pad_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85)); _pad_lbl.add_theme_constant_override("outline_size", 6); _padl.add_child(_pad_lbl)
+	if _padl == null: return
+	_padl.visible = show
+	if not show: return
+	var ctl: Array = w.pad_controls(); pad_i = clampi(pad_i, 0, ctl.size() - 1)
+	var id: String = ctl[pad_i][0]
+	var p: Vector2 = w.anchor_screen("flask" if id == "call" else id)
+	_pad_ring.visible = p.x > -9000.0; _pad_ring.position = p - Vector2(28, 28)
+	var vr: Rect2 = app.get_viewport().get_visible_rect()
+	_pad_lbl.text = "%s: %s      ◀ ▶ choose   LB/RB camera   sticks move" % [ctl[pad_i][1], w.pad_value(id)]
+	_pad_lbl.position = Vector2(maxf(16.0, vr.size.x * 0.5 - _pad_lbl.size.x * 0.5), vr.size.y - 150.0)
+
+class PadRing extends Control:
+	func _init() -> void: custom_minimum_size = Vector2(56, 56); size = Vector2(56, 56)
+	func _process(_d: float) -> void: queue_redraw()
+	func _draw() -> void:
+		var t := Time.get_ticks_msec() * 0.004
+		draw_arc(Vector2(28, 28), 22.0 + sin(t) * 2.0, 0.0, TAU, 40, Color(1.0, 0.82, 0.3, 0.95), 3.0, true)
+
 ## The 0.9 paper layers that live on the app root (the notebook tab, the faceplate hub, the stream tag) are hidden while the slice is on.
 const PAPER := ["NotebookWatch", "PaperHub", "StreamTag"]
 func _hide_paper(h: bool) -> void:
@@ -175,4 +247,5 @@ func _park_env(park: bool) -> void:
 
 ## The notebook tab and the paper hub can appear a frame after the last engine change: keep them hidden while the slice is on.
 func _process(_dt: float) -> void:
+	_pad_draw()
 	if on: _hide_paper(true)

@@ -453,6 +453,25 @@ func _unhandled_input(e: InputEvent) -> void:
 		get_viewport().set_input_as_handled(); return
 	super(e)
 
+func pad_controls() -> Array: return [["wheel_t", "T wheel"], ["wheel_v", "V wheel"], ["lever", "RUN lever"], ["argon_valve", "Argon valve"], ["clamp", "Piston clamp"], ["call", "Call box"]]
+func pad_cams() -> Array: return ["wide", "flask", "gauge", "wheel", "bench", "dewar"]
+func pad_turn(id: String, dir: int) -> void:
+	if id == "wheel_t":
+		flask_T = clampf(snappedf(flask_T + 5.0 * dir, 1.0), 250.0, 520.0); wheel_t.rotation.y += 0.3 * dir
+		control_changed.emit("T", flask_T); set_control_value("T", flask_T)
+	elif id == "wheel_v":
+		var v := clampf(snappedf(flask_V + 0.05e-3 * dir, 0.05e-3), 0.25e-3, 2.0e-3); wheel_v.rotation.y += 0.3 * dir
+		control_changed.emit("V", v); set_control_value("V", v)
+func pad_value(id: String) -> String:
+	match id:
+		"wheel_t": return "%.2f °C  (up/down: 5 K)" % (flask_T - 273.15)
+		"wheel_v": return "%.2f L  (up/down: 0.05 L)" % (flask_V * 1000.0)
+		"lever": return "A: run"
+		"argon_valve": return ("open" if argon_on else "shut") + "  (A: turn)"
+		"clamp": return ("released: the piston holds %.2f bar(a)" % (flask_Pfix / 1e5) if flask_Pfix > 0.0 else "on: the volume is fixed") + "  (A: toggle)"
+		"call": return "A: write your Kp"
+	return ""
+
 ## D-B1: the world's switches. The HUD commits control_changed exactly as its own controls did; RUN commissions.
 func press_control(r: String) -> void:
 	match r:

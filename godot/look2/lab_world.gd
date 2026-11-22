@@ -913,6 +913,15 @@ func pick(p: Vector2) -> String:
 		if d < rpx and d < bd: bd = d; best = r
 	return best
 
+# ---- pad (phase B): the world's own controls, one at a time; Look2 draws the cursor -----------------------------------------------------------
+func pad_controls() -> Array: return [["wheel", "Cooler handwheel"]] if wheel != null else []
+func pad_cams() -> Array: return ["wide", "front", "loop", "converter", "gauge", "bench", "outside"]
+func pad_turn(id: String, dir: int) -> void:
+	if id == "wheel" and wheel != null:
+		wheel_k = clampf(snappedf(wheel_k + 10.0 * dir, 1.0), 400.0, 800.0); wheel.rotation.z -= 0.3 * dir; control_changed.emit("T", wheel_k)
+func pad_value(id: String) -> String: return "set %.0f °C  (up/down: 10 °C)" % (wheel_k - 273.15) if id == "wheel" else ""
+func press_control(_r: String) -> void: pass
+
 func anchor_screen(role: String) -> Vector2:
 	if not anchors.has(role) or cam == null: return Vector2(-9999, -9999)
 	var a: Vector3 = anchors[role]
