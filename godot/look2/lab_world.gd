@@ -44,6 +44,8 @@ var steam_cw: GPUParticles3D; var tower_plumes: Array[GPUParticles3D] = []; var 
 var beacons: Array[SpotLight3D] = []; var beacon_mats: Array[StandardMaterial3D] = []
 var gauge_mats: Array[ShaderMaterial] = []
 var _t := 0.0
+var _stage := OS.get_environment("CB_STAGE") != "0"   ## the world moves the camera to the two story beats (CB_STAGE=0 for fixed screenshots)
+var wheel: Node3D; var wheel_k := 0.0   ## the lit handwheel on the cooler mirrors the dial
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 func _ready() -> void:
@@ -109,7 +111,8 @@ func _pbr(n: String, uv := 0.25, tint := Color.WHITE, metal := false, tri := tru
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	return m
 func _paint(c: Color) -> StandardMaterial3D:   ## painted carbon steel: the plate's normal and roughness for wear, a flat paint colour
-	var m := _pbr("metal_plate", 0.6, c); m.albedo_texture = null; m.metallic = 0.15; return m
+	var m := StandardMaterial3D.new(); m.albedo_color = c; m.metallic = 0.1; m.roughness = 0.55   # flat paint: the tread-plate normal map read as checker plate on walls
+	m.roughness_texture = _tex("metal_plate_rough"); m.uv1_triplanar = true; m.uv1_world_triplanar = true; m.uv1_scale = Vector3.ONE * 0.6; return m
 func _flat(c: Color, metal := 0.0, rough := 0.6, emit := Color.BLACK, e := 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new(); m.albedo_color = c; m.metallic = metal; m.roughness = rough
 	if e > 0.0: m.emission_enabled = true; m.emission = emit; m.emission_energy_multiplier = e
@@ -124,9 +127,9 @@ func _mats() -> void:
 	M.steel_dull = _shader("steel", {"rough_base": 0.45, "albedo": Color(0.62, 0.64, 0.66)})
 	M.clad = _flat(Color(0.78, 0.8, 0.82), 0.6, 0.42)                       # aluminium jacketing on insulated lines
 	M.paint_green = _paint(Color(0.36, 0.5, 0.42))
-	M.paint_blue = _paint(Color(0.25, 0.38, 0.6))
+	M.paint_blue = _paint(Color(0.3, 0.36, 0.42))
 	M.paint_grey = _paint(Color(0.55, 0.56, 0.56))
-	M.yellow = _flat(Color(0.95, 0.72, 0.08), 0.2, 0.5)
+	M.yellow = _flat(Color(0.74, 0.58, 0.14), 0.15, 0.6)   # muted safety yellow
 	M.red = _flat(Color(0.72, 0.08, 0.06), 0.2, 0.45)
 	M.black = _flat(Color(0.05, 0.05, 0.055), 0.5, 0.5)
 	M.plate = _pbr("metal_plate", 0.5, Color(0.8, 0.8, 0.8), true)
@@ -248,7 +251,7 @@ func _build_env() -> void:
 	env.ssr_enabled = true; env.ssr_max_steps = 96; env.ssr_fade_in = 0.1; env.ssr_fade_out = 2.5
 	env.ssil_enabled = true
 	env.sdfgi_enabled = true; env.sdfgi_use_occlusion = true; env.sdfgi_energy = 0.9; env.sdfgi_cascades = 4; env.sdfgi_min_cell_size = 0.15
-	env.volumetric_fog_enabled = true; env.volumetric_fog_density = 0.0025; env.volumetric_fog_albedo = Color(0.82, 0.8, 0.78); env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+	env.volumetric_fog_enabled = true; env.volumetric_fog_density = 0.006; env.volumetric_fog_albedo = Color(0.82, 0.8, 0.78); env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 	env.volumetric_fog_anisotropy = 0.55; env.volumetric_fog_length = 90.0; env.volumetric_fog_sky_affect = 0.15
 	env.fog_light_color = Color(0.2, 0.2, 0.24); env.fog_density = 0.004
 	env.adjustment_enabled = true; env.adjustment_contrast = 1.08; env.adjustment_saturation = 1.05
@@ -399,11 +402,15 @@ func _build_loop() -> void:
 	_gauge(Vector3(kx - 0.5, 1.2, pz + 0.35), Vector3(0, 0, 1), self, 0.55)
 	anchors["cooler"] = Vector3(kx, 2.4, fz); radius["cooler"] = 2.3
 	_stencil("cooler", Vector3(kx, 1.6, fz + 0.512), Vector3(0, 0, 1), 0.0035)
+	wheel = Node3D.new(); wheel.position = Vector3(kx + 1.2, 1.6, fz + 0.95); add_child(wheel)   # the temperature control valve's handwheel, lit: it turns with the dial
+	_seg(Vector3(kx + 1.2, 1.6, fz + 0.5), Vector3(kx + 1.2, 1.6, fz + 0.95), 0.03, M.steel)
+	var wr := _torus(0.22, 0.018, Vector3.ZERO, _flat(Color(0.1, 0.5, 0.48), 0.3, 0.35, Color(0.18, 0.77, 0.71), 2.5), wheel); wr.rotation_degrees.x = 90
+	for i in 3: _seg(Vector3.ZERO, Vector3(cos(TAU * i / 3.0), sin(TAU * i / 3.0), 0) * 0.21, 0.012, M.steel, wheel)
 	anchors["cw_pump"] = Vector3(kx - 0.5, 1.3, pz)
 	# --- the converter: thick-walled vessel on a skirt, flanged top head, nozzles, sight port, ladder, platform ---
 	var vx := 5.5; var vz := -3.0; var vr := 1.15; var vh := 8.0; var vb := 1.6
 	_cyl(vr * 0.98, vb, Vector3(vx, vb * 0.5 + 0.18, vz), M.paint_grey)     # skirt
-	m_shell = _shader("steel", {"rough_base": 0.3, "metallic": 0.8, "yrange": Vector2(-vh * 0.5, vh * 0.5), "emit_gain": 0.9})
+	m_shell = _shader("steel", {"rough_base": 0.3, "metallic": 0.8, "yrange": Vector2(-vh * 0.5, vh * 0.5), "emit_gain": 0.3})
 	shell_node = _cyl(vr, vh, Vector3(vx, vb + vh * 0.5 + 0.18, vz), m_shell, self, -1.0, 48)
 	m_shell_x = _shader("steel_glass", {"yrange": Vector2(-vh * 0.5, vh * 0.5)})
 	shell_x_node = _cyl(vr, vh, shell_node.position, m_shell_x, self, -1.0, 48); shell_x_node.visible = false
@@ -478,7 +485,7 @@ func _build_loop() -> void:
 	_pipe([Vector3(sx, 1.08 + sh + sr, vz), Vector3(sx, 6.0, vz), Vector3(tx, 6.0, vz), Vector3(tx, 6.0, tz), Vector3(tx, 2.2, tz)], 0.09, M.steel)
 	_box(Vector3(0.7, 0.9, 0.7), Vector3(tx, 1.75, tz), M.steel)   # splitter body
 	anchors["splitter"] = Vector3(tx, 2.6, tz); radius["splitter"] = 0.9
-	_pipe([Vector3(tx + 0.35, 1.75, tz), Vector3(19.0, 1.75, tz), Vector3(19.0, 9.5, tz), Vector3(19.0, 9.5, -14.9)], 0.05, M.red)
+	_pipe([Vector3(tx + 0.35, 1.75, tz), Vector3(19.0, 1.75, tz), Vector3(19.0, 12.6, tz), Vector3(19.0, 12.6, -14.9)], 0.05, M.red)
 	_pipe([Vector3(tx, 1.3, tz), Vector3(tx, 0.9, tz), Vector3(tx, 0.9, 3.5), Vector3(-18.0, 0.9, 3.5), Vector3(-18.0, 0.9, fz + 0.2), Vector3(-17.5, Y - 0.12, fz + 0.2)], 0.08, M.steel)
 	# recycle valve with handwheel and actuator
 	var vp := Vector3(4.0, 0.9, 3.5)
@@ -501,9 +508,9 @@ var conv_top := Vector3.ZERO
 # ---- the bench -------------------------------------------------------------------------------------------------------------------------------
 func _build_bench() -> void:
 	var bx := -2.0; var bz := 10.5; var top := 0.92
-	_box(Vector3(5.0, 0.05, 1.3), Vector3(bx, top, bz), _flat(Color(0.08, 0.09, 0.1), 0.0, 0.25))    # epoxy resin top
+	_box(Vector3(5.0, 0.05, 1.3), Vector3(bx, top, bz), _flat(Color(0.2, 0.21, 0.22), 0.0, 0.3))    # epoxy resin top
 	_box(Vector3(4.9, 0.85, 1.2), Vector3(bx, 0.45, bz), M.paint_grey)
-	_box(Vector3(5.0, 0.9, 0.08), Vector3(bx, top + 0.45, bz - 0.62), M.steel_dull)                 # back panel / shelf
+	_box(Vector3(5.0, 0.9, 0.08), Vector3(bx, top + 0.45, bz - 0.62), M.paint_grey)                 # back panel / shelf
 	_box(Vector3(5.0, 0.03, 0.3), Vector3(bx, top + 0.7, bz - 0.5), M.steel_dull)
 	var lamp := SpotLight3D.new(); lamp.light_color = Color(0.95, 0.97, 1.0); lamp.light_energy = 6.0; lamp.spot_range = 4.0; lamp.spot_angle = 50.0; lamp.shadow_enabled = true
 	lamp.position = Vector3(bx, top + 1.6, bz + 0.1); lamp.rotation_degrees.x = -90; add_child(lamp)
@@ -610,7 +617,7 @@ func _build_outside() -> void:
 	flare_smoke = _particles(Vector3(fx, fh + 12.0, fz), 50, 8.0, Vector3(0, 5.0, 0), 12.0, 12.0, Color(0.12, 0.1, 0.09, 0.5), self, 3.5)
 	flare_smoke.visibility_aabb = AABB(Vector3(-100, -10, -100), Vector3(200, 200, 200))
 	flare_smoke.emitting = false
-	anchors["flare"] = Vector3(19.0, 9.8, -14.0); radius["flare"] = 1.0   # where the purge line leaves the hall (the stack itself is far outside)
+	anchors["flare"] = Vector3(19.0, 12.9, -14.0); radius["flare"] = 1.0   # where the purge line leaves the hall (the stack itself is far outside)
 	flare_tip = Vector3(fx, fh + 6.0, fz)
 var flare_tip := Vector3.ZERO
 
@@ -623,10 +630,14 @@ func set_snapshot(g: Dictionary) -> void:
 	var sh = g.get("shift", null)
 	var trips: Array = sh.get("trips", []) if sh is Dictionary else []
 	var evs: Array = sh.get("events", []) if sh is Dictionary else []
+	var was_tripped := tripped
 	tripped = not trips.is_empty()
+	if tripped and not was_tripped and _stage: set_camera("flare")   # the loop dumps to flare: show it
 	var cw_trip := false
 	for e in evs: if str(e.get("type", "")) == "cw_pump_trip": cw_trip = true
+	if cw_trip and cw_to > 0.5 and _stage: set_camera("cooler")   # the water goes quiet: show the pump and the cooler
 	cw_to = 0.0 if cw_trip else 1.0
+	var cu2 = us.get(str(ids.get("cooler", "")), null)
 	var co = st.get(str(streams.get("conv_out", "")), null)
 	if co is Dictionary:
 		var T := float(co.get("T", 0.0))
@@ -651,6 +662,10 @@ func set_snapshot(g: Dictionary) -> void:
 	for a in g.get("alarms", []):
 		if int(a.get("rtn", 0)) == 0: worst = maxi(worst, int(a.get("tier", 0)))
 	alarm = 3 if tripped or worst >= 3 else (2 if worst >= 2 else 0)
+	var pq = app.b.q("plant") if app != null and app.b != null else null
+	if pq is Dictionary:
+		for u in pq.get("units", []):
+			if str(u.get("id", "")) == str(ids.get("cooler", "-")): wheel_k = float(u.get("params", {}).get("T", 700.0))
 	var cu = us.get(str(ids.get("compressor", "")), null)
 	if cu is Dictionary and float(cu.get("P", 0.0)) > 0.0 and gauge_mats.size() > 0: (gauge_mats[0] as ShaderMaterial).set_shader_parameter("value", clampf(float(cu.P) / 2.0e7, 0.0, 1.0))
 
@@ -663,11 +678,11 @@ func _process(dt: float) -> void:
 	# converter: shell glow climbs from the bottom (hot outlet at the bottom bed), shimmer and a red light on the floor
 	if m_shell:
 		var h := maxf(heat - 0.12, 0.0)
-		m_shell.set_shader_parameter("heat_lo", minf(h, 0.42)); m_shell.set_shader_parameter("heat_hi", minf(h, 0.42) * 0.3)   # a bare shell at ~620 C is dull red, never white
+		m_shell.set_shader_parameter("heat_lo", minf(h, 0.3)); m_shell.set_shader_parameter("heat_hi", minf(h, 0.3) * 0.25)   # a bare shell at ~620 C is dull red, never white
 		m_shell_x.set_shader_parameter("heat_lo", h * 1.05); m_shell_x.set_shader_parameter("heat_hi", h * 0.35)
 		m_beds.set_shader_parameter("heat", 0.16 + heat * 0.55); m_peep.set_shader_parameter("heat", 0.4 + heat * 0.6)
 		m_shimmer.set_shader_parameter("strength", clampf(heat, 0.0, 1.2) * 0.02)
-		conv_light.light_energy = h * 6.0 + (1.5 if xray else 0.0) * (0.3 + heat)
+		conv_light.light_energy = h * 1.2 + (1.5 if xray else 0.0) * (0.3 + heat)   # a glow on the floor, not a red floodlight on the steel
 	# compressor and CW pump vibrate while they run
 	if comp_body: comp_body.position.y = 0.42 + sin(_t * 95.0) * 0.0025 * run; comp_shaft.rotate_x(dt * 60.0 * run)
 	if pump_body:
@@ -685,7 +700,7 @@ func _process(dt: float) -> void:
 		m_flare.set_shader_parameter("intensity", 0.6 + fl * 2.2)
 		flare_flame.scale = Vector3.ONE * (0.35 + flare * 1.6)
 		flare_flame.position.y = flare_tip.y + (0.35 + flare * 1.6) * 6.0
-		flare_light.light_energy = 1.0 + fl * 40.0
+		flare_light.light_energy = 1.0 + fl * 14.0
 		flare_smoke.emitting = flare > 0.5
 		flare_flame.look_at(Vector3(cam.global_position.x, flare_flame.global_position.y, cam.global_position.z), Vector3.UP)
 	# beacons rotate on alarm
@@ -697,22 +712,29 @@ func _process(dt: float) -> void:
 		b.rotation = Vector3(-0.35, _t * 6.0 + i, 0.0)
 		beacon_mats[i].emission_energy_multiplier = (6.0 + 4.0 * sin(_t * 12.0)) if on else 0.0
 		beacon_mats[i].emission = b.light_color
+	if wheel: wheel.rotation.z = lerp_angle(wheel.rotation.z, (700.0 - wheel_k) / 100.0 * PI, clampf(dt * 4.0, 0, 1))
 	_cam_step(dt)
 	_ft_tick(dt)
 
 # ---- camera ----------------------------------------------------------------------------------------------------------------------------------
 const PRESETS := {
-	"wide": [Vector3(1, 3.2, -4), 0.12, -0.2, 18.5],
+	"wide": [Vector3(-4, 3.2, -3), PI * 0.5 + 0.12, -0.17, 34.0],   # the establishing view: down the length of the hall from the east end
+	"front": [Vector3(1, 3.2, -4), 0.12, -0.2, 18.5],
 	"loop": [Vector3(-3, 2.5, -4), -0.45, -0.32, 20.0],
 	"converter": [Vector3(5.5, 6.0, -3.0), 0.35, -0.08, 11.0],
 	"gauge": [Vector3(6.25, 4.2, -1.6), 0.25, -0.05, 0.85],
 	"bench": [Vector3(-1.5, 1.1, 10.4), -0.35, -0.3, 2.3],
 	"outside": [Vector3(20, 14, -60), 0.25, 0.04, 70.0],
 	"xray": [Vector3(5.5, 5.8, -3.0), 0.35, -0.06, 9.5],
+	"cooler": [Vector3(-1.5, 1.4, -5.6), 0.55, -0.22, 7.5],
 }
+func _look_from(eye: Vector3, target: Vector3) -> void:
+	var d := eye - target
+	t_focus = target; t_dist = d.length(); t_yaw = atan2(d.x, d.z); t_pitch = -asin(clampf(d.y / t_dist, -1.0, 1.0))
 func set_camera(spec: String) -> void:
 	for part in spec.split(","):
 		var p := part.strip_edges()
+		if p == "flare": _look_from(Vector3(16.0, 2.2, -13.6), flare_tip + Vector3(0, 4, 0)); set_xray(false); continue
 		if p == "rot+": t_yaw += PI / 8.0; continue
 		if p == "rot-": t_yaw -= PI / 8.0; continue
 		if not PRESETS.has(p): continue

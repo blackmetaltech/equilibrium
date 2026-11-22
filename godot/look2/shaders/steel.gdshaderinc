@@ -2,7 +2,7 @@
 uniform vec3 albedo : source_color = vec3(0.78, 0.80, 0.82);
 uniform float metallic = 1.0;
 uniform float rough_base = 0.30;
-uniform vec3 streak = vec3(90.0, 3.0, 90.0);   // brushing noise frequency in local space (long axis = local y)
+uniform vec3 streak = vec3(70.0, 14.0, 70.0);   // brushing noise frequency in local space (long axis = local y)
 uniform float heat_lo = 0.0;                   // glow at the bottom of yrange (0..1.3)
 uniform float heat_hi = 0.0;
 uniform vec2 yrange = vec2(-4.0, 4.0);
@@ -18,8 +18,8 @@ void vertex() {
 void steel_surface(inout vec3 alb, inout float met, inout float rgh, inout vec3 emis, inout vec3 nrm, float xray, mat4 vm) {
 	float s = vnoise(lp * streak);
 	float p = vnoise(lp * 7.0 + 3.0);
-	float r = clamp(rough_base + (s - 0.5) * 0.20 + (p - 0.5) * 0.16, 0.06, 1.0);
-	alb = albedo * (0.90 + 0.2 * p);
+	float r = clamp(rough_base + (s - 0.5) * 0.09 + (p - 0.5) * 0.16, 0.06, 1.0);
+	alb = albedo * (0.94 + 0.1 * p);
 	met = metallic;
 	rgh = r;
 	if (frost > 0.001) {

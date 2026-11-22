@@ -134,6 +134,8 @@ func game_camera(spec: String) -> void:
 				else: args.append(a)
 			b.act(f[0], args)
 		elif part.begins_with("ff="): b.act("tick", [int(part.substr(3))])
+		elif part.begins_with("speed="):   # QA/captures: the speed dial position 0-3 (pause, 1x, 4x, 16x), as the console sets it
+			var si := clampi(int(part.substr(6)), 0, 3); b.act("setSpeed", [[0, 1, 4, 16][si]]); set_speed(si)
 		elif part.begins_with("key="):
 			for i in int(part.substr(4)):
 				if chrome != null: chrome.turn_key()

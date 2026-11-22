@@ -12,6 +12,7 @@ void fragment() {
 	vec2 p = (UV - 0.5) * 2.0;
 	p.y = -p.y;
 	float r = length(p);
+	if (r > 0.99) discard;   // a round face, not the quad
 	float ang = atan(p.x, p.y);              // 0 up, clockwise positive
 	float a0 = -0.75 * PI, a1 = 0.75 * PI;   // scale start/end
 	vec3 c = face;

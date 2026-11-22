@@ -136,8 +136,8 @@ func _state_row(parent: Control, label: String) -> Array:
 
 func _build_cards() -> void:
 	var defs := {
-		"converter": ["Converter", [["out", "Outlet", "%.0f", " °C"], ["nh3", "Ammonia out", "%.1f", " %"], ["app", "Approach", "%.0f", " %"]]],
-		"cooler": ["Cooler", [["out", "Outlet", "%.0f", " °C"]]],
+		"converter": ["Converter", [["out", "Outlet", "%.0f", " °C"], ["nh3", "Ammonia out", "%.1f", " %"]]],
+		"cooler": ["Cooler", [["out", "Outlet", "%.0f", " °C"], ["dial", "Dial asks", "%.0f", " °C"]]],
 		"separator": ["Separator", [["liq", "Liquid ammonia", "%.0f", " kg/h"]]],
 		"compressor": ["Compressor", [["bar", "Discharge", "%.0f", " bar"]]],
 		"flare": ["Flare", []],
@@ -277,7 +277,6 @@ func refresh() -> void:
 	if nh3 >= 0.0: cv.nh3.set_value(nh3)
 	if not beam.is_empty():
 		_diagram.set_data(beam, {"t_hi": t_hi if t_hi > 0.0 else null, "t_trip": t_trip if t_trip > 0.0 else null})
-		cv.app.set_value(_diagram.approach())
 	var cl: Dictionary = _cards["cooler"].v
 	var os: Dictionary = streams.get(_stream_of.get("cooler", ""), {})
 	var cw_bad := str(ann.get("cw", {}).get("state", "normal")) in ["high", "critical"]
@@ -287,6 +286,7 @@ func refresh() -> void:
 	if cooler_T > 0.0:
 		if _pending_k > 0.0 and absf(cooler_T - _pending_k) < 0.6: _pending_k = -1.0
 		if not _dial._drag and _pending_k < 0.0: _dial.value_k = cooler_T
+		cl.dial.set_value(HoloTheme.c_of(cooler_T))   # with the water down the outlet cannot reach what the dial asks: both numbers side by side
 	var cc: Dictionary = _cards["cooler"]
 	cc.dot.state = "critical" if cw_bad else "normal"; cc.txt.text = "Tripped" if cw_bad else "Running"
 	cc.txt.add_theme_color_override("font_color", HoloTheme.RED if cw_bad else HoloTheme.INK)
@@ -413,7 +413,7 @@ func _place(dt: float) -> void:
 	var placed: Array[Rect2] = []
 	# the diagram first: beside the converter, on the side with most room
 	var dp := _dg_panel
-	if anchors.has("converter") and _diagram.has_reading() and _status != "":
+	if anchors.has("converter") and _diagram.has_reading() and _status != "" and not _quiet():
 		var a: Vector2 = anchors.converter
 		var sz := lab.anchor_size("converter")
 		var k := clampf(sz / 90.0, 0.0, 1.0)   # small on screen: shrink
@@ -432,7 +432,7 @@ func _place(dt: float) -> void:
 	elif dp.shown: dp.vanish()
 	for role in CARD_ROLES:
 		var c: Dictionary = _cards[role]; var p: HoloPanel = c.p
-		if not anchors.has(role) or lab.anchor_size(role) < 6.0:
+		if not anchors.has(role) or lab.anchor_size(role) < 6.0 or _quiet():
 			if p.shown: p.vanish()
 			continue
 		var a: Vector2 = anchors[role]
@@ -452,6 +452,9 @@ func _place(dt: float) -> void:
 		var q := Vector2(clampf(a2.x, rc.position.x, rc.end.x), clampf(a2.y, rc.position.y, rc.end.y))
 		if rc.grow(2.0).has_point(a2): continue
 		line_data.append({"a": a2, "b": q, "alpha": p2.modulate.a})
+
+## The brief and the establishing view keep the world clear: no anchored cards, no diagram.
+func _quiet() -> bool: return (_brief != null and _brief.shown and not _brief_done) or (lab != null and lab.t_dist > 28.0)
 
 func _settle(p: HoloPanel, cands: Array[Vector2], safe: Rect2, obst: Array[Rect2], placed: Array[Rect2], anchors: Dictionary, dt: float, key: String) -> void:
 	var store: Dictionary = _cards[key] if _cards.has(key) else {}
