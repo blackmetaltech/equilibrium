@@ -4,6 +4,7 @@ extends Node
 ## LabWorld (look2/lab_world.gd: the process hall, the loop, the plant outside) and HoloHud (look2/holo_hud.gd: anchored readouts, the equilibrium
 ## diagram, the cooler dial, the coach line, the clock, the end card). The engine, the level and its actions are unchanged: this file only routes the
 ## snapshot to the new layers. CB_LOOK2=0 turns the slice off (the 0.9 look comes back). Quality tier: CB_QUALITY=ultra|high|compat, else auto.
+const GEN_LEVELS := ["L10", "L11", "L12", "L13"]   ## D-B4: chapter 3 build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
 const LEVELS := ["L00", "L14"]   ## L00 Night Shift (the process hall), L14 The Brown Gas (the private lab, look2/flask_lab.gd)
 var app
 var lab   ## LabWorld (L00) or FlaskLab (L14): the same contract (setup, set_snapshot, anchor_screen, anchor_size, set_camera, key, cam, picked, control_changed)
@@ -12,6 +13,11 @@ var on := false
 var tier := ""
 var level := ""
 var ids := {}   ## role -> engine unit id (found by type in the plant query)
+var gen: GenWorld          ## the chapter 3 plant in the hall (gen mode keeps the classic chrome)
+var gen_level := ""
+var gen_flip := false      ## B: look at the other view (the drafting table after commissioning, or the hall while drafting)
+var _banner: CanvasLayer
+var _banner_lbl: Label
 
 const ROLE_OF_TYPE := {"feed": "feed", "mixer": "mixer", "compressor": "compressor", "heater": "heater", "cooler": "cooler", "eq_reactor": "converter",
 	"nh3_sep": "separator", "splitter": "splitter", "valve": "valve", "flare": "flare", "product": "product", "interlock": "interlock",
@@ -33,6 +39,9 @@ static func auto_tier() -> String:
 ## Called from main.gd after every engine change. Builds or tears down the slice as the level changes.
 func sync() -> void:
 	var lid := str(app.b.g.get("level", "")) if app != null and app.b != null and app.started else ""
+	var gen_want: bool = enabled() and lid in GEN_LEVELS and app.chrome != null
+	if gen != null and (not gen_want or lid != gen_level): _gen_off()
+	if gen_want: _gen_sync(lid)
 	var want: bool = enabled() and lid in LEVELS and app.chrome != null and app.chrome_shown()
 	if on and want and lid != level: _set_on(false)   # Next from L00 to L14: a different world
 	if want != on: _set_on(want)
@@ -76,6 +85,42 @@ func _set_on(v: bool) -> void:
 		if app.chrome != null and app.chrome_shown(): app.chrome.visible = true
 		_hide_paper(false)
 
+## D-B4 gen mode: the chrome and the classic build stay; the hall shows the player's plant once it is commissioned (or on B).
+func _gen_sync(lid: String) -> void:
+	if gen == null:
+		tier = auto_tier(); gen_level = lid; gen_flip = false
+		gen = GenWorld.new(); gen.app = app; gen.name = "GenWorld"; app.plant_world.get_parent().add_child(gen); gen.set_quality(tier); gen.setup({})
+		_banner = CanvasLayer.new(); _banner.layer = 5; app.add_child(_banner)
+		_banner_lbl = HoloTheme.label("", 16, HoloTheme.INK, 600); _banner_lbl.position = Vector2(400, 10); _banner.add_child(_banner_lbl)
+		print("LOOK2 gen on: %s tier=%s" % [lid, tier])
+	var li = app.b.q("levelInfo")
+	var phase := str(li.get("phase", "design")) if li is Dictionary else "design"
+	var show := (phase != "design") != gen_flip
+	var g: Dictionary = app.b.g.duplicate(); g["phase"] = phase
+	gen.set_snapshot(g)
+	if show:
+		gen.visible = true; app.plant_world.visible = false; app.plant_world.set_blocked(true)
+		if _parked.is_empty(): _park_env(true)
+		gen.make_current()
+		_banner_lbl.text = "New look: your plant in the hall.  B: the drafting table" if phase != "design" else "New look: the hall (nothing built yet).  B: back to the drafting table"
+	else:
+		gen.visible = false; app.plant_world.visible = true; app.plant_world.set_blocked(false)
+		if not _parked.is_empty(): _park_env(false)
+		if app.plant_world.cam != null: app.plant_world.cam.make_current()
+		_banner_lbl.text = "Drafting table (classic view). Commission and your plant stands in the hall.  B: the hall"
+	_banner_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8)); _banner_lbl.add_theme_constant_override("outline_size", 6)
+
+func _gen_off() -> void:
+	if gen != null: gen.queue_free(); gen = null
+	if _banner != null: _banner.queue_free(); _banner = null
+	gen_level = ""
+	if not _parked.is_empty(): _park_env(false)
+	if app.plant_world != null:
+		app.plant_world.visible = true; app.plant_world.set_blocked(false)
+		if app.plant_world.cam != null: app.plant_world.cam.make_current()
+	app.get_viewport().scaling_3d_scale = 1.0; app.get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	app.get_viewport().msaa_3d = Viewport.MSAA_DISABLED; app.get_viewport().use_taa = false; app.get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+
 ## The 0.9 paper layers that live on the app root (the notebook tab, the faceplate hub, the stream tag) are hidden while the slice is on.
 const PAPER := ["NotebookWatch", "PaperHub", "StreamTag"]
 func _hide_paper(h: bool) -> void:
@@ -101,10 +146,17 @@ func end_screen() -> bool:
 	return hud.end_card()
 
 func camera(spec: String) -> bool:
+	if gen != null:
+		if spec == "plant" or spec == "hall": gen_flip = str(app.b.q("levelInfo").get("phase", "design")) == "design"; sync()
+		gen.set_camera(spec); return true
 	if not on or lab == null: return false
 	lab.set_camera(spec); return true
 
 func key(e: InputEventKey) -> bool:
+	if gen != null:
+		if e.keycode == KEY_B: gen_flip = not gen_flip; sync(); return true
+		if gen.visible: return gen.key(e)
+		return false
 	if not on: return false
 	if hud != null and hud.key(e): return true
 	return lab != null and lab.key(e)

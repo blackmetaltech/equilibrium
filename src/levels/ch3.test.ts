@@ -479,8 +479,11 @@ describe('levelInfo contract', () => {
     expect(info(start('L14')).coach).toMatchObject({ step: 1, total: 6, speaker: 'mara' });
     for (const id of CH3) expect(info(solve(id)).coach).toBeNull();
   });
-  it('before a run the answers are not on the screen (L14 hero band, L11 spent units)', () => {
-    expect(info(start('L14')).hero).toMatchObject({ lo: 0, hi: 0 });
+  it('before a run the answers are not on the screen (L14: Kp and T*; L11 spent units)', () => {
+    // D-B1: L14's hero band is the twin (the book's 9.15 bar, printed in the brief), no longer the answer; the answers are the book Kp and T*, and neither is shown
+    const li = info(start('L14')), txt = JSON.stringify(li);
+    expect(li.hero.lo).toBeCloseTo(9.15 * 0.995, 6);
+    expect(txt).not.toMatch(/85\.8|85,8|406\.[0-9]|406,[0-9]/);
     expect(info(start('L11')).allowedUnits.find((u: any) => u.type === 'feed')).toMatchObject({ max: 3, used: 3 });
   });
 });
