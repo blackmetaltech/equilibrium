@@ -19,6 +19,8 @@ export interface Incident {
   /** the plant's catalyst activity when the incident opened (it sets the converter's approach to equilibrium in the plant view) */
   cat: number;
   choice: IncidentChoice; lapsed: boolean; outF: number; gasF: number;
+  /** announced the month before the event fired (the heads-up and the card are one stop); absent when the event came with no warning */
+  ann?: boolean;
   /** what the plant ran at (the player's or the stated fix): purge fraction and argon mol % at the converter inlet */
   purge: number; ar: number;
   /** the Career numbers the plant view prices its fixes with (frozen when the incident opened) */

@@ -5,7 +5,7 @@ import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, fedOf, flowOf, inStream, link, none, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped } from './util';
+import { baseSetup, commissions, fedOf, flowOf, frozenTruth, inStream, link, none, predictionOf, put, putFeed, relErr, sealSetup, shown, spentOf, toKmolH, unitsOfType, piped } from './util';
 
 export const L02_SPECIES = ['S', 'O2', 'N2', 'SO2'];
 /** DESIGN: 100 kmol/h of liquid sulfur (3.21 t/h). */
@@ -94,7 +94,7 @@ export const L02: LevelSpec = {
   },
   extraStars: (s, m) => {
     const p = predictionOf(s, 'o2_pct');
-    return [m.ok && m.v.so2_pct! >= SO2_PCT - 1e-6, p !== null && m.ok && relErr(p.value, m.v.o2_pct!) <= O2_CALL_TOL];
+    return [m.ok && m.v.so2_pct! >= SO2_PCT - 1e-6, p !== null && m.ok && relErr(p.value, frozenTruth(s, 'o2_pct') ?? m.v.o2_pct!) <= O2_CALL_TOL];
   },
   callIt: { key: 'o2_pct', unit: '%', tol: O2_CALL_TOL, truth: (_s, m) => (m.ok ? m.v.o2_pct! : null) },
   hero: (_s, m) => ({ key: 'so2_pct', unit: '%', value: m.v.so2_pct!, lo: SO2_PCT - SO2_TOL, hi: SO2_PCT + SO2_TOL }),

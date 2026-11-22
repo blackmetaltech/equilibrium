@@ -83,7 +83,7 @@ func _round_trip() -> void:
 	check(bool(v.get("fromCareer", false)), "the plant knows it came from the Career")
 	check(int(pre.get("m", -1)) == int(ic.month) and absf(float(pre.get("y", 0)) - float(ic.yPct) / 100.0) < 1e-9 and absf(float(pre.get("cat", 0)) - float(ic.cat)) < 1e-9, "...pre-loaded with the Career state: month %d, inerts %.1f %%, catalyst %.0f %%" % [int(pre.get("m", -1)) + 1, float(pre.get("y", 0)) * 100.0, float(pre.get("cat", 0)) * 100.0])
 	var li = app.b.q("levelInfo")
-	check(li is Dictionary and (li.get("note", []) as Array).size() == 3 and str(li.note[0]).contains("Month %d of your Career" % (m0)), "the notes name the Career month")
+	check(li is Dictionary and (li.get("note", []) as Array).size() == 3 and str(li.note[0]).contains("Month %d of your Career" % (m0 + 1)), "the notes name the Career month")
 	check(li is Dictionary and li.get("callIt") is Dictionary and (li.get("goals", []) as Array).size() == 2, "a call-it and two goals")
 	check(int(CareerSave.info().get("month", -1)) == m0, "the run's file still holds month %d while in the plant" % m0)
 	# the reference fix: call it, set the purge, commission, let the first run roll
@@ -124,16 +124,16 @@ func _round_trip() -> void:
 	check(CareerIncident.marker().is_empty(), "the incident marker is cleared")
 	# the numbers change: next month the ammonia plant makes its nominal output times the fix
 	var nom := float(view().plants[0].nominalT)
-	act("advance", [1]); await frames(3)
+	act("advance", [1]); act("advance", [1]); await frames(3)   # F31: the incident is announced a month ahead, so the gas turns in the second month
 	var p0: Dictionary = view().plants[0]
-	check(str(p0.id) == "nh3" and float(p0.outputT) < nom, "next month the ammonia plant makes less than its nominal %.0f t (%.0f t)" % [nom, float(p0.outputT)])
+	check(str(p0.id) == "nh3" and float(p0.outputT) < nom, "two months on (the event month) the ammonia plant makes less than its nominal %.0f t (%.0f t)" % [nom, float(p0.outputT)])
 	# save and resume: the file holds the answered incident; rebuild the app and reopen
 	await frames(4); CareerSave.store(app)
 	var inf := CareerSave.info()
-	check(int(inf.get("month", -1)) == m0 + 1, "the run's file follows the month after the fix (%s)" % str(inf))
+	check(int(inf.get("month", -1)) == m0 + 2, "the run's file follows the month after the fix (%s)" % str(inf))
 	await kill_app()
 	OS.set_environment("CB_LEVEL", "C"); await fresh_app(); OS.unset_environment("CB_LEVEL")
-	check(lid() == "CAREER" and int(view().get("dashboard", {}).get("month", -1)) == m0 + 1, "CB_LEVEL=C resumes the Career at month %d" % (m0 + 2))
+	check(lid() == "CAREER" and int(view().get("dashboard", {}).get("month", -1)) == m0 + 2, "CB_LEVEL=C resumes the Career at month %d" % (m0 + 3))
 	var ic2 = view().get("dashboard", {}).get("incident", null)
 	check(ic2 is Dictionary and str(ic2.get("choice", "")) == "plant", "...with the plant fix still in force")
 

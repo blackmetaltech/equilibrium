@@ -82,7 +82,7 @@ func _book_stable(sz: Vector2i) -> void:
 	for id in ["acid", "meoh", "etoh"]:
 		var y1 := (b.find_child("Book_" + id, true, false) as Control).get_global_rect().position.y - b.scroll.scroll_vertical
 		check(absf(y1 - float(y0[id])) < 1.5, "the %s card did not move after BUY CATALYST (%.1f -> %.1f)%s" % [id, float(y0[id]), y1, tag])
-	await press("Book_nh3")
+	await press("Book_nh3"); await press("Book_nh3")   # F31: BOOK asks twice
 	check(int(view().plants[0].turnaroundMonth) >= 0, "BOOK books" + tag)
 	b = board()
 	var st := b.find_child("Booked_nh3", true, false)

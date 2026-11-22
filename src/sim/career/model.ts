@@ -4,7 +4,7 @@
 // Decisions are plain functions (`accept`, `setRate`, `turnaround`, `inspect`, `buyCatalyst`, `hireCrew`, `invest`) and `advance` runs months until the next year end.
 import { EVENTS, LEARNER_GENTLE, type EventType } from '../../data/events';
 import { schedule, type Job } from '../ops/turnaround';
-import { INCIDENT_DEFS, INERT_STEPS, checkResult, effectOf, incidentForEvent, monthlyLossUSD, statedLoop, type Incident, type IncidentChoice, type LoopResult } from './incident';
+import { INCIDENT_DEFS, INERT_STEPS, type IncidentPre, checkResult, effectOf, incidentForEvent, monthlyLossUSD, statedLoop, type Incident, type IncidentChoice, type LoopResult } from './incident';
 
 export const PLANTS = ['nh3', 'acid', 'meoh', 'etoh'] as const;
 export type PlantId = (typeof PLANTS)[number];
@@ -246,14 +246,27 @@ export function doInvest(c: Career, kind: unknown): void {
 
 // ------------------------------------------------------------------------------------------------ the month
 interface Mods { out: Record<PlantId, number>; gas: number; spot: Record<PlantId, number>; gasPrice: number; em: number }
+/** The event of month `m` on this seed (null when the month is quiet): a pure function of (seed, m), so the Works can look ahead. `p` is the plant the draw landed on; see `eventPlant` for the plant an event is really about. */
+export function eventOf(seed: number, m: number): { ev: EventType; p: PlantId } | null {
+  if (draw(seed, m, 1) >= 0.5) return null;
+  const types = Object.keys(EVENTS) as EventType[], total = types.reduce((a, t) => a + EVENTS[t].weight, 0);
+  let u = draw(seed, m, 2) * total, ev = types[0]!;
+  for (const t of types) { u -= EVENTS[t].weight; if (u < 0) { ev = t; break; } }
+  return { ev, p: pickPlant(draw(seed, m, 3)) };
+}
+/** The plant an event is about, for the log and the stop line: an incident event names its own plant (inerts: the ammonia loop); site-wide events name none ('' reads "at the site"); the rest keep the plant the draw chose. */
+export function eventPlant(ev: string, drawn: PlantId): PlantId | '' {
+  const inc = incidentForEvent(ev);
+  if (inc !== undefined) return inc.plant;
+  return SITE_EVENTS.includes(ev) ? '' : drawn;
+}
+const SITE_EVENTS: readonly string[] = ['cw_hot_day', 'fuel_price', 'steam_header_low'];
 function applyEvents(c: Career): Mods {
   const mods: Mods = { out: { nh3: 1, acid: 1, meoh: 1, etoh: 1 }, gas: 1, spot: { nh3: 1, acid: 1, meoh: 1, etoh: 1 }, gasPrice: 1, em: 1 };
   c.last.ev = ''; c.last.evPlant = '';
-  if (draw(c.seed, c.m, 1) >= 0.5) return mods;
-  const types = Object.keys(EVENTS) as EventType[], total = types.reduce((a, t) => a + EVENTS[t].weight, 0);
-  let u = draw(c.seed, c.m, 2) * total, ev = types[0]!;
-  for (const t of types) { u -= EVENTS[t].weight; if (u < 0) { ev = t; break; } }
-  const p = pickPlant(draw(c.seed, c.m, 3)), g = c.mode === 'learner' ? LEARNER_GENTLE : 1, x = c.plants[p], mag = EVENTS[ev].mag;
+  const e0 = eventOf(c.seed, c.m);
+  if (e0 === null) return mods;
+  const ev = e0.ev, p = e0.p, g = c.mode === 'learner' ? LEARNER_GENTLE : 1, x = c.plants[p], mag = EVENTS[ev].mag;
   const dev = (m: number): number => 1 + (m - 1) * g;
   switch (ev) {
     case 'cw_hot_day': for (const q of PLANTS) mods.out[q] *= 1 - 0.04 * g; break;
@@ -271,9 +284,10 @@ function applyEvents(c: Career): Mods {
     case 'steam_header_low': mods.gas = 1 + 0.05 * g; break;
     case 'valve_fails_closed': x.down += Math.round(2 * g); break;
   }
-  c.last.ev = ev; c.last.evPlant = p;
-  c.log.push({ m: c.m, kind: 'event', code: ev, plant: p, n: 0 });
-  openIncident(c, ev, g);
+  const named = eventPlant(ev, p);   // the plant the log names: the one the event is about (inerts: the ammonia loop), none for a site-wide event
+  c.last.ev = ev; c.last.evPlant = named;
+  c.log.push({ m: c.m, kind: 'event', code: ev, plant: named, n: 0 });
+  if (incidentForEvent(ev) !== undefined && !(c.inc != null && c.inc.ann === true && c.inc.m === c.m)) openIncident(c, ev);   // an announced incident is already waiting or answered
   return mods;
 }
 
@@ -360,6 +374,8 @@ export function stepMonth(c: Career): void {
     c.prices[p] = Math.max(0.4 * d.price0, c.prices[p] + 0.15 * (tgt - c.prices[p]) + 0.04 * d.price0 * gauss(seed, m, 20 + PLANTS.indexOf(p)));
   }
   c.m++;
+  refreshIncident(c, m);
+  announceIncident(c);
   makeOffers(c);
   if (c.cash < LENDERS_FLOOR) finish(c, 'sold');
   else if (c.strikes >= STRIKES_MAX) finish(c, 'shut');
@@ -1057,6 +1073,20 @@ export function advanceToDecision(c: Career): number {
 }
 
 // ------------------------------------------------------------------------------------------------ plant incidents (F29: an event opens a real plant; see ./incident.ts)
+/** The forewarning (F31): the incident event of month E is announced the month before (the state with c.m = E - 1): the incident card opens THEN, with its three answers, and what is chosen applies when the event fires
+ * (one stop per incident, not two). Read from the seeded schedule itself (`eventOf` is a pure function of seed and month), so the schedule is unchanged and the announcement exact; null when the event would not
+ * open an incident (one is still open or running at that month) or there is nothing coming. `month` is the 0-based month the event fires in. An event in the very first month cannot be announced. */
+export function foreWarn(c: Career): { plant: PlantId; month: number } | null {
+  if (c.ending !== '') return null;
+  const E = c.m + 1;
+  if (E >= MONTHS) return null;
+  let until = c.inc != null ? c.inc.until : -1;
+  const now = eventOf(c.seed, c.m), nd = now === null ? undefined : incidentForEvent(now.ev);
+  if (nd !== undefined && c.m >= until) until = c.m + 1 + nd.months;   // the month about to run opens an incident of its own and covers E
+  const e = eventOf(c.seed, E), def = e === null ? undefined : incidentForEvent(e.ev);
+  if (def === undefined || E < until) return null;
+  return { plant: def.plant, month: E };
+}
 /** The incident waiting for the manager (null when none). */
 export const pendingIncident = (c: Career): Incident | null => (c.inc != null && c.inc.choice === '' ? c.inc : null);
 /** The incident's effect in month `m` (null outside its months). */
@@ -1065,16 +1095,41 @@ export function incidentNow(c: Career, m: number): { plant: PlantId; outF: numbe
   if (i == null || i.choice === '' || m < i.from || m >= i.until) return null;
   return { plant: i.plant, outF: i.outF, gasF: i.gasF };
 }
-/** An event that has a plant incident opens it (unless one is still open or running): the inerts drawn from the table's steps (gentler in Learner), the catalyst as it is now, and the prices it will be judged at. */
-function openIncident(c: Career, ev: string, g: number): void {
+/** The Career numbers an incident is judged with, read from the Works as it stands now (one source: the board's catalyst bar, the card and the plant read these). `month` is the month the event fires in. */
+function incidentPre(c: Career, def: (typeof INCIDENT_DEFS)[keyof typeof INCIDENT_DEFS], k: number, y: number, month: number): { cat: number; pre: IncidentPre } {
+  const p = def.plant, x = c.plants[p], cat = x.cat;
+  const pre: IncidentPre = { id: def.id, m: month, y, k, cat, price: Math.round(c.prices[p] * 100) / 100, gas: Math.round(c.gas * 1000) / 1000, outT: Math.round(outputOf(c, p)), gjT: Math.round(DEFS[p].gasGJ * gasMul(c, p) * 1000) / 1000, varUSD: DEFS[p].varUSD, capT: DEFS[p].cap, contractT: contracted(c, p), months: def.months, contractorUSD: def.contractorUSD };
+  return { cat, pre };
+}
+/** An unannounced incident (an event in the first month): the month that opened it has run its ageing and market step, so the card's catalyst, prices and output are re-read from the Works the board now shows. */
+function refreshIncident(c: Career, openedMonth: number): void {
+  const i = c.inc;
+  if (i == null || i.choice !== '' || i.m !== openedMonth || i.ann === true) return;
+  const { cat, pre } = incidentPre(c, INCIDENT_DEFS[i.id], i.k, i.y, i.m);
+  const ig = effectOf(statedLoop('ignore', i.k, cat), cat);
+  i.cat = cat; i.pre = pre; i.outF = ig.outF; i.gasF = ig.gasF;
+}
+/** Build the incident of an event firing in month `E`: the inerts drawn from the table's steps (gentler in Learner), the catalyst as it is now, and the prices it will be judged at. Effects run from the event month when announced, else the month after. */
+function makeIncident(c: Career, def: (typeof INCIDENT_DEFS)[keyof typeof INCIDENT_DEFS], E: number, ann: boolean): void {
+  const g = c.mode === 'learner' ? LEARNER_GENTLE : 1;
+  const k = Math.min(INERT_STEPS.length - 1, Math.floor(draw(c.seed, E, 5) * INERT_STEPS.length * g)), y = INERT_STEPS[k]!, p = def.plant;
+  const { cat, pre } = incidentPre(c, def, k, y, E);
+  const ig = effectOf(statedLoop('ignore', k, cat), cat);
+  const from = ann ? E : E + 1;   // announced: the gas turns in the event month itself; unannounced (the first month): the month after, as the card opens only when the event has run
+  c.inc = { id: def.id, plant: p, m: E, from, until: from + def.months, y, k, cat, choice: '', lapsed: false, outF: ig.outF, gasF: ig.gasF, purge: 0, ar: 0, pre, ...(ann ? { ann: true } : {}) };
+  c.log.push({ m: c.m, kind: 'fix', code: ann ? 'ahead' : 'open', plant: p, n: Math.round(y * 1000) / 10 });
+}
+/** An incident event fires with no announcement (the first month) and opens its incident, unless one is still open or running. */
+function openIncident(c: Career, ev: string): void {
   const def = incidentForEvent(ev);
   if (def === undefined || (c.inc != null && (c.inc.choice === '' || c.m < c.inc.until))) return;
-  const k = Math.min(INERT_STEPS.length - 1, Math.floor(draw(c.seed, c.m, 5) * INERT_STEPS.length * g)), y = INERT_STEPS[k]!, p = def.plant, x = c.plants[p];
-  const cat = Math.round(x.cat * 1000) / 1000;
-  const pre = { id: def.id, m: c.m, y, k, cat, price: Math.round(c.prices[p] * 100) / 100, gas: Math.round(c.gas * 1000) / 1000, outT: Math.round(outputOf(c, p)), gjT: Math.round(DEFS[p].gasGJ * gasMul(c, p) * 1000) / 1000, varUSD: DEFS[p].varUSD, capT: DEFS[p].cap, contractT: contracted(c, p), months: def.months, contractorUSD: def.contractorUSD };
-  const ig = effectOf(statedLoop('ignore', k, cat), cat);
-  c.inc = { id: def.id, plant: p, m: c.m, from: c.m + 1, until: c.m + 1 + def.months, y, k, cat, choice: '', lapsed: false, outF: ig.outF, gasF: ig.gasF, purge: 0, ar: 0, pre };
-  c.log.push({ m: c.m, kind: 'fix', code: 'open', plant: p, n: Math.round(y * 1000) / 10 });
+  makeIncident(c, def, c.m, false);
+}
+/** The month before an incident event, its incident is announced and its card waits for the manager (NEXT DECISION stops there once; what is chosen applies from the month after the event). */
+function announceIncident(c: Career): void {
+  const fw = foreWarn(c);
+  if (fw === null) return;
+  makeIncident(c, INCIDENT_DEFS.nh3_inerts, fw.month, true);
 }
 /** Book a cost that is operating (the contractor's bill): it counts in the score, unlike an investment. */
 function opCost(c: Career, usd: number): void { c.cash -= usd; c.ytd.margin -= usd; c.ytd.cost = (c.ytd.cost ?? 0) + usd; c.total.cost += usd; c.total.margin -= usd; }

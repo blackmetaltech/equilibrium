@@ -55,6 +55,8 @@ func _offers(sz: Vector2i) -> void:
 	if ka == null: return
 	var pt := ka.get_global_rect().get_center()
 	var n_contracts := (view().get("contracts", []) as Array).size()
+	ka.pressed.emit(); await frames(4)   # F31: ACCEPT asks twice: the first press arms it
+	b = board(); ka = b.find_child("Accept_%d" % first_id, true, false) as Button
 	ka.pressed.emit(); await frames(4)
 	b = board()
 	var after: Array = view().get("offers", [])

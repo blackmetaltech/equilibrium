@@ -167,7 +167,7 @@ describe('F29: the mapping back into the Career', () => {
     expect(logLabel(row)).toMatch(new RegExp(`^Purge set to 3 % at the plant: inerts ${row.x!.ar} %, output back to ${row.x!.out} % for ${INC_MONTHS} months`));
     expect(row.x!.out).toBeCloseTo(Math.round(e.outF * 1000) / 10, 9);
     const iv = incidentView(a)!;
-    expect(iv.pending).toBe(false); expect(String(iv.done)).toContain('You set the purge to 3.0 % at the plant');
+    expect(iv.pending).toBe(false); expect(String(iv.done)).toContain('You set the purge to 3 % at the plant');
     decide(b, 'incident', 'contractor');
     expect(b.cash).toBeCloseTo(cash0 - CONTRACTOR_USD, 6);
     // one month later: same seed, same events, same plant state; the ammonia made differs by exactly the ratio of the output factors, the gas bill by outF x gasF

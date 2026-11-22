@@ -82,6 +82,12 @@ export function markPrebuilt(s: EqState): void {
 /** Relative error of a value against a target (0 when both are 0). */
 export const relErr = (x: number, target: number): number => (target === 0 ? Math.abs(x) : Math.abs(x - target) / Math.abs(target));
 
+/** The truth of a call-it, frozen at the level's first successful commission (the rule: "predict before your first commission"). A later retune never moves it. Undefined before then. */
+export function frozenTruth(s: S, key: string): number | undefined {
+  const f = s.lv.callTruth as Record<string, number> | undefined;
+  return f === undefined ? undefined : f[key];
+}
+
 /** The prediction stored for this level (quantity key must match), with the optional named answer. */
 export interface Prediction { quantity: string; value: number; named?: string }
 export function predictionOf(s: S, key: string): Prediction | null {

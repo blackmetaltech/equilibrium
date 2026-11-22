@@ -236,12 +236,12 @@ describe('F19: endings say why, and a game-ending year end is never reached with
 
 describe('F19: stops merge, small texts agree', () => {
   it('plants that pass their inspection date in the same month stop NEXT DECISION once, all listed', () => {
-    const c = initCareer(2, 'engineer'); decide(c, 'answer', 1);
+    const c = initCareer(3, 'engineer'); decide(c, 'answer', 1);   // F31: seed 3 (on seed 2 the supplier's announced incident stops the run on the first step, before the overdue one)
     for (const p of ['nh3', 'acid', 'meoh']) c.plants[p as 'nh3'].insp = 12;
     ackWarning(c);
     advanceToDecision(c);
     expect(c.why!.kind).toBe('overdue'); expect(c.why!.plant.split(',').sort()).toEqual(['acid', 'meoh', 'nh3']);
-    const e = start(2), d = careerOf(e.state)!; decide(d, 'answer', 1);
+    const e = start(3), d = careerOf(e.state)!; decide(d, 'answer', 1);
     for (const p of ['nh3', 'acid']) d.plants[p as 'nh3'].insp = 12;
     ackWarning(d); advanceToDecision(d);
     const wn: string = view(e).dashboard.whyNote;
