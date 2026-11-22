@@ -4,16 +4,18 @@ extends Node
 ## LabWorld (look2/lab_world.gd: the process hall, the loop, the plant outside) and HoloHud (look2/holo_hud.gd: anchored readouts, the equilibrium
 ## diagram, the cooler dial, the coach line, the clock, the end card). The engine, the level and its actions are unchanged: this file only routes the
 ## snapshot to the new layers. CB_LOOK2=0 turns the slice off (the 0.9 look comes back). Quality tier: CB_QUALITY=ultra|high|compat, else auto.
-const LEVELS := ["L00"]
+const LEVELS := ["L00", "L14"]   ## L00 Night Shift (the process hall), L14 The Brown Gas (the private lab, look2/flask_lab.gd)
 var app
-var lab: LabWorld
+var lab   ## LabWorld (L00) or FlaskLab (L14): the same contract (setup, set_snapshot, anchor_screen, anchor_size, set_camera, key, cam, picked, control_changed)
 var hud: HoloHud
 var on := false
 var tier := ""
+var level := ""
 var ids := {}   ## role -> engine unit id (found by type in the plant query)
 
 const ROLE_OF_TYPE := {"feed": "feed", "mixer": "mixer", "compressor": "compressor", "heater": "heater", "cooler": "cooler", "eq_reactor": "converter",
-	"nh3_sep": "separator", "splitter": "splitter", "valve": "valve", "flare": "flare", "product": "product", "interlock": "interlock"}
+	"nh3_sep": "separator", "splitter": "splitter", "valve": "valve", "flare": "flare", "product": "product", "interlock": "interlock",
+	"lab_flask": "flask", "vent": "vent"}
 
 static func enabled() -> bool: return OS.get_environment("CB_LOOK2") != "0"
 
@@ -32,6 +34,7 @@ static func auto_tier() -> String:
 func sync() -> void:
 	var lid := str(app.b.g.get("level", "")) if app != null and app.b != null and app.started else ""
 	var want: bool = enabled() and lid in LEVELS and app.chrome != null and app.chrome_shown()
+	if on and want and lid != level: _set_on(false)   # Next from L00 to L14: a different world
 	if want != on: _set_on(want)
 	if not on: return
 	app.chrome.visible = false   # the shell re-shows the console after a dialog; the slice keeps it hidden
@@ -42,6 +45,7 @@ func sync() -> void:
 	if p is Dictionary and ids.is_empty():
 		for u in p.get("units", []):
 			var r: String = ROLE_OF_TYPE.get(str(u.get("type", "")), "")
+			if r == "feed" and ids.has("feed"): r = "argon"   # L14: the second feed bank is the argon
 			if r != "" and not ids.has(r): ids[r] = str(u.get("id", ""))
 		lab.setup(ids); hud.setup(ids)
 	lab.set_snapshot(app.b.g)
@@ -53,7 +57,8 @@ func _set_on(v: bool) -> void:
 		tier = auto_tier()
 		print("LOOK2 on: tier=%s method=%s adapter=%s" % [tier, RenderingServer.get_current_rendering_method(), RenderingServer.get_video_adapter_name()])
 		ids = {}
-		lab = LabWorld.new(); lab.app = app; lab.name = "LabWorld"; app.plant_world.get_parent().add_child(lab); lab.set_quality(tier)
+		level = str(app.b.g.get("level", ""))
+		lab = (FlaskLab.new() if level == "L14" else LabWorld.new()); lab.app = app; lab.name = "LabWorld"; app.plant_world.get_parent().add_child(lab); lab.set_quality(tier)
 		hud = HoloHud.new(); hud.app = app; hud.lab = lab; hud.name = "HoloHud"; app.chrome.get_parent().add_child(hud); hud.build()
 		app.plant_world.set_blocked(true)
 		_park_env(true)
@@ -84,9 +89,9 @@ func relayout() -> void:
 	if on and hud != null: hud.layout()
 
 ## Toasts and coach lines go to the HUD while the slice is on.
-func toast(text: String, level: String) -> bool:
+func toast(text: String, lvl: String) -> bool:
 	if not on or hud == null: return false
-	hud.toast(text, level); return true
+	hud.toast(text, lvl); return true
 
 ## The level's end: the HUD's end card replaces the paper printout.
 func end_screen() -> bool:

@@ -44,7 +44,7 @@ class Lines extends Control:
 			draw_circle(b, 2.2, Color(HoloTheme.TEAL_HI, al))
 
 var app
-var lab: LabWorld
+var lab   ## LabWorld or FlaskLab
 var ids := {}
 var line_data: Array = []
 var _built := false

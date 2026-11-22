@@ -4,6 +4,7 @@ extends Node3D
 ## plant at night through a glass wall. Procedural geometry, CC0 textures (docs/ASSETS.md) and the shaders in look2/shaders. It reads the engine
 ## snapshot only and never calls an engine action. World units are metres; the hall spans x -30..30, z -15..15, y 0..18; the glass wall is z = -15.
 signal picked(role: String)
+signal control_changed(key: String, value: float)   ## the player dragged an in-world control: "T" (kelvin) on the cooler's handwheel
 var app
 var ids := {}
 var cam: Camera3D
@@ -743,6 +744,9 @@ func set_camera(spec: String) -> void:
 		set_xray(p == "xray")
 	if OS.has_environment("CB_SHOT"): _snap_cam()
 func _snap_cam() -> void: focus = t_focus; yaw = t_yaw; pitch = t_pitch; dist = t_dist; _apply_cam()
+## The HUD's dial mirrored onto the handwheel (the HUD calls this; the wheel's own drag emits control_changed).
+func set_control_value(k: String, v: float) -> void:
+	if k == "T": wheel_k = v
 func set_xray(on: bool) -> void:
 	xray = on
 	if shell_node: shell_node.visible = not on; shell_x_node.visible = on
