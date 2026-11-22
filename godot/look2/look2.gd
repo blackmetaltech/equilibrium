@@ -35,6 +35,9 @@ func sync() -> void:
 	if want != on: _set_on(want)
 	if not on: return
 	app.chrome.visible = false   # the shell re-shows the console after a dialog; the slice keeps it hidden
+	app.plant_world.visible = false
+	if lab.cam != null and not lab.cam.current: lab.cam.make_current()   # the plant camera takes the view back on some refreshes
+	_hide_paper(true)
 	var p = app.b.q("plant")
 	if p is Dictionary and ids.is_empty():
 		for u in p.get("units", []):
@@ -53,14 +56,24 @@ func _set_on(v: bool) -> void:
 		lab = LabWorld.new(); lab.app = app; lab.name = "LabWorld"; app.plant_world.get_parent().add_child(lab); lab.set_quality(tier)
 		hud = HoloHud.new(); hud.app = app; hud.lab = lab; hud.name = "HoloHud"; app.chrome.get_parent().add_child(hud); hud.build()
 		app.plant_world.set_blocked(true)
+		_park_env(true)
 		app.chrome.visible = false
 		lab.make_current()
 	else:
 		if lab != null: lab.queue_free(); lab = null
 		if hud != null: hud.queue_free(); hud = null
 		ids = {}
+		_park_env(false)
 		if app.plant_world != null: app.plant_world.set_blocked(false); app.plant_world.cam.make_current()
 		if app.chrome != null and app.chrome_shown(): app.chrome.visible = true
+		_hide_paper(false)
+
+## The 0.9 paper layers that live on the app root (the notebook tab, the faceplate hub, the stream tag) are hidden while the slice is on.
+const PAPER := ["NotebookWatch", "PaperHub", "StreamTag"]
+func _hide_paper(h: bool) -> void:
+	for n in PAPER:
+		var c = app.root.get_node_or_null(n)
+		if c is CanvasItem: (c as CanvasItem).visible = not h
 
 func relayout() -> void:
 	if on and hud != null: hud.layout()
@@ -83,3 +96,15 @@ func key(e: InputEventKey) -> bool:
 	if not on: return false
 	if hud != null and hud.key(e): return true
 	return lab != null and lab.key(e)
+
+## A scene has one environment: the plant world's WorldEnvironment (fog, sky, tonemap tuned for the 0.9 look) is parked while the slice is on.
+var _parked := {}
+func _park_env(park: bool) -> void:
+	if app.plant_world == null: return
+	if park:
+		for w in app.plant_world.find_children("*", "WorldEnvironment", true, false):
+			_parked[w] = (w as WorldEnvironment).environment; (w as WorldEnvironment).environment = null
+	else:
+		for w in _parked:
+			if is_instance_valid(w): (w as WorldEnvironment).environment = _parked[w]
+		_parked = {}

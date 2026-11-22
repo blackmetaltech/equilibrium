@@ -15,7 +15,7 @@ void vertex() {
 	lp = VERTEX;
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
-void steel_surface(inout vec3 alb, inout float met, inout float rgh, inout vec3 emis, inout vec3 nrm, float xray) {
+void steel_surface(inout vec3 alb, inout float met, inout float rgh, inout vec3 emis, inout vec3 nrm, float xray, mat4 vm) {
 	float s = vnoise(lp * streak);
 	float p = vnoise(lp * 7.0 + 3.0);
 	float r = clamp(rough_base + (s - 0.5) * 0.20 + (p - 0.5) * 0.16, 0.06, 1.0);
@@ -28,7 +28,7 @@ void steel_surface(inout vec3 alb, inout float met, inout float rgh, inout vec3 
 		float m = smoothstep(0.40, 0.62, f + cover - 0.5);
 		vec3 e = vec3(0.012, 0.0, 0.0);
 		vec3 g = vec3(fbm3(wp * 13.0 + e.xyy) - fbm3(wp * 13.0 - e.xyy), fbm3(wp * 13.0 + e.yxy) - fbm3(wp * 13.0 - e.yxy), fbm3(wp * 13.0 + e.yyx) - fbm3(wp * 13.0 - e.yyx));
-		nrm = normalize(nrm + m * 0.9 * (VIEW_MATRIX * vec4(g, 0.0)).xyz * 8.0);
+		nrm = normalize(nrm + m * 0.9 * (vm * vec4(g, 0.0)).xyz * 8.0);
 		alb = mix(alb, vec3(0.86, 0.91, 0.96), m);
 		met = mix(met, 0.0, m);
 		rgh = mix(rgh, 0.35 + 0.4 * f, m);

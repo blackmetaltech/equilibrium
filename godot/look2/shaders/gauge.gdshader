@@ -3,7 +3,6 @@ shader_type spatial;
 uniform float value = 0.5;     // 0..1 of full scale
 uniform float redfrom = 0.8;
 uniform vec3 face : source_color = vec3(0.92, 0.92, 0.88);
-const float PI = 3.14159265;
 float seg(vec2 p, vec2 a, vec2 b, float w) {
 	vec2 pa = p - a, ba = b - a;
 	float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);

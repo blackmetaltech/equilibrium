@@ -4,7 +4,7 @@ render_mode depth_draw_never, cull_back;
 #include "res://look2/shaders/steel.gdshaderinc"
 void fragment() {
 	vec3 a; float m; float r; vec3 e = vec3(0.0); vec3 n = NORMAL;
-	steel_surface(a, m, r, e, n, 1.0);
+	steel_surface(a, m, r, e, n, 1.0, VIEW_MATRIX);
 	float fr = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);
 	ALBEDO = vec3(0.35, 0.45, 0.5);
 	METALLIC = 0.0; ROUGHNESS = 0.04; SPECULAR = 1.0;
