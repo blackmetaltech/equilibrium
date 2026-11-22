@@ -306,6 +306,7 @@ func _pos_fixed() -> void:
 	if _dg_panel != null: _dg_panel.pos = Vector2(vp.x - _dg_panel.size.x - m, top_r)
 	_cmd.pos = Vector2((vp.x - _cmd.size.x) * 0.5, vp.y - _cmd.size.y - m)
 	_brief.pos = Vector2(m, vp.y - _brief.size.y - m)   # lower left: the hero stays in view
+	if _brief.pos.x + _brief.size.x > _cmd.pos.x - 8.0: _brief.pos.y = maxf(m, _cmd.pos.y - _brief.size.y - 12.0)   # narrow screens: sit above the command panel, never on it
 	if _end != null: _end.pos = (vp - _end.size) * 0.5
 	for p in [_alarm, _cmd, _brief, _coach, _dg_panel] + ([_end] if _end != null else []): if p != null: p.fit()
 

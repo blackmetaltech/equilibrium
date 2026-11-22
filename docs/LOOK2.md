@@ -101,3 +101,37 @@ About 50-60 Sonnet builder sessions plus about 10 Opus review sessions; with our
 | Dagny Voss, fun critic | fun 4, clarity 6, tension 4, return-tomorrow 2, genius 3 | One dial, no cost: any late turn wins and the plant returns to its starting numbers |
 | Mateo Arriaga, game designer | fantasy 4 | A handsome diorama with a night operator; the verb is a 2D widget and the coach gives orders; the drafting floor is under-costed and is the centre of the fantasy |
 Fixed once (commit after a9280bd): establishing view, no cards during the brief or wide view, staged beats, handwheel on the cooler, dial vs outlet on the cooler card, frozen Approach row dropped, materials (flat paint, finer steel, muted yellow, hot steel not pink, round gauges, grey bench). Not fixed, and why: the dial has no cost, the coach instructs, no second fault, no score per run (all level design or engine text: phase A keeps the engine and level unchanged; they go to the phase-B gate); no sound (later layer); the drafting floor (phase B; Mateo's view that it is under-costed is accepted: raise it to 35-50 h). Not re-scored after the fix pass.
+
+## Round 2 (owner not yet replied; one more pass on the same branch)
+
+Scope from the studio manager, in order: the fantasy (L14 private lab), panels off the world, light and composition, the low tier, fix1 and fix25.
+
+**L14 The Brown Gas, the private lab (look2/flask_lab.gd).** A tall hall with polished panels, a gallery, glassware racks, benches with distillation glass, a coil and a glass column. The hero is a glass gas cylinder with a screw piston on a lit dais, drawn 1.5x so it reads (the HUD carries the true litres). Copper heating coil, a cooling coil, a gauge on an arm, a V handwheel on the crosshead, a T wheel on the console, a frosted dewar of liquid N2O4 with cold vapour, an argon bottle, a fume hood.
+- The brown is the engine's NO2 concentration at the flask outlet (y_NO2 P / R T), relative to the notebook flask. Absorbance a = 1 - exp(-1.1 c). Turning V moves the piston and darkens the gas at once by V_old / V_new; RUN gives the new equilibrium. Measured in the capture: 1.00, 2.00 at the turn, 1.78 after the run, 0.67 with argon at constant P.
+- Temperature does not shift this flask. L14 uses the book's fixed K (book_K; src/sim/units/lab_flask.ts line 28), so T changes only the gauge. The heater glows above 400 K and the cooling coil frosts below 285 K, but the colour does not fake a shift. A temperature-driven shift needs the level on real K: phase B.
+- No liquid inside the cylinder: the engine treats the flask as all gas. Liquid shows only in the feed dewar.
+- The slice closes the 0.9 paper notebook; the brief and the Call Kp input live in the HUD.
+
+**Panels.** Readouts are small tags (dot, name, one value, a leader). One card opens on hover, pick or camera focus. The equilibrium diagram docks top-right and enlarges on click. The brief sits lower-left. The camera row is gone (keys instead).
+
+**Control in the world.** L00: drag the lit handwheel on the cooler; release commits the set point; the HUD dial mirrors it. L14: drag the V wheel on the crosshead and the T wheel on the console; RUN commissions. Both worlds emit control_changed; the HUD commits it exactly as the dial does.
+
+**Light and composition (L00).** The opening frames the converter as the hero: a cool key from above through haze, sodium high-bays with visible cones, a wetter floor. The red purge line that crossed the opening is grey and out of frame. Outdoors: tower leg rings and lips, column platforms, caged ladders, risers and beacons, tank stairs and girders (MultiMesh).
+
+**Low tier (Radeon iGPU in the Ryzen 9 9900X, 2 CU, compat, 1280x800).**
+
+| View | avg ms | p95 ms | fps |
+|---|---|---|---|
+| L00 opening | 26.6 | 28.3 | 37.6 |
+| L00 outside | 18.3 | 18.3 | 54.7 |
+| L14 opening | 20.6 | 21.4 | 48.7 |
+
+Traded on compat: no SDFGI, SSR, SSIL, SSAO, volumetric fog or shadows; distance fog instead; no reflection probe; far omni lights off (emissive bulbs stay); outdoor structure hidden; particles at 30 %; 3D at 60 % with FSR, HUD at full resolution. Phase A was 30.0 ms at the same view.
+
+**fix1_flow and fix25_flow.** Cause: both start levels in the saved mode (user://settings.cfg last_mode). They were written in engineer mode. With a saved "learner" they fail, deterministically, at every tag back to v0.4.0 with the current toolchain (Godot 4.7.2 since 11-01, Node 26.8.1 since 10-24, core f63c22e unchanged). In learner mode the L00 plant survives the test's own cooler set point (won at tick 95, no trip, so no 100x flow drop), and on L25 the coach gives its own catalyst words because the step lines up with the next checklist row (the aligned rule in src/engine/queries/level.ts, same commit as the test). Fix: both pin CbSettings.last_mode = "engineer" (persist is already off, so the user's file is untouched); assertions unchanged. Open item for phase B: fix25's coach check is vacuous in engineer mode (no coach there) and contradicts the aligned rule in learner mode; it needs a designer's call, not a quiet edit.
+
+**Tests.** 44 of 44 Godot flows OK, look2_flow 49 checks (L00 and L14), layout_flow 0 failures. Engine (src/) unchanged against master.
+
+**Evidence (round 2).** docs/look2/r2-*.jpg and docs/look2/flask-shift-10s.mp4 (book, halve V, run, argon at constant P, on the 4090 at 1080p, 30 fps).
+
+**Not done.** The "dial has no cost" level-design finding is for the phase B gate. Real-mouse drags and hover expansion are tested by synthetic events only. The L14 end card and retry were not played through.
