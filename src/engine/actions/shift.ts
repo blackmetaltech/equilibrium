@@ -131,6 +131,7 @@ const setpoint: Fn = (s, unitId: unknown, key: unknown, value: unknown) => {
   const id = u.id + '.' + String(key);
   (sh.edits ??= {})[id] = sh.t;
   (sh.firstEdits ??= {})[id] ??= sh.t;
+  { const lo = (sh.lowSet ??= {}); lo[id] = Math.min(lo[id] ?? Infinity, value); }   // the lowest set point ever asked (L00: overcooling below light-off costs, even if undone)
   if (cur === value) { delete sh.ramps[id]; return; }
   // D-B2 (LOOK2 phase B): a level may give one actuator its own speed (unit param `act_<key>`, a fraction of the knob's range per plant second), e.g. L00's slow cooler
   const own = u.params['act_' + String(key)];

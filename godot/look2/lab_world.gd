@@ -130,7 +130,7 @@ func _shader(path: String, params := {}) -> ShaderMaterial:
 	return m
 var M := {}
 func _mats() -> void:
-	M.steel = _shader("steel", {"rough_base": 0.34, "metallic": 0.8})
+	M.steel = _shader("steel", {"rough_base": 0.34, "metallic": 0.8, "blotch": 0.4})
 	M.steel_dull = _shader("steel", {"rough_base": 0.45, "albedo": Color(0.62, 0.64, 0.66)})
 	M.clad = _flat(Color(0.78, 0.8, 0.82), 0.6, 0.42)                       # aluminium jacketing on insulated lines
 	M.paint_green = _paint(Color(0.36, 0.5, 0.42))
@@ -428,7 +428,7 @@ func _build_loop() -> void:
 	# --- the converter: thick-walled vessel on a skirt, flanged top head, nozzles, sight port, ladder, platform ---
 	var vx := 5.5; var vz := -3.0; var vr := 1.15; var vh := 8.0; var vb := 1.6
 	_cyl(vr * 0.98, vb, Vector3(vx, vb * 0.5 + 0.18, vz), M.paint_grey)     # skirt
-	m_shell = _shader("steel", {"rough_base": 0.3, "metallic": 0.8, "yrange": Vector2(-vh * 0.5, vh * 0.5), "emit_gain": 0.3})
+	m_shell = _shader("steel", {"rough_base": 0.3, "metallic": 0.8, "blotch": 0.15, "streak": Vector3(140.0, 6.0, 140.0), "yrange": Vector2(-vh * 0.5, vh * 0.5), "emit_gain": 0.3})
 	shell_node = _cyl(vr, vh, Vector3(vx, vb + vh * 0.5 + 0.18, vz), m_shell, self, -1.0, 48)
 	m_shell_x = _shader("steel_glass", {"yrange": Vector2(-vh * 0.5, vh * 0.5)})
 	shell_x_node = _cyl(vr, vh, shell_node.position, m_shell_x, self, -1.0, 48); shell_x_node.visible = false
@@ -488,7 +488,7 @@ func _build_loop() -> void:
 	# --- ammonia separator: cold vertical drum with frost and a sight glass ---
 	var sx := 11.5; var sr := 0.8; var sh := 4.2
 	_cyl(sr * 0.9, 0.9, Vector3(sx, 0.63, vz), M.paint_grey)
-	m_sep = _shader("steel", {"rough_base": 0.36, "metallic": 0.75, "frost": 0.25, "frost_h": 1.0, "yrange": Vector2(-sh * 0.5, sh * 0.5)})
+	m_sep = _shader("steel", {"rough_base": 0.36, "metallic": 0.75, "blotch": 0.25, "frost": 0.25, "frost_h": 1.0, "yrange": Vector2(-sh * 0.5, sh * 0.5)})
 	_cyl(sr, sh, Vector3(sx, 1.08 + sh * 0.5, vz), m_sep)
 	_sph(sr, Vector3(sx, 1.08 + sh, vz), m_sep, self, true)
 	var sb := _sph(sr, Vector3(sx, 1.08, vz), m_sep, self, true); sb.rotation_degrees.x = 180

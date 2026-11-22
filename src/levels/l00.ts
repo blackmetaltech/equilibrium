@@ -68,7 +68,9 @@ export function quickTurn(s: S): boolean {
 /** D-B5 star: the cooler was not set below the catalyst's light-off (overcooling puts the converter out: the honest cost of the dial). */
 export function catalystLit(s: S): boolean {
   const cool = s.flowsheet.units.find((u) => u.type === 'cooler');
-  return cool !== undefined && typeof cool.params.T === 'number' && (cool.params.T as number) >= L00_LIGHTOFF;
+  if (cool === undefined || typeof cool.params.T !== 'number') return false;
+  const low = s.shift?.lowSet?.[cool.id + '.T'];   // Mateo: the lowest set point asked all night, not the last one
+  return (cool.params.T as number) >= L00_LIGHTOFF && (low === undefined || low >= L00_LIGHTOFF);
 }
 
 export function loopMeasures(s: S): Measures {

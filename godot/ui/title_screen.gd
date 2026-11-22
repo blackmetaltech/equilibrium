@@ -33,7 +33,7 @@ static func build(app: CbApp, root: Control) -> bool:
 	if saves.size() > 0: entries.append(["continue", T("TITLE_CONTINUE"), func(): continue_play(app, saves[0] as Dictionary)])
 	entries.append(["new", T("TITLE_NEW"), func(): new_works(app)])
 	entries.append(["map", T("TITLE_MAP"), func(): WorksMap.open(app)])
-	entries.append(["newlook", "Chapter 3 · The Wall  (new look)", func(): app.start_level("L10", true)])   # D-B4: the released new-look chapter, one press from the title
+	entries.append(["newlook", T("TITLE_NEWLOOK"), func(): app.start_level("L10", true)])   # D-B4: the released new-look chapter, one press from the title
 	entries.append(["sandbox", T("TITLE_SANDBOX"), func(): app.new_game("sandbox")])
 	entries.append(["settings", T("TITLE_SETTINGS"), func(): app.open_settings()])
 	if not CbLayout.is_mobile(): entries.append(["quit", T("TITLE_QUIT"), func(): app.quit_game()])

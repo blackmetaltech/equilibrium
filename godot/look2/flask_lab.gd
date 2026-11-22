@@ -159,8 +159,18 @@ func _build_rig() -> void:
 	# the dais: two stepped discs with an LED ring
 	_cyl(4.2, 0.3, Vector3(d.x, 0.15, d.z), _paint(Color(0.16, 0.17, 0.19)), self, -1.0, 64)
 	_cyl(3.2, 0.3, Vector3(d.x, 0.45, d.z), _paint(Color(0.2, 0.21, 0.23)), self, -1.0, 64)
-	_torus(3.21, 0.02, Vector3(d.x, 0.6, d.z), _flat(Color.WHITE, 0, 0.4, Color(0.18, 0.77, 0.71), 5.0))
-	_torus(4.21, 0.02, Vector3(d.x, 0.3, d.z), _flat(Color.WHITE, 0, 0.4, Color(0.18, 0.77, 0.71), 3.0))
+	# round 3 fix (Sigrid): a steel plinth with a hand rail, not a neon halo
+	_torus(3.21, 0.03, Vector3(d.x, 0.6, d.z), mats.stainless_dull)
+	_torus(4.21, 0.03, Vector3(d.x, 0.3, d.z), mats.stainless_dull)
+	for i in 20:
+		var a := TAU * i / 20.0
+		if absf(wrapf(a - PI * 0.5, -PI, PI)) < 0.45: continue   # the way in, facing the camera side
+		_seg(Vector3(d.x + cos(a) * 4.05, 0.3, d.z + sin(a) * 4.05), Vector3(d.x + cos(a) * 4.05, 1.25, d.z + sin(a) * 4.05), 0.025, mats.stainless_dull)
+	for k in 2:
+		for i in 20:
+			var a0 := TAU * i / 20.0; var a1 := TAU * (i + 1) / 20.0
+			if absf(wrapf(a0 - PI * 0.5, -PI, PI)) < 0.45 or absf(wrapf(a1 - PI * 0.5, -PI, PI)) < 0.45: continue
+			_seg(Vector3(d.x + cos(a0) * 4.05, 0.75 + k * 0.5, d.z + sin(a0) * 4.05), Vector3(d.x + cos(a1) * 4.05, 0.75 + k * 0.5, d.z + sin(a1) * 4.05), 0.022, mats.stainless_dull)
 	var n0 := get_child_count()
 	# base plinth and the jacket: copper heating coil (glows with T) and a cooling coil (frosts when cold)
 	var by := d.y
@@ -244,7 +254,7 @@ func _build_rig() -> void:
 	var a1 := 1.0 - exp(-1.1); var cc := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), a1); tg.albedo_color = Color(cc.r, cc.g, cc.b, 1.0 - exp(-2.2))
 	_cyl(0.2, 1.5, tw + Vector3(0, 0.97, 0), tg, self, -1.0, 40)
 	_cyl(0.25, 0.08, tw + Vector3(0, 1.84, 0), mats.stainless, self, -1.0, 32)
-	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 40; pl.pixel_size = 0.0022; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, 0.32, 0.27); add_child(pl)
+	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 40; pl.pixel_size = 0.0022; pl.no_depth_test = true; pl.render_priority = 10; pl.outline_size = 10; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, 0.32, 0.27); add_child(pl)
 	anchors["twin"] = tw + Vector3(0, 1.2, 0); radius["twin"] = 0.3
 	# the RUN lever on the console: pull it to run
 	lever = Node3D.new(); lever.position = cp + Vector3(0.45, 0.95, 0.15); add_child(lever)
@@ -488,7 +498,7 @@ func pick(p: Vector2) -> String:
 
 # ---- camera -------------------------------------------------------------------------------------------------------------------------------------
 const L14_PRESETS := {
-	"wide": [Vector3(-5.0, 2.6, -3.0), -0.22, -0.17, 25.0],
+	"wide": [Vector3(-7.0, 3.6, -4.0), -0.30, -0.26, 33.0],
 	"flask": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
 	"gauge": [Vector3(1.75, 3.75, -1.6), 0.2, -0.02, 1.5],
 	"wheel": [Vector3(0, 6.2, -2.0), 0.5, -0.55, 3.6],

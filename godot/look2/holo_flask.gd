@@ -191,7 +191,7 @@ func refresh(li: Dictionary, g: Dictionary) -> void:
 		h._put_txt("flask", "%.2f bar" % float(last.P)); h._put_state("flask", "normal")
 	(_st.T as Label).text = "T wheel  %.2f °C" % f_T.value
 	(_st.V as Label).text = "V wheel  %.2f L" % f_V.value
-	(_st.clamp as Label).text = "Clamp on: constant volume" if f_P.value <= 0.0 else "Clamp off: constant pressure, %.2f bar" % f_P.value
+	(_st.clamp as Label).text = "Clamp on: the volume is fixed" if f_P.value <= 0.0 else "Clamp released: the piston holds %.2f bar(a)" % f_P.value
 	(_st.argon as Label).text = "Argon valve shut" if aflow <= 0.0 else "Argon valve open"
 	h._put("flask", "T", f_T.value); h._put("flask", "V", f_V.value); h._put("flask", "Pfix", f_P.value)
 	h._put("argon", "flow", aflow); h._put_txt("argon", "off" if aflow <= 0.0 else "%.2f mol/s" % aflow); h._put_state("argon", "off" if aflow <= 0.0 else "normal")

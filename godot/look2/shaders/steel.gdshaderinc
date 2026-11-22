@@ -7,6 +7,7 @@ uniform float heat_lo = 0.0;                   // glow at the bottom of yrange (
 uniform float heat_hi = 0.0;
 uniform vec2 yrange = vec2(-4.0, 4.0);
 uniform float emit_gain = 1.6;
+uniform float blotch = 1.0;                   // round 3: how much the low-frequency mottling shows (vessels set their own; no shared blotch)
 uniform float frost = 0.0;                     // 0..1 frost cover
 uniform float frost_h = 3.0;                   // frost is heaviest in the first metres above the floor
 varying vec3 lp;
@@ -18,8 +19,8 @@ void vertex() {
 void steel_surface(inout vec3 alb, inout float met, inout float rgh, inout vec3 emis, inout vec3 nrm, float xray, mat4 vm) {
 	float s = vnoise(lp * streak);
 	float p = vnoise(lp * 7.0 + 3.0);
-	float r = clamp(rough_base + (s - 0.5) * 0.09 + (p - 0.5) * 0.16, 0.06, 1.0);
-	alb = albedo * (0.94 + 0.1 * p);
+	float r = clamp(rough_base + (s - 0.5) * 0.09 + (p - 0.5) * 0.16 * blotch, 0.06, 1.0);
+	alb = albedo * (1.0 + (0.1 * p - 0.06) * blotch);
 	met = metallic;
 	rgh = r;
 	if (frost > 0.001) {

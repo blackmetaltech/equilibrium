@@ -65,6 +65,8 @@ export interface ShiftState {
   edits?: Record<string, number>;
   /** D-B2: plant second of the first set point on each knob this shift (edits keeps the last). */
   firstEdits?: Record<string, number>;
+  /** Lowest number ever set per `unit.key` (Mateo, phase B: a set point below the catalyst's light-off costs even if turned back). */
+  lowSet?: Record<string, number>;
   trips: Record<string, TripRec>;
   /** Lagged (displayed) stream by pipe id, and the per-second lag weight of each pipe. */
   disp: Record<string, StreamState>;
