@@ -44,6 +44,9 @@ export function realFlask(s: { region: string }, T?: number, V_m3?: number): { k
 }
 
 /** D-B1: the temperature at which the real 1 L flask reads the book's gauge (K), by bisection on the real gauge (it rises with T). */
+/** Phase C (Mateo): lab time is ten runs. The win is finding the book's flask; the three Le Chatelier tests are the instruments (a star). */
+export const L14_RUNS = 10;
+
 export function bookT(s: { region: string }): number {
   const want = problem(s).P;
   let lo = 300, hi = 600;
@@ -106,6 +109,7 @@ const COACH: CoachStep[] = [
   { id: 'read_colour', role: 'mentor', focus: 'lab_flask', done: (s) => ['read_colour', 'argon_v', 'argon_p', 'why'].includes(s.ui.coachStep ?? '') || testsDone(s)[1] || changedSinceRun(s) },
   { id: 'argon_v', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[1] || ['argon_p', 'why'].includes(s.ui.coachStep ?? '') },
   { id: 'argon_p', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[2] || (s.ui.coachStep ?? '') === 'why' },
+  { id: 'find', role: 'mentor', focus: 'lab_flask', done: (s) => foundBookFlask(s) },   // phase C: the goal
   { id: 'why', role: 'mentor', done: (s) => s.ui.coachStep === 'why' },
 ];
 
@@ -122,8 +126,9 @@ export const L14: LevelSpec = {
     sealSetup(s);
   },
   measures: flaskMeasures,
-  goals: (_s, m) => [{ key: 'tests', met: m.v.tests === 3, value: m.v.tests!, target: 3 }],
-  extraStars: (s) => [predictionOf(s, 'kp_bar') !== null && relErr(predictionOf(s, 'kp_bar')!.value, bookWorking(s).kp) <= L14_KP_TOL, foundBookFlask(s)],
+  goals: (s, m) => [{ key: 'book', met: foundBookFlask(s), value: m.v.runs!, target: L14_RUNS }],
+  lost: (s) => (!foundBookFlask(s) && commissions(s) >= L14_RUNS ? 'lv.L14.lost' : null),   // lab time is up
+  extraStars: (s, m) => [m.v.tests === 3, predictionOf(s, 'kp_bar') !== null && relErr(predictionOf(s, 'kp_bar')!.value, bookWorking(s).kp) <= L14_KP_TOL],
   callIt: { key: 'kp_bar', unit: 'bar', tol: L14_KP_TOL, truth: (s) => bookWorking(s).kp },
   hero: (s, m) => ({ key: 'gauge', unit: 'bar', value: m.v.p_bar!, lo: problem(s).P * (1 - L14_GAUGE_TOL), hi: problem(s).P * (1 + L14_GAUGE_TOL) }),   // the band is the twin, the book's flask (the client draws its plate and its brown from it)
   secondary: (_s, m) => ({ key: 'alpha', unit: '%', value: m.v.alpha! * 100, limit: 100 }),
@@ -144,8 +149,8 @@ export const L14: LevelSpec = {
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
-    const [a, b, c] = testsDone(s), open = [a ? '' : t('lv.L14.test.halve'), b ? '' : t('lv.L14.test.inert_v'), c ? '' : t('lv.L14.test.inert_p')].filter((x) => x !== '');
-    return { key: 'tests_open', cause: t('lv.L14.cause.tests_open', { open: open.join(', ') }) };
+    const left = Math.max(0, L14_RUNS - commissions(s));
+    return { key: left === 0 ? 'out_of_runs' : 'not_found', cause: t('lv.L14.cause.not_found', { left, P: f(s, m.v.p_bar!) }) };
   },
   equation: (s, m) => {
     if (!m.ok || m.v.argon! > 0 || m.v.alpha! <= 0 || m.v.alpha! >= 0.999) return null;
@@ -154,7 +159,7 @@ export const L14: LevelSpec = {
   },
   lessonVars: (s, m) => {
     const w = bookWorking(s), real = realFlask(s);
-    return { alpha: f(s, w.alpha), P: f(s, m.v.p_bar!), kp: f(s, w.kp), real: f(s, real.kp), realP: f(s, real.P), tstar: f(s, Math.round(bookT(s) * 10) / 10), tests: m.v.tests! };
+    return { alpha: f(s, w.alpha), P: f(s, m.v.p_bar!), kp: f(s, w.kp), real: f(s, real.kp), realP: f(s, real.P), tstar: f(s, Math.round(bookT(s) * 10) / 10), tests: m.v.tests!, runs: m.v.runs!, max: L14_RUNS };
   },
   metrics: (_s, m) => [
     { key: 'kp_bar', unit: 'bar', value: m.v.kp_bar! },

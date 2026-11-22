@@ -162,9 +162,15 @@ func _run_l14() -> void:
 	lab.control_changed.emit("V", 0.001); await frames(2); lab.press_control("argon_valve"); await frames(2); lab.press_control("lever"); await frames(4)   # test 2
 	lab.press_control("clamp"); await frames(2); lab.press_control("lever"); await frames(4)   # test 3
 	var li3 = app.b.q("levelInfo")
-	check(int(li3.goals[0].value) == 3, "the coached order with the world's controls runs all three tests (%s of 3; clamp %.3f bar)" % [str(li3.goals[0].value), lab.flask_Pfix / 1e5])
-	check(int(app.speed) > 0, "L14: the clock runs after Begin, so the settle after the winning run ends (speed %s)" % str(app.speed))
-	check(app.b.q("levelInfo").get("firstRun", null) is Dictionary, "L14: the third test starts the settle before the printout")
+	var lit := 0
+	for an in li3.get("annunciators", []): if str(an.get("key", "")) in ["halve", "inert_v", "inert_p"] and str(an.get("state", "")) == "normal": lit += 1
+	check(lit == 3, "the coached order with the world's controls runs all three tests (%d of 3 lamps; clamp %.3f bar)" % [lit, lab.flask_Pfix / 1e5])
+	check(app.b.q("levelInfo").get("firstRun", null) == null, "L14 (phase C): the three tests alone do not win; the book flask does")
+	if lab.flask_Pfix > 0.0: lab.press_control("clamp")
+	if lab.argon_on: lab.press_control("argon_valve")
+	lab.control_changed.emit("T", 406.5); await frames(2); lab.press_control("lever"); await frames(4)   # the book flask: 1 L, no argon, clamp on, T*
+	check(app.b.q("levelInfo").get("firstRun", null) is Dictionary, "L14: finding the book flask starts the settle before the printout (goal %s)" % str(app.b.q("levelInfo").goals[0]))
+	check(int(app.speed) > 0, "L14: the clock runs during the settle after the winning run (speed %s, status %s, goal %s)" % [str(app.speed), str(app.b.g.get("status", "")), str(app.b.q("levelInfo").goals[0])])
 	if lab.flask_Pfix > 0.0: lab.press_control("clamp")
 	if lab.argon_on: lab.press_control("argon_valve")
 	await frames(2)

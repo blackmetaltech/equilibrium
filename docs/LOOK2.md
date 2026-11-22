@@ -195,3 +195,29 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
 - Not done: hiding Why? until a test has run. The predict-first wording does the same job.
 
 **Pad.** D-pad left/right picks a world control (a ring marks it, and a line names it and its value). Up/down turns a wheel. A pulls RUN, works the valve or the clamp, or opens the keypad for the Call box. LB/RB step the camera presets; the sticks and triggers move the camera. X flips the views in chapter 3. godot/tests/pad3_flow.gd drives all of it with real joypad events.
+
+## Phase C (11-23): 0.11.0
+
+### Decision records
+
+**D-C1. L14's win is finding the book's flask, with ten runs (Mateo, carried over).**
+- **Goal:** the 1 L flask, with no argon and the clamp on, reads the book's 9.15 bar within 0.5 % (T* = 406.5 K).
+- **Lab time:** ten runs. The tenth run without the find loses ("Lab time is up").
+- **Stars:** the find; all three Le Chatelier tests (they are the instruments now, not the goal); the Kp call.
+- **Coach:** a "find" step after the tests ("bracket it: one run too cold, one too hot, then split the gap").
+- **HUD:** shows "Runs left: n of 10", amber at 3 or fewer.
+- **Tests:** ch3.test.ts and f25_truth.test.ts changed on purpose.
+- **Not done:** gating each run behind a "darker or lighter?" prediction.
+- **Disagreed:** Priya wanted this moved to 0.12, to spend the layer on first contact. Overruled, because the coordinator ordered it for this layer, and it is engine and HUD work that does not compete with the chapter 1 art.
+
+**D-C2. Chapter 1, The Bench, is the next chapter in the new look (Priya).**
+- **Why:** it is what a player meets right after L00. Chapter 2 is reachable only through chapter 1 (PREREQ {2: 1}), so a new-look chapter 2 would sit behind classic screens.
+- **How:** it reuses GenWorld (the drafting table plus the hall). New models: the burner (with the blower folded in), the stack, the flue analyser and the cylinder feeds; a QC-lab setting.
+- **Strongest case against (Priya's own):** a bench mole balance is the least spectacular thing we have. Her answer: lit burners in L02 and L03, with the flame following duty.
+- **Cut:** a 3D build mode; a separate blower model.
+- **Priya's gate:**
+  1. A fresh persona wins L00 and L01-L04, once pad-only and once with a mouse.
+  2. The drafting table works by pad, with a joypad flow test, and the silent failed drags get a regression test.
+  3. The burner flame follows duty, and the analyser reads O2 and CO2 in the world. Sigrid scores the chapter 1 hall at least 6.
+  4. Sounds for commission, flame, trip and win. No human has listened; this is said plainly instead of naming a listener.
+  5. The printout appears within 3 s of GOAL MET, or shows progress.

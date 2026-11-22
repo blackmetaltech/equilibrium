@@ -87,10 +87,11 @@ describe('F25 L10 / L13 / L14 texts', () => {
     const lamp = (): any => (li(e).annunciators as any[]).find((a) => a.key === 'sinter');
     expect(lamp().legend).toBe('BED SINTER');
   });
-  it('L14: the brief gives 400 K and the dial reading in °C (D-B1: the goal is the three tests, no temperature in it)', () => {
+  it('L14: the brief gives 400 K and the dial reading in °C; the goal names the book\'s 9.15 bar and the run limit, never the answer temperature (phase C)', () => {
     const e = mk('L14');
     expect(JSON.stringify(li(e))).toMatch(/400 K \(126\.85 °C/);
-    expect(JSON.stringify(li(e).goals)).toMatch(/three tests/);
+    expect(JSON.stringify(li(e).goals)).toMatch(/9\.15 bar, within 10 runs/);
+    expect(JSON.stringify(li(e))).not.toMatch(/406\.[0-9]/);
   });
 });
 

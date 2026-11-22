@@ -376,14 +376,14 @@ describe('L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; D-B1: the open
     const hot = run(start('L14'), [{ name: 'setParam', args: ['U-104', 'T', 450] }, { name: 'commission' }]);
     expect(flask(hot).no2_mol_m3!).toBeGreaterThan(flask(e).no2_mol_m3!);   // heating darkens the gas: the shift is real now
   });
-  it('the run record proves the three tests; the order does not matter; the tests are the goal', () => {
+  it('the run record proves the three tests; the order does not matter; the tests are a star, the book flask is the goal (phase C)', () => {
     const e = start('L14');
     expect(testsDone(e.state)).toEqual([false, false, false]);
     run(e, [{ name: 'setParam', args: ['U-104', 'Pfix', 20e5] }, { name: 'setFeed', args: ['F-102', { flow: 0.15 }] }, { name: 'commission' }]);
     expect(testsDone(e.state)).toEqual([false, false, false]);   // argon at 20 bar is a pressure change, not the inert-gas test (Anjali)
     run(e, [{ name: 'setParam', args: ['U-104', 'Pfix', Math.round(realFlask({ region: 'global' }).P * 1e5)] }, { name: 'setFeed', args: ['F-102', { flow: 0 }] }, { name: 'commission' }]);
     expect(info(e).goals[0].met).toBe(false);
-    expect(card(e).verdictKey).toBe('tests_open');
+    expect(card(e).verdictKey).toBe('not_found');
     run(e, [{ name: 'setFeed', args: ['F-102', { flow: 0.15 }] }, { name: 'commission' }]);
     expect(testsDone(e.state)).toEqual([false, false, true]);
     run(e, [{ name: 'setParam', args: ['U-104', 'Pfix', 0] }, { name: 'commission' }]);
@@ -391,15 +391,29 @@ describe('L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; D-B1: the open
     run(e, [{ name: 'setFeed', args: ['F-102', { flow: 0 }] }, { name: 'setParam', args: ['U-104', 'V', 0.5e-3] }, { name: 'commission' }]);
     expect(testsDone(e.state)).toEqual([true, true, true]);
     run(e, [{ name: 'setParam', args: ['U-104', 'V', 1e-3] }, { name: 'commission' }]); roll(e);
+    expect(e.state.status).toBe('playing');   // all three tests do not win: the book flask does
+    run(e, [{ name: 'setParam', args: ['U-104', 'T', Math.round(bookT({ region: 'global' }) * 100) / 100] }, { name: 'commission' }]); roll(e);
+    expect(e.state.status).toBe('won'); expect(card(e).stars.earned).toEqual([true, true, false]);
+  });
+  it('phase C: ten runs of lab time; the tenth run without the book flask loses, with a reason', () => {
+    const e = start('L14');
+    for (let i = 0; i < 9; i++) run(e, [{ name: 'setParam', args: ['U-104', 'T', 370 + i] }, { name: 'commission' }]);   // cold runs: never the book flask (T* is 406.5 K)
+    expect(e.state.status).toBe('playing'); expect(info(e).goals[0]).toMatchObject({ met: false, value: 9, target: 10 });
+    run(e, [{ name: 'setParam', args: ['U-104', 'T', 380] }, { name: 'commission' }]); roll(e);
+    expect(e.state.status).toBe('lost'); expect(card(e).cause).toContain('Runs left: 0');
+  });
+  it('phase C: the book flask alone wins at once (the tests are a star)', () => {
+    const e = start('L14');
+    run(e, [{ name: 'setParam', args: ['U-104', 'T', Math.round(bookT({ region: 'global' }) * 100) / 100] }, { name: 'commission' }]); roll(e);
     expect(e.state.status).toBe('won'); expect(card(e).stars.earned).toEqual([true, false, false]);
   });
-  it('the notebook flask alone does not win: the tests are the goal, and the card names what is still to run', () => {
+  it('the notebook flask at 400 K does not win: it reads 8.83 bar, and the card says to turn the T wheel', () => {
     const e = base(); roll(e);
-    expect(e.state.status).toBe('playing'); expect(card(e).verdictKey).toBe('tests_open'); expect(card(e).cause).toContain('halved volume');
+    expect(e.state.status).toBe('playing'); expect(card(e).verdictKey).toBe('not_found'); expect(card(e).cause).toContain('turn the T wheel');
   });
-  it('the volume typed in litres (1 m3) runs none of the tests', () => {
+  it('the volume typed in litres (1 m3) runs none of the tests and does not find the book flask', () => {
     const e = play('L14', NAIVE.L14!);
-    expect(card(e).verdictKey).toBe('tests_open'); expect(card(e).won).toBe(false); expect(card(e).histogram).toBeNull();
+    expect(card(e).verdictKey).toBe('not_found'); expect(card(e).won).toBe(false); expect(card(e).histogram).toBeNull();
   });
 });
 
@@ -414,9 +428,9 @@ describe('Call it grading at the oracle tolerance', () => {
     const kp = oracle('EQ-NC-024').expected.Kp_bar as number;
     for (const [x, ok] of [[kp, true], [85.9, true], [kp * 1.0045, true], [kp * 0.9955, true], [86.5, false], [83.71, false]] as const) {
       const e = call('L14', x);
-      expect(card(e).stars.earned[1], String(x)).toBe(ok); expect(card(e).callIt.ok, String(x)).toBe(ok);
+      expect(card(e).stars.earned[2], String(x)).toBe(ok); expect(card(e).callIt.ok, String(x)).toBe(ok);
     }
-    expect(card(call('L14', null)).stars.earned).toEqual([true, false, true]);   // the solver also finds the book flask (T*)
+    expect(card(call('L14', null)).stars.earned).toEqual([true, true, false]);   // phase C: the solver finds the book flask (the goal) and runs the tests
   });
   it('L13: bed-1 exit at 420 C inlet is 621 C (DESIGN, 0.5 %) within 1 %; L12: K(400 C) within 2 %; L10: K(450 C) within 5 %', () => {
     expect(Math.abs(bed1ExitC() - 621) / 621).toBeLessThan(0.005);
@@ -476,7 +490,7 @@ describe('levelInfo contract', () => {
     act(e, 'placeUnit', 'compressor', 8, 2, 0); expect(info(e).coach.step).toBe(2);
     expect(info(e).coach.why).toMatch(/^Why:/);
     expect(info(start('L10', 1003, 'engineer')).coach).toBeNull(); expect(info(start('L10', 1003, 'sandbox')).coach).toBeNull();
-    expect(info(start('L14')).coach).toMatchObject({ step: 1, total: 6, speaker: 'mara' });
+    expect(info(start('L14')).coach).toMatchObject({ step: 1, total: 7, speaker: 'mara' });   // phase C: + find the book flask
     for (const id of CH3) expect(info(solve(id)).coach).toBeNull();
   });
   it('before a run the answers are not on the screen (L14: Kp and T*; L11 spent units)', () => {

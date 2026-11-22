@@ -21,7 +21,7 @@ export const CHAPTERS: { n: number; title: string; site: string; look: 'new' | '
 
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 /** A string as the player reads it; run-time {placeholders} become "…". '' when the key does not exist. */
-const tx = (key: string): string => { const s = en[key]; return s === undefined ? '' : s.replace(/\{[a-zA-Z_]+\}/g, '…'); };
+const tx = (key: string): string => { const s = en[key]; return s === undefined ? '' : s.replace(/\{[a-zA-Z_0-9]+\}/g, '…'); };
 const keysWith = (prefix: string): string[] => Object.keys(en).filter((k) => k.startsWith(prefix));
 
 const head = (title: string, desc: string): string => `<!doctype html>
