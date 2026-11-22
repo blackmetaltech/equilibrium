@@ -124,7 +124,7 @@ Scope from the studio manager, in order: the fantasy (L14 private lab), panels o
 |---|---|---|---|
 | L00 opening | 26.6 | 28.3 | 37.6 |
 | L00 outside | 18.3 | 18.3 | 54.7 |
-| L14 opening | 20.6 | 21.4 | 48.7 |
+| L14 opening | 25.1 | 25.8 | 39.9 |   (after the compat fill light; 20.6 ms without it)
 
 Traded on compat: no SDFGI, SSR, SSIL, SSAO, volumetric fog or shadows; distance fog instead; no reflection probe; far omni lights off (emissive bulbs stay); outdoor structure hidden; particles at 30 %; 3D at 60 % with FSR, HUD at full resolution. Phase A was 30.0 ms at the same view.
 
@@ -133,5 +133,15 @@ Traded on compat: no SDFGI, SSR, SSIL, SSAO, volumetric fog or shadows; distance
 **Tests.** 44 of 44 Godot flows OK, look2_flow 49 checks (L00 and L14), layout_flow 0 failures. Engine (src/) unchanged against master.
 
 **Evidence (round 2).** docs/look2/r2-*.jpg and docs/look2/flask-shift-10s.mp4 (book, halve V, run, argon at constant P, on the 4090 at 1080p, 30 fps).
+
+**Critique (round 2, new shots only, scored once).**
+
+| Critic | Score | Phase A | Strongest point |
+|---|---|---|---|
+| Sigrid (art) | 5 | 4 | L00 reads as a real plant but in uniform amber haze; L14 is a stage in a black void, not a boy's lab; vessels wear the same blotch noise |
+| Mateo (design) | 4 | - | Still an exam: "Exam Bridge", a textbook problem, a coach giving orders, a +/- form that beats the wheels; fixed K makes the heater a dead verb |
+
+Fixed after scoring (one pass): heater band moved below the glass and a light box put behind the cylinder (Sigrid: brown only reads against white); NO2 coverage curve for linear blending (the gas was faint); compat fill light on the dais (L14 compat was near black); brief above the command panel at 1280x800 (that overlap in her shots predates the fix).
+Not fixed, for phase B: Mateo's fantasy and control points (retitle and reframe L14 as the player's own question, wheels and a RUN lever as the only controls, a twin reference flask, real K so heat drives the colour, open challenges that add apparatus to the hall); Sigrid's material pass (steel and cladding instead of blotch noise, a real fired heater), a darker L00 night, an establishing L14 view with real depth and fewer neon strips.
 
 **Not done.** The "dial has no cost" level-design finding is for the phase B gate. Real-mouse drags and hover expansion are tested by synthetic events only. The L14 end card and retry were not played through.
