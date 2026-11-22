@@ -6,7 +6,7 @@ import { CAREER, careerOf, decisionView } from './career';
 import { SPEC_BY_ID, SPECS } from './registry';
 import { Env } from '@core/kit';
 import { GAME } from '../game';
-import { MONTHS, CareerError, foreOpen, ackWarning, advance, advanceToDecision, answerDecision, decide, initCareer, pendingDecision, score, DEC_KINDS, type Career } from '../sim/career/model';
+import { MONTHS, CareerError, ackWarning, advance, advanceToDecision, answerDecision, decide, initCareer, pendingDecision, score, DEC_KINDS, type Career } from '../sim/career/model';
 import { humanCarefulDecisions } from '../sim/career/human';
 import { carefulDecisions, type Decision } from '../sim/career/policy';
 import type { EqState } from '../state';
@@ -26,19 +26,18 @@ export function skipCareer(seed: number): { c: Career; presses: number; whys: st
   let presses = 0;
   while (c.ending === '' && presses < 200) {
     run(c, humanCarefulDecisions(c));
-    if ((c.stopped ?? []).length > 0 || foreOpen(c)) ackWarning(c);
+    if ((c.stopped ?? []).length > 0) ackWarning(c);
     advanceToDecision(c); presses++; whys.push(c.why!.kind);
   }
   return { c, presses, whys };
 }
 
 describe('NEXT DECISION (skip to the next thing that needs you)', () => {
-  it('the scripted skip player finishes 60 months in at most 30 presses plus one per forewarning (F31), ends at least Steady, on every seed', () => {
+  it('the scripted skip player finishes 60 months in at most 30 presses, ends at least Steady, on every seed', () => {
     for (const seed of SEEDS) {
-      const { c, presses, whys } = skipCareer(seed);
+      const { c, presses } = skipCareer(seed);
       expect(c.m, `seed ${seed}`).toBe(MONTHS);
-      const fores = whys.filter((w) => w === 'fore').length;   // F31: the supplier's heads-up is a stop of its own, one per incident; every other stop stays inside the old limit of 30
-      expect(presses - fores, `seed ${seed} presses`).toBeLessThanOrEqual(30);
+      expect(presses, `seed ${seed} presses`).toBeLessThanOrEqual(30);
       expect(['steady', 'chief'], `seed ${seed} ${c.ending}`).toContain(c.ending);
     }
   });
@@ -53,7 +52,7 @@ describe('NEXT DECISION (skip to the next thing that needs you)', () => {
   it('it never runs more than 12 months, always stops at a year end, and says why every time', () => {
     const c = initCareer(2, 'engineer');
     for (let g = 0; g < 40 && c.ending === ''; g++) {
-      run(c, humanCarefulDecisions(c)); if ((c.stopped ?? []).length > 0 || foreOpen(c)) ackWarning(c);
+      run(c, humanCarefulDecisions(c)); if ((c.stopped ?? []).length > 0) ackWarning(c);
       const m0 = c.m, n = advanceToDecision(c);
       expect(n).toBeGreaterThanOrEqual(1); expect(n).toBeLessThanOrEqual(12); expect(c.m).toBe(m0 + n);
       if (Math.floor(m0 / 12) !== Math.floor(c.m / 12)) expect(c.m % 12).toBe(0);
@@ -64,11 +63,11 @@ describe('NEXT DECISION (skip to the next thing that needs you)', () => {
     for (const seed of SEEDS) {
       const c = initCareer(seed, 'engineer');
       while (c.ending === '') {
-        run(c, humanCarefulDecisions(c)); if ((c.stopped ?? []).length > 0 || foreOpen(c)) ackWarning(c);
+        run(c, humanCarefulDecisions(c)); if ((c.stopped ?? []).length > 0) ackWarning(c);
         const before = new Set(c.plants.nh3 ? [] : []); void before;
         const flags0 = new Set<string>(); for (const p of ['nh3', 'acid', 'meoh', 'etoh'] as const) { const x = c.plants[p]; if (x.insp >= 10) flags0.add(`insp:${p}`); if (x.cat < 0.7) flags0.add(`cat:${p}`); if (x.U < 0.75) flags0.add(`foul:${p}`); }
         const m0 = c.m, n = advanceToDecision(c);
-        if (n < 12 && c.m % 12 !== 0 && c.ending === '') expect(['insp', 'cat', 'foul', 'overdue', 'offer', 'gas', 'price', 'incident', 'critical', 'em', 'end', 'inc', 'fore'], `seed ${seed} m${m0}`).toContain(c.why!.kind);
+        if (n < 12 && c.m % 12 !== 0 && c.ending === '') expect(['insp', 'cat', 'foul', 'overdue', 'offer', 'gas', 'price', 'incident', 'critical', 'em', 'end', 'inc'], `seed ${seed} m${m0}`).toContain(c.why!.kind);
         if (['insp', 'cat', 'foul'].includes(c.why!.kind)) expect((c.stopped ?? []).length).toBeGreaterThan(0);
       }
     }
@@ -140,7 +139,7 @@ describe('the board view', () => {
     act(e, 'answer', 0);
     let d = view(e).dashboard;
     expect(d.decision.pending).toBe(false); expect(d.decision.options[0].chosen).toBe(true); expect(d.nextNote).toContain('NEXT DECISION runs up to 12 months');
-    act(e, 'ackWarning'); act(e, 'advanceToDecision'); d = view(e).dashboard;   // F31: a heads-up lit at the start is acknowledged first
+    act(e, 'advanceToDecision'); d = view(e).dashboard;
     expect(d.month).toBeGreaterThan(0); expect(d.whyNote).toMatch(/^Stopped:/);
     expect(Object.keys(L).filter((k) => k.startsWith('lv.CAREER.why.')).length).toBeGreaterThanOrEqual(10);
   });

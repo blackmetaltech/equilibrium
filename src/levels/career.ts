@@ -11,7 +11,7 @@ import {
   CareerError, INSPECT_STRIKE_OVER, INSPECT_USD, SKIP_MAX, emWarn, endAhead, endWhy, taOverlap, suggestTaMonth, type Review, catPrice, offerTaShort, openWarnings, offerFills, strikeAhead, warnHandled, inspDueMonth, type DecTerm, DEC_CONTRACT_DISCOUNT, DEC_ACT_MARGIN, pendingDecision, worthyOffer, type YearDecision, INSPECT_WARN, advance, alerts, attention, inspState, taWeigh, contracted, crewLimit, decide, emCap, exposure, gasMul, initCareer, investCost, outlook, outputOf, overdue, pace, previewInvest, riskOf, score, taDays, taShort, year, type Career, type EndNeed, type Lever, type LogRow, type Outlook,
 } from '../sim/career/model';
 import { naiveDecisions, solverDecisions, type Decision } from '../sim/career/policy';
-import { foreWarn, pendingIncident } from '../sim/career/model';
+import { pendingIncident } from '../sim/career/model';
 import { INCIDENT_DEFS, effectOf, optionLossUSD, statedLoop, CONTRACTOR_PURGE, OLD_PURGE, type Incident } from '../sim/career/incident';
 import type { EqState } from '../state';
 import { CARRIER_UNITS, LATE, carrierSetup, goalLamp, lit } from './ch9_common';
@@ -118,8 +118,7 @@ const investText = (c: Career, k: 'heat' | 'abate' | 'safety'): string => {
 const attentionNote = (c: Career, k: string): string => {
   if (k.startsWith('em:')) return emText(c);
   if (k.startsWith('end:')) return endAheadText(c);
-  if (k.startsWith('fore:')) { const fw = foreWarn(c); return fw === null ? '' : t('lv.CAREER.attn.fore', { plant: plantLabel(fw.plant), plantl: plantLabel(fw.plant).toLowerCase(), month: fw.month + 1 }); }
-  if (k.startsWith('inc:')) { const i = pendingIncident(c); return i === null ? '' : t('lv.CAREER.attn.inc', { plant: plantLabel(i.plant), y: (i.y * 100).toFixed(1) }); }
+  if (k.startsWith('inc:')) { const i = pendingIncident(c); return i === null ? '' : t(i.ann === true ? 'lv.CAREER.attn.inc_next' : 'lv.CAREER.attn.inc', { plant: plantLabel(i.plant), plantl: plantLabel(i.plant).toLowerCase(), y: (i.y * 100).toFixed(1) }); }
   const [kind, p] = k.split(':') as [string, (typeof PLANTS)[number]], x = c.plants[p];
   return t(`lv.CAREER.attn.${kind}`, { plant: plantLabel(p), when: withinMonths(Math.max(0, INSPECT_EVERY - x.insp)), pct: Math.round((kind === 'cat' ? x.cat : x.U) * 100) });
 };
@@ -281,8 +280,7 @@ function whyNote(c: Career): string {
     case 'em': return openWarnings(c).some((k) => k.startsWith('em:')) ? `Stopped: ${emText(c)}` : '';
     case 'end': return c.ending !== '' ? t('lv.CAREER.why.end', base) : openWarnings(c).some((k) => k.startsWith('end:')) ? `Stopped: ${endAheadText(c)}` : '';
     case 'decision': return pendingDecision(c) !== null ? t('lv.CAREER.why.decision', base) : '';
-    case 'fore': return openWarnings(c).some((k) => k.startsWith('fore:')) ? t('lv.CAREER.why.fore', { ...base, note: attentionNote(c, 'fore:') }) : '';
-    case 'inc': return pendingIncident(c) !== null ? t('lv.CAREER.why.inc', { ...base, y: (pendingIncident(c)!.y * 100).toFixed(1) }) : '';
+    case 'inc': return pendingIncident(c) !== null ? t(pendingIncident(c)!.ann === true ? 'lv.CAREER.why.inc_next' : 'lv.CAREER.why.inc', { ...base, y: (pendingIncident(c)!.y * 100).toFixed(1) }) : '';
     case 'gas': return t(w.n < 0 ? 'lv.CAREER.why.gas_down' : 'lv.CAREER.why.gas_up', base);
     case 'critical': return t('lv.CAREER.why.critical', { ...base, s: c.strikes, flag: c.strikes === 1 ? t('lv.CAREER.warn.strike_flag') : '' });
     default: return t(`lv.CAREER.why.${w.kind}`, base);
@@ -463,7 +461,7 @@ export function incidentView(c: Career): Record<string, unknown> | null {
   const done = i.choice !== '' ? t(`lv.CAREER.inc.done.${i.lapsed ? 'lapsed' : i.choice}`, { ...vars, purge: pctText(i.purge * 100), ar: pctText(i.ar), out: Math.round(i.outF * 100), gas: Math.round((i.gasF - 1) * 100) }) : '';
   return {
     id: i.id, plant: i.plant, plantLabel: plant, pending: i.choice === '', choice: i.choice, lapsed: i.lapsed, month: i.m, from: i.from, until: i.until, yPct: i.y * 100, cat: i.cat, outF: i.outF, gasF: i.gasF,
-    title: t(`lv.CAREER.inc.${i.id}.title`, vars), body: t(`lv.CAREER.inc.${i.id}.body`, vars), done, level: def.level, pre,
+    ahead: i.ann === true && i.choice === '', title: t(`lv.CAREER.inc.${i.id}.${i.ann === true && i.choice === '' ? 'title_next' : 'title'}`, vars), body: t(`lv.CAREER.inc.${i.id}.${i.ann === true && i.choice === '' ? 'body_next' : 'body'}`, vars), done, level: def.level, pre,
     plantKey: t('lv.CAREER.inc.plant.key'), plantText: t('lv.CAREER.inc.plant.text', vars), options: [opt('contractor'), opt('ignore')],
   };
 }

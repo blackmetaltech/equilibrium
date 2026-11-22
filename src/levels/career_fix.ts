@@ -87,7 +87,7 @@ export const CAREER_FIX_NH3_INERTS: LevelSpec = {
   textVars: (s) => {
     const m = measures(s), pre = preOf(s);
     return { y: f(s, shown(pre.y * 100)), ar: f(s, shown(arFresh(pre.y))), cat: Math.round(pre.cat * 100), dT: f(s, shown(approachK(pre.cat))), rated: f(s, shown(kwRated(pre.cat))), old: f(s, OLD_PURGE * 100), months: pre.months,
-      con: m2(m.v.contractor_musd!), conp: f(s, CONTRACTOR_PURGE * 100), cono: Math.round(m.v.contractor_out!), conusd: m2(pre.contractorUSD / 1e6), ign: m2(m.v.ignore_musd!), igno: Math.round(m.v.ignore_out!), month: pre.m + 1, price: Math.round(pre.price), gas: pre.gas.toFixed(2), min: Math.round(FIX_OUT_MIN * 100) };
+      con: m2(m.v.contractor_musd!), conp: f(s, CONTRACTOR_PURGE * 100), cono: Math.round(m.v.contractor_out!), conusd: m2(pre.contractorUSD / 1e6), ign: m2(m.v.ignore_musd!), igno: Math.round(m.v.ignore_out!), month: Math.max(1, pre.m), price: Math.round(pre.price), gas: pre.gas.toFixed(2), min: Math.round(FIX_OUT_MIN * 100) };
   },
   measures,
   goals: (_s, m) => [

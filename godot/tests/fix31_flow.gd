@@ -104,6 +104,8 @@ func _fit_paths(sz: Vector2i) -> void:
 		act("advance", [1])
 	await refresh()
 	await fit_check(" (incident waiting)" + tag)
+	var icd: Dictionary = dash().get("incident", {})
+	check(bool(icd.get("ahead", false)) and str(icd.get("title", "")).contains("next month") and str(icd.get("body", "")).contains("from month"), "the card is the supplier's heads-up: the inerts arrive next month" + tag)
 	var m0 := int(dash().get("month", -1))
 	# GO TO THE PLANT, fix it, BACK TO THE CAREER
 	await press("IncidentPlant"); await frames(8)

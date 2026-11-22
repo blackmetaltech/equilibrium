@@ -15,7 +15,7 @@ import { CAREER, careerOf, incidentView, logLabel } from './career';
 import { SPEC_BY_ID, SPECS } from './registry';
 import { CAREER_FIX_NH3_INERTS, DEFAULT_PRE, FIX_ID } from './career_fix';
 import { INERT_STEPS, OLD_PURGE } from '../sim/career/incident';
-import { CareerError, MONTHS, pendingDecision, advance, advanceToDecision, decide, eventOf, foreWarn, initCareer, openWarnings, pendingIncident, strikeAhead, type Career } from '../sim/career/model';
+import { CareerError, MONTHS, pendingDecision, advance, advanceToDecision, decide, eventOf, foreWarn, initCareer, pendingIncident, strikeAhead, type Career } from '../sim/career/model';
 import { carefulDecisions } from '../sim/career/policy';
 import { followerDecisions } from '../sim/career/human';
 
@@ -101,56 +101,68 @@ describe('F31: the incident row names its plant', () => {
   });
 });
 
-describe('F31: the incident is forewarned', () => {
-  it('a notice lights the month before the event, names the ammonia loop and stops NEXT DECISION until acknowledged', () => {
+describe('F31: the incident is announced a month ahead, in one stop', () => {
+  it('every incident (but one in the first two months, before the player has played) opens its card the month before the event; its effect starts at least a month after that', () => {
     let n = 0;
-    for (let seed = 1; seed <= 12; seed++) {
+    for (let seed = 1; seed <= 40; seed++) {
       const c = initCareer(seed, 'engineer');
-      let seen = 0;
       for (let g = 0; g < MONTHS && c.ending === ''; g++) {
-        const fw = foreWarn(c);
-        if (fw !== null) {
-          seen++; n++;
-          expect(fw.month).toBe(c.m + 1); expect(fw.plant).toBe('nh3');
-          expect(eventOf(c.seed, fw.month)!.ev).toBe('feed_inerts');
-          expect(openWarnings(c).some((k) => k.startsWith('fore:nh3:'))).toBe(true);
-          if (pendingDecision(c) !== null) decide(c, 'answer', 1);
-          expect(() => advanceToDecision(c)).toThrow(CareerError);
-          expect(c.stopped!.some((k) => k.startsWith('fore:'))).toBe(true);
-          const m0 = c.m; decide(c, 'ackWarning'); advance(c, 1);
-          if (c.ending !== '') break;
-          expect(c.m).toBe(m0 + 1);
-          expect(foreWarn(c)).toBeNull();
-          if (c.ending !== '') break;
-          advance(c, 1);   // the event month: the incident opens exactly where the notice said
-          expect(c.inc!.m).toBe(fw.month);
-          continue;
+        const i = pendingIncident(c);
+        if (i !== null) {
+          n++;
+          if (i.m > 1) { expect(i.ann, `seed ${seed}`).toBe(true); expect(c.m, `seed ${seed}`).toBe(i.m - 1); }
+          if (i.ann === true) expect(i.from - c.m, `seed ${seed}: effect starts at least a month after the card`).toBeGreaterThanOrEqual(1);
+          expect(eventOf(c.seed, i.m)!.ev).toBe('feed_inerts');
+          expect(c.log.some((l) => l.kind === 'fix' && l.code === (i.ann === true ? 'ahead' : 'open') && l.m === (i.ann === true ? c.m : i.m))).toBe(true);
+          decide(c, 'incident', 'ignore');
         }
         advance(c, 1);
       }
-      void seen;
     }
-    expect(n).toBeGreaterThan(2);
+    expect(n).toBeGreaterThan(10);
   });
-  it('NEXT DECISION itself stops at the notice, and the warning does not change the schedule', () => {
-    const a = initCareer(3, 'engineer'), b = initCareer(3, 'engineer');
-    const events = (c: Career): string => JSON.stringify(c.log.filter((l) => l.kind === 'event' || (l.kind === 'fix' && l.code === 'open')));
-    let stoppedAtFore = 0;
-    for (let g = 0; g < 80 && a.ending === ''; g++) {
-      try { advanceToDecision(a); } catch (e) { if (!(e instanceof CareerError)) throw e; decide(a, 'ackWarning'); if (a.stopped !== undefined) { /* acked */ } }
-      if (a.why?.kind === 'fore') stoppedAtFore++;
-      if (a.m >= 36) break;
+  it('the schedule is the seeded one (every event row is eventOf of its month); the answer made at the announcement applies when the event fires, with no second stop', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const c = initCareer(seed, 'engineer');
+      for (let g = 0; g < 40 && c.ending === ''; g++) {
+        const i = pendingIncident(c);
+        if (i !== null && i.ann === true) {
+          decide(c, 'incident', 'contractor');
+          const choice = c.inc!;
+          advance(c, 1);   // the month before the event runs
+          if (c.ending !== '') break;
+          expect(pendingIncident(c)).toBeNull();
+          advance(c, 1);   // the event month: nothing new opens, the answered incident stands and is in force
+          expect(pendingIncident(c)).toBeNull(); expect(c.inc).toBe(choice); expect(c.inc!.choice).toBe('contractor');
+          continue;
+        }
+        if (i !== null) decide(c, 'incident', 'ignore');
+        advance(c, 1);
+      }
+      for (const l of c.log) if (l.kind === 'event') expect(eventOf(c.seed, l.m)!.ev).toBe(l.code);
     }
-    while (b.ending === '' && b.m < a.m) advance(b, 1);
-    expect(events(a)).toBe(events(b));
-    expect(stoppedAtFore).toBeGreaterThanOrEqual(0);
   });
-  it('an event that would not open an incident (one is running) is not forewarned', () => {
+  it('NEXT DECISION stops once per incident: a skip player meets as many incident stops as incidents', () => {
+    for (const seed of [1, 3, 5, 8]) {
+      const c = initCareer(seed, 'engineer'); let stops = 0;
+      for (let g = 0; g < 100 && c.ending === ''; g++) {
+        for (const d of carefulDecisions(c)) tryDo(c, d);
+        if ((c.stopped ?? []).length > 0 || pendingDecision(c) !== null) { try { decide(c, 'answer', 1); } catch { /* none */ } decide(c, 'ackWarning'); }
+        if (pendingIncident(c) !== null) decide(c, 'incident', 'ignore');
+        try { advanceToDecision(c); } catch (e) { if (!(e instanceof CareerError)) throw e; decide(c, 'ackWarning'); continue; }
+        if (c.why?.kind === 'inc') stops++;
+      }
+      const incidents = c.log.filter((l) => l.kind === 'fix' && (l.code === 'ahead' || l.code === 'open')).length;
+      expect(stops, `seed ${seed}`).toBeLessThanOrEqual(incidents);
+    }
+  });
+  it('an event that would not open an incident (one is running) is not announced', () => {
     for (let seed = 1; seed <= 40; seed++) {
       const c = initCareer(seed, 'engineer');
       for (let g = 0; g < 48 && c.ending === ''; g++) {
         const fw = foreWarn(c);
         if (fw !== null && c.inc != null) expect(fw.month).toBeGreaterThanOrEqual(c.inc.until);
+        if (pendingIncident(c) !== null) decide(c, 'incident', 'ignore');
         advance(c, 1);
       }
     }
