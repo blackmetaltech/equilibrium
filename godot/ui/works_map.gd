@@ -486,7 +486,7 @@ class SiteCard extends PanelContainer:
 		var sub := str(ch[2])
 		var crit := C.chapter_ids(chapter)
 		if crit.is_empty() and chapter > 0: sub += " · " + WorksMap.T("MAP_SOON")
-		sub += " · " + ("NEW LOOK" if chapter in WorksMap.NEW_LOOK else "classic look")
+		sub += " · " + ("NEW LOOK" if chapter in WorksMap.NEW_LOOK else "classic")
 		var sl := EqTheme.label(sub, 14 if compact else 16, EqTheme.TEAL.lightened(0.25) if state != "locked" else EqTheme.DIM, "sans"); sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; sl.custom_minimum_size = Vector2(40, 0); tv.add_child(sl)
 		if not opened:
 			var p: int = int(WorksMap.PREREQ[chapter])

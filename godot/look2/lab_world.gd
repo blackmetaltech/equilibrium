@@ -146,6 +146,11 @@ func _mats() -> void:
 	M.glass = _shader("glass", {"tint": Color(0.75, 0.86, 0.92, 0.07)})
 	M.brass = _flat(Color(0.78, 0.6, 0.3), 1.0, 0.3)
 	M.concrete_out = _pbr("concrete_floor_worn_02", 0.06, Color(0.42, 0.42, 0.43))
+	# round 3 (phase B): each vessel its own finish, not one blotchy steel everywhere
+	M.heat_paint = _flat(Color(0.6, 0.61, 0.6), 0.55, 0.48)                    # silicone aluminium heat-resistant paint on the fired heater
+	M.refractory = _flat(Color(0.42, 0.2, 0.12), 0.0, 0.9)                     # burner tile
+	M.enamel_green = _flat(Color(0.24, 0.42, 0.36), 0.05, 0.32)                # the cooler's glossy machinery green
+	M.enamel_blue = _flat(Color(0.18, 0.3, 0.5), 0.05, 0.35)
 
 # ---- primitives ------------------------------------------------------------------------------------------------------------------------------
 func _mi(mesh: Mesh, pos: Vector3, mat: Material, parent: Node = self) -> MeshInstance3D:
@@ -249,9 +254,9 @@ func _particles(pos: Vector3, amount: int, life: float, vel: Vector3, spread: fl
 func _build_env() -> void:
 	_mats()
 	env = Environment.new()
-	var sky := Sky.new(); var pano := PanoramaSkyMaterial.new(); pano.panorama = load("res://look2/assets/dikhololo_night_1k.hdr"); pano.energy_multiplier = 0.22; sky.sky_material = pano
+	var sky := Sky.new(); var pano := PanoramaSkyMaterial.new(); pano.panorama = load("res://look2/assets/dikhololo_night_1k.hdr"); pano.energy_multiplier = 0.12 if get_script() == LabWorld else 0.22; sky.sky_material = pano   # round 3: a darker night outside the L00 hall
 	env.background_mode = Environment.BG_SKY; env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY; env.ambient_light_energy = 0.35; env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY; env.ambient_light_energy = 0.26 if get_script() == LabWorld else 0.35; env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES; env.tonemap_exposure = 1.1; env.tonemap_white = 6.0
 	env.glow_enabled = true; env.glow_intensity = 0.55; env.glow_bloom = 0.06; env.glow_hdr_threshold = 1.1; env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	env.ssao_enabled = true; env.ssao_radius = 1.4; env.ssao_intensity = 2.2
@@ -369,8 +374,14 @@ func _build_loop() -> void:
 	_stencil("compressor", Vector3(cx + 1.2, 1.17, fz + 0.635), Vector3(0, 0, 1), 0.003)
 	# --- fired preheater: refractory box, peep ports with flame, burner, stack to the roof ---
 	var hx := -7.0
-	_box(Vector3(3.0, 4.2, 2.6), Vector3(hx, 2.28, fz), M.paint_grey)
+	_box(Vector3(3.0, 4.2, 2.6), Vector3(hx, 2.28, fz), M.heat_paint)
 	for i in 4: _box(Vector3(3.08, 0.08, 2.68), Vector3(hx, 0.6 + i * 1.2, fz), M.black)
+	_box(Vector3(2.0, 1.6, 1.8), Vector3(hx + 0.3, 5.2, fz - 0.2), M.heat_paint)      # convection section on top of the radiant box
+	for i in 3: _box(Vector3(2.06, 0.06, 1.86), Vector3(hx + 0.3, 4.6 + i * 0.6, fz - 0.2), M.black)
+	for i in 3:   # burner row under the floor: tile throats with a flame in each
+		var bp := Vector3(hx - 0.9 + i * 0.9, 0.16, fz + 0.6)
+		_cyl(0.2, 0.12, bp, M.refractory)
+		_cyl(0.1, 0.14, bp + Vector3(0, 0.02, 0), _flat(Color(1, 0.45, 0.1), 0, 1, Color(1.0, 0.42, 0.08), 6.0))
 	m_peep = _shader("flame", {"intensity": 1.4, "width": 0.9, "speed": 1.4})
 	for i in 3:
 		var pp := Vector3(hx - 0.9 + i * 0.9, 1.4, fz + 1.31)
@@ -378,17 +389,17 @@ func _build_loop() -> void:
 		var q := QuadMesh.new(); q.size = Vector2(0.17, 0.17); _mi(q, pp + Vector3(0, 0, 0.045), _flat(Color(1, 0.5, 0.15), 0, 1, Color(1.0, 0.45, 0.1), 8.0))
 	heater_light = OmniLight3D.new(); heater_light.light_color = Color(1.0, 0.5, 0.18); heater_light.light_energy = 0.8; heater_light.omni_range = 3.0; heater_light.position = Vector3(hx, 1.4, fz + 1.8); add_child(heater_light)
 	_cyl(0.32, 14.0, Vector3(hx + 0.6, 11.4, fz - 0.4), M.rust)
-	_cyl(0.4, 0.3, Vector3(hx + 0.6, 4.55, fz - 0.4), M.steel_dull)
+	_cyl(0.4, 0.3, Vector3(hx + 0.6, 6.1, fz - 0.4), M.steel_dull)
 	_pipe([Vector3(-7.0, 3.4, fz), Vector3(hx - 1.6, 3.4, fz)], 0.1, M.steel, self, false)
 	_pipe([Vector3(hx + 1.5, 2.0, fz), Vector3(-3.5, 2.0, fz)], 0.1, M.clad)
 	anchors["heater"] = Vector3(hx, 4.8, fz); radius["heater"] = 2.2
 	_stencil("heater", Vector3(hx, 3.5, fz + 1.312), Vector3(0, 0, 1), 0.005)
 	# --- trim cooler: horizontal shell-and-tube on saddles, CW in/out, CW pump ---
 	var kx := -1.0
-	var shell := _cyl(0.5, 4.2, Vector3(kx, 1.6, fz), M.steel); shell.rotation_degrees.z = 90
+	var shell := _cyl(0.5, 4.2, Vector3(kx, 1.6, fz), M.enamel_green); shell.rotation_degrees.z = 90
 	for s in [-1.0, 1.0]:
 		_cyl(0.62, 0.14, Vector3(kx + s * 2.15, 1.6, fz), M.steel_dull).rotation_degrees.z = 90
-		_sph(0.5, Vector3(kx + s * 2.25, 1.6, fz), M.steel_dull, self, true).rotation_degrees.z = -90 * s
+		_sph(0.5, Vector3(kx + s * 2.25, 1.6, fz), M.enamel_green, self, true).rotation_degrees.z = -90 * s
 		_box(Vector3(0.35, 1.1, 1.0), Vector3(kx + s * 1.3, 0.75, fz), M.paint_grey)
 	_pipe([Vector3(-3.5, 2.0, fz), Vector3(kx - 1.6, 2.0, fz), Vector3(kx - 1.6, 2.1, fz)], 0.1, M.clad, self, false)
 	# cooling water: supply from the pump, return to the wall (outside to the towers)
@@ -428,6 +439,7 @@ func _build_loop() -> void:
 		var a := TAU * i / 24.0
 		_cyl(0.035, 0.42, Vector3(vx + cos(a) * vr * 1.06, vb + vh + 0.18, vz + sin(a) * vr * 1.06), M.black, self, -1.0, 6)
 	for i in 4: _torus(vr + 0.01, 0.012, Vector3(vx, vb + 0.18 + 1.6 + i * 1.8, vz), M.steel_dull)   # girth welds
+	for i in 9: _cyl(vr + 0.025, 0.07, Vector3(vx, vb + 0.18 + 0.5 + i * 0.95, vz), M.clad, self, -1.0, 48)   # round 3: aluminium cladding bands
 	# catalyst beds inside (seen in x-ray)
 	m_beds = _shader("beds", {"heat": 0.15, "emit_gain": 1.3})
 	for i in 3: _cyl(vr * 0.9, 1.6, Vector3(vx, vb + 1.4 + i * 2.5, vz), m_beds, self, -1.0, 32)
@@ -492,7 +504,7 @@ func _build_loop() -> void:
 	# vapour to the splitter, purge up and out through the glass wall to the flare, recycle back along the rack
 	var tx := 16.0; var tz := 1.0
 	_pipe([Vector3(sx, 1.08 + sh + sr, vz), Vector3(sx, 6.0, vz), Vector3(tx, 6.0, vz), Vector3(tx, 6.0, tz), Vector3(tx, 2.2, tz)], 0.09, M.steel)
-	_box(Vector3(0.7, 0.9, 0.7), Vector3(tx, 1.75, tz), M.steel)   # splitter body
+	_box(Vector3(0.7, 0.9, 0.7), Vector3(tx, 1.75, tz), M.enamel_blue)   # splitter body
 	anchors["splitter"] = Vector3(tx, 2.6, tz); radius["splitter"] = 0.9
 	_pipe([Vector3(tx + 0.35, 1.75, tz), Vector3(19.0, 1.75, tz), Vector3(19.0, 12.6, tz), Vector3(19.0, 12.6, -14.9)], 0.05, _paint(Color(0.4, 0.42, 0.41)))   # purge line: grey, not a red stroke across the opening frame
 	_pipe([Vector3(tx, 1.3, tz), Vector3(tx, 0.9, tz), Vector3(tx, 0.9, 3.5), Vector3(-18.0, 0.9, 3.5), Vector3(-18.0, 0.9, fz + 0.2), Vector3(-17.5, Y - 0.12, fz + 0.2)], 0.08, M.steel)
