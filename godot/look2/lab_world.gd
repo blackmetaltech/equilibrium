@@ -54,6 +54,7 @@ func _ready() -> void:
 
 func setup(role_ids: Dictionary) -> void:
 	ids = role_ids
+	for r in tags: (tags[r] as Label3D).text = str(ids.get(r, ""))
 	var p = app.b.q("plant") if app != null and app.b != null else null
 	if not (p is Dictionary): return
 	var sp: Array = p.get("species", [])
@@ -186,6 +187,13 @@ func _lathe(prof: PackedVector2Array, seg: int, mat: Material, pos: Vector3, par
 			st.set_uv(Vector2(float(s) / seg, prof[i].y)); st.add_vertex(p00); st.set_uv(Vector2(float(s + 1) / seg, prof[i + 1].y)); st.add_vertex(p11); st.set_uv(Vector2(float(s + 1) / seg, prof[i].y)); st.add_vertex(p01)
 	st.generate_normals(); st.generate_tangents()
 	return _mi(st.commit(), pos, mat, parent)
+var tags := {}   ## role -> Label3D painted on the equipment (text set from the engine ids in setup)
+func _stencil(role: String, pos: Vector3, facing: Vector3, px := 0.006) -> void:
+	var l := Label3D.new(); l.text = role; l.billboard = BaseMaterial3D.BILLBOARD_DISABLED; l.shaded = true; l.double_sided = false
+	l.font = load("res://ui/fonts/Archivo-Variable.ttf"); l.font_size = 96; l.pixel_size = px; l.outline_size = 0
+	l.modulate = Color(0.08, 0.09, 0.1, 0.85); l.render_priority = 1
+	add_child(l); l.look_at_from_position(pos, pos - facing, Vector3.UP)
+	tags[role] = l
 func _gauge(pos: Vector3, facing: Vector3, parent: Node = self, val := 0.6, r := 0.11) -> ShaderMaterial:
 	var g := Node3D.new(); parent.add_child(g); g.position = pos
 	g.look_at_from_position(pos, pos + facing, Vector3.UP)
@@ -336,6 +344,7 @@ func _build_loop() -> void:
 	_pipe([Vector3(cx + 1.6, 1.75, fz), Vector3(cx + 1.6, 3.4, fz), Vector3(-7.0, 3.4, fz)], 0.1, M.steel)
 	_gauge(Vector3(cx + 1.6, 2.6, fz + 0.18), Vector3(0, 0, 1), self, 0.72)
 	anchors["compressor"] = Vector3(cx, 2.3, fz); radius["compressor"] = 2.0
+	_stencil("compressor", Vector3(cx + 1.2, 1.17, fz + 0.635), Vector3(0, 0, 1), 0.003)
 	# --- fired preheater: refractory box, peep ports with flame, burner, stack to the roof ---
 	var hx := -7.0
 	_box(Vector3(3.0, 4.2, 2.6), Vector3(hx, 2.28, fz), M.paint_grey)
@@ -351,6 +360,7 @@ func _build_loop() -> void:
 	_pipe([Vector3(-7.0, 3.4, fz), Vector3(hx - 1.6, 3.4, fz)], 0.1, M.steel, self, false)
 	_pipe([Vector3(hx + 1.5, 2.0, fz), Vector3(-3.5, 2.0, fz)], 0.1, M.clad)
 	anchors["heater"] = Vector3(hx, 4.8, fz); radius["heater"] = 2.2
+	_stencil("heater", Vector3(hx, 3.5, fz + 1.312), Vector3(0, 0, 1), 0.005)
 	# --- trim cooler: horizontal shell-and-tube on saddles, CW in/out, CW pump ---
 	var kx := -1.0
 	var shell := _cyl(0.5, 4.2, Vector3(kx, 1.6, fz), M.steel); shell.rotation_degrees.z = 90
@@ -376,6 +386,7 @@ func _build_loop() -> void:
 	_box(Vector3(0.12, 0.6, 0.12), Vector3(2.0, 3.25, -12.0), M.steel_dull)   # tundish / vent on the CW return
 	_gauge(Vector3(kx - 0.5, 1.2, pz + 0.35), Vector3(0, 0, 1), self, 0.55)
 	anchors["cooler"] = Vector3(kx, 2.4, fz); radius["cooler"] = 2.3
+	_stencil("cooler", Vector3(kx, 1.6, fz + 0.512), Vector3(0, 0, 1), 0.0035)
 	anchors["cw_pump"] = Vector3(kx - 0.5, 1.3, pz)
 	# --- the converter: thick-walled vessel on a skirt, flanged top head, nozzles, sight port, ladder, platform ---
 	var vx := 5.5; var vz := -3.0; var vr := 1.15; var vh := 8.0; var vb := 1.6
@@ -420,6 +431,8 @@ func _build_loop() -> void:
 	_gauge(Vector3(vx + 0.75, vb + 2.6, vz + vr + 0.22), Vector3(0.35, 0, 1).normalized(), self, 0.62, 0.13)
 	_gauge(Vector3(vx - 0.75, vb + 2.6, vz + vr + 0.22), Vector3(-0.35, 0, 1).normalized(), self, 0.48, 0.13)
 	gauge_pos = Vector3(vx + 0.75, vb + 2.6, vz + vr + 0.22)
+	var ta := -0.62   # on the shell, left of the ladder, flat to the surface normal there
+	_stencil("converter", Vector3(vx + sin(ta) * (vr + 0.012), vb + 6.0, vz + cos(ta) * (vr + 0.012)), Vector3(sin(ta), 0, cos(ta)), 0.0042)
 	# interlock cabinet and beacons
 	_box(Vector3(0.8, 1.4, 0.4), Vector3(vx + 2.4, 0.9, vz + 2.2), M.paint_grey)
 	_box(Vector3(0.5, 0.3, 0.02), Vector3(vx + 2.4, 1.2, vz + 2.41), _flat(Color(0.05, 0.1, 0.1), 0.0, 0.3, Color(0.2, 0.9, 0.8), 1.5))
@@ -447,6 +460,7 @@ func _build_loop() -> void:
 	var sg := BoxMesh.new(); sg.size = Vector3(0.06, 2.2, 0.03); _mi(sg, Vector3(gx, 2.75, vz + 0.075), m_sight)
 	_pipe([Vector3(10.6, 1.2, vz), Vector3(sx - sr - 0.1, 1.2, vz)], 0.12, M.clad, self, false)
 	anchors["separator"] = Vector3(sx, 5.0, vz); radius["separator"] = 1.6
+	_stencil("separator", Vector3(sx, 3.3, vz + sr + 0.012), Vector3(0, 0, 1), 0.0026)
 	# vapour to the splitter, purge up and out through the glass wall to the flare, recycle back along the rack
 	var tx := 16.0; var tz := 1.0
 	_pipe([Vector3(sx, 1.08 + sh + sr, vz), Vector3(sx, 6.0, vz), Vector3(tx, 6.0, vz), Vector3(tx, 6.0, tz), Vector3(tx, 2.2, tz)], 0.09, M.steel)
@@ -803,19 +817,24 @@ func anchor_size(role: String) -> float:
 
 # ---- frame time (CB_FRAMETIME=1) -----------------------------------------------------------------------------------------------------------
 var _ft: Array = []; var _ft_t := -1.0
-func _ft_start() -> void: _ft_t = 0.0
+var _gpu: Array = []
+func _ft_start() -> void:
+	_ft_t = 0.0
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED); Engine.max_fps = 0   # measure the work, not the monitor
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 func _ft_tick(dt: float) -> void:
 	if _ft_t < 0.0: return
 	_ft_t += dt
-	if _ft_t > 3.0 and _ft_t < 7.0: _ft.append(dt * 1000.0)
+	if _ft_t > 3.0 and _ft_t < 7.0:
+		_ft.append(dt * 1000.0); _gpu.append(RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid()))
 	elif _ft_t >= 7.0 and not _ft.is_empty():
 		var s := _ft.duplicate(); s.sort()
 		var avg := 0.0
 		for v in s: avg += v
 		avg /= s.size()
-		var vs := get_viewport().get_visible_rect().size
-		for w in get_tree().root.find_children("*", "WorldEnvironment", true, false): print("WENV ", w.get_path(), " env=", (w as WorldEnvironment).environment, " vis_world=", (w as Node).get_viewport())
-		print("WORLD env=", get_viewport().world_3d.environment, " fallback=", get_viewport().world_3d.fallback_environment, " lab_vis=", is_visible_in_tree())
-		print("CAMDBG ", cam.global_position, " cur=", get_viewport().get_camera_3d().get_path(), " focus=", focus, " dist=", dist)
-		print("FRAMETIME avg_ms=%.2f p95_ms=%.2f res=%dx%d tier=%s adapter=%s n=%d" % [avg, s[int(s.size() * 0.95)], vs.x, vs.y, tier, RenderingServer.get_video_adapter_name(), s.size()])
+		var vs := Vector2(DisplayServer.window_get_size())
+		var g := 0.0
+		for v in _gpu: g += v
+		g /= maxf(_gpu.size(), 1)
+		print("FRAMETIME avg_ms=%.2f p95_ms=%.2f gpu_ms=%.2f res=%dx%d tier=%s adapter=%s n=%d" % [avg, s[int(s.size() * 0.95)], g, vs.x, vs.y, tier, RenderingServer.get_video_adapter_name(), s.size()])
 		_ft.clear(); _ft_t = -1.0
