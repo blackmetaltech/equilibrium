@@ -45,9 +45,9 @@ Auto-detected (look2/look2.gd); `CB_QUALITY` forces one.
 Measured (L00, wide view, scene + HUD, vsync off, `CB_FRAMETIME=1`):
 | GPU | Tier | 1280x800 | 1920x1080 | 2560x1440 |
 |---|---|---|---|---|
-| RTX 4090 (Forward+, PRIME offload; nvidia-smi lists the godot process) | Ultra | - | 4.8 ms avg, 5.0 p95 (GPU 2.1) | 5.0 ms avg, 5.6 p95 (GPU 3.2) |
+| RTX 4090 (Forward+, PRIME offload; nvidia-smi lists the godot process) | Ultra | - | 4.9 ms avg, 5.0 p95 (GPU 2.1) | 5.4 ms avg, 6.5 p95 (GPU 3.1) |
 | Radeon iGPU in the Ryzen 9 9900X (2 CU, RADV) | High | 76 ms | - | - |
-| same | Compat | 28 ms | - | - |
+| same | Compat | 30 ms (GPU 25) | - | - |
 The 2-CU iGPU is about a quarter of a Steam Deck's GPU; the Deck itself is not measured.
 
 ## Assets
@@ -72,7 +72,8 @@ CC0 only, recorded in [ASSETS.md](ASSETS.md): Poly Haven HDRI and textures (conc
 - **The gantry in front of the glass is cut.** It hid the plant outside. Light from it stays as fill.
 - **Integrated GPUs default to Compat**, not High (measured 28 ms vs 76 ms).
 - **Four flows that assert the 0.9 console in L00** (console, fix1, fix2, instruments) run with `CB_LOOK2=0`; their assertions are unchanged. The slice's L00 is covered by `look2_flow` and by `layout_flow` (which runs with the slice on).
-- **The shell glow is capped at dull red.** A bare vessel at about 620 °C glows dull red in the dark, not orange-white; the catalyst beds (x-ray) carry the brighter heat.
+- **Hot steel, not a lamp.** After the critique the shell emission, the converter's red light and the flare light were cut: at the trip the shell reads as hot red-cast steel; the catalyst beds (x-ray) carry the bright heat.
+- **The world stages the two story beats** (camera to the cooler and pump when the water trips; to the flare through the glass when the interlock fires). `CB_STAGE=0` turns it off for fixed screenshots.
 
 ## Risks
 - **Building in a realistic hall.** Most levels place and pipe units on a grid. The hall needs a "drafting floor" mode (a projected grid and ghost equipment) that keeps the look. Not in the slice; it is the largest phase-B cost.
@@ -85,10 +86,18 @@ CC0 only, recorded in [ASSETS.md](ASSETS.md): Poly Haven HDRI and textures (conc
 | Work | Agent hours |
 |---|---|
 | Realistic model library for the ~25 engine unit types (ports, footprint fit, live states), replacing the 0.9 low-poly models | 25-35 |
-| The drafting floor: placing and piping units in the hall in 3D (projected grid, ghosts, pipe routing on racks) | 20-30 |
+| The drafting floor: placing and piping units in the hall in 3D (projected grid, ghosts, pipe routing on racks); the genius's blueprint table (raised after Mateo's critique) | 35-50 |
 | Scenes: bench and glassware (ch1, ch3 incl. L14 colour), boiler house, reactor cell, plant at dusk, control gallery, turnaround dressing, pump house, Career view | 55-65 |
 | Instruments and screens in the new UI language (equilibrium window, Semenov, X-T staircase, heat ledger, loop panel, boards, notebook, brief, end card, Works map, title, pause, settings) | 30-40 |
 | Performance (merge ~1,350 draw calls, MultiMesh bolts and rungs, bake procedural shaders to textures, LOD) and a Steam Deck run | 10-15 |
 | QA: layout and text-floor flows per scene, pad pass, shots per level, critiques | 15-20 |
-| **Total** | **155-205** |
-About 45-55 Sonnet builder sessions plus about 10 Opus review sessions; with our shared 5-hour limit, roughly 12-16 windows if EQUILIBRIUM has the slot alone. Asset gaps: textures for aluminium cladding, glass-lined enamel, refractory brick and grating; no CC0 models fit our equipment (procedural stays the plan); all sound (motor hum, pumps, flare roar, steam) is missing.
+| **Total** | **170-225** |
+About 50-60 Sonnet builder sessions plus about 10 Opus review sessions; with our shared 5-hour limit, roughly 12-16 windows if EQUILIBRIUM has the slot alone. Asset gaps: textures for aluminium cladding, glass-lined enamel, refractory brick and grating; no CC0 models fit our equipment (procedural stays the plan); all sound (motor hum, pumps, flare roar, steam) is missing.
+
+## Critique (phase A, independent, scored before the fix pass)
+| Critic | Scores | Strongest point |
+|---|---|---|
+| Sigrid Halvorsen, art director | materials/light 4, place/scale 3, composition 4, UI 6, consistency 5, overall 4 | No establishing shot of the hall; panels bury the world; wrong materials per object; the failure read as pink plastic |
+| Dagny Voss, fun critic | fun 4, clarity 6, tension 4, return-tomorrow 2, genius 3 | One dial, no cost: any late turn wins and the plant returns to its starting numbers |
+| Mateo Arriaga, game designer | fantasy 4 | A handsome diorama with a night operator; the verb is a 2D widget and the coach gives orders; the drafting floor is under-costed and is the centre of the fantasy |
+Fixed once (commit after a9280bd): establishing view, no cards during the brief or wide view, staged beats, handwheel on the cooler, dial vs outlet on the cooler card, frozen Approach row dropped, materials (flat paint, finer steel, muted yellow, hot steel not pink, round gauges, grey bench). Not fixed, and why: the dial has no cost, the coach instructs, no second fault, no score per run (all level design or engine text: phase A keeps the engine and level unchanged; they go to the phase-B gate); no sound (later layer); the drafting floor (phase B; Mateo's view that it is under-costed is accepted: raise it to 35-50 h). Not re-scored after the fix pass.
