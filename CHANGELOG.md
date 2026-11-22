@@ -3,6 +3,24 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [0.10.0] - 2026-11-23 · "The Wall, in the new look" (chapter 3 and the prologue in a 3D hall and lab; the other chapters stay classic and say so)
+### Changed
+- **L14 is Two Flasks, the player's own experiment (D-B1).** Real N₂O₄ (NIST-JANAF) sits in a piston flask on your bench, with a twin flask built to the book's numbers beside it. The controls are in the world: T and V wheels, a RUN lever, an argon valve and a piston clamp. The HUD form is retired. Heat darkens the gas. The book's K is used only for the Kp call. Win: the three Le Chatelier tests (halve V; argon at constant V; argon at constant P). Test 3 counts only at the flask's own pressure, within 0.5 %. Stars: the Kp call, and finding the book's temperature (406.5 K, where the real flask reads the book's 9.15 bar). The lesson says the book's number is invented and explains bar(a). The coach asks for a prediction before each test.
+- **L00 Night Shift has a cost (D-B2, D-B5).** The cooler is slow, 13.5 K/s. A late turn trips the interlock, and the night is lost with a retry. The iron catalyst lights off at 643 K (370 °C), and the expert saves the night at 650 K. Stars: no trip; the catalyst kept lit (the lowest set point of the night counts, so turning back does not undo it); a turn within 10 s. The cue is the CW PUMP lamp.
+- **Chapter 3 is the released new-look chapter (D-B4).** In L10-L13 the classic build view is the drafting table. Commission the plant, and your own flowsheet stands in a hall. Beds and converters glow by outlet temperature: dark below light-off, white past the sinter limit. Boiler plumes follow the engine's steam rate. B (or X on a pad) flips between the two views. Chapter 3 opens from the start, with a title-screen strip. The Works Map labels every chapter NEW LOOK or classic.
+- **Round 3 of the look.** The L14 lab is a hall: benches of coloured glassware, glass columns, a reactor bay behind glass, a gantry with a hoist, cable trays, a control dais, and the rig on a railed steel plinth. In L00 each vessel has its own finish: the fired heater has heat-resistant paint, a convection section and a burner row; the cooler is green; the converter has cladding bands; the night is darker.
+- **Textures.** Mipmaps and VRAM compression for every 3D texture, with normal maps as RGTC. The roughness limiter is on. AA per tier: ultra MSAA 2x + TAA; high FSR2; compat FSR1 + FXAA.
+- **RUN flushes a wheel turned just before it.** A fast turn followed by the lever used to run the old value.
+### Added
+- **Pad for the new-look controls.** D-pad left/right picks a world control (a ring marks it, and a line names it and its value). Up/down turns a wheel. A pulls RUN, works the valve or the clamp, or opens the keypad for the Kp call. LB/RB step the camera presets; the sticks and triggers move the camera.
+- `godot/tests/pad3_flow.gd` (real joypad events through L00, L14 and L10). `godot/tests/textures_flow.gd` (fails if a texture loses mipmaps or compression). look2_flow now drives L14's coached order through the world's controls. `src/levels/l00_lowset.test.ts`.
+- An `expert` persona that plays the current level's own solver (QA captures). `CB_CAM=endclose` puts the end card away.
+### Known gaps
+- The chapter 3 hall is a view, not an editor. Building stays on the drafting table.
+- Every chapter other than 00 and 03 is in the classic look.
+- The low tier on the integrated Radeon runs at about 30 fps (34 ms), paced by vsync, with the GPU at 11-16 ms.
+- `engine.test.ts` "commission time p95 < 25 ms" fails when the machine is loaded and passes alone. `build_guide_flow` is timing-sensitive under load and passes alone.
+
 ## [0.9.0] - 2026-11-22 · "The plant you can read" (a Career you can trust, the pump house as a plant, 16 px everywhere; the pad pass found the gaps)
 ### Changed
 - **The Career you can trust (F31).** The board fits the window after a resume and after the incident level (long log rows wrap); a call-it is graded against the design at
