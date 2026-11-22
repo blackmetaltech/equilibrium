@@ -1,5 +1,7 @@
 # LOOK2: EQUILIBRIUM's new look (phase A)
 
+Evidence: [docs/look2/](look2/) (before/after at 1920x1080 and 1280x800, beauty shots, a 10 s capture `trip-10s.mp4`). Branch `look2`; run L00 to play the slice (`CB_LOOK2=0` brings the 0.9 look back).
+
 Owner, 2026-11-22: *"does it even have graphics? can we make it much much more realistic looking?"*, *"the equilibrium player should feel like dexter or something"*, *"you probably need to work on separate design languages for each game"*. The 0.9 look (low-poly isometric plant on a slab, a beige 1970s console) is rejected. The engine, levels and tests stay.
 
 ## The fantasy
@@ -43,7 +45,7 @@ Auto-detected (look2/look2.gd); `CB_QUALITY` forces one.
 Measured (L00, wide view, scene + HUD, vsync off, `CB_FRAMETIME=1`):
 | GPU | Tier | 1280x800 | 1920x1080 | 2560x1440 |
 |---|---|---|---|---|
-| RTX 4090 (Forward+, PRIME offload) | Ultra | - | see report | see report |
+| RTX 4090 (Forward+, PRIME offload; nvidia-smi lists the godot process) | Ultra | - | 4.8 ms avg, 5.0 p95 (GPU 2.1) | 5.0 ms avg, 5.6 p95 (GPU 3.2) |
 | Radeon iGPU in the Ryzen 9 9900X (2 CU, RADV) | High | 76 ms | - | - |
 | same | Compat | 28 ms | - | - |
 The 2-CU iGPU is about a quarter of a Steam Deck's GPU; the Deck itself is not measured.

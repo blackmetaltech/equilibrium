@@ -739,6 +739,7 @@ func _cam_step(dt: float) -> void:
 	if Vector2(rx, ry).length() > 0.2: t_yaw -= rx * dt * 1.8; t_pitch = clampf(t_pitch - ry * dt * 1.2, -1.35, 0.25)
 	var zt := Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT) - Input.get_joy_axis(0, JOY_AXIS_TRIGGER_LEFT)
 	if absf(zt) > 0.1: t_dist = clampf(t_dist * (1.0 - zt * dt * 1.5), 0.45, 80.0)
+	if OS.has_environment("CB_ORBIT"): t_yaw += dt * float(OS.get_environment("CB_ORBIT"))   # captures: a slow orbit
 	var outside := t_focus.z < -16.0
 	if not outside: t_focus = t_focus.clamp(HALL_MIN + Vector3(1, 0, 1), HALL_MAX - Vector3(1, 1, 1))
 	var a := clampf(dt * 6.0, 0.0, 1.0)
