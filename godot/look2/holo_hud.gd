@@ -409,13 +409,13 @@ func _place(dt: float) -> void:
 	var obst: Array[Rect2] = [_rect_of(_coach).grow(6.0), _rect_of(_alarm).grow(6.0), _rect_of(_cmd).grow(6.0)]
 	var anchors := {}
 	for r in CARD_ROLES:
-		var a := lab.anchor_screen(r); if a.x > -9000.0: anchors[r] = a
+		var a: Vector2 = lab.anchor_screen(r); if a.x > -9000.0: anchors[r] = a
 	var placed: Array[Rect2] = []
 	# the diagram first: beside the converter, on the side with most room
 	var dp := _dg_panel
 	if anchors.has("converter") and _diagram.has_reading() and _status != "" and not _quiet():
 		var a: Vector2 = anchors.converter
-		var sz := lab.anchor_size("converter")
+		var sz: float = lab.anchor_size("converter")
 		var k := clampf(sz / 90.0, 0.0, 1.0)   # small on screen: shrink
 		_dg_k = lerpf(_dg_k, k, 1.0 - exp(-dt * 4.0))
 		var w := lerpf(330.0, 420.0, _dg_k); var h := lerpf(280.0, 340.0, _dg_k)
@@ -436,7 +436,7 @@ func _place(dt: float) -> void:
 			if p.shown: p.vanish()
 			continue
 		var a: Vector2 = anchors[role]
-		var sz := lab.anchor_size(role)
+		var sz: float = lab.anchor_size(role)
 		p.fit()
 		var gap := 46.0 + minf(sz, 60.0)
 		var cands: Array[Vector2] = []
