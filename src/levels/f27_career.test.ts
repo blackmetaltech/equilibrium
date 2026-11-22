@@ -65,7 +65,7 @@ describe('F27: STRIKE AHEAD is one banner', () => {
     const d = view(e).dashboard;
     expect(d.strikeLines.length).toBe(4); expect(d.strikeWarn.length).toBe(4);
     expect(d.strikeHead).toMatch(/^STRIKE AHEAD at the year-end check in month 12:/);
-    for (const l of d.strikeLines as string[]) { expect(l).toMatch(/: inspection due month -?\d+, \d+ months over at the check\.$/); expect(l.length).toBeLessThan(80); }
+    for (const l of d.strikeLines as string[]) { expect(l).toMatch(/: inspection due month -?\d+, \d+ months past due at the check\.$/); expect(l.length).toBeLessThan(80); }
     expect((d.strikeLines as string[]).join('').length).toBeLessThan((d.strikeWarn as string[]).join('').length / 2);
   });
 });

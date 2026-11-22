@@ -147,7 +147,20 @@ func _build() -> void:
 	var lg: Array = view.get("log", [])
 	for i in range(lg.size() - 1, maxi(-1, lg.size() - 9), -1):
 		var r: Dictionary = lg[i]; var sev := str(r.kind) in ["critical", "fine", "strike", "penalty", "notice"]
-		body.add_child(lbl("%s  %s" % [str(r.get("stamp", "m%02d" % int(r.m))), str(r.label)], 12, STAMP_RED if sev else PENCIL))
+		var lr := lbl("%s  %s" % [str(r.get("stamp", "m%02d" % int(r.m))), str(r.label)], 12, STAMP_RED if sev else PENCIL); lr.name = "LogRow"
+		lr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; lr.custom_minimum_size = Vector2(160, 0); body.add_child(lr, true)   # F31: a long row (the plant fix, the contractor) used to stretch the whole board past the window after a resume
+	_wrap_long(body); _wrap_long(pin)
+
+## F31: no label may ask for more width than the board has. A long label that does not wrap (a log row of a plant fix after a resume, an offer line) sets the minimum width of the whole
+## scroll column and pushed the board past the window edge: the keys at the right were cut ("AC") and the rate dial left the screen. Every such label now wraps and takes the width it is given.
+func _wrap_long(n: Node) -> void:
+	for c in n.get_children():
+		if c is Label:
+			var l := c as Label
+			if l.autowrap_mode == TextServer.AUTOWRAP_OFF and not l.clip_text and l.get_minimum_size().x > maxf(240.0, fit_w * 0.45):
+				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.custom_minimum_size.x = maxf(l.custom_minimum_size.x, 160.0)
+				if l.get_parent() is HBoxContainer or l.get_parent() is HFlowContainer: l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_wrap_long(c)
 
 # ---- alert strip: what needs the manager now, each with a key that jumps to the plant ------------------------------------------------------------
 func _alerts(d: Dictionary) -> Control:
@@ -269,22 +282,32 @@ func _decision_card(dc: Dictionary, over: bool) -> Control:
 	if pending:
 		var kd := key("DETAILS ▴" if det else "DETAILS ▾", func(): _dec_open = 0 if det else 1; _refresh_keep(), false, 11); kd.name = "DecisionDetails"; kd.tooltip_text = "The situation, each option in words and the advice."; th.add_child(kd)
 		var b := lbl(str(dc.body), 12, PENCIL, "sans"); b.name = "DecisionBody"; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; b.custom_minimum_size = Vector2(220, 0); b.visible = det; v.add_child(b)
-	for o in dc.get("options", []):
+	for o in dc.get("options", []):   # (an option whose key says what it buys is long: its effect line takes the next row, never squeezed beside the key)
 		var chosen := bool(o.chosen)
 		if not pending and not chosen: continue
 		var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
 		var ix := int(o.index)
 		if pending:
-			var k := key("CHOOSE %s  ·  %+.2f MUSD" % [str(o.label), float(o.effMusd)], func(): emit_act("answer", [ix]), ix == int(dc.best) and bool(dc.get("learner", false)), 13); k.name = "Choose_%s" % str(o.label); k.disabled = over or _busy; k.tooltip_text = str(o.effectText); h.add_child(k)
+			var cs := str(o.get("commitShort", "")); var ckey := "choose:%d" % ix; var carm := cs != "" and _armed.has(ckey)   # F31: an option that buys or books says so on the key and asks twice
+			var base := "CHOOSE %s  ·  %+.2f MUSD" % [str(o.label), float(o.effMusd)] + (("  ·  " + cs) if cs != "" else "")
+			var k := key(("PRESS AGAIN: " + base) if carm else base, func(): _choose_press(ix, cs != "", ckey), ix == int(dc.best) and bool(dc.get("learner", false)), 13); k.name = "Choose_%s" % str(o.label); k.disabled = over or _busy
+			k.tooltip_text = str(o.effectText) + (("\n" + str(o.get("commitText", ""))) if cs != "" else ""); h.add_child(k)
+			if cs != "":
+				_reserve(k, [base, "PRESS AGAIN: " + base], 13)
+				h.add_child(_cancel_slot(carm, "ChooseCancel_%s" % str(o.label), func(): _armed.erase(ckey); _refresh_keep(), 13))
 		else:
 			var tag := lbl("YOU CHOSE %s%s" % [str(o.label), "  (the decision lapsed)" if bool(dc.get("lapsed", false)) else ""], 12, OKGREEN if not bool(dc.get("lapsed", false)) else AMBER_INK, "mono_bold"); tag.name = "DecisionChosen"; h.add_child(tag)
-		var ef := lbl(str(o.effectText), 12, STAMP_RED if float(o.effectUSD) < 0.0 else PENCIL, "mono_bold"); ef.name = "Effect_%s" % str(o.label); ef.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ef.custom_minimum_size = Vector2(200, 0); ef.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(ef)
+		var ef := lbl(str(o.effectText), 12, STAMP_RED if float(o.effectUSD) < 0.0 else PENCIL, "mono_bold"); ef.name = "Effect_%s" % str(o.label); ef.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ef.custom_minimum_size = Vector2(420 if str(o.get("commitShort", "")) != "" else 200, 0); ef.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(ef)
 		var ot := lbl(str(o.text), 12, PENCIL, "sans"); ot.name = "OptionText_%s" % str(o.label); ot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ot.custom_minimum_size = Vector2(220, 0); ot.visible = det; v.add_child(ot)
 	if pending:
 		if bool(dc.get("learner", false)):
 			var hi := lbl(str(dc.hint), 12, OKGREEN, "sans"); hi.name = "DecisionHint"; hi.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hi.custom_minimum_size = Vector2(220, 0); hi.visible = det; v.add_child(hi)
 		var bl := lbl(str(dc.blocks), 11, AMBER_INK, "sans"); bl.name = "DecisionBlocks"; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size = Vector2(220, 0); bl.visible = det; v.add_child(bl)
 	return _paper(v, Color("#F6E7B8") if pending else Color("#F4EEDC"))
+
+func _choose_press(ix: int, commits: bool, ckey: String) -> void:
+	if commits and not _armed.has(ckey): _armed.clear(); _armed[ckey] = true; _refresh_keep(); return
+	_armed.erase(ckey); emit_act("answer", [ix])
 
 ## F29: the plant incident card. Waiting: red paper pinned above the scroll with GO TO THE PLANT (the incident level, pre-loaded with this plant's state; the month does not move), CALL THE CONTRACTOR (cash) and
 ## IGNORE IT, each with what it does to the plant and about what it costs. Answered: what was done and what it realises, until the incident's months are over.
@@ -299,10 +322,14 @@ func _incident_card(ic: Dictionary) -> Control:
 	var rows := [["IncidentPlant", str(ic.get("plantKey", "GO TO THE PLANT")), str(ic.get("plantText", "")), func(): _go_plant(ic), true]]
 	for o in ic.get("options", []):
 		var kk := str(o.key)
-		rows.append(["Incident" + kk.capitalize(), str(o.label), str(o.text), func(): emit_act("incident", [kk]), false])
+		rows.append(["Incident" + kk.capitalize(), str(o.label), str(o.text), func(): _confirm("incident:" + kk, "incident", [kk]), false, "incident:" + kk])
 	for r in rows:
 		var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
-		var k := key(str(r[1]), r[3], bool(r[4]), 13); k.name = str(r[0]); k.disabled = _busy; k.tooltip_text = str(r[2]); h.add_child(k)
+		var ak := str(r[5]) if r.size() > 5 else ""; var iarm := ak != "" and _armed.has(ak)   # F31: the contractor's bill and "ignore it" commit the plant: they ask twice (GO TO THE PLANT costs nothing)
+		var k := key(("PRESS AGAIN: " + str(r[1])) if iarm else str(r[1]), r[3], bool(r[4]), 13); k.name = str(r[0]); k.disabled = _busy; k.tooltip_text = str(r[2]); h.add_child(k)
+		if ak != "":
+			_reserve(k, [str(r[1]), "PRESS AGAIN: " + str(r[1])], 13)
+			h.add_child(_cancel_slot(iarm, str(r[0]) + "Cancel", func(): _armed.erase(ak); _refresh_keep(), 13))
 		var tx := lbl(str(r[2]), 12, PENCIL, "sans"); tx.name = str(r[0]) + "Text"; tx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tx.custom_minimum_size = Vector2(220, 0); tx.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tx.visible = not _compact() or _more.has("IncidentBody"); h.add_child(tx)
 	if _compact():
 		var km := key("less" if _more.has("IncidentBody") else "more", func(): _toggle_more("IncidentBody"), false, 11); km.name = "IncidentMore"; v.add_child(km)
@@ -391,7 +418,7 @@ func _advance_notes(d: Dictionary) -> Control:
 	var dcv: Variant = d.get("decision", null); var pend := dcv is Dictionary and bool((dcv as Dictionary).get("pending", false))
 	var nn := lbl(str(d.get("nextNote", "")), 11, AMBER_INK if pend else PENCIL, "sans"); nn.name = "NextNote"; nn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; nn.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nn.custom_minimum_size = Vector2(200, 0); v.add_child(nn)
 	var ev := str(d.get("lastEvent", ""))
-	var st := lbl("last month %s%s" % [_m(float(d.lastMonthUSD)), ("  ·  %s at %s" % [str(d.get("lastEventLabel", "")), str(d.get("lastEventPlantLabel", ""))]) if ev != "" else ""], 12, PENCIL)
+	var st := lbl("last month %s%s" % [_m(float(d.lastMonthUSD)), ("  ·  %s%s" % [str(d.get("lastEventLabel", "")), (" at " + str(d.get("lastEventPlantLabel", ""))) if str(d.get("lastEventPlantLabel", "")) != "" else " (the whole site)"]) if ev != "" else ""], 12, PENCIL)
 	st.name = "LastMonth"; st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; st.size_flags_horizontal = Control.SIZE_EXPAND_FILL; st.custom_minimum_size = Vector2(200, 0); v.add_child(st)   # a long event wraps here and never pushes the keys around
 	var an: Array = d.get("attentionNotes", [])
 	if not an.is_empty() and not over and not bool(d.get("needsAck", false)):
@@ -454,10 +481,11 @@ func _plant_card(p: Dictionary, d: Dictionary) -> Control:
 	var id := str(p.id); var col: Color = PLANT_COL.get(id, PENCIL); var m := int(d.month); var over := bool(d.over)
 	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 3)
 	var hh := HBoxContainer.new(); v.add_child(hh)
+	var dl_note := ""
 	var tg := lbl("%s" % str(p.label).to_upper(), 14, col, "mono_bold"); tg.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hh.add_child(tg)
 	if int(p.downDays) > 0:
 		var db := stamp("DOWN %dd" % int(p.downDays), STAMP_RED, 11); db.tooltip_text = str(p.get("downNote", "")); db.mouse_filter = Control.MOUSE_FILTER_PASS; hh.add_child(db)
-		var dl := lbl(str(p.get("downNote", "")), 11, STAMP_RED, "sans"); dl.name = "DownNote"; dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; dl.custom_minimum_size = Vector2(160, 0); v.add_child(dl)
+		dl_note = str(p.get("downNote", ""))   # F31: drawn at the foot of the card, so a plant that goes down never shifts the rate dial and the keys by a line
 	if int(p.turnaroundMonth) >= 0:   # the booking, stamped on the card itself (folded or open): BOOK is never silent
 		var bs := stamp("BOOKED month %d" % (int(p.turnaroundMonth) + 1), OKGREEN, 11); bs.name = "Booked_" + id; bs.tooltip_text = "The turnaround of this plant is booked. CANCEL is on the open card."; bs.mouse_filter = Control.MOUSE_FILTER_PASS; hh.add_child(bs)
 	var open := _plant_open(id, d)
@@ -467,6 +495,7 @@ func _plant_card(p: Dictionary, d: Dictionary) -> Control:
 		var sm := lbl("catalyst %d%% · exchanger U %d%% · wear %d%% · rate ×%.2f · risk %s%%" % [int(round(float(p.catalyst) * 100.0)), int(round(float(p.exchangerU) * 100.0)), int(round(float(p.compressorWear) * 100.0)), float(p.rate), fnum(float(p.risk) * 100.0, 1)], 11, PENCIL, "mono"); sm.name = "Summary_" + id; sm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; sm.custom_minimum_size = Vector2(160, 0); v.add_child(sm)
 		var il0 := lbl("INSPECTION %s" % str(p.get("inspectionNote", "")), 11, icol0, "mono_bold"); il0.name = "InspNote_" + id; il0.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; il0.custom_minimum_size = Vector2(160, 0); v.add_child(il0)
 		if int(p.turnaroundMonth) >= 0: v.add_child(lbl("TURNAROUND booked: month %d" % (int(p.turnaroundMonth) + 1), 11, OKGREEN, "mono_bold"))
+		_down_note(v, dl_note)
 		var fc := _paper(v)
 		if _hold_h.has(id): fc.custom_minimum_size = Vector2(0, float(_hold_h[id]))
 		return fc
@@ -497,9 +526,14 @@ func _plant_card(p: Dictionary, d: Dictionary) -> Control:
 	var idn := str(p.get("inspectDoes", ""))
 	if idn != "": v.add_child(_banner("InspectDoes_" + id, idn, PENCIL, "sans", 11))
 	v.add_child(_ta_row(p, m, over))
+	_down_note(v, dl_note)
 	var card := _paper(v)
 	if _hold_h.has(id): card.custom_minimum_size = Vector2(0, float(_hold_h[id]))
 	return card
+
+func _down_note(v: VBoxContainer, text: String) -> void:
+	if text == "": return
+	var dl := lbl(text, 11, STAMP_RED, "sans"); dl.name = "DownNote"; dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; dl.custom_minimum_size = Vector2(160, 0); v.add_child(dl)
 
 ## BUY CATALYST asks twice: the first press arms the key (it says so and stays armed, with a CANCEL key beside it), the second press pays. A stray click, or a click that lands where a layout shift put the key, buys nothing, and nothing re-arms or disarms it on a timer.
 func _buy_catalyst(id: String) -> void:
@@ -539,7 +573,10 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 	var kc := key("CRANE %d" % int(dr.crane), func(): dr.crane = 2 if int(dr.crane) == 1 else 1; _refresh_keep(), false, 11); kc.tooltip_text = "Second crane: faster, extra hire cost."; h.add_child(kc)
 	var kw := key("+4 CREW" if int(dr.crew) == 0 else "NO EXTRA CREW", func(): dr.crew = 4 if int(dr.crew) == 0 else 0; _refresh_keep(), false, 11); h.add_child(kw)
 	var stock := int(p.catalystStock) > 0
-	var kb := key("BOOK", func(): _book(p, dr), stock and not over, 11); kb.name = "Book_" + id; kb.disabled = over; h.add_child(kb)   # teal only when it can be booked; pressed without a catalyst charge it says why (it is never silent)
+	var bkey := "book:%s:%d:%d:%d" % [id, int(dr.m), int(dr.crane), int(dr.crew)]; var barm := stock and _armed.has(bkey)   # F31: a booking commits the plant to an outage and its hire costs: it asks twice, like INSPECT and BUY
+	var kb := key(("PRESS AGAIN: BOOK MONTH %d" % (int(dr.m) + 1)) if barm else "BOOK", func(): _book_press(p, dr, bkey), stock and not over, 11); kb.name = "Book_" + id; kb.disabled = over; h.add_child(kb)
+	_reserve(kb, ["BOOK", "PRESS AGAIN: BOOK MONTH 60"], 11)
+	h.add_child(_cancel_slot(barm, "BookCancel_" + id, func(): _armed.erase(bkey); _refresh_keep(), 11))   # teal only when it can be booked; pressed without a catalyst charge it says why (it is never silent)
 	var days := float(p.taDaysWithCatalyst) if stock else float(p.taDaysWithout)
 	if stock: _book_msg.erase(id)
 	for w in _book_warnings(p, int(dr.m)):
@@ -556,6 +593,10 @@ func _ta_row(p: Dictionary, m: int, over: bool) -> Control:
 	else:   # the same slot, filled: the charge is in stock, so BOOK is ready (the card keeps its shape when the catalyst is bought)
 		var rl := lbl("BOOK is ready: a catalyst charge is in stock (the outage would take %s d). Press BOOK to book month %d." % [fnum(days), int(dr.m) + 1], 11, OKGREEN, "sans"); rl.name = "BookReady_" + id; rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.custom_minimum_size = Vector2(180, 0); h.add_child(rl)
 	return h
+
+func _book_press(p: Dictionary, dr: Dictionary, bkey: String) -> void:
+	if int(p.catalystStock) > 0 and not _armed.has(bkey): _armed.clear(); _armed[bkey] = true; _refresh_keep(); return
+	_armed.erase(bkey); _book(p, dr)
 
 ## BOOK: with a catalyst charge it books; without one it shows, in red where the player is looking, why nothing was booked.
 func _book(p: Dictionary, dr: Dictionary) -> void:
@@ -580,7 +621,7 @@ var _settled := {}            ## offer id -> {idx, h, text, col}: the slot an ac
 var _settled_month := -1
 func _accept_press(o: Dictionary, idx: int, holder: Array, cant: bool) -> void:
 	var akey := "accept:%d" % int(o.id)
-	if cant and not _armed.has(akey): _armed.clear(); _armed[akey] = true; _refresh_keep(); return
+	if not _armed.has(akey): _armed.clear(); _armed[akey] = true; _refresh_keep(); return   # F31: a contract commits the plant for its whole term: every ACCEPT asks twice
 	_armed.erase(akey); _settle(o, idx, holder, "accept")
 
 ## ACCEPT / DECLINE: act on THIS offer's own id. The offer collapses to a one-line "signed" / "declined" row (no empty card is left), nothing is reordered, and for under a second the offers below are dark, so a second click at the same spot can never sign the offer that slid up into it.
@@ -625,9 +666,10 @@ func _offers() -> void:
 		var t := lbl("%s  %s t/mo  @ $%s/t" % [str(PLANT_TAG.get(str(o.plant), str(o.plant))), fnum(float(o.tpm)), fnum(float(o.priceUSD))], 13, pc, "mono_bold"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.clip_text = true; h.add_child(t)
 		var olock := Time.get_ticks_msec() < _offer_lock_until
 		var cant := bool(o.get("overCapacity", false)) or str(o.get("taNote", "")) != ""   # accept-time capacity check: the plant cannot fill it (nominal output, or a booked turnaround inside the term): the key asks twice
-		var akey := "accept:%d" % int(o.id); var aarm := cant and _armed.has(akey)
+		var akey := "accept:%d" % int(o.id); var aarm := _armed.has(akey)
 		var ka := key(("PRESS AGAIN: ACCEPT" if aarm else "ACCEPT"), func(): _accept_press(o, idx, holder, cant), true, 12); ka.disabled = over or olock; ka.name = "Accept_%d" % int(o.id); h.add_child(ka)
-		_reserve(ka, ["ACCEPT", "PRESS AGAIN: ACCEPT"] if cant else ["ACCEPT"], 12)
+		_reserve(ka, ["ACCEPT", "PRESS AGAIN: ACCEPT"], 12)
+		var kax := _cancel_slot(aarm, "AcceptCancel_%d" % int(o.id), func(): _armed.erase(akey); _refresh_keep(), 12); h.add_child(kax)
 		var kd := key("DECLINE", func(): _settle(o, idx, holder, "decline"), false, 12); kd.disabled = olock; kd.name = "Decline_%d" % int(o.id); h.add_child(kd)
 		v.add_child(lbl("%+.0f%% vs spot ($%s)  ·  %d months  ·  %s of this plant's nominal output (%s t/mo)  ·  penalty $%s/t short" % [prem * 100.0, fnum(float(o.spotUSD)), int(o.term), fnum(float(o.get("shareOfNominal", o.shareOfCap)) * 100.0) + "%", fnum(float(o.get("nominalT", 0))), fnum(float(o.penaltyUSDPerT))], 11, OKGREEN if prem > 0 else STAMP_RED, "sans"))
 		var ex := lbl(str(o.get("exposureNote", "")), 11, STAMP_RED if bool(o.get("overCapacity", false)) else PENCIL, "sans"); ex.name = "Exposure"; ex.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ex.custom_minimum_size = Vector2(220, 0); v.add_child(ex)

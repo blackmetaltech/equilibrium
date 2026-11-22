@@ -16,7 +16,7 @@ import type { EqState } from '../state';
 import { DP_RX, LOOP_SPECIES, N2_FRESH, H2_FRESH, P_LOOP, T_RX, T_SEP, loopMeasures } from './l19';
 import { L20_PRICES, buildLoop, type LoopIds } from './l20';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { commissions, predictionOf, sealSetup, shown, unitsOfType } from './util';
+import { commissions, frozenTruth, markPrebuilt, predictionOf, sealSetup, shown, unitsOfType } from './util';
 
 type S = Readonly<EqState>;
 export const FIX_ID = 'CAREER_FIX_NH3_INERTS';
@@ -96,7 +96,7 @@ export const CAREER_FIX_NH3_INERTS: LevelSpec = {
   ],
   extraStars: (s, m) => {
     const p = predictionOf(s, 'ar_pct');
-    return [p !== null && m.ok && Math.abs(p.value - m.v.ar_in_pct!) <= 0.1 * Math.max(1e-9, m.v.ar_in_pct!), m.ok && m.v.loss_musd! < m.v.contractor_musd!];
+    return [p !== null && m.ok && Math.abs(p.value - (frozenTruth(s, 'ar_pct') ?? m.v.ar_in_pct!)) <= 0.1 * Math.max(1e-9, frozenTruth(s, 'ar_pct') ?? m.v.ar_in_pct!), m.ok && m.v.loss_musd! < m.v.contractor_musd!];
   },
   callIt: { key: 'ar_pct', unit: '%', tol: 0.1, truth: (_s, m) => (m.ok ? m.v.ar_in_pct! : null), min: 0, max: 100 },
   hero: (_s, m) => ({ key: 'out_pct', unit: '%', value: m.v.out_pct!, lo: FIX_OUT_MIN * 100, hi: 100 }),
@@ -155,6 +155,7 @@ export const CAREER_FIX_NH3_INERTS: LevelSpec = {
 function baseLoop(s: EqState): void {
   s.species = LOOP_SPECIES.slice(); s.palette = []; s.limits = {}; s.presets = structuredClone(PRESETS);
   s.lv.ids = buildLoop(s, false, OLD_PURGE);
+  markPrebuilt(s);   // the loop that stands at the start is the Career's own plant: nothing is spent until the player adds a part
   applyPre(s); sealSetup(s);
 }
 /** The player's play on the pre-built loop: set the purge (the splitter is X-108, as in L20), commission. */

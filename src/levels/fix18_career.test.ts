@@ -7,7 +7,7 @@ import { SPEC_BY_ID, SPECS } from './registry';
 import { Env } from '@core/kit';
 import { GAME } from '../game';
 import { skipCareer } from './fix14_career.test';
-import { CareerError, DEC_KINDS, INSPECT_EVERY, PLANTS, ackWarning, advance, advanceToDecision, decide, initCareer, offerTaShort, openWarnings, pendingDecision, renewalParts, stepMonth, strikeAhead, type Career } from '../sim/career/model';
+import { CareerError, DEC_KINDS, INSPECT_EVERY, PLANTS, foreOpen, ackWarning, advance, advanceToDecision, decide, initCareer, offerTaShort, openWarnings, pendingDecision, renewalParts, stepMonth, strikeAhead, type Career } from '../sim/career/model';
 import { recklessDecisions, playCareer } from '../sim/career/policy';
 import { carefulDecisions } from '../sim/career/policy';
 import { playCareerSteps, humanCarefulDecisions } from '../sim/career/human';
@@ -160,6 +160,7 @@ describe('F18: a warning is acknowledged one by one, never globally', () => {
     expect(openWarnings(c).filter((k) => k.includes(':meoh:')).length).toBe(3);
     decide(c, 'buyCatalyst', 'meoh'); decide(c, 'turnaround', 'meoh', c.m + 2, 1, 0);
     expect(openWarnings(c).filter((k) => k.includes(':meoh:'))).toEqual([]);
+    if (foreOpen(c)) ackWarning(c);   // F31: the supplier's heads-up stops the run until it is acknowledged
     const n = advanceToDecision(c); expect(n).toBeGreaterThanOrEqual(1);
     expect(c.why!.plant === 'meoh' && ['cat', 'foul', 'insp'].includes(c.why!.kind)).toBe(false);
     // without the charge the catalyst warning is still open (the turnaround would not renew it)

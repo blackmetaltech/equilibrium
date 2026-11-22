@@ -16,7 +16,7 @@ const S := {
 	"PR_METRICS": "METRICS", "PR_HIST": "WORKS RUNS", "PR_CAUSE": "CAUSE", "PR_LESSON": "NOTE", "PR_STARS": "FLASKS", "PR_WENT": "SHEET %d",
 	"FP_LAST_RUN": "READINGS: LAST RUN", "FP_CLOSE_ALL": "close all", "FP_TRIPPED": "Plant tripped: reset the interlock first",
 	"DEL_ASK": "Delete %s and its %d pipes?", "DEL_ASK1": "Delete %s and its pipe?", "DEL_YES": "Delete", "DEL_NO": "Keep", "DEL_TIP": "Delete (Del)",
-	"IC_GOAL_MET": "Goal met: %s", "IC_FIRSTRUN": "First run: the plant is making product. Watch the recorder.", "IC_EDITED": "Design changed. Commission to test it.",
+	"IC_GOAL_MET": "Goal met: %s", "IC_FIRSTRUN": "First run: the plant is making product. Watch the recorder.", "IC_EDITED": "Design changed. Commission to test it.", "IC_CAREER_EDITED": "Design changed: commission again to see it.",
 	"IC_BANKS_SAME": "Both banks carry %s: switch one to %s with its chip.", "FAIL_AT": "%s failed to solve: %s",
 	"NB_REFUSED": "Not accepted: %s", "REC_RUN": "RUN %d",
 	"RST_TITLE": "Restart this job?", "RST_BODY": "The shift clock and the recorder start again. Your Call it answers are kept.", "RST_KEEP": "Restart, keep my build",

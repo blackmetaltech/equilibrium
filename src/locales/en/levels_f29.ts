@@ -13,6 +13,8 @@ export const levelsF29: Record<string, string> = {
   'lv.CAREER.inc.done.contractor': 'The contractor set the purge to {purge} %: argon {ar} %, output {out} % of the clean loop, gas per tonne +{gas} %, until month {until}.',
   'lv.CAREER.inc.done.ignore': 'You left the purge at {purge} %: argon {ar} %, output {out} % of the clean loop, gas per tonne +{gas} %, until month {until}.',
   'lv.CAREER.inc.done.lapsed': 'Nobody answered, so the loop kept its {purge} % purge: argon {ar} %, output {out} % of the clean loop, gas per tonne +{gas} %, until month {until}.',
+  'lv.CAREER.attn.fore': 'The gas supplier reports argon creeping up in the nitrogen feed: expect inerts at the {plantl} loop next month (month {month}). Be ready to go to the plant',
+  'lv.CAREER.why.fore': 'Stopped: {note}. CONTINUE ANYWAY runs on.',
   'lv.CAREER.attn.inc': '{plant}: inerts in the loop feed ({y} %). Go to the plant, call the contractor or ignore it',
   'lv.CAREER.why.inc': 'Stopped: inerts in the ammonia loop feed ({y} %). Go to the plant, call the contractor or ignore it. CONTINUE ANYWAY ignores it.',
   'lv.CAREER.log.fix.open': 'Inerts in the {plant} loop feed: {n} %. Go to the plant, call the contractor or ignore it.',
@@ -56,4 +58,14 @@ export const levelsF29: Record<string, string> = {
   'lv.CAREER_FIX_NH3_INERTS.metric.loss_musd': 'Cost to the Career', 'lv.CAREER_FIX_NH3_INERTS.metric.out_pct': 'Output against clean', 'lv.CAREER_FIX_NH3_INERTS.metric.purge_pct': 'Purge',
   'lv.err.fix_loaded': 'The Career state goes onto a fresh plant, before the first commission.',
   'lv.err.fix_pre': 'That is not a Career incident this plant can load.',
+  // F31: what a yearly card choice commits (on the key; the key asks twice)
+  'lv.CAREER.dec.commit.also': 'Choosing this: {what}.',
+  'lv.CAREER.dec.commit.buy_short': 'BUYS CATALYST {usd} MUSD + ', 'lv.CAREER.dec.commit.buy_text': 'buys a catalyst charge for {usd} MUSD (it cannot be taken back) and ',
+  'lv.CAREER.dec.commit.contract.a.short': 'SIGNS THE CONTRACT', 'lv.CAREER.dec.commit.contract.a.text': 'signs the {plantName} contract ({tpm} t/month at {price} USD/t for {term} months)',
+  'lv.CAREER.dec.commit.turnaround.a.short': 'BOOKS MONTH {month}', 'lv.CAREER.dec.commit.turnaround.a.text': 'books the {plantName} turnaround for month {month}',
+  'lv.CAREER.dec.commit.debottleneck.a.short': 'SPENDS {price} MUSD', 'lv.CAREER.dec.commit.debottleneck.a.text': 'spends {price} MUSD on the {plantName} debottleneck',
+  'lv.CAREER.dec.commit.hedge.a.short': 'FIXES THE GAS PRICE', 'lv.CAREER.dec.commit.hedge.a.text': 'fixes the gas price at {price} USD/GJ for {months} months',
+  'lv.CAREER.dec.commit.catgrade.a.short': 'ECONOMY GRADE', 'lv.CAREER.dec.commit.catgrade.a.text': 'switches the {plantName} plant to the economy catalyst grade',
+  'lv.CAREER.dec.commit.crew.a.short': 'BOOKS MONTH {month} + CRANE + CREW', 'lv.CAREER.dec.commit.crew.a.text': 'books the {plantName} turnaround for month {month} with a second crane and four more people (hire {hire} MUSD)',
+  'lv.CAREER.dec.commit.crew.b.short': 'BOOKS MONTH {month}', 'lv.CAREER.dec.commit.crew.b.text': 'books the {plantName} turnaround for month {month} with the one crane and the base crew',
 };

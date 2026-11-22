@@ -57,7 +57,11 @@ func _card(sz: Vector2i) -> void:
 	var m0 := int(view().dashboard.month)
 	var r0: Dictionary = act("advanceToDecision", [])
 	check(int(view().dashboard.month) == m0, "the engine refuses NEXT DECISION while the decision is pending")
+	var commits := str(view().dashboard.decision.options[0].get("commitShort", "")) != ""
 	ka.pressed.emit(); await frames(4); b = board()
+	if commits:   # F31: an option that buys or books asks twice
+		check(bool(view().dashboard.decision.pending), "one press on a committing option only arms it (F31)")
+		(b.find_child("Choose_A", true, false) as Button).pressed.emit(); await frames(4); b = board()
 	check(not bool(view().dashboard.decision.pending) and int(view().dashboard.decision.choice) == 0, "pressing CHOOSE A answers it in the engine")
 	check(b.find_child("DecisionChosen", true, false) != null and b.find_child("Choose_A", true, false) == null, "the card keeps the chosen state and the keys are gone")
 	nd = b.find_child("NextDecision", true, false) as Button; k3 = b.find_child("Advance3", true, false) as Button
@@ -69,6 +73,7 @@ func _skip(sz: Vector2i) -> void:
 	act("answer", [0]); await refresh()
 	var b := board(); var tag := " (%dx%d)" % [sz.x, sz.y]
 	check(all_text(b).contains("NEXT DECISION runs up to 12 months"), "the note beside the key says what it will stop at" + tag)
+	if bool(view().dashboard.get("needsAck", false)): act("ackWarning", [])   # F31: the supplier's heads-up can be lit at the start: it stops the run until it is acknowledged
 	b.advance_to_decision(); await frames(14); b = board()
 	var d: Dictionary = view().dashboard
 	check(int(d.month) >= 1 and int(d.month) <= 12, "NEXT DECISION ran %d months" % int(d.month))

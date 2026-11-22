@@ -8,7 +8,7 @@ import { SPEC_BY_ID, SPECS } from './registry';
 import { Env } from '@core/kit';
 import { GAME } from '../game';
 import {
-  CHIEF_MARGIN, EM_WARN_MONTHS, MARGIN_TARGET_YEAR, MONTHS, PLANTS, ackWarning, advance, advanceToDecision, answerDecision, decide, emWarn, endAhead, initCareer, levers, offerTaShort, openWarnings, pendingDecision, pace, score,
+  CHIEF_MARGIN, EM_WARN_MONTHS, MARGIN_TARGET_YEAR, MONTHS, PLANTS, foreOpen, ackWarning, advance, advanceToDecision, answerDecision, decide, emWarn, endAhead, initCareer, levers, offerTaShort, openWarnings, pendingDecision, pace, score,
   strikeAhead, suggestTaMonth, taDays, taGroupDays, taOverlap, taWeigh, stepMonth, type Career,
 } from '../sim/career/model';
 import { pendingIncident } from '../sim/career/model';
@@ -116,7 +116,7 @@ describe('F19: the emissions strike is warned, with its levers, before the year 
   /** every plant at 110 %: the Works runs over the cap */
   const hot = (seed: number): Career => { const c = initCareer(seed, 'engineer'); decide(c, 'answer', 1); for (const p of PLANTS) decide(c, 'setRate', p, 1.1); return c; };
   /** Six months at once; a plant incident (F29) stops the run and is answered with the contractor, as the careful players do. */
-  const six = (c: Career): void => { while (c.m < 6 && c.ending === '') { if (pendingIncident(c) !== null) decide(c, 'incident', 'contractor'); advance(c, 6 - c.m); } };
+  const six = (c: Career): void => { while (c.m < 6 && c.ending === '') { if (pendingIncident(c) !== null) decide(c, 'incident', 'contractor'); if (foreOpen(c)) ackWarning(c); advance(c, 6 - c.m); } };
   it('with every plant at 110 % the warning lights at least two months before the check, in a stop that lists it, and the strike still comes if it is ignored', () => {
     let stops = 0;
     for (const seed of [1, 2, 3]) {
@@ -126,7 +126,7 @@ describe('F19: the emissions strike is warned, with its levers, before the year 
         try { advanceToDecision(c); } catch { if (lit()) seen.push(c.m); ackWarning(c); continue; }   // a refused press lists the open warning, the emissions one among them
         if (c.why!.kind === 'em') { seen.push(c.m); expect(c.stopped!.some((k) => k.startsWith('em:'))).toBe(true); }
         else if (lit()) seen.push(c.m);   // the board shows it (pinned banner) even where an incident was the reason for this stop
-        if ((c.stopped ?? []).length > 0) ackWarning(c);
+        if ((c.stopped ?? []).length > 0 || foreOpen(c)) ackWarning(c);
       }
       expect(seen.length, `seed ${seed}`).toBeGreaterThan(0); expect(seen[0]!, `seed ${seed} first warning`).toBeLessThanOrEqual(12 - 2);
       stops += seen.length;
@@ -216,7 +216,7 @@ describe('F19: endings say why, and a game-ending year end is never reached with
       try { advanceToDecision(c); } catch { ackWarning(c); continue; }
       whys.push({ m: c.m, kind: c.why!.kind });
       if (c.why!.kind === 'end' && c.ending === '') { expect(endAhead(c)).not.toBeNull(); expect(c.why!.plant).toBe('all'); }
-      if ((c.stopped ?? []).length > 0) ackWarning(c);
+      if ((c.stopped ?? []).length > 0 || foreOpen(c)) ackWarning(c);
     }
     expect(c.ending).toBe('sold');
     const k = whys.findIndex((w) => w.kind === 'end' && w.m < c.m);
@@ -236,12 +236,12 @@ describe('F19: endings say why, and a game-ending year end is never reached with
 
 describe('F19: stops merge, small texts agree', () => {
   it('plants that pass their inspection date in the same month stop NEXT DECISION once, all listed', () => {
-    const c = initCareer(2, 'engineer'); decide(c, 'answer', 1);
+    const c = initCareer(3, 'engineer'); decide(c, 'answer', 1);   // F31: seed 3 (seed 2 meets the supplier's heads-up on its first step, which stops the run before the overdue one)
     for (const p of ['nh3', 'acid', 'meoh']) c.plants[p as 'nh3'].insp = 12;
     ackWarning(c);
     advanceToDecision(c);
     expect(c.why!.kind).toBe('overdue'); expect(c.why!.plant.split(',').sort()).toEqual(['acid', 'meoh', 'nh3']);
-    const e = start(2), d = careerOf(e.state)!; decide(d, 'answer', 1);
+    const e = start(3), d = careerOf(e.state)!; decide(d, 'answer', 1);
     for (const p of ['nh3', 'acid']) d.plants[p as 'nh3'].insp = 12;
     ackWarning(d); advanceToDecision(d);
     const wn: string = view(e).dashboard.whyNote;

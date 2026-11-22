@@ -36,6 +36,7 @@ describe('+3 MONTHS after a stop at a warning', () => {
   });
   it('through the level actions: the view says what stopped, the refusal changes nothing, ackWarning lets the next +3 run', () => {
     const e = start();
+    try { act(e, 'answer', 1); } catch { /* none waiting */ }   // F31: a heads-up can already be lit at the start, so the yearly card is answered before the first check
     for (let g = 0; g < 60 && !view(e).dashboard.needsAck; g++) { try { act(e, 'answer', 1); } catch { /* none waiting */ } try { act(e, 'advance', 3); } catch { act(e, 'ackWarning'); } if (e.state.status !== 'playing') break; }
     const d = view(e).dashboard;
     expect(d.needsAck).toBe(true); expect(d.stoppedNotes.length).toBeGreaterThan(0);
@@ -114,8 +115,8 @@ describe('names and noise', () => {
     const e = start(); const cc = careerOf(e.state)!;
     cc.plants.acid.cat = 0.6; cc.plants.meoh.U = 0.7; cc.plants.etoh.insp = 11;
     const a = view(e).dashboard.alerts as { kind: string; plant: string; text: string }[];
-    expect(a.map((x) => `${x.kind}:${x.plant}`).sort()).toEqual(['cat:acid', 'foul:meoh', 'insp:etoh']);
-    expect(alerts(cc).length).toBe(3);
+    expect(a.filter((x) => x.kind !== 'fore').map((x) => `${x.kind}:${x.plant}`).sort()).toEqual(['cat:acid', 'foul:meoh', 'insp:etoh']);   // F31: the supplier's heads-up is an alert of its own
+    expect(alerts(cc).filter((x) => x.kind !== 'fore').length).toBe(3);
     for (const x of a) expect(x.text.length).toBeGreaterThan(10);
   });
 });

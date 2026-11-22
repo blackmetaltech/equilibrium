@@ -193,9 +193,9 @@ func game_menu() -> bool:
 ## A level (re)start: the shift-speed latch resets so a level that opens mid-shift (L00) starts at 1x.
 func _begin() -> void:
 	Notebook.started.clear()
+	CareerIncident.on_begin(self)   # F29: an incident level opened from the Career gets the Career plant's state BEFORE the coach and the notes read it (F31: Tomas quoted the default 80 % catalyst)
 	if chrome != null: chrome.reset_shift_seen(); chrome.level_begun()
 	super()
-	CareerIncident.on_begin(self)   # F29: an incident level opened from the Career gets the Career plant's state
 func game_end_screen() -> bool:
 	if CareerBoard.review_first(self): return true   # CAREER: the last annual review is read before the result card
 	sfx("printer")

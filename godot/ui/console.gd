@@ -282,6 +282,8 @@ func _stale_lines(li: Dictionary) -> void:
 			if intercom.drop_last_if(PaperStrings.t(k)) and CbSettings.tutorial != "off" and li.get("coach") is Dictionary: _back_to_coach(li)
 	if not _outcome_said or phase != "design" or li.is_empty() or not qa_li.is_empty(): return
 	_outcome_said = false
+	if str(li.get("id", "")).begins_with("CAREER_FIX"):   # F31: a purge change un-commissions the Career's plant: say so, never silently
+		intercom.say(str(li.get("setter", "supervisor")), PaperStrings.t("IC_CAREER_EDITED"), "info"); return
 	_back_to_coach(li)
 
 func _back_to_coach(li: Dictionary) -> void:

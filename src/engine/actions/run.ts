@@ -50,6 +50,20 @@ export function unitsForSolve(s: EqState): UnitInst[] {
   return units;
 }
 
+/** Call-its whose truth depends on the design are graded against the design of the FIRST successful commission, frozen then (a later retune does not move the answer). Levels that allow a late call (`lateOk`) keep their own rule. */
+function freezeCallTruths(s: EqState): void {
+  const spec = specOf(s);
+  if (spec === undefined || !spec.callIt || spec.callIt.lateOk === true) return;
+  const fz = (s.lv.callTruth as Record<string, number> | undefined) ?? {};
+  const m = spec.measures(s);
+  for (const c of [spec.callIt, ...(spec.callIts ?? [])]) {
+    if (fz[c.key] !== undefined) continue;
+    const v = c.truth(s, m);
+    if (v !== null && Number.isFinite(v)) fz[c.key] = v;
+  }
+  s.lv.callTruth = fz;
+}
+
 const commission: Fn = (s) => {
   needEditable(s);
   need(s.species.length > 0 && s.flowsheet.units.some((u) => u.type === 'feed'), t('err.commission.empty'));
@@ -107,6 +121,7 @@ const commission: Fn = (s) => {
   };
   s.warm = sol.warm;
   s.phase = 'commissioned';
+  freezeCallTruths(s);
   const setpoints: RunRecord['setpoints'] = {};
   for (const u of units) {
     const p: Record<string, number> = {};

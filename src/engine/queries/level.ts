@@ -11,7 +11,7 @@ import { buildGuideOf } from '../../levels/build_guide';
 import { SPEC_BY_ID, entersFirstRun, firstRunT, madeKg, specOf } from '../../levels/registry';
 import { recommendedSpeed } from '../../levels/wallclock';
 import type { GoalEval, LevelSpec, Measures } from '../../levels/spec';
-import { burns, commissions, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, unitsOfType, type Prediction } from '../../levels/util';
+import { burns, commissions, frozenTruth, fromKgH, predictionOf, relErr, spentOf, toKgH, toKmolH, unitsOfType, type Prediction } from '../../levels/util';
 import { REGIONS } from '../../regions';
 import type { EqState } from '../../state';
 import { designActions, unitOf } from '../actions/design';
@@ -55,7 +55,7 @@ export function gradeCallIt(s: S, spec: LevelSpec, m: Measures): CallItGrade {
   const p = answerOf(s, spec, c.key);
   if (p === null) return { answered: false };
   const g: CallItGrade = { answered: true, value: p.value, tol: tolText(c.tol) };
-  const truth = c.truth(s, m);
+  const truth = frozenTruth(s, c.key) ?? c.truth(s, m);
   if (truth !== null) { g.truth = truth; g.ok = c.tol === 0 ? p.value === truth : relErr(p.value, truth) <= c.tol; }
   if (c.named) {
     g.truthNamed = c.named(s);
@@ -259,7 +259,7 @@ const levelInfo: QueryFn<EqState> = (s) => {
     },
     /** Several predictions (L09, L18): one row each; `ok` and `truth` only once the run is over. Empty when the level has just the one `callIt`. */
     callIts: (spec.callIts ?? []).map((c) => {
-      const a = answerOf(s, spec, c.key), tr = c.truth(s, m), over = s.solved !== null || s.status !== 'playing';
+      const a = answerOf(s, spec, c.key), tr = frozenTruth(s, c.key) ?? c.truth(s, m), over = s.solved !== null || s.status !== 'playing';
       const ok = a !== null && tr !== null ? (c.tol === 0 ? a.value === tr : relErr(a.value, tr) <= c.tol) : undefined;
       return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`, spec.textVars ? spec.textVars(s) : {}), ...givenOf(s, spec, c.key), unit: c.unit, tol: tolText(c.tol), ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
     }),
