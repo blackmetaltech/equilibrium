@@ -163,6 +163,8 @@ func _run_l14() -> void:
 	lab.press_control("clamp"); await frames(2); lab.press_control("lever"); await frames(4)   # test 3
 	var li3 = app.b.q("levelInfo")
 	check(int(li3.goals[0].value) == 3, "the coached order with the world's controls runs all three tests (%s of 3; clamp %.3f bar)" % [str(li3.goals[0].value), lab.flask_Pfix / 1e5])
+	check(int(app.speed) > 0, "L14: the clock runs after Begin, so the settle after the winning run ends (speed %s)" % str(app.speed))
+	check(app.b.q("levelInfo").get("firstRun", null) is Dictionary, "L14: the third test starts the settle before the printout")
 	if lab.flask_Pfix > 0.0: lab.press_control("clamp")
 	if lab.argon_on: lab.press_control("argon_valve")
 	await frames(2)

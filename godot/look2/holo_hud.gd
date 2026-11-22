@@ -669,6 +669,7 @@ func _begin_shift(start := true) -> void:
 	_brief_done = true; _brief.vanish()
 	var tw := create_tween(); tw.tween_property(_dim, "color:a", 0.0, 0.3); tw.tween_callback(func(): _dim.visible = false)
 	if start and _fl == null: choose_speed(1); _play.grab_focus()
+	elif start: choose_speed(1)   # playtest: L14's clock must run, or the 30 s settle after the winning run never ends and no printout comes
 	_coach.appear(0.2)
 
 func _new_attempt() -> void:

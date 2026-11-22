@@ -209,6 +209,9 @@ func refresh(li: Dictionary, g: Dictionary) -> void:
 		call_edit.editable = live; call_btn.disabled = not live
 		call_note.text = "Call it before the first run."
 	run_btn.disabled = not live
+	var fr = li.get("firstRun", null)
+	if fr is Dictionary and live and call_note != null:   # playtest: say the level is done and the printout is coming
+		call_note.text = "All three tests done. The flask settles; your printout in %d s." % maxi(0, int(ceil(float(fr.get("len", 30)) - float(fr.get("t", 0)))))
 	# the checklist from the level's lamps
 	for a in li.get("annunciators", []):
 		var k := str(a.get("key", ""))
