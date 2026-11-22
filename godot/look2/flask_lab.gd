@@ -22,6 +22,17 @@ var coil_light: OmniLight3D; var dewar_fog: GPUParticles3D; var gas_light: OmniL
 var _gas_h := GAS_H
 var _wdrag := ""; var _wdrag_v := 0.0
 var _flask_out := ""
+## QA capture hook (CB_L14DEMO=1): the coach's test 1 on a clock, for the 10 s evidence capture. Engine actions only, as the HUD sends them.
+var _demo := 0 if OS.get_environment("CB_L14DEMO") == "1" else -1
+const DEMO := [[0.8, "commission", []], [2.8, "setParam", ["V", 0.0005]], [4.8, "commission", []], [6.8, "setParam", ["V", 0.001]], [6.85, "argon", [0.15]], [6.9, "setParam", ["Pfix", 9.15e5]], [7.0, "commission", []]]   # test 3: argon at constant P dilutes the NO2 (paler)
+func _demo_step() -> void:
+	while _demo < DEMO.size() and _t >= float(DEMO[_demo][0]):
+		var st: Array = DEMO[_demo]; var args: Array = st[2]
+		if str(st[1]) == "setParam": app.b.act("setParam", [str(ids.get("flask", "")), args[0], args[1]])
+		elif str(st[1]) == "argon": app.b.act("setFeed", [str(ids.get("argon", "")), {"flow": args[0]}])
+		else: app.b.act(str(st[1]), [])
+		_demo += 1
+	if _demo >= DEMO.size(): _demo = -1
 
 func _ready() -> void:
 	_build_env()
@@ -100,6 +111,7 @@ func _build_rig() -> void:
 	var gl := _cyl(CR, 2.4, Vector3(d.x, by + 0.35 + 1.2, d.z), M.glass, self, -1.0, 64); gl.name = "cylinder"
 	m_gas = StandardMaterial3D.new(); m_gas.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m_gas.albedo_color = Color(0.55, 0.24, 0.05, 0.5)
 	m_gas.roughness = 1.0; m_gas.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL; m_gas.cull_mode = BaseMaterial3D.CULL_DISABLED; m_gas.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
+	m_gas.render_priority = 10   # drawn after the refracting glass, which samples the screen before transparents
 	m_gas.emission_enabled = true; m_gas.emission = Color(0.3, 0.13, 0.04); m_gas.emission_energy_multiplier = 0.3
 	var gm := CylinderMesh.new(); gm.top_radius = CR - 0.02; gm.bottom_radius = CR - 0.02; gm.height = 1.0; gm.radial_segments = 48
 	gas = _mi(gm, Vector3(d.x, by + 0.37, d.z), m_gas)
@@ -274,19 +286,20 @@ func _process(dt: float) -> void:
 	_t += dt
 	if cam != null and not cam.current and visible: cam.make_current()
 	c_show = lerpf(c_show, c_rel, clampf(dt * 2.5, 0, 1))
+	if _demo >= 0: _demo_step()
 	# gas: column height follows V, colour depth follows the NO2 concentration (Beer-Lambert across the cylinder)
 	var h_to := clampf(GAS_H * flask_V / V_BOOK, 0.25, 2.2)
 	_gas_h = lerpf(_gas_h, h_to, clampf(dt * 3.0, 0, 1))
 	if gas:
 		gas.scale = Vector3(1, _gas_h, 1); gas.position.y = DAIS.y + 0.37 + _gas_h * 0.5
 		piston.position = Vector3(DAIS.x, DAIS.y + 0.37 + _gas_h + 0.06, DAIS.z)
-		var a := 1.0 - exp(-0.75 * maxf(c_show, 0.0))   # absorbance across the cylinder ~ NO2 concentration (the notebook flask = 1): 0.53 at 1, 0.78 at 2
-		var col := Color(0.5, 0.27, 0.1).lerp(Color(0.2, 0.08, 0.025), clampf(a, 0.0, 1.0))
-		m_gas.albedo_color = Color(col.r, col.g, col.b, clampf(a * 1.05, 0.04, 0.97))   # NO2 brown: paler and thinner when it shifts to N2O4, deeper when NO2 rises
-		m_gas.emission_energy_multiplier = 0.05 + 0.15 * a
+		var a := 1.0 - exp(-1.1 * maxf(c_show, 0.0))   # absorbance across the cylinder ~ NO2 concentration (notebook flask = 1): 0.2 cold, 0.67 at 1, 0.79 after halving V, 0.89 at the instant of compression
+		var col := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), clampf(a, 0.0, 1.0))
+		m_gas.albedo_color = Color(col.r, col.g, col.b, clampf(a, 0.03, 0.97))   # NO2 brown: paler and thinner when it shifts to N2O4, deeper when NO2 rises
+		m_gas.emission_energy_multiplier = 0.04 * a
 		gas_light.light_energy = 0.1 + 0.4 * a
 	# heat and cold: the coil glows above ~330 K of set point, the cooling coil frosts below 0 C, the dewar steams cold vapour always
-	var hot := clampf((flask_T - 330.0) / 200.0, 0.0, 1.0)
+	var hot := clampf((flask_T - 420.0) / 120.0, 0.0, 1.0)   # the heater glows only when pushed above the notebook 400 K
 	m_coil.emission_energy_multiplier = hot * 3.0; coil_light.light_energy = hot * 2.5
 	m_glass_frost.set_shader_parameter("frost", clampf((285.0 - flask_T) / 40.0, 0.0, 1.0))
 	if m_shimmer: m_shimmer.set_shader_parameter("strength", hot * 0.02)
