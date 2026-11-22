@@ -655,6 +655,7 @@ func _open_brief() -> void:
 	_dim.visible = true; create_tween().tween_property(_dim, "color:a", 0.38, 0.4)
 	(v.get_node("Begin") as Button).grab_focus.call_deferred()
 	_coach.vanish()
+	if OS.get_environment("CB_NOBRIEF") == "1": _begin_shift(false)   # captures: skip the opening card
 
 func _begin_shift(start := true) -> void:
 	if _brief_done: return
