@@ -36,59 +36,115 @@ func _demo_step() -> void:
 
 func _ready() -> void:
 	_build_env()
-	env.volumetric_fog_density = 0.012; env.volumetric_fog_albedo = Color(0.85, 0.88, 0.95); env.volumetric_fog_anisotropy = 0.7
-	env.ambient_light_energy = 0.5
+	env.volumetric_fog_density = 0.008; env.volumetric_fog_albedo = Color(0.85, 0.85, 0.88); env.volumetric_fog_anisotropy = 0.7
+	env.ambient_light_energy = 0.7; env.tonemap_exposure = 1.3
 	_build_room(); _build_rig(); _build_racks()
 	cam = Camera3D.new(); cam.fov = 48.0; cam.near = 0.03; cam.far = 600.0; add_child(cam)
 	set_camera("wide"); _snap_cam()
 	print("LOOK2 lab: %d mesh instances, %d lights" % [find_children("*", "MeshInstance3D", true, false).size(), find_children("*", "Light3D", true, false).size()])
 	if OS.get_environment("CB_FRAMETIME") == "1": _ft_start()
 
-# ---- the room: a tall private hall, dark panels, LED ribs, clerestory shafts, polished floor ---------------------------------------------------
+# ---- the room: a vast private laboratory. Round 3: walls you can read, a reactor bay behind glass, a gantry, benches of coloured glass, columns, tanks
+const HALL := Vector3(64, 24, 44)   ## x span, height, z span; the floor runs z -24..20
+var mats := {}
+func _lab_mats() -> void:
+	var st := StandardMaterial3D.new(); st.metallic = 1.0; st.roughness = 0.24; st.albedo_color = Color(0.78, 0.79, 0.8); st.anisotropy_enabled = true; st.anisotropy = 0.7
+	mats.stainless = st
+	var st2 := st.duplicate() as StandardMaterial3D; st2.roughness = 0.38; st2.albedo_color = Color(0.66, 0.67, 0.68); mats.stainless_dull = st2
+	mats.copper = _flat(Color(0.86, 0.5, 0.32), 1.0, 0.28)
+	mats.enamel_white = _flat(Color(0.86, 0.87, 0.85), 0.0, 0.25)
+	mats.enamel_green = _flat(Color(0.2, 0.38, 0.33), 0.0, 0.3)
+	mats.enamel_navy = _flat(Color(0.12, 0.17, 0.28), 0.0, 0.32)
+	mats.anod = _flat(Color(0.07, 0.075, 0.085), 0.8, 0.32)
+	mats.wood = _flat(Color(0.24, 0.14, 0.08), 0.0, 0.45)
+	mats.panel = _flat(Color(0.16, 0.17, 0.19), 0.3, 0.55)
+	mats.concrete = _pbr("concrete_slab_wall", 0.12, Color(0.55, 0.55, 0.56))
+	mats.screen = _flat(Color(0.02, 0.04, 0.05), 0.0, 0.2, Color(0.15, 0.55, 0.6), 0.5)
+	mats.warm = _flat(Color.WHITE, 0, 0.4, Color(1.0, 0.78, 0.5), 3.0)
+	mats.cool = _flat(Color.WHITE, 0, 0.4, Color(0.75, 0.88, 1.0), 2.0)
+
+func _spot(pos: Vector3, at: Vector3, col: Color, e: float, rng: float, ang: float, fog := 1.0, shadow := false) -> SpotLight3D:
+	var s := SpotLight3D.new(); s.light_color = col; s.light_energy = e; s.spot_range = rng; s.spot_angle = ang; s.light_volumetric_fog_energy = fog; s.shadow_enabled = shadow
+	s.position = pos; add_child(s); s.look_at(at, Vector3.UP if absf((at - pos).normalized().y) < 0.99 else Vector3.FORWARD); return s
+
+## Many copies of one mesh with a colour each (glassware liquids): one draw call.
+func _mmc(mesh: Mesh, xf: Array, cols: Array, mat: Material, parent: Node = self) -> MultiMeshInstance3D:
+	var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.use_colors = true; mm.mesh = mesh; mm.instance_count = xf.size()
+	for i in xf.size(): mm.set_instance_transform(i, xf[i]); mm.set_instance_color(i, cols[i])
+	var mi := MultiMeshInstance3D.new(); mi.multimesh = mm; mi.material_override = mat; parent.add_child(mi); return mi
+
 func _build_room() -> void:
-	var fl := PlaneMesh.new(); fl.size = Vector2(44, 28)
-	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 1.0, "tint": Color(0.3, 0.32, 0.36)}))
-	var panel := _paint(Color(0.2, 0.21, 0.23)); panel.metallic = 0.7; panel.roughness = 0.22
-	var H := 20.0
-	_box(Vector3(44, H, 0.5), Vector3(0, H * 0.5, -13.0), panel)
-	_box(Vector3(44, H, 0.5), Vector3(0, H * 0.5, 13.0), panel)
-	_box(Vector3(0.5, H, 26), Vector3(-21.5, H * 0.5, 0), panel)
-	_box(Vector3(0.5, H, 26), Vector3(21.5, H * 0.5, 0), panel)
-	_box(Vector3(44, 0.4, 26), Vector3(0, H, 0), _flat(Color(0.05, 0.05, 0.06), 0.3, 0.6))
-	var led := _flat(Color.WHITE, 0, 0.4, Color(0.6, 0.8, 1.0), 1.3)
-	for i in 11:   # vertical light ribs on the back and side walls
-		var x := -20.0 + i * 4.0
-		_box(Vector3(0.12, H - 2.0, 0.06), Vector3(x, H * 0.5, -12.72), led)
-		_box(Vector3(0.6, H, 0.7), Vector3(x + 2.0, H * 0.5, -12.6), M.steel_dull)   # steel pilasters
-	for z in [-8.0, -4.0, 0.0, 4.0, 8.0]:
-		_box(Vector3(0.06, H - 2.0, 0.12), Vector3(-21.2, H * 0.5, z), led); _box(Vector3(0.06, H - 2.0, 0.12), Vector3(21.2, H * 0.5, z), led)
-	# clerestory: a band of high windows on the back wall with moonlight shafts through the haze
-	for i in 8:
-		var x := -17.5 + i * 5.0
-		_box(Vector3(3.2, 3.0, 0.1), Vector3(x, 16.5, -12.7), _flat(Color(0.5, 0.6, 0.8), 0, 0.2, Color(0.35, 0.45, 0.7), 1.2))
-		var s := SpotLight3D.new(); s.light_color = Color(0.62, 0.72, 1.0); s.light_energy = 6.0; s.spot_range = 30.0; s.spot_angle = 14.0
-		s.position = Vector3(x, 17.5, -13.5); s.rotation_degrees = Vector3(-38, 0, 0); s.light_volumetric_fog_energy = 4.0; s.shadow_enabled = i % 2 == 0; add_child(s)
-	# a gallery walkway around three sides at 7 m, with a glass balustrade
-	for side in [[Vector3(0, 7, -11.3), Vector3(42, 0.15, 2.6)], [Vector3(-19.7, 7, 0), Vector3(2.6, 0.15, 20)], [Vector3(19.7, 7, 0), Vector3(2.6, 0.15, 20)]]:
-		_box(side[1], side[0], M.plate)
-	_box(Vector3(39, 1.0, 0.02), Vector3(0, 7.6, -10.0), M.glass)
-	_box(Vector3(39, 0.05, 0.08), Vector3(0, 8.1, -10.0), M.steel)
-	_box(Vector3(39, 0.03, 0.06), Vector3(0, 6.92, -10.05), led)
-	# warm practicals: pendant lamps over the benches, a key light on the dais
-	for x in [-14.0, -7.0, 7.0, 14.0]:
-		_seg(Vector3(x, H, 6.0), Vector3(x, 4.2, 6.0), 0.01, M.black)
-		_cyl(0.3, 0.25, Vector3(x, 4.1, 6.0), M.black, self, 0.08)
-		var l := SpotLight3D.new(); l.light_color = Color(1.0, 0.8, 0.55); l.light_energy = 5.0; l.spot_range = 7.0; l.spot_angle = 48.0; l.position = Vector3(x, 3.95, 6.0); l.rotation_degrees.x = -90; l.light_volumetric_fog_energy = 0.8; add_child(l)
-	for x in [-16.0, -8.0, 8.0, 16.0]:   # amber wall washers under the gallery: the lab is a home, not a server room
-		var w := SpotLight3D.new(); w.light_color = Color(1.0, 0.68, 0.38); w.light_energy = 7.0; w.spot_range = 9.0; w.spot_angle = 55.0
-		w.position = Vector3(x, 6.6, -11.2); w.rotation_degrees.x = -70; w.light_volumetric_fog_energy = 1.0; add_child(w)
-	var key := SpotLight3D.new(); key.light_color = Color(0.92, 0.95, 1.0); key.light_energy = 22.0; key.spot_range = 22.0; key.spot_angle = 18.0; key.shadow_enabled = true
-	key.position = DAIS + Vector3(3.0, 14.0, 4.0); key.light_volumetric_fog_energy = 2.0; add_child(key); key.look_at(DAIS + Vector3(0, 1.2, 0))
-	var rim := SpotLight3D.new(); rim.light_color = Color(0.3, 0.85, 0.8); rim.light_energy = 6.0; rim.spot_range = 16.0; rim.spot_angle = 30.0
-	rim.position = DAIS + Vector3(-4.0, 6.0, -5.0); add_child(rim); rim.look_at(DAIS + Vector3(0, 1.5, 0))
-	for f in [Vector3(-8, 6, 0), Vector3(8, 6, 0), Vector3(0, 6, 8), Vector3(0, 9, -8), Vector3(-14, 4, 6), Vector3(14, 4, 6)]:   # cool fill so the room reads
-		var o := OmniLight3D.new(); o.light_color = Color(0.7, 0.82, 1.0); o.light_energy = 2.2; o.omni_range = 14.0; o.position = f; add_child(o)
-	var rp := ReflectionProbe.new(); rp.size = Vector3(44, 20, 26); rp.position = Vector3(0, 10, 0); rp.box_projection = true; rp.interior = true; rp.update_mode = ReflectionProbe.UPDATE_ONCE; add_child(rp)
+	_lab_mats()
+	var x0 := -32.0; var x1 := 32.0; var z0 := -24.0; var z1 := 20.0; var H := 24.0
+	var fl := PlaneMesh.new(); fl.size = Vector2(x1 - x0, z1 - z0)
+	_mi(fl, Vector3(0, 0, (z0 + z1) * 0.5), _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.75, "tint": Color(0.34, 0.33, 0.32)}))
+	# walls: dark wood wainscot to 3.5 m with a warm cove light, concrete above, steel pilasters; the ceiling is a dark coffer with skylights
+	for w in [[Vector3(0, 0, z1), Vector3(x1 - x0, 0, 0.4)], [Vector3(x0, 0, 0), Vector3(0.4, 0, z1 - z0)], [Vector3(x1, 0, 0), Vector3(0.4, 0, z1 - z0)]]:
+		var c: Vector3 = w[0]; var sz: Vector3 = w[1]
+		var cz := c.z if c.z != 0.0 else (z0 + z1) * 0.5
+		var cx := c.x
+		var thin := Vector3(maxf(sz.x, 0.4), 0, maxf(sz.z, 0.4))
+		_box(Vector3(thin.x, 3.5, thin.z), Vector3(cx, 1.75, cz), mats.wood)
+		_box(Vector3(thin.x, H - 3.5, thin.z), Vector3(cx, 3.5 + (H - 3.5) * 0.5, cz), mats.concrete)
+		var inward := Vector3(-signf(cx), 0, 0) if sz.x < 1.0 else Vector3(0, 0, -signf(cz - (z0 + z1) * 0.5))
+		_box(Vector3(maxf(thin.x - 0.5, 0.06) if sz.x > 1.0 else 0.06, 0.05, maxf(thin.z - 0.5, 0.06) if sz.z > 1.0 else 0.06), Vector3(cx, 3.6, cz) + inward * 0.25, mats.warm)
+	_box(Vector3(x1 - x0, 0.6, z1 - z0), Vector3(0, H, (z0 + z1) * 0.5), mats.anod)
+	for i in 6:
+		_box(Vector3(6.0, 0.1, 3.0), Vector3(-25.0 + i * 10.0, H - 0.35, -2.0), _flat(Color(0.4, 0.5, 0.7), 0, 0.3, Color(0.3, 0.42, 0.65), 0.6))
+		_spot(Vector3(-25.0 + i * 10.0, H - 0.6, -2.0), Vector3(-25.0 + i * 10.0 + 3.0, 0, 2.0), Color(0.6, 0.72, 1.0), 4.0, 34.0, 12.0, 3.0, i % 2 == 0)
+	for x in [-24.0, -12.0, 12.0, 24.0]:
+		for z in [z1 - 0.4]: _box(Vector3(0.7, H, 0.8), Vector3(x, H * 0.5, z), mats.stainless_dull)
+		_box(Vector3(0.8, H, 0.7), Vector3(x0 + 0.4, H * 0.5, x * 0.6), mats.stainless_dull); _box(Vector3(0.8, H, 0.7), Vector3(x1 - 0.4, H * 0.5, x * 0.6), mats.stainless_dull)
+	# the reactor bay behind a glass wall (z -13 .. -24): the big vessel, tanks, a gantry, its own cool light
+	var gz := -13.0
+	_box(Vector3(x1 - x0, 0.3, 0.4), Vector3(0, 0.15, gz), mats.anod)
+	for i in 17:
+		var x := x0 + 2.0 + i * 3.75
+		_box(Vector3(0.12, 12.0, 0.2), Vector3(x, 6.0, gz), mats.anod)
+	_box(Vector3(x1 - x0 - 2.0, 12.0, 0.04), Vector3(0, 6.0, gz), M.glass)
+	_box(Vector3(x1 - x0, 0.25, 0.3), Vector3(0, 12.1, gz), mats.anod)
+	_box(Vector3(x1 - x0, H - 12.2, 0.4), Vector3(0, 12.2 + (H - 12.2) * 0.5, gz), mats.concrete)
+	_box(Vector3(x1 - x0, H, 0.4), Vector3(0, H * 0.5, z0), mats.concrete)
+	var rv := Vector3(-6.0, 0, -19.0)   # the reactor: jacketed stainless, dished heads, manway, nozzles, insulation bands, sight glass glowing
+	_cyl(1.9, 8.0, rv + Vector3(0, 5.0, 0), mats.stainless, self, -1.0, 48)
+	_sph(1.9, rv + Vector3(0, 9.0, 0), mats.stainless, self, true)
+	_cyl(1.95, 0.25, rv + Vector3(0, 2.2, 0), mats.stainless_dull, self, -1.0, 48)
+	for k in 4: _torus(1.93, 0.05, rv + Vector3(0, 3.5 + k * 1.6, 0), mats.stainless_dull)
+	for a in 4: _seg(rv + Vector3(cos(a * TAU / 4.0) * 1.6, 0, sin(a * TAU / 4.0) * 1.6), rv + Vector3(cos(a * TAU / 4.0) * 1.6, 2.3, sin(a * TAU / 4.0) * 1.6), 0.12, mats.anod)
+	_cyl(0.35, 0.4, rv + Vector3(0.9, 10.6, 0.4), mats.stainless); _cyl(0.2, 1.4, rv + Vector3(-0.8, 10.8, 0.0), mats.stainless)
+	_cyl(0.32, 0.1, rv + Vector3(0, 5.2, 1.95), _flat(Color(0.2, 0.1, 0.05), 0, 0.2, Color(1.0, 0.55, 0.2), 2.5)).rotation_degrees.x = 90
+	var bl := OmniLight3D.new(); bl.light_color = Color(1.0, 0.6, 0.3); bl.light_energy = 1.5; bl.omni_range = 5.0; bl.position = rv + Vector3(0, 5.2, 2.6); add_child(bl)
+	for t in [[Vector3(5.0, 0, -20.0), 1.6, 6.0, mats.enamel_white], [Vector3(10.5, 0, -20.0), 1.6, 6.0, mats.enamel_white], [Vector3(17.0, 0, -19.0), 1.3, 9.0, mats.copper]]:
+		var p: Vector3 = t[0]; var r: float = t[1]; var h: float = t[2]
+		_cyl(r, h, p + Vector3(0, h * 0.5 + 0.6, 0), t[3], self, -1.0, 40); _sph(r, p + Vector3(0, h + 0.6, 0), t[3], self, true)
+		for a in 3: _seg(p + Vector3(cos(a * TAU / 3.0) * r * 0.8, 0, sin(a * TAU / 3.0) * r * 0.8), p + Vector3(cos(a * TAU / 3.0) * r * 0.8, 0.7, sin(a * TAU / 3.0) * r * 0.8), 0.08, mats.anod)
+	_box(Vector3(36.0, 0.15, 1.6), Vector3(2.0, 7.0, -16.4), M.plate)   # bay gantry with rail
+	_box(Vector3(36.0, 0.05, 0.05), Vector3(2.0, 8.05, -15.65), M.yellow)
+	for i in 10: _seg(Vector3(-16.0 + i * 4.0, 7.0, -15.65), Vector3(-16.0 + i * 4.0, 8.05, -15.65), 0.025, M.yellow)
+	for i in 4: _seg(Vector3(-14.0 + i * 11.0, 0, -16.4), Vector3(-14.0 + i * 11.0, 7.0, -16.4), 0.12, mats.anod)
+	_pipe([rv + Vector3(1.9, 6.5, 0), Vector3(3.4, 6.5, -19.0), Vector3(3.4, 6.5, -20.0), Vector3(3.4, 5.0, -20.0)], 0.12, mats.stainless_dull, self, true)
+	_pipe([Vector3(10.5, 6.8, -20.0), Vector3(10.5, 7.6, -20.0), Vector3(17.0, 7.6, -20.0), Vector3(17.0, 7.6, -19.0)], 0.1, mats.copper, self, true)
+	for x in [-14.0, -2.0, 10.0, 22.0]: _spot(Vector3(x, 11.5, -15.0), Vector3(x + 1.0, 0, -20.0), Color(0.78, 0.88, 1.0), 9.0, 18.0, 30.0, 2.5, x == -2.0)
+	# gantry bridge across the hall at 8 m with a travelling hoist
+	_box(Vector3(x1 - x0 - 1.0, 0.5, 1.4), Vector3(0, 9.6, -9.5), mats.enamel_navy)
+	_box(Vector3(x1 - x0 - 1.0, 0.05, 0.05), Vector3(0, 10.6, -10.15), M.yellow); _box(Vector3(x1 - x0 - 1.0, 0.05, 0.05), Vector3(0, 10.6, -8.85), M.yellow)
+	_box(Vector3(1.6, 0.9, 1.6), Vector3(-9.0, 9.0, -9.5), M.yellow); _seg(Vector3(-9.0, 8.6, -9.5), Vector3(-9.0, 4.5, -9.5), 0.02, M.black); _box(Vector3(0.4, 0.3, 0.2), Vector3(-9.0, 4.4, -9.5), M.yellow)
+	for x in [-20.0, 20.0]: _box(Vector3(0.6, 9.4, 0.6), Vector3(x, 4.7, -9.5), mats.enamel_navy)
+	# cable trays overhead, conduits down the pilasters
+	for z in [-8.0, 0.0, 12.0]: _box(Vector3(x1 - x0 - 2.0, 0.1, 0.6), Vector3(0, 11.0, z), mats.stainless_dull); _box(Vector3(x1 - x0 - 2.0, 0.08, 0.5), Vector3(0, 11.06, z), _flat(Color(0.1, 0.1, 0.12), 0.0, 0.7))
+	for x in [-24.0, -12.0, 12.0, 24.0]: _seg(Vector3(x + 0.5, 0.5, -8.0), Vector3(x + 0.5, 11.0, -8.0), 0.05, mats.stainless_dull)
+	# key and fill: a cool key on the hero, warm cove light, practicals; the hero is backlit by the bay
+	var key := SpotLight3D.new(); key.light_color = Color(0.92, 0.95, 1.0); key.light_energy = 20.0; key.spot_range = 24.0; key.spot_angle = 16.0; key.shadow_enabled = true
+	key.position = DAIS + Vector3(4.0, 15.0, 5.0); key.light_volumetric_fog_energy = 2.5; add_child(key); key.look_at(DAIS + Vector3(0, 2.0, 0))
+	_spot(DAIS + Vector3(-5.0, 7.0, -6.0), DAIS + Vector3(0, 2.5, 0), Color(0.5, 0.75, 1.0), 6.0, 16.0, 28.0, 1.0)
+	for f in [Vector3(-16, 6, 4), Vector3(16, 6, 4), Vector3(0, 7, 12), Vector3(0, 7, -9)]:
+		var o := OmniLight3D.new(); o.light_color = Color(1.0, 0.82, 0.62); o.light_energy = 3.5; o.omni_range = 18.0; o.position = f; add_child(o)
+	for gx in [-24.0, -14.0, -4.0, 6.0, 16.0, 26.0]:   # a grid of warm high-bay downlights: the lab is lit like a place someone works in
+		for gz2 in [-6.0, 4.0, 13.0]:
+			_cyl(0.45, 0.25, Vector3(gx, 17.8, gz2), mats.anod); _cyl(0.38, 0.02, Vector3(gx, 17.67, gz2), mats.warm)
+			_spot(Vector3(gx, 17.6, gz2), Vector3(gx, 0, gz2 + 0.01), Color(1.0, 0.85, 0.66), 5.0, 22.0, 38.0, 0.8, false)
+	var rp := ReflectionProbe.new(); rp.size = Vector3(64, 24, 44); rp.position = Vector3(0, 12, -2); rp.box_projection = true; rp.interior = true; rp.update_mode = ReflectionProbe.UPDATE_ONCE; add_child(rp)
+	anchors["bench"] = Vector3(-18.0, 1.4, 4.0)
 
 # ---- the rig: dais, gas cylinder with screw piston, coils, gauge, wheels, dewar of liquid N2O4, argon, fume hood -----------------------------------
 func _build_rig() -> void:
@@ -191,51 +247,71 @@ func _build_rig() -> void:
 	anchors["flask"] = pivot.transform * Vector3(d.x, by + 2.0, d.z); radius["flask"] = 0.7 * RIG_S
 	anchors["bench"] = Vector3(-9.0, 1.4, 6.0)
 
-# ---- glassware racks, benches, a tesla-style coil, cable trays: the lab is full ----------------------------------------------------------------
+# ---- the working lab: benches of coloured glassware, tall glass columns, a kettle, a control dais. Coloured MultiMesh for the many flasks.
 func _build_racks() -> void:
-	var cols := [Color(0.25, 0.55, 1.0, 0.6), Color(0.95, 0.75, 0.15, 0.55), Color(0.2, 0.85, 0.5, 0.5), Color(0.9, 0.2, 0.5, 0.55), Color(0.9, 0.95, 1.0, 0.3), Color(0.6, 0.3, 0.9, 0.5)]
-	var erl := PackedVector2Array([Vector2(0, 0), Vector2(0.075, 0), Vector2(0.08, 0.01), Vector2(0.03, 0.15), Vector2(0.022, 0.2), Vector2(0.025, 0.205)])
-	var erl_l := PackedVector2Array([Vector2(0, 0.004), Vector2(0.071, 0.004), Vector2(0.075, 0.012), Vector2(0.05, 0.075), Vector2(0, 0.075)])
-	var liq := []
-	for c in cols: liq.append(_shader("liquid", {"col": c, "glow": 0.15}))
-	# two tall racks against the side walls, five shelves of glassware each (MultiMesh-free but few: 6 per shelf)
-	for side in [-1.0, 1.0]:
-		var x0: float = side * 19.6
-		for z in [-6.0, 0.0, 6.0]:
-			_box(Vector3(0.6, 4.2, 3.6), Vector3(x0, 2.1, z), _paint(Color(0.1, 0.11, 0.12)))
-			for k in 5:
-				var y := 0.5 + k * 0.8
-				_box(Vector3(0.62, 0.03, 3.6), Vector3(x0 - side * 0.02, y, z), M.glass)
-				_box(Vector3(0.02, 0.02, 3.5), Vector3(x0 - side * 0.3, y + 0.75, z), _flat(Color.WHITE, 0, 0.4, Color(0.7, 0.85, 1.0), 2.0))
-				for j in 6:
-					var p := Vector3(x0 - side * 0.05, y + 0.015, z - 1.5 + j * 0.6)
-					_lathe(erl_l, 16, liq[(k * 6 + j) % liq.size()], p)
-					_lathe(erl, 16, M.glass, p)
-	# benches in front with distillation glassware under the pendants
-	for x in [-14.0, -7.0, 7.0, 14.0]:
-		_box(Vector3(4.0, 0.06, 1.2), Vector3(x, 0.93, 6.0), _flat(Color(0.18, 0.19, 0.2), 0, 0.3))
-		_box(Vector3(3.9, 0.88, 1.1), Vector3(x, 0.45, 6.0), _paint(Color(0.14, 0.15, 0.17)))
-		var fp := Vector3(x - 0.8, 0.96, 6.0)
-		_lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.06, 0.0), Vector2(0.11, 0.03), Vector2(0.14, 0.09), Vector2(0.145, 0.15), Vector2(0.12, 0.22), Vector2(0.07, 0.27), Vector2(0.03, 0.3), Vector2(0.03, 0.42)]), 24, M.glass, fp)
-		_lathe(PackedVector2Array([Vector2(0, 0.006), Vector2(0.055, 0.006), Vector2(0.105, 0.035), Vector2(0.133, 0.09), Vector2(0.137, 0.12), Vector2(0, 0.12)]), 24, liq[int(absf(x)) % liq.size()], fp)
-		_cyl(0.16, 0.08, fp + Vector3(0, -0.02, 0), _flat(Color(0.2, 0.2, 0.2), 0.5, 0.4, Color(1.0, 0.3, 0.05), 0.6))   # hot plate
-		_seg(fp + Vector3(0, 0.42, 0), fp + Vector3(1.2, 0.6, 0), 0.015, M.glass)                                          # condenser
-		_seg(fp + Vector3(1.2, 0.6, 0), fp + Vector3(1.6, 0.2, 0), 0.012, M.glass)
-		_lathe(erl, 16, M.glass, fp + Vector3(1.6, 0.0, 0))
-		_seg(fp + Vector3(-0.3, 0, 0), fp + Vector3(-0.3, 0.8, 0), 0.006, M.steel)
-	# a big coil and a glass column on the far side of the dais, for the sense of a working lab
-	var cpos := Vector3(9.0, 0, -5.5)
-	_cyl(0.6, 0.4, cpos + Vector3(0, 0.2, 0), M.steel_dull)
-	for i in 40: _torus(0.42, 0.012, cpos + Vector3(0, 0.5 + i * 0.07, 0), M.brass)
-	_cyl(0.38, 2.9, cpos + Vector3(0, 1.9, 0), _paint(Color(0.1, 0.1, 0.12)))
-	_torus(0.5, 0.18, cpos + Vector3(0, 3.6, 0), M.steel)
-	var col := Vector3(-9.0, 0, -6.0)
-	_cyl(0.35, 6.0, col + Vector3(0, 3.0, 0), M.glass, self, -1.0, 32)
-	for i in 12: _cyl(0.33, 0.03, col + Vector3(0, 0.6 + i * 0.45, 0), M.steel_dull, self, -1.0, 32)
-	_lathe(PackedVector2Array([Vector2(0, 0), Vector2(0.33, 0), Vector2(0.33, 1.2), Vector2(0, 1.2)]), 32, _shader("liquid", {"col": Color(0.3, 0.75, 0.6, 0.35), "glow": 0.25}), col + Vector3(0, 0.1, 0))
-	for y in [0.2, 6.2]: _cyl(0.42, 0.2, col + Vector3(0, y, 0), M.steel)
-	# cable trays overhead
-	for z in [-5.0, 5.0]: _box(Vector3(40, 0.08, 0.5), Vector3(0, 9.5, z), M.steel_dull)
+	var palette := [Color(0.2, 0.5, 1.0, 0.75), Color(0.95, 0.72, 0.12, 0.7), Color(0.15, 0.85, 0.45, 0.7), Color(0.92, 0.18, 0.45, 0.72), Color(0.6, 0.3, 0.95, 0.7), Color(0.95, 0.4, 0.1, 0.72), Color(0.85, 0.92, 1.0, 0.4)]
+	var lq := StandardMaterial3D.new(); lq.vertex_color_use_as_albedo = true; lq.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; lq.roughness = 0.1; lq.emission_enabled = true; lq.emission = Color(0.05, 0.05, 0.05)
+	lq.render_priority = 5
+	var erl := ArrayMesh.new(); var em := _lathe(PackedVector2Array([Vector2(0, 0), Vector2(0.075, 0), Vector2(0.08, 0.01), Vector2(0.03, 0.15), Vector2(0.022, 0.2), Vector2(0.025, 0.205)]), 14, M.glass, Vector3(0, -50, 0))
+	erl = em.mesh; em.queue_free()
+	var lm := _lathe(PackedVector2Array([Vector2(0, 0.004), Vector2(0.071, 0.004), Vector2(0.075, 0.012), Vector2(0.045, 0.09), Vector2(0, 0.09)]), 14, M.glass, Vector3(0, -50, 0))
+	var liqmesh: Mesh = lm.mesh; lm.queue_free()
+	var bm := _lathe(PackedVector2Array([Vector2(0, 0), Vector2(0.05, 0), Vector2(0.05, 0.16), Vector2(0.055, 0.17)]), 12, M.glass, Vector3(0, -50, 0))
+	var beak: Mesh = bm.mesh; bm.queue_free()
+	var gx := []; var lx := []; var lc := []; var bx := []
+	var k := 0
+	# three rows of benches on the left, two on the right front; each a black epoxy top on a steel frame, a reagent shelf, a hood light
+	var rows := [[-14.0, 1.0], [-14.0, 6.5], [-14.0, 12.0], [-24.0, 3.0], [-24.0, 9.0], [-24.0, 15.0], [18.0, 13.0], [18.0, 17.5]]
+	for r in rows:
+		var bxp := Vector3(r[0], 0, r[1])
+		_box(Vector3(7.0, 0.05, 1.4), bxp + Vector3(0, 0.95, 0), _flat(Color(0.05, 0.05, 0.055), 0.0, 0.18))
+		_box(Vector3(6.9, 0.9, 1.3), bxp + Vector3(0, 0.46, 0), mats.enamel_white if int(r[1]) % 2 == 0 else mats.enamel_green)
+		_box(Vector3(6.9, 0.04, 0.35), bxp + Vector3(0, 1.75, -0.5), mats.stainless_dull)
+		_box(Vector3(6.9, 0.04, 0.35), bxp + Vector3(0, 2.35, -0.5), mats.stainless_dull)
+		for sx in [-3.4, 3.4]: _seg(bxp + Vector3(sx, 0.97, -0.6), bxp + Vector3(sx, 2.4, -0.6), 0.02, mats.stainless_dull)
+		_box(Vector3(6.6, 0.04, 0.1), bxp + Vector3(0, 2.6, -0.3), mats.warm)
+		var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.82, 0.6); l.light_energy = 1.4; l.omni_range = 4.5; l.position = bxp + Vector3(0, 2.4, 0.1); add_child(l)
+		for j in 22:   # shelves of flasks
+			var shelf := 1.77 if j < 11 else 2.37
+			var p := bxp + Vector3(-3.1 + (j % 11) * 0.62, shelf, -0.5)
+			var xf := Transform3D(Basis.IDENTITY, p)
+			gx.append(xf); lx.append(xf); lc.append(palette[(k + j * 3) % palette.size()])
+		for j in 9:    # beakers on the bench top
+			var p2 := bxp + Vector3(-3.0 + j * 0.7, 0.98, 0.25)
+			bx.append(Transform3D(Basis.from_scale(Vector3(1, 0.9 + 0.3 * ((j + k) % 3), 1)), p2))
+			lx.append(Transform3D(Basis.from_scale(Vector3(0.68, 1.0, 0.68)), p2 + Vector3(0, 0.005, 0))); lc.append(palette[(k * 2 + j) % palette.size()]); gx.append(Transform3D(Basis.from_scale(Vector3(0.0001, 0.0001, 0.0001)), p2))
+		k += 1
+	_mmc(liqmesh, lx, lc, lq)
+	_mm(erl, gx, M.glass, self)
+	_mm(beak, bx, M.glass, self)
+	# tall glass columns on the right with coloured liquid levels and bubbles
+	var cols := [[Vector3(18.0, 0, -4.0), Color(0.15, 0.8, 0.6, 0.45), 9.0], [Vector3(21.5, 0, -6.5), Color(0.95, 0.65, 0.1, 0.45), 11.0], [Vector3(25.0, 0, -3.5), Color(0.35, 0.5, 1.0, 0.45), 8.0]]
+	for c in cols:
+		var p: Vector3 = c[0]; var h: float = c[2]
+		_cyl(0.42, h, p + Vector3(0, h * 0.5 + 0.5, 0), M.glass, self, -1.0, 32)
+		for i in int(h / 1.2): _cyl(0.46, 0.06, p + Vector3(0, 0.9 + i * 1.2, 0), mats.stainless, self, -1.0, 32)
+		var lqm := StandardMaterial3D.new(); lqm.albedo_color = c[1]; lqm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; lqm.emission_enabled = true; lqm.emission = Color(c[1].r, c[1].g, c[1].b) * 0.35; lqm.render_priority = 5
+		_cyl(0.4, h * 0.45, p + Vector3(0, 0.5 + h * 0.225, 0), lqm, self, -1.0, 32)
+		for y in [0.3, h + 0.6]: _cyl(0.55, 0.4, p + Vector3(0, y, 0), mats.stainless, self, -1.0, 32)
+		_particles(p + Vector3(0, 0.7, 0), 24, 3.0, Vector3(0, 0.9, 0), 6.0, 0.05, Color(1, 1, 1, 0.5), self, 1.0)
+		var gl := OmniLight3D.new(); gl.light_color = Color(c[1].r, c[1].g, c[1].b); gl.light_energy = 0.8; gl.omni_range = 3.5; gl.position = p + Vector3(0.0, 1.5, 0.8); add_child(gl)
+	_pipe([Vector3(18.0, 9.8, -4.0), Vector3(18.0, 10.6, -4.0), Vector3(21.5, 10.6, -4.0), Vector3(21.5, 10.6, -6.5), Vector3(21.5, 11.8, -6.5)], 0.06, mats.copper, self, true)
+	# a copper kettle with a domed lid and a sight glass, beside the columns
+	var kp := Vector3(14.5, 0, -8.0)
+	_cyl(1.0, 1.8, kp + Vector3(0, 1.5, 0), mats.copper, self, -1.0, 40); _sph(1.0, kp + Vector3(0, 2.4, 0), mats.copper, self, true)
+	_cyl(0.12, 1.2, kp + Vector3(0, 3.8, 0), mats.copper); for a in 3: _seg(kp + Vector3(cos(a * TAU / 3.0) * 0.8, 0, sin(a * TAU / 3.0) * 0.8), kp + Vector3(cos(a * TAU / 3.0) * 0.8, 0.6, sin(a * TAU / 3.0) * 0.8), 0.06, mats.anod)
+	# the control dais: a raised platform with a curved desk, three screens, a chair: where the owner of the lab sits
+	var cd := Vector3(9.0, 0, 9.0)
+	_cyl(3.2, 0.5, cd + Vector3(0, 0.25, 0), mats.panel, self, -1.0, 48); _torus(3.21, 0.02, cd + Vector3(0, 0.5, 0), mats.cool)
+	for i in 5:
+		var a := -0.9 + i * 0.45
+		var dp := cd + Vector3(sin(a) * 2.2, 0.95, -cos(a) * 2.2)
+		var d := _box(Vector3(1.0, 0.9, 0.7), dp, mats.anod); d.rotation.y = -a
+		if i > 0 and i < 4:
+			var sc := _box(Vector3(0.9, 0.55, 0.03), dp + Vector3(sin(a) * 0.1, 0.85, -cos(a) * 0.1), mats.screen); sc.rotation = Vector3(-0.2, -a, 0)
+	_cyl(0.3, 0.08, cd + Vector3(0, 0.95, -0.4), mats.anod); _box(Vector3(0.6, 0.7, 0.08), cd + Vector3(0, 1.3, -0.1), mats.anod)
+	var dl := OmniLight3D.new(); dl.light_color = Color(0.5, 0.85, 0.9); dl.light_energy = 0.8; dl.omni_range = 4.0; dl.position = cd + Vector3(0, 1.8, -1.6); add_child(dl)
+	anchors["dais"] = cd + Vector3(0, 1.5, 0)
 
 # ---- live state ---------------------------------------------------------------------------------------------------------------------------------
 func setup(role_ids: Dictionary) -> void:
@@ -342,7 +418,7 @@ func pick(p: Vector2) -> String:
 
 # ---- camera -------------------------------------------------------------------------------------------------------------------------------------
 const L14_PRESETS := {
-	"wide": [Vector3(0, 3.2, -2.0), 0.3, -0.07, 13.5],
+	"wide": [Vector3(-5.0, 2.6, -3.0), -0.22, -0.17, 25.0],
 	"flask": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
 	"gauge": [Vector3(1.75, 3.75, -1.6), 0.2, -0.02, 1.5],
 	"wheel": [Vector3(0, 6.2, -2.0), 0.5, -0.55, 3.6],
