@@ -233,7 +233,7 @@ func _size_dock() -> void:
 func _build_cmd() -> void:
 	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 4); col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 16); h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_dial = HoloDial.new(); _dial.name = "Dial"; _dial.committed.connect(_commit_dial); _dial.changed.connect(func(k: float): if lab != null: lab.set_control_value("T", k)); h.add_child(_dial)
+	_dial = HoloDial.new(); _dial.name = "Dial"; _dial.custom_minimum_size = Vector2(150, 142); _dial.committed.connect(_commit_dial); _dial.changed.connect(func(k: float): if lab != null: lab.set_control_value("T", k)); h.add_child(_dial)
 	h.add_child(_vsep())
 	var mid := VBoxContainer.new(); mid.add_theme_constant_override("separation", 2); mid.mouse_filter = Control.MOUSE_FILTER_IGNORE; mid.custom_minimum_size.x = 150
 	mid.add_child(HoloTheme.label("Cooler outlet", 16, HoloTheme.MUTED, 500))
