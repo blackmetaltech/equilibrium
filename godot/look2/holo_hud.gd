@@ -1,14 +1,597 @@
 class_name HoloHud
 extends Control
-## CONTRACT STUB (filled by the HUD programmer, see docs/LOOK2.md). The inventor's instrumentation for the slice.
+## LOOK2 instrumentation for the slice (L00 Night Shift): readouts anchored to the equipment with leader lines, the equilibrium diagram beside the converter,
+## the command panel (cooler dial, shift clock, speed, camera), the coach line with toasts, the alarm strip, the opening brief and the glass end card.
+## Reads the engine through app.b (queries and the snapshot); the only engine actions it takes are the ones the old console and faceplate took:
+## setpoint on the cooler, setSpeed, markCoach. Contract with look2.gd: build, setup, refresh, layout, toast, end_card, key.
+const SPEEDS := [0, 1, 4, 16]
+const ANN_TEXT := {"cw": "Cooling water pump", "hi": "Converter temperature high", "hh": "Converter temperature very high", "ilk": "Interlock", "flare": "Flare"}
+const CARD_ROLES := ["converter", "cooler", "separator", "compressor", "flare"]
+const M_NH3 := 17.0305
+
+class Dot extends Control:
+	var state := "normal"   ## off, normal, high, critical
+	var col := HoloTheme.TEAL
+	func _init() -> void: custom_minimum_size = Vector2(14, 14); mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _process(_dt: float) -> void: if state == "high" or state == "critical": queue_redraw()
+	func _draw() -> void:
+		var c := size * 0.5; var t := Time.get_ticks_msec() * 0.001
+		match state:
+			"off": draw_circle(c, 4.0, Color(1, 1, 1, 0.22))
+			"high":
+				var a := 0.45 + 0.55 * (0.5 + 0.5 * sin(t * TAU * 1.5))
+				draw_circle(c, 7.0, Color(HoloTheme.AMBER, 0.18 * a)); draw_circle(c, 5.0, Color(HoloTheme.AMBER, a))
+			"critical":
+				var a := 0.4 + 0.6 * (0.5 + 0.5 * sin(t * TAU * 3.0))
+				draw_circle(c, 7.0, Color(HoloTheme.RED, 0.25 * a)); draw_circle(c, 5.0, Color(HoloTheme.RED, a))
+			_: draw_circle(c, 7.0, Color(col, 0.14)); draw_circle(c, 4.5, col)
+
+class Lines extends Control:
+	var hud
+	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE; set_anchors_preset(Control.PRESET_FULL_RECT)
+	func _process(_dt: float) -> void: queue_redraw()
+	func _draw() -> void:
+		if hud == null: return
+		var t := Time.get_ticks_msec() * 0.001
+		for l in hud.line_data:
+			var a: Vector2 = l.a; var b: Vector2 = l.b; var al: float = l.alpha
+			if al < 0.02: continue
+			draw_line(a, b, Color(HoloTheme.TEAL, 0.16 * al), 4.0, true)
+			draw_line(a, b, Color(HoloTheme.TEAL_HI, 0.75 * al), 1.2, true)
+			var ring := 5.0 + 3.0 * fposmod(t * 0.7, 1.0)
+			draw_arc(a, ring, 0.0, TAU, 20, Color(HoloTheme.TEAL_HI, 0.5 * al * (1.0 - fposmod(t * 0.7, 1.0))), 1.2, true)
+			draw_circle(a, 4.5, Color(HoloTheme.TEAL, 0.35 * al)); draw_circle(a, 2.6, Color(1, 1, 1, al))
+			draw_circle(b, 2.2, Color(HoloTheme.TEAL_HI, al))
+
 var app
 var lab: LabWorld
 var ids := {}
+var line_data: Array = []
+var _built := false
+var _lines: Lines
+var _cards := {}          ## role -> {p: HoloPanel, v: {key: HoloNum}, dot, txt, cur: Vector2, pick: int}
+var _dg_panel: HoloPanel
+var _diagram: HoloDiagram
+var _dg_cur := Vector2.ZERO
+var _dg_pick := 0
+var _dg_k := 1.0
+var _cmd: HoloPanel
+var _dial: HoloDial
+var _out_num: HoloNum
+var _cw_dot: Dot
+var _cw_txt: Label
+var _clock_num: Label
+var _clock_tot: Label
+var _clock_bar: Control
+var _play: Button
+var _speed_btns: Array[Button] = []
+var _cam_btns := {}
+var _coach: HoloPanel
+var _coach_name: Label
+var _coach_text: Label
+var _coach_why: Label
+var _coach_whybtn: Button
+var _toast_lbl: Label
+var _toast_until := 0.0
+var _alarm: HoloPanel
+var _ann_rows := {}       ## key -> {dot, label}
+var _ann_box: VBoxContainer
+var _brief: HoloPanel
+var _dim: ColorRect
+var _brief_done := false
+var _end: HoloPanel
+var _stream_of := {}      ## role -> stream id (outlet of the unit)
+var _pending_k := -1.0
+var _last_t := -1.0
+var _last_speed := -1
+var _last_play := ""
+var _compact := false
+var _li: Dictionary = {}
+var _status := "playing"
+var _tripped := false
+var _coach_sig := ""
+var _focus_role := ""
 
-func build() -> void: set_anchors_preset(Control.PRESET_FULL_RECT); mouse_filter = Control.MOUSE_FILTER_IGNORE
-func setup(role_ids: Dictionary) -> void: ids = role_ids
-func refresh() -> void: pass
-func layout() -> void: pass
-func toast(_text: String, _level: String) -> void: pass
-func end_card() -> bool: return false
-func key(_e: InputEventKey) -> bool: return false
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+func build() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT); mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lines = Lines.new(); _lines.hud = self; _lines.name = "Lines"; add_child(_lines)
+	_build_cards(); _build_diagram(); _build_cmd(); _build_coach(); _build_alarm(); _build_brief()
+	_built = true
+	if lab != null and lab.has_signal("picked"): lab.picked.connect(_on_picked)
+	layout()
+	for p in _panels(): p.fit()
+	_cmd.appear(0.3)
+
+func _panels() -> Array:
+	var a: Array = [_dg_panel, _cmd, _coach, _alarm, _brief, _end]
+	for r in _cards: a.append(_cards[r].p)
+	return a.filter(func(x): return x != null)
+
+func setup(role_ids: Dictionary) -> void:
+	ids = role_ids; _stream_of = {}
+	if app == null or app.b == null: return
+	var pl = app.b.q("plant")
+	if not (pl is Dictionary): return
+	for r in ["converter", "cooler", "compressor", "separator"]:
+		for s in pl.get("streams", []):
+			var f: Dictionary = s.get("from", {})
+			if str(f.get("unit", "")) == str(ids.get(r, "?")) and str(f.get("port", "")) == ("liq" if r == "separator" else "out"): _stream_of[r] = str(s.id)
+
+func _row(parent: Control, label: String, num: Control) -> void:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 14); h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := HoloTheme.label(label, 16, HoloTheme.MUTED, 500); l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(l); h.add_child(num); parent.add_child(h)
+
+func _num(fmt: String, suffix: String, size_px := 18) -> HoloNum:
+	var n := HoloNum.new(size_px, 600); n.fmt = fmt; n.suffix = suffix; n.custom_minimum_size.x = 92; return n
+
+func _state_row(parent: Control, label: String) -> Array:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8); h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := HoloTheme.label(label, 16, HoloTheme.MUTED, 500); l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var d := Dot.new(); d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var t := HoloTheme.label("", 16, HoloTheme.INK, 600)
+	h.add_child(l); h.add_child(d); h.add_child(t); parent.add_child(h)
+	return [d, t]
+
+func _build_cards() -> void:
+	var defs := {
+		"converter": ["Converter", [["out", "Outlet", "%.0f", " °C"], ["nh3", "Ammonia out", "%.1f", " %"], ["app", "Approach", "%.0f", " %"]]],
+		"cooler": ["Cooler", [["out", "Outlet", "%.0f", " °C"], ["dial", "Dial", "%.0f", " °C"]]],
+		"separator": ["Separator", [["liq", "Liquid ammonia", "%.0f", " kg/h"]]],
+		"compressor": ["Compressor", [["bar", "Discharge", "%.0f", " bar"]]],
+		"flare": ["Flare", []],
+	}
+	for role in CARD_ROLES:
+		var d: Array = defs[role]
+		var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 3); vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(HoloTheme.label(d[0], 16, HoloTheme.TEAL_HI, 700))
+		var vals := {}
+		for r in d[1]:
+			var n := _num(r[2], r[3]); if r[0] == "liq": n.group = true
+			vals[r[0]] = n; _row(vb, r[1], n)
+		var c := {"v": vals, "cur": Vector2.ZERO, "pick": 0, "was": false}
+		if role == "cooler": var s := _state_row(vb, "Cooling water"); c["dot"] = s[0]; c["txt"] = s[1]
+		if role == "flare": var s2 := _state_row(vb, "Status"); c["dot"] = s2[0]; c["txt"] = s2[1]
+		var p := HoloPanel.new(vb, 12); p.name = "Card_" + role; p.visible = false; add_child(p); c["p"] = p
+		_cards[role] = c
+
+func _build_diagram() -> void:
+	_diagram = HoloDiagram.new(); _dg_panel = HoloPanel.new(_diagram, 12); _dg_panel.name = "Diagram"; _dg_panel.visible = false; add_child(_dg_panel)
+
+func _build_cmd() -> void:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 16); h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dial = HoloDial.new(); _dial.name = "Dial"; _dial.committed.connect(_commit_dial); h.add_child(_dial)
+	h.add_child(_vsep())
+	var mid := VBoxContainer.new(); mid.add_theme_constant_override("separation", 2); mid.mouse_filter = Control.MOUSE_FILTER_IGNORE; mid.custom_minimum_size.x = 150
+	mid.add_child(HoloTheme.label("Cooler outlet", 16, HoloTheme.MUTED, 500))
+	_out_num = HoloNum.new(30, 600); _out_num.fmt = "%.0f"; _out_num.suffix = " °C"; _out_num.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT; mid.add_child(_out_num)
+	var w := _state_row(mid, "Water"); _cw_dot = w[0]; _cw_txt = w[1]
+	mid.add_child(HoloTheme.label("Shift clock", 16, HoloTheme.MUTED, 500))
+	var ck := HBoxContainer.new(); ck.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clock_num = HoloTheme.label("0:00", 24, HoloTheme.INK, 600); _clock_tot = HoloTheme.label(" / 1:35", 16, HoloTheme.MUTED, 500); _clock_tot.size_flags_vertical = Control.SIZE_SHRINK_END
+	ck.add_child(_clock_num); ck.add_child(_clock_tot); mid.add_child(ck)
+	_clock_bar = Control.new(); _clock_bar.custom_minimum_size = Vector2(0, 5); _clock_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clock_bar.draw.connect(func():
+		var f := clampf(float(_li.get("shiftClock", {}).get("t", 0.0)) / maxf(float(_li.get("shiftClock", {}).get("total", 95.0)), 1.0), 0.0, 1.0) if _li.get("shiftClock") is Dictionary else 0.0
+		_clock_bar.draw_rect(Rect2(0, 0, _clock_bar.size.x, 4), Color(1, 1, 1, 0.12)); _clock_bar.draw_rect(Rect2(0, 0, _clock_bar.size.x * f, 4), HoloTheme.TEAL))
+	mid.add_child(_clock_bar)
+	h.add_child(mid); h.add_child(_vsep())
+	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 10); right.mouse_filter = Control.MOUSE_FILTER_IGNORE; right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sp := HBoxContainer.new(); sp.add_theme_constant_override("separation", 6); sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_play = HoloTheme.button("Start", "go", 17); _play.name = "Play"; _play.custom_minimum_size.x = 92; _play.pressed.connect(_on_play); sp.add_child(_play)
+	for i in [1, 2, 3]:
+		var b := HoloTheme.button("%dx" % SPEEDS[i], "", 16); b.name = "Speed%d" % SPEEDS[i]; b.custom_minimum_size.x = 52; b.pressed.connect(choose_speed.bind(i)); sp.add_child(b); _speed_btns.append(b)
+	right.add_child(sp)
+	var cam := HBoxContainer.new(); cam.add_theme_constant_override("separation", 6); cam.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in [["wide", "Wide"], ["converter", "Converter"], ["gauge", "Gauge"], ["xray", "X-ray"]]:
+		var b := HoloTheme.button(c[1], "", 16); b.name = "Cam_" + c[0]; b.pressed.connect(_on_cam.bind(c[0])); cam.add_child(b); _cam_btns[c[0]] = b
+	right.add_child(cam); h.add_child(right)
+	_cmd = HoloPanel.new(h, 14); _cmd.name = "Command"; add_child(_cmd)
+
+func _vsep() -> Control:
+	var s := ColorRect.new(); s.color = Color(1, 1, 1, 0.10); s.custom_minimum_size = Vector2(1, 0); s.mouse_filter = Control.MOUSE_FILTER_IGNORE; return s
+
+func _build_coach() -> void:
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 4); vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_coach_name = HoloTheme.label("", 16, HoloTheme.TEAL_HI, 700); vb.add_child(_coach_name)
+	_coach_text = HoloTheme.label("", 18, HoloTheme.INK, 500); _coach_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(_coach_text)
+	_coach_why = HoloTheme.label("", 16, HoloTheme.MUTED, 400); _coach_why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _coach_why.visible = false; vb.add_child(_coach_why)
+	_coach_whybtn = HoloTheme.button("Why?", "", 16); _coach_whybtn.custom_minimum_size = Vector2(0, 30); _coach_whybtn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_coach_whybtn.pressed.connect(func(): _coach_why.visible = not _coach_why.visible; _coach_whybtn.text = "Hide" if _coach_why.visible else "Why?"); vb.add_child(_coach_whybtn)
+	_toast_lbl = HoloTheme.label("", 16, HoloTheme.INK, 600); _toast_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _toast_lbl.visible = false; vb.add_child(_toast_lbl)
+	_coach = HoloPanel.new(vb, 14); _coach.name = "Coach"; add_child(_coach)
+
+func _build_alarm() -> void:
+	_ann_box = VBoxContainer.new(); _ann_box.add_theme_constant_override("separation", 5); _ann_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_alarm = HoloPanel.new(_ann_box, 12); _alarm.name = "Alarms"; add_child(_alarm)
+
+func _build_brief() -> void:
+	_dim = ColorRect.new(); _dim.color = Color(0.01, 0.03, 0.04, 0.0); _dim.set_anchors_preset(Control.PRESET_FULL_RECT); _dim.mouse_filter = Control.MOUSE_FILTER_IGNORE; _dim.visible = false; add_child(_dim)
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 10); vb.custom_minimum_size.x = 520; vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(HoloTheme.label("", 16, HoloTheme.TEAL_HI, 600)); vb.add_child(HoloTheme.label("", 40, HoloTheme.INK, 700))
+	for i in 2:
+		var n := HoloTheme.label("", 18, HoloTheme.INK, 400); n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(n)
+	var b := HoloTheme.button("Begin", "go", 18); b.name = "Begin"; b.custom_minimum_size = Vector2(150, 44); b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; b.pressed.connect(_begin_shift); vb.add_child(b)
+	_brief = HoloPanel.new(vb, 22); _brief.name = "Brief"; _brief.visible = false; add_child(_brief)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+func _vp() -> Vector2: return size if size.x > 100.0 else get_viewport_rect().size
+
+func layout() -> void:
+	if not _built: return
+	var vp := _vp(); _compact = vp.x < 1500.0
+	var m := 16.0 if _compact else 24.0
+	_coach_text.custom_minimum_size.x = 330.0 if _compact else 420.0; _coach_why.custom_minimum_size.x = _coach_text.custom_minimum_size.x
+	_toast_lbl.custom_minimum_size.x = _coach_text.custom_minimum_size.x
+	_coach.pos = Vector2(m, m)
+	for p in _panels(): p.fit()
+	_alarm.pos = Vector2(vp.x - _alarm.size.x - m, m)
+	_cmd.pos = Vector2((vp.x - _cmd.size.x) * 0.5, vp.y - _cmd.size.y - m)
+	_brief.pos = (vp - _brief.size) * 0.5
+	if _end != null: _end.pos = (vp - _end.size) * 0.5
+	for p in [_alarm, _cmd, _brief, _coach] + ([_end] if _end != null else []): p.fit()
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+func _qd(name: String, args: Array = []) -> Dictionary:
+	if app == null or app.b == null: return {}
+	var r = app.b.q(name, args)
+	return r if r is Dictionary else {}
+
+func refresh() -> void:
+	if not _built or app == null or app.b == null or not app.started: return
+	var g: Dictionary = app.b.g
+	_li = _qd("levelInfo")
+	_status = str(g.get("status", "playing"))
+	var sh = g.get("shift", {})
+	_tripped = (sh is Dictionary and not (sh.get("trips", []) as Array).is_empty()) or _status == "lost"
+	var t := float(_li.get("shiftClock", {}).get("t", 0.0)) if _li.get("shiftClock") is Dictionary else 0.0
+	if _last_t >= 0.0 and t < _last_t - 0.5: _new_attempt()
+	_last_t = t
+	var streams := {}
+	for s in g.get("streams", []): streams[str(s.id)] = s
+	var anns: Array = _li.get("annunciators", []) if _li.get("annunciators") is Array else []
+	var ann := {}
+	for a in anns: ann[str(a.key)] = a
+	# plant params: the dial's engine value, the converter's High and the interlock's set point
+	var pl := _qd("plant"); var cooler_T := -1.0; var t_hi := -1.0; var t_trip := -1.0
+	for u in pl.get("units", []):
+		var uid := str(u.id); var pr: Dictionary = u.get("params", {})
+		if uid == str(ids.get("cooler", "?")): cooler_T = float(pr.get("T", -1.0))
+		elif uid == str(ids.get("converter", "?")): t_hi = float(pr.get("T_hi", -1.0))
+		elif uid == str(ids.get("interlock", "?")): t_trip = float(pr.get("setpoint", -1.0))
+	# readouts
+	var cv: Dictionary = _cards["converter"].v
+	var cs: Dictionary = streams.get(_stream_of.get("converter", ""), {})
+	if not cs.is_empty(): cv.out.set_value(HoloTheme.c_of(float(cs.T)))
+	var beam := _qd("eqBeam", [str(ids.get("converter", "?"))])
+	var nh3 := -1.0
+	if lab != null and lab.nh3_out > 0.0: nh3 = lab.nh3_out * 100.0
+	elif not _stream_of.is_empty():
+		var sq := _qd("stream", [str(_stream_of.get("converter", "?"))])
+		for sp in sq.get("species", []): if str(sp.get("id", "")) == "NH3": nh3 = float(sp.get("x", 0.0)) * 100.0
+	if nh3 >= 0.0: cv.nh3.set_value(nh3)
+	if not beam.is_empty():
+		_diagram.set_data(beam, {"t_hi": t_hi if t_hi > 0.0 else null, "t_trip": t_trip if t_trip > 0.0 else null})
+		cv.app.set_value(_diagram.approach())
+	var cl: Dictionary = _cards["cooler"].v
+	var os: Dictionary = streams.get(_stream_of.get("cooler", ""), {})
+	var cw_bad := str(ann.get("cw", {}).get("state", "normal")) in ["high", "critical"]
+	if not os.is_empty():
+		cl.out.set_value(HoloTheme.c_of(float(os.T))); _out_num.set_value(HoloTheme.c_of(float(os.T))); _dial.actual_k = float(os.T)
+	# the dial: the engine's set point unless the player is turning it or a command is still on its way
+	if cooler_T > 0.0:
+		if _pending_k > 0.0 and absf(cooler_T - _pending_k) < 0.6: _pending_k = -1.0
+		if not _dial._drag and _pending_k < 0.0: _dial.value_k = cooler_T
+	cl.dial.set_value(HoloTheme.c_of(_dial.value_k))
+	var cc: Dictionary = _cards["cooler"]
+	cc.dot.state = "critical" if cw_bad else "normal"; cc.txt.text = "Tripped" if cw_bad else "Running"
+	cc.txt.add_theme_color_override("font_color", HoloTheme.RED if cw_bad else HoloTheme.INK)
+	_cw_dot.state = cc.dot.state; _cw_txt.text = cc.txt.text; _cw_txt.add_theme_color_override("font_color", cc.txt.get_theme_color("font_color"))
+	_cards["separator"].v.liq.set_value(float(streams.get(_stream_of.get("separator", ""), {}).get("flow", 0.0)) * M_NH3 * 3.6 if streams.has(_stream_of.get("separator", "")) else 0.0)
+	if streams.has(_stream_of.get("compressor", "")): _cards["compressor"].v.bar.set_value(float(streams[_stream_of.compressor].P) / 1.0e5)
+	var fl: Dictionary = ann.get("flare", {}); var flaring := bool(fl.get("lit", false))
+	var fc: Dictionary = _cards["flare"]
+	fc.dot.state = "high" if flaring else "normal"; fc.txt.text = "Flaring" if flaring else "Pilot"
+	# alarm strip
+	_sync_ann(anns)
+	# clock, speed, dial enable
+	var sc: Dictionary = _li.get("shiftClock", {}) if _li.get("shiftClock") is Dictionary else {}
+	_clock_num.text = HoloTheme.clock(float(sc.get("t", 0.0))); _clock_tot.text = " / " + HoloTheme.clock(float(sc.get("total", 95.0)))
+	_clock_bar.queue_redraw()
+	_dial.enabled = _status == "playing" and not _tripped
+	_sync_speed()
+	_sync_coach()
+	# the brief opens once, with the clock held
+	if not _brief_done and not _brief.shown and t <= 0.01 and _status == "playing": _open_brief()
+	if _brief.shown and not _brief_done and t > 1.0: _begin_shift(false)   # the clock moved on without the button (a resumed or scripted shift)
+	if _end != null and _end.shown and _status == "playing": _close_end()
+
+func _sync_ann(anns: Array) -> void:
+	for a in anns:
+		var k := str(a.key)
+		if not _ann_rows.has(k):
+			var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var d := Dot.new(); d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			var txt: String = ANN_TEXT.get(k, str(a.get("legend", k)).to_lower().capitalize())
+			var l := HoloTheme.label(txt, 16, HoloTheme.MUTED, 500)
+			h.add_child(d); h.add_child(l); _ann_box.add_child(h); _ann_rows[k] = {"dot": d, "label": l}
+			_alarm.fit(); layout()
+		var st := str(a.get("state", "off")); var row: Dictionary = _ann_rows[k]
+		row.dot.state = st; row.label.add_theme_color_override("font_color", HoloTheme.AMBER if st == "high" else (HoloTheme.RED if st == "critical" else (HoloTheme.INK if st == "normal" else HoloTheme.MUTED)))
+		row.dot.queue_redraw()
+	var worst := "normal"
+	for a in anns:
+		var st2 := str(a.get("state", "off"))
+		if st2 == "critical": worst = "critical"
+		elif st2 == "high" and worst != "critical": worst = "high"
+	_alarm.set_edge(HoloTheme.RED if worst == "critical" else (HoloTheme.AMBER if worst == "high" else HoloTheme.TEAL))
+	if not _alarm.shown and not anns.is_empty(): _alarm.appear(0.2)
+
+func _sync_speed() -> void:
+	var sp: int = int(app.speed)
+	var t := float(_li.get("shiftClock", {}).get("t", 0.0)) if _li.get("shiftClock") is Dictionary else 0.0
+	var label := "Pause" if sp > 0 else ("Start" if t <= 0.01 else "Resume")
+	if label != _last_play:
+		_last_play = label; _play.text = label; HoloTheme.style(_play, "go" if sp == 0 else "")
+	if sp != _last_speed:
+		_last_speed = sp
+		for i in _speed_btns.size(): HoloTheme.set_active(_speed_btns[i], sp == i + 1)
+	var live := _status == "playing"
+	_play.disabled = not live
+	for b in _speed_btns: b.disabled = not live
+	if lab != null: HoloTheme.set_active(_cam_btns["xray"], lab.xray)
+
+func _sync_coach() -> void:
+	var co = _li.get("coach", null)
+	var name_t := ""; var text := ""; var why := ""
+	if co is Dictionary and str(co.get("text", "")) != "":
+		var sp := str(co.get("speaker", ""))
+		name_t = str(_li.get("setterName", sp.capitalize())) if sp == str(_li.get("setter", "")) else sp.capitalize()
+		text = _soften(str(co.text)); why = str(co.get("why", ""))
+		var f = co.get("focus", null)
+		var fu := str(f.get("unit", "")) if f is Dictionary else ""
+		_focus_role = ""
+		for r in ids: if str(ids[r]) == fu: _focus_role = r
+	else:
+		var notes: Array = _li.get("note", []) if _li.get("note") is Array else []
+		if not notes.is_empty(): name_t = str(_li.get("setterName", "")); text = str(notes[0])
+		_focus_role = ""
+	var sig := name_t + "|" + text
+	if sig != _coach_sig:
+		var first := _coach_sig == ""
+		_coach_sig = sig; _coach_name.text = name_t; _coach_text.text = text; _coach_why.text = why; _coach_whybtn.visible = why != ""
+		if not first: _coach.pulse()
+		_coach.fit()
+	if text != "" and not _coach.shown and not _brief.shown: _coach.appear(0.1)
+	_coach.visible = _coach.visible and text != ""
+	for r in _cards: _cards[r].p.focus_ring = (r == _focus_role)
+
+## "TEMPERATURE" in the level's coach text reads as a shout on a glass panel: all-caps words go to sentence case.
+func _soften(s: String) -> String:
+	var re := RegEx.new(); re.compile("\\b[A-Z]{4,}\\b")
+	var out := s
+	for m in re.search_all(s): out = out.replace(m.get_string(), m.get_string().to_lower())
+	return out
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+func toast(text: String, level: String) -> void:
+	if not _built or text.strip_edges() == "": return
+	_toast_lbl.text = text; _toast_lbl.visible = true
+	var bad := level == "bad"; var warn := level == "warn"
+	_toast_lbl.add_theme_color_override("font_color", HoloTheme.RED if bad else (HoloTheme.AMBER if warn else HoloTheme.TEAL_HI))
+	_coach.set_edge(HoloTheme.RED if bad else (HoloTheme.AMBER if warn else HoloTheme.TEAL)); _coach.pulse()
+	_toast_until = Time.get_ticks_msec() * 0.001 + (7.0 if (bad or warn) else 4.5)
+	if not _coach.shown: _coach.appear()
+	_coach.fit()
+
+func _process(dt: float) -> void:
+	if not _built: return
+	if _toast_lbl.visible and Time.get_ticks_msec() * 0.001 > _toast_until:
+		_toast_lbl.visible = false; _coach.set_edge(HoloTheme.TEAL); _coach.size = Vector2.ZERO; _coach.fit()
+	if app != null and app.started and int(app.speed) != _last_speed: _sync_speed()
+	if size != Vector2.ZERO and _vp() != _last_vp: _last_vp = _vp(); layout()
+	_place(dt)
+	for p in _panels(): if p.visible: p.fit()
+var _last_vp := Vector2.ZERO
+
+func _rect_of(p: Control) -> Rect2: return Rect2(p.position, p.size)
+
+func _place(dt: float) -> void:
+	line_data = []
+	if lab == null: return
+	var vp := _vp(); var m := 16.0
+	var safe := Rect2(m, m, vp.x - 2.0 * m, minf(vp.y - 2.0 * m, _cmd.position.y - 10.0 - m))   # cards never sit on the command panel
+	var obst: Array[Rect2] = [_rect_of(_coach).grow(6.0), _rect_of(_alarm).grow(6.0), _rect_of(_cmd).grow(6.0)]
+	var anchors := {}
+	for r in CARD_ROLES:
+		var a := lab.anchor_screen(r); if a.x > -9000.0: anchors[r] = a
+	var placed: Array[Rect2] = []
+	# the diagram first: beside the converter, on the side with most room
+	var dp := _dg_panel
+	if anchors.has("converter") and _diagram.has_reading() and _status != "":
+		var a: Vector2 = anchors.converter
+		var sz := lab.anchor_size("converter")
+		var k := clampf(sz / 90.0, 0.0, 1.0)   # small on screen: shrink
+		_dg_k = lerpf(_dg_k, k, 1.0 - exp(-dt * 4.0))
+		var w := lerpf(330.0, 420.0, _dg_k); var h := lerpf(280.0, 340.0, _dg_k)
+		w = minf(w, vp.x * 0.32); h = minf(h, vp.y * 0.46)
+		_diagram.custom_minimum_size = Vector2(w, h)
+		dp.fit()
+		var gap := 70.0 + sz
+		var right_room := safe.end.x - a.x; var left_room := a.x - safe.position.x
+		var cands: Array[Vector2] = []
+		for side in ([1, -1] if right_room >= left_room else [-1, 1]):
+			var x := a.x + gap if side > 0 else a.x - gap - dp.size.x
+			for dy in [0.0, -0.3, 0.3, -0.6, 0.6]: cands.append(Vector2(x, a.y - dp.size.y * 0.5 + dy * dp.size.y))
+		_settle(dp, cands, safe, obst, placed, anchors, dt, "dg")
+	elif dp.shown: dp.vanish()
+	for role in CARD_ROLES:
+		var c: Dictionary = _cards[role]; var p: HoloPanel = c.p
+		if not anchors.has(role) or lab.anchor_size(role) < 6.0:
+			if p.shown: p.vanish()
+			continue
+		var a: Vector2 = anchors[role]
+		var sz := lab.anchor_size(role)
+		p.fit()
+		var gap := 46.0 + minf(sz, 60.0)
+		var cands: Array[Vector2] = []
+		var w := p.size.x; var h := p.size.y
+		for o in [Vector2(gap, -h - 20), Vector2(gap, 20), Vector2(-gap - w, -h - 20), Vector2(-gap - w, 20), Vector2(-w * 0.5, -h - gap), Vector2(-w * 0.5, gap), Vector2(gap, -h * 0.5), Vector2(-gap - w, -h * 0.5), Vector2(gap * 2.0, -h * 2.0), Vector2(-gap * 2.0 - w, -h * 2.0), Vector2(-w * 0.5, -h - gap * 2.0), Vector2(gap * 2.5, gap), Vector2(-gap * 2.5 - w, gap)]:
+			cands.append(a + o)
+		_settle(p, cands, safe, obst, placed, anchors, dt, role)
+	for p2 in [dp] + CARD_ROLES.map(func(r): return _cards[r].p):
+		if not p2.shown or not p2.visible: continue
+		var role2 := "converter" if p2 == dp else str(p2.name).substr(5)
+		if not anchors.has(role2): continue
+		var a2: Vector2 = anchors[role2]; var rc := _rect_of(p2)
+		var q := Vector2(clampf(a2.x, rc.position.x, rc.end.x), clampf(a2.y, rc.position.y, rc.end.y))
+		if rc.grow(2.0).has_point(a2): continue
+		line_data.append({"a": a2, "b": q, "alpha": p2.modulate.a})
+
+func _settle(p: HoloPanel, cands: Array[Vector2], safe: Rect2, obst: Array[Rect2], placed: Array[Rect2], anchors: Dictionary, dt: float, key: String) -> void:
+	var store: Dictionary = _cards[key] if _cards.has(key) else {}
+	var last: int = _dg_pick if key == "dg" else int(store.get("pick", 0))
+	var order: Array[int] = [last]
+	for i in cands.size(): if i != last: order.append(i)
+	var best := -1; var best_pos := Vector2.ZERO; var best_cost := 1e18
+	for i in order:
+		var pos := cands[i]
+		pos.x = clampf(pos.x, safe.position.x, maxf(safe.end.x - p.size.x, safe.position.x)); pos.y = clampf(pos.y, safe.position.y, maxf(safe.end.y - p.size.y, safe.position.y))
+		var r := Rect2(pos, p.size); var cost := float(order.find(i)) * 3.0
+		for o in obst: if o.intersects(r): cost += o.intersection(r).get_area() * 0.01 + 1000.0
+		for o in placed: if o.grow(6.0).intersects(r): cost += o.intersection(r).get_area() * 0.01 + 1000.0
+		for ak in anchors:
+			var ap: Vector2 = anchors[ak]
+			if r.grow(14.0).has_point(ap): cost += 400.0
+		if cost < best_cost: best_cost = cost; best = i; best_pos = pos
+		if cost < 1.0 and i == last: break
+		if cost < 20.0: break
+	if key == "dg": _dg_pick = best
+	elif not store.is_empty(): store.pick = best
+	var cur: Vector2 = _dg_cur if key == "dg" else (store.cur as Vector2)
+	if not p.shown or cur == Vector2.ZERO: cur = best_pos; p.appear()
+	else: cur = cur.lerp(best_pos, 1.0 - exp(-dt * 10.0))
+	if key == "dg": _dg_cur = cur
+	else: store.cur = cur
+	p.pos = cur; p.fit()
+	placed.append(Rect2(cur, p.size))
+
+func _on_picked(role: String) -> void:
+	if _cards.has(role): (_cards[role].p as HoloPanel).pulse()
+	if role == "converter": _mark_converter()
+
+func _mark_converter() -> void:
+	var co = _li.get("coach", null)
+	if not (co is Dictionary) or int(co.get("step", 0)) != 1: return
+	app.b.act("markCoach", ["tap_converter"]); app.game_on_changed()
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+func _on_cam(spec: String) -> void:
+	if lab == null: return
+	if spec == "xray": lab.set_xray(not lab.xray); return
+	lab.set_camera(spec)
+	if spec == "converter": _mark_converter()
+
+func _on_play() -> void: choose_speed(0 if int(app.speed) > 0 else 1)
+
+## The same path as the old console: the engine's setSpeed, then the shell's own speed.
+func choose_speed(i: int) -> bool:
+	if app == null or not app.started or str(app.b.g.get("status", "playing")) != "playing": return false
+	i = clampi(i, 0, 3)
+	var r: Dictionary = app.b.act("setSpeed", [SPEEDS[i]])
+	if not bool(r.get("ok", false)): return false
+	app.set_speed(i); app.sfx("click"); _sync_speed(); return true
+
+func _commit_dial(k: float) -> void:
+	if _tripped:
+		app.toast("The plant has tripped. Set points are locked.", "warn"); _pending_k = -1.0; return
+	var r: Dictionary = app.b.act("setpoint", [str(ids.get("cooler", "")), "T", k])
+	if not bool(r.get("ok", false)): app.toast(str(r.get("message", "The cooler did not take that.")), "warn"); _pending_k = -1.0
+	else: _pending_k = k
+	refresh()
+
+func _open_brief() -> void:
+	_brief_done = false
+	var v: VBoxContainer = _brief.content
+	(v.get_child(0) as Label).text = str(_li.get("place", ""))
+	(v.get_child(1) as Label).text = str(_li.get("title", ""))
+	var notes: Array = _li.get("note", []) if _li.get("note") is Array else []
+	for i in 2: (v.get_child(2 + i) as Label).text = str(notes[i]) if i < notes.size() else ""
+	if int(app.speed) != 0: choose_speed(0)
+	_brief.fit(); layout(); _brief.appear()
+	_dim.visible = true; create_tween().tween_property(_dim, "color:a", 0.38, 0.4)
+	(v.get_node("Begin") as Button).grab_focus.call_deferred()
+	_coach.vanish()
+
+func _begin_shift(start := true) -> void:
+	if _brief_done: return
+	_brief_done = true; _brief.vanish()
+	var tw := create_tween(); tw.tween_property(_dim, "color:a", 0.0, 0.3); tw.tween_callback(func(): _dim.visible = false)
+	if start: choose_speed(1); _play.grab_focus()
+	_coach.appear(0.2)
+
+func _new_attempt() -> void:
+	_diagram.trail.clear(); _pending_k = -1.0
+	if _end != null and _end.shown: _close_end()
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+func end_card() -> bool:
+	if not _built: return false
+	var rc := _qd("resultCard"); var ed: Dictionary = app.end_data()
+	var won := bool(rc.get("won", ed.get("won", false)))
+	var key := str(rc.get("verdictKey", ""))
+	if _end != null: _end.queue_free()
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 10); vb.custom_minimum_size.x = 560; vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(HoloTheme.label("%s, %s" % [str(_li.get("title", ed.get("title", ""))), str(_li.get("place", "")).to_lower()] if _li.has("title") else str(ed.get("title", "")), 16, HoloTheme.TEAL_HI, 600))
+	var verdict := str(rc.get("verdictText", ed.get("reason", "")))
+	var vt := HoloTheme.label(verdict, 22, HoloTheme.INK, 700); vt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(vt)
+	for g in rc.get("goals", []):
+		var gl := HoloTheme.label(("Done: " if g.get("met", false) else "Not met: ") + str(g.get("text", "")), 16, HoloTheme.TEAL_HI if g.get("met", false) else HoloTheme.AMBER, 600); gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(gl)
+	if str(rc.get("lesson", "")) != "":
+		var ls := HoloTheme.label(str(rc.lesson), 17, HoloTheme.INK, 400); ls.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(ls)
+	var grid := GridContainer.new(); grid.columns = 2; grid.add_theme_constant_override("h_separation", 24); grid.add_theme_constant_override("v_separation", 4); grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for m in rc.get("metrics", []):
+		var l := HoloTheme.label(str(m.label), 16, HoloTheme.MUTED, 500); l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var v := HoloTheme.label(Printout.metric_text(float(m.value), str(m.unit)), 18, HoloTheme.INK, 600); v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(l); grid.add_child(v)
+	vb.add_child(grid)
+	var tc = rc.get("card", {})
+	if tc is Dictionary and str(tc.get("title_card", "")) != "":
+		var cl := HoloTheme.label(str(tc.title_card), 16, HoloTheme.MUTED, 400); cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(cl)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var retry := HoloTheme.button("Retry", "" if won else "go", 17); retry.name = "Retry"; retry.pressed.connect(_retry); row.add_child(retry)
+	var nxt := str(ed.get("next_level", ""))
+	if won and nxt != "" and not nxt.begins_with("CAREER_FIX"):
+		var nb := HoloTheme.button("Next", "go", 17); nb.name = "Next"; nb.pressed.connect(func(): _close_end(); app.start_level(nxt, true)); row.add_child(nb)
+	var wm := HoloTheme.button("Works map", "", 17); wm.name = "WorksMap"; wm.pressed.connect(func(): WorksMap.open(app)); row.add_child(wm)
+	vb.add_child(row)
+	_end = HoloPanel.new(vb, 24); _end.name = "EndCard"; add_child(_end)
+	_end.set_edge(HoloTheme.TEAL if (won and key != "tripped") else (HoloTheme.AMBER if won else HoloTheme.RED))
+	_end.fit(); layout(); _end.appear()
+	_dim.visible = true; create_tween().tween_property(_dim, "color:a", 0.45, 0.5)
+	(row.get_child(row.get_child_count() - 2) as Button).grab_focus.call_deferred()
+	return true
+
+func _close_end() -> void:
+	if _end != null: _end.vanish()
+	var tw := create_tween(); tw.tween_property(_dim, "color:a", 0.0, 0.25); tw.tween_callback(func(): _dim.visible = false)
+
+func _retry() -> void:
+	_close_end(); app.end_ui = null
+	await app.get_tree().process_frame
+	BuildKeeper.restart(app, true)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+func key(e: InputEventKey) -> bool:
+	if not _built or not e.pressed: return false
+	if _brief.shown and not _brief_done and (e.keycode == KEY_ENTER or e.keycode == KEY_KP_ENTER or e.keycode == KEY_SPACE): _begin_shift(); return true
+	if _end != null and _end.shown: return false
+	match e.keycode:
+		KEY_SPACE: if not _brief.shown: choose_speed(0 if int(app.speed) > 0 else 1); return true
+		KEY_F:
+			if _brief.shown: return false
+			choose_speed(1 if int(app.speed) >= 3 else maxi(int(app.speed) + 1, 1)); return true
+		KEY_BRACKETLEFT: _dial.nudge(-25.0 if e.shift_pressed else -5.0); return true
+		KEY_BRACKETRIGHT: _dial.nudge(25.0 if e.shift_pressed else 5.0); return true
+	return false

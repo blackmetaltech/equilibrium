@@ -8,7 +8,7 @@ var suffix := ""
 var _flash := 0.0
 var _text_set := false
 var base_col := HoloTheme.INK
-var decimals_hide_below := -1.0
+var group := false   ## thousands separators
 
 func _init(size_px := 18, weight := 600) -> void:
 	add_theme_font_override("font", HoloTheme.font(weight)); add_theme_font_size_override("font_size", HoloTheme.fs(size_px))
@@ -26,6 +26,11 @@ func _decimals() -> int:
 
 func _apply() -> void:
 	var t := fmt % shown
+	if group:
+		var i := t.find("."); var ip := t if i < 0 else t.substr(0, i); var fp := "" if i < 0 else t.substr(i)
+		var o := ""
+		while ip.length() > 3: o = "," + ip.substr(ip.length() - 3) + o; ip = ip.substr(0, ip.length() - 3)
+		t = ip + o + fp
 	text = (t + suffix) if suffix != "" else t
 	add_theme_color_override("font_color", base_col.lerp(HoloTheme.TEAL_HI, _flash * 0.85))
 

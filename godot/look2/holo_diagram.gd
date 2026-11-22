@@ -80,7 +80,7 @@ func _draw() -> void:
 	var f := HoloTheme.font(500); var fb := HoloTheme.font(600); var fz := HoloTheme.fs(16)
 	var ts := _curve_now_T(); var xs := _curve_now_X()
 	var padl := 56.0; var padr := 14.0; var top := 28.0
-	var qk_h := 44.0; var foot := 22.0; var xl := 46.0
+	var qk_h := 48.0; var foot := 22.0; var xl := 46.0
 	var pl := Rect2(padl, top, size.x - padl - padr, maxf(size.y - top - qk_h - foot - xl, 60.0))
 	var tlo := HoloTheme.c_of(ts[0]); var thi := HoloTheme.c_of(ts[ts.size() - 1])
 	var px := func(tk: float) -> float: return pl.position.x + (HoloTheme.c_of(tk) - tlo) / maxf(thi - tlo, 1e-6) * pl.size.x
@@ -156,7 +156,7 @@ func _draw() -> void:
 			var ft := "Inlet %d °C, outlet %d °C" % [int(round(HoloTheme.c_of(float(pt.TIn)))), int(round(HoloTheme.c_of(_pt.x)))]
 			draw_string(f, Vector2(0, pl.end.y + xl + 16.0), ft, HORIZONTAL_ALIGNMENT_LEFT, size.x, fz, HoloTheme.MUTED)
 	# the Q/K needle: centre = at equilibrium
-	var by := size.y - 18.0
+	var by := pl.end.y + 104.0
 	var bx0 := padl - 10.0; var bx1 := size.x - padr
 	var cx := (bx0 + bx1) * 0.5; var span := (bx1 - bx0) * 0.5
 	var far := absf(_beam) > 1.0
@@ -169,4 +169,4 @@ func _draw() -> void:
 	var qk := pow(10.0, _beam_to)
 	var qt := "Q/K %s" % (("%.2f" % qk) if qk >= 0.01 else "%.0e" % qk)
 	var st := "at equilibrium" if absf(_beam_to) < 0.05 else ("short of equilibrium" if _beam_to < 0.0 else "past equilibrium")
-	draw_string(fb, Vector2(0, size.y - 36.0 + 0.0), qt + "  " + st, HORIZONTAL_ALIGNMENT_LEFT, size.x, fz, HoloTheme.INK if not far else HoloTheme.AMBER)
+	draw_string(fb, Vector2(0, pl.end.y + 86.0), qt + "  " + st, HORIZONTAL_ALIGNMENT_LEFT, size.x, fz, HoloTheme.INK if not far else HoloTheme.AMBER)

@@ -69,7 +69,7 @@ func _draw() -> void:
 	var tw := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x
 	draw_string(f, Vector2(c.x - tw * 0.5 - 6.0, c.y + 6.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz, HoloTheme.INK if on else HoloTheme.MUTED)
 	draw_string(f2, Vector2(c.x + tw * 0.5 - 2.0, c.y - 8.0), "°C", HORIZONTAL_ALIGNMENT_LEFT, -1, HoloTheme.fs(16), HoloTheme.MUTED)
-	var cap := "Temperature dial"
+	var cap := "Dial target"
 	var cw := f2.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, HoloTheme.fs(16)).x
 	draw_string(f2, Vector2(c.x - cw * 0.5, c.y + 30.0), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, HoloTheme.fs(16), HoloTheme.MUTED)
 
@@ -81,15 +81,17 @@ func _set_from_pos(p: Vector2) -> void:
 	var f: float
 	if a <= SWEEP: f = a / SWEEP
 	else: f = 0.0 if (a - SWEEP) > (TAU - SWEEP) * 0.5 else 1.0   # the dead gap at the bottom snaps to the nearer end
-	_set(roundf(lerpf(lo_k, hi_k, f)), false)
+	_apply_k(roundf(lerpf(lo_k, hi_k, f)), false)
 
-func _set(k: float, commit_now: bool) -> void:
+func _apply_k(k: float, commit_now: bool) -> void:
 	if not enabled: return
 	k = clampf(k, lo_k, hi_k)
 	if absf(k - value_k) > 0.01:
 		value_k = k; changed.emit(k)
 	if commit_now: _commit()
 	else: _soon()
+
+func nudge(dk: float) -> void: _apply_k(value_k + dk, false)
 
 func _commit() -> void: if enabled: committed.emit(value_k)
 
@@ -104,10 +106,10 @@ func _gui_input(e: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed: _drag = true; grab_focus(); _set_from_pos(mb.position); accept_event()
 			elif _drag: _drag = false; _commit(); accept_event()
-		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP: _set(value_k + (1.0 if mb.shift_pressed else 5.0), false); accept_event()
-		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN: _set(value_k - (1.0 if mb.shift_pressed else 5.0), false); accept_event()
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP: _apply_k(value_k + (1.0 if mb.shift_pressed else 5.0), false); accept_event()
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN: _apply_k(value_k - (1.0 if mb.shift_pressed else 5.0), false); accept_event()
 	elif e is InputEventMouseMotion and _drag: _set_from_pos((e as InputEventMouseMotion).position); accept_event()
 	elif e is InputEventKey and (e as InputEventKey).pressed:
 		var step := 25.0 if (e as InputEventKey).shift_pressed else 5.0
-		if e.is_action_pressed("ui_right") or e.is_action_pressed("ui_up"): _set(value_k + step, false); accept_event()
-		elif e.is_action_pressed("ui_left") or e.is_action_pressed("ui_down"): _set(value_k - step, false); accept_event()
+		if e.is_action_pressed("ui_right") or e.is_action_pressed("ui_up"): _apply_k(value_k + step, false); accept_event()
+		elif e.is_action_pressed("ui_left") or e.is_action_pressed("ui_down"): _apply_k(value_k - step, false); accept_event()
