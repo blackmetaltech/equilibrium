@@ -103,15 +103,19 @@ func _build_rig() -> void:
 	var by := d.y
 	_cyl(CR + 0.22, 0.35, Vector3(d.x, by + 0.175, d.z), M.steel, self, -1.0, 48)
 	m_coil = _flat(Color(0.72, 0.42, 0.25), 1.0, 0.32, Color(1.0, 0.35, 0.08), 0.0)
-	for i in 9: _torus(CR + 0.05, 0.022, Vector3(d.x, by + 0.42 + i * 0.055, d.z), m_coil)
+	for i in 6: _torus(CR + 0.27, 0.022, Vector3(d.x, by + 0.04 + i * 0.05, d.z), m_coil)   # heater band round the plinth, below the glass: the gas column stays clear
 	m_glass_frost = _shader("steel", {"albedo": Color(0.7, 0.85, 0.95), "metallic": 0.6, "rough_base": 0.2, "frost": 0.0, "frost_h": 2.0})
 	for i in 6: _torus(CR + 0.05, 0.018, Vector3(d.x, by + 1.95 + i * 0.05, d.z), m_glass_frost)
-	coil_light = OmniLight3D.new(); coil_light.light_color = Color(1.0, 0.45, 0.12); coil_light.light_energy = 0.0; coil_light.omni_range = 3.0; coil_light.position = Vector3(d.x, by + 0.6, d.z + CR + 0.3); add_child(coil_light)
+	coil_light = OmniLight3D.new(); coil_light.light_color = Color(1.0, 0.45, 0.12); coil_light.light_energy = 0.0; coil_light.omni_range = 3.0; coil_light.position = Vector3(d.x, by + 0.2, d.z + CR + 0.5); add_child(coil_light)
+	# a lit white diffuser behind the cylinder: brown reads against white (a photometer's light box)
+	var dif := _box(Vector3(1.3, 2.5, 0.04), Vector3(d.x, by + 1.6, d.z - CR - 0.35), _flat(Color(0.9, 0.9, 0.87), 0, 0.5, Color(1.0, 0.97, 0.9), 0.35)); dif.name = "diffuser"
+	_box(Vector3(1.4, 2.6, 0.06), Vector3(d.x, by + 1.6, d.z - CR - 0.38), M.steel_dull)
+	var dl := OmniLight3D.new(); dl.light_color = Color(1.0, 0.96, 0.9); dl.light_energy = 0.5; dl.omni_range = 3.0; dl.position = Vector3(d.x, by + 1.6, d.z - CR - 0.2); add_child(dl)
 	# the glass cylinder (thick borosilicate), the brown gas inside, the steel piston on a screw
 	var gl := _cyl(CR, 2.4, Vector3(d.x, by + 0.35 + 1.2, d.z), M.glass, self, -1.0, 64); gl.name = "cylinder"
 	m_gas = StandardMaterial3D.new(); m_gas.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m_gas.albedo_color = Color(0.55, 0.24, 0.05, 0.5)
-	m_gas.roughness = 1.0; m_gas.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL; m_gas.cull_mode = BaseMaterial3D.CULL_DISABLED; m_gas.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
-	m_gas.render_priority = 10   # drawn after the refracting glass, which samples the screen before transparents
+	m_gas.roughness = 1.0; m_gas.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m_gas.cull_mode = BaseMaterial3D.CULL_DISABLED; m_gas.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
+	m_gas.render_priority = 127   # drawn after the refracting glass, which samples the screen before transparents
 	m_gas.emission_enabled = true; m_gas.emission = Color(0.3, 0.13, 0.04); m_gas.emission_energy_multiplier = 0.3
 	var gm := CylinderMesh.new(); gm.top_radius = CR - 0.02; gm.bottom_radius = CR - 0.02; gm.height = 1.0; gm.radial_segments = 48
 	gas = _mi(gm, Vector3(d.x, by + 0.37, d.z), m_gas)
@@ -295,7 +299,8 @@ func _process(dt: float) -> void:
 		piston.position = Vector3(DAIS.x, DAIS.y + 0.37 + _gas_h + 0.06, DAIS.z)
 		var a := 1.0 - exp(-1.1 * maxf(c_show, 0.0))   # absorbance across the cylinder ~ NO2 concentration (notebook flask = 1): 0.2 cold, 0.67 at 1, 0.79 after halving V, 0.89 at the instant of compression
 		var col := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), clampf(a, 0.0, 1.0))
-		m_gas.albedo_color = Color(col.r, col.g, col.b, clampf(a, 0.03, 0.97))   # NO2 brown: paler and thinner when it shifts to N2O4, deeper when NO2 rises
+		var op := 1.0 - exp(-2.2 * maxf(c_show, 0.0))   # coverage: blending is linear, so a dark gas over the light box needs more than its absorbance to read
+		m_gas.albedo_color = Color(col.r, col.g, col.b, clampf(op, 0.03, 0.97))
 		m_gas.emission_energy_multiplier = 0.04 * a
 		gas_light.light_energy = 0.1 + 0.4 * a
 	# heat and cold: the coil glows above ~330 K of set point, the cooling coil frosts below 0 C, the dewar steams cold vapour always
@@ -368,3 +373,5 @@ func key(e: InputEventKey) -> bool:
 func set_quality(t: String) -> void:
 	super(t)
 	if env != null and t != "ultra": env.volumetric_fog_density = 0.006
+	if t == "compat" and pivot != null and pivot.get_node_or_null("compat_fill") == null:   # compat has no GI or shadows: one plain light keeps the rig out of the dark
+		var f := OmniLight3D.new(); f.name = "compat_fill"; f.light_color = Color(0.95, 0.95, 1.0); f.light_energy = 3.0; f.omni_range = 7.0; f.position = DAIS + Vector3(1.5, 3.0, 2.5); pivot.add_child(f)
