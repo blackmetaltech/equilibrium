@@ -12,6 +12,7 @@ extends Node3D
 ##   set_cover / set_blocked / set_title (from the shell), pad_move (sticks).
 signal place_requested(type: String, x: int, y: int, rot: int)
 signal unit_clicked(id: String)
+signal deco_clicked(what: String)   ## F33: a click on a display scene's object (L39: "suction", "discharge", "pump")
 signal pipe_hover(id: String, pos: Vector2)
 signal pipe_clicked(id: String)
 signal port_clicked(unit: String, port: String, inlet: bool)
@@ -112,6 +113,7 @@ func _sync_display_scene(p: Dictionary) -> void:
 	if want != "":
 		_deco.build(want); fit_deco(want)
 func deco_level() -> String: return _deco_level
+func deco() -> DisplayScene: return _deco
 func fit_deco(id: String) -> void:
 	var pts: Array = []
 	for u in DisplayScene.UNITS[id]:
@@ -839,6 +841,9 @@ func _click_at(p: Vector2) -> void:
 	if pipe_ghost_active():   # a pipe in hand: the nearest legal port within the snap radius takes the click
 		var sn := snap_legal(p)
 		if not sn.is_empty(): port_clicked.emit(str(sn.mark.unit), str(sn.mark.port), bool(sn.mark.inlet)); return
+	if _deco != null and _deco_level != "" and placing == "" and not pipe_ghost_active():
+		var dk := _deco.pick(p, cam)
+		if dk != "": deco_clicked.emit(dk); return
 	var id := _pick_unit(p)
 	if CbLayout.touch or CbLayout.phone: id = _touch_pick(p, id)
 	if pipe_ghost_active() and id == "": pipe_missed(p); return   # F25: a click that is on no port and no unit always answers, even when a pipe's line runs under it (a dense plant: L25 never said "Dropped on nothing" there)

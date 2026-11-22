@@ -193,8 +193,13 @@ func pick_index(i: int) -> void:
 	if i >= 0 and i < tiles.size(): pick((tiles[i] as Tile).type)
 	elif i >= 0: app.toast(PaperStrings.t("RACK_NOKEY") % (i + 1), "info")
 
+## F33: a pre-built plant folds the tray to a PARTS tab; its number keys still pick the tiles.
+func _folded() -> bool:
+	var c = app.get("chrome") if app != null else null
+	return c != null and c.visible and bool(c.rack_tab) and not bool(c.rack_hold)
+
 func _unhandled_key_input(e: InputEvent) -> void:
-	if not (e is InputEventKey) or not e.pressed or e.echo or not is_visible_in_tree(): return
+	if not (e is InputEventKey) or not e.pressed or e.echo or not (is_visible_in_tree() or _folded()): return
 	if app == null or app.modal() != null or not app.started: return
 	var f := get_viewport().gui_get_focus_owner()
 	if f is LineEdit or f is TextEdit or f is SpinBox or f is OptionButton: return   # digits belong to a field that has focus (a Knob takes focus on a click but never reads a digit: a number key after a knob tweak must still pick the tile)

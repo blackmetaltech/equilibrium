@@ -118,6 +118,11 @@ static func open(app) -> bool:
 	for m in rc.get("metrics", []):
 		var vtxt := metric_text(float(m.value), str(m.unit))
 		_line(vb, _pad(str(m.label), 22) + vtxt, INKC, 21, "Metric_" + str(m.key))
+	# F33: an incident level prints the three answers side by side (your fix, the contractor, ignore it)
+	var lvw = PaperStrings.q(app, "levelView")
+	if lvw is Dictionary and (lvw as Dictionary).get("slip") is Dictionary:
+		_line(vb, "", INKC, 8)
+		var sl := CompareSlip.make(lvw.slip); sl.name = "PrintSlip"; vb.add_child(sl)
 	# histogram: only on a finished plant
 	var hg = rc.get("histogram")
 	if won and hg is Dictionary:

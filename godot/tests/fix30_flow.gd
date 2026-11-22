@@ -51,8 +51,9 @@ func _fail_small_pipe() -> void:
 	var hb := await board()
 	check(hb != null, "the pump-house board opens for L39")
 	if hb == null: return
-	check(hb.find_child("Scheme", true, false) != null and hb.find_child("Curves", true, false) != null, "the board has the job picture and the H-Q plot")
-	var txt := all_text(hb)
+	var dsn = app.world.deco() if app.world.has_method("deco") else null
+	check(dsn != null and dsn.hyd != null and hb.find_child("Curves", true, false) != null, "the job stands in the plant (the pump house) and the board has the H-Q plotter")   # F33: the side-view picture is the 3D pump house now
+	var txt := all_text(hb) + all_text(hb.station)
 	check(txt.contains("SUCTION") and txt.contains("DISCHARGE") and txt.contains("PUMP") and txt.contains("IMPELLER TRIM"), "the selectors are on the board")
 	hb.pick_pipe("suction", "5"); hb = await board()
 	hb.pick_pump("P2"); hb = await board()   # discharge stays at the fitter's 3-inch
@@ -69,7 +70,7 @@ func _win() -> void:
 	var hb := await board()
 	if hb == null: check(false, "board for the win"); return
 	# keyboard focus: a pipe spool key takes focus and keeps it across the rebuild its pick causes
-	var k := hb.find_child("Pipe_discharge_4", true, false) as Button
+	var k := hb.control("Pipe_discharge_4") as Button
 	check(k != null and k.focus_mode == Control.FOCUS_ALL, "the 4-inch discharge spool is a focusable key")
 	if k != null:
 		k.grab_focus(); await frames(2)

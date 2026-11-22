@@ -81,17 +81,25 @@ func _dash(a: Vector2, b: Vector2, col: Color, w := 1.5) -> void:
 	while t < l:
 		draw_line(a + dir * t, a + dir * minf(t + 6.0, l), col, w); t += 11.0
 
-## One strip of Dymo tape; returns the y for the next strip below it.
+## One strip of Dymo tape; returns the y for the next strip below it. F33: never cut with an ellipsis: a legend too long for one line goes on two.
 func tape(p: Vector2, text: String, accent: Color, avail := 1.0e6, sz := 12) -> float:
 	var f := EqStrings.font("cap"); var s := EqTheme.fs(sz)
-	while s > EqTheme.fs(8) and f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, s).x + 12.0 > avail: s -= 1   # a long tape shrinks its type before it clips
-	while text.length() > 4 and f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, s).x + 12.0 > avail: text = text.left(text.length() - 2).strip_edges() + "…"
-	var w := minf(f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, s).x + 12.0, avail)
-	var h := float(s) + 5.0
+	var lines := [text.to_upper()]
+	var tw := func(t: String) -> float: return f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, s).x + 12.0
+	if tw.call(lines[0]) > avail and lines[0].contains(" "):
+		var t0: String = lines[0]; var mid := t0.length() / 2; var best := -1
+		for i in t0.length():
+			if t0[i] == " " and (best < 0 or absi(i - mid) < absi(best - mid)): best = i
+		lines = [t0.left(best), t0.substr(best + 1)]
+	var w := 0.0
+	for ln in lines: w = maxf(w, tw.call(ln))
+	w = minf(w, avail)
+	var lh := float(s) + 2.0
+	var h := float(s) + 5.0 + lh * float(lines.size() - 1)
 	draw_rect(Rect2(p, Vector2(w, h)), EqTheme.DYMO_TAPE)
 	draw_rect(Rect2(p + Vector2(0, h), Vector2(w, 1.0)), Color(1, 1, 1, 0.12))
 	draw_rect(Rect2(p, Vector2(3.0, h)), accent.lightened(0.2))
-	EqTheme.ds(self, f, p + Vector2(7.0, float(s) + 1.0), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, s, EqTheme.DYMO_TEXT)
+	for i in lines.size(): EqTheme.ds(self, f, p + Vector2(7.0, float(s) + 1.0 + lh * i), lines[i], HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, s, EqTheme.DYMO_TEXT)
 	return p.y + h + 2.0
 
 ## Draw the segment a-b clipped to `r` (Liang-Barsky); nothing when it is outside.

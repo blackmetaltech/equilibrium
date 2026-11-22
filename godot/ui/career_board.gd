@@ -12,6 +12,8 @@ var app_ref = null
 var _ta := {}                 ## plant -> {m, crane, crew}: the turnaround being drafted
 var _cards := {}              ## plant id -> its card (the alert strip scrolls to it)
 var _lock_until := 0          ## msec: +3 MONTHS stays dark for about a second after a stop at a warning, so a double click cannot ride through it
+var pin_scroll: ScrollContainer   ## F33: the pinned strip never grows past PIN_MAX of the board (warnings + the incident card and its slip): beyond that it scrolls on its own
+const PIN_MAX := 0.85
 var pin: VBoxContainer        ## the action row, the strike warning and a pending decision: outside the scroll, so they never move and never need a wheel
 var _open := {}               ## plant id -> bool: the player's choice to open or fold a plant card (absent: the default, see _plant_open)
 var _armed := {}              ## plant id -> true: BUY CATALYST was pressed once and waits (no timeout) for the confirming press or a CANCEL
@@ -27,8 +29,15 @@ func _init() -> void:
 	super()
 	remove_child(scroll)
 	var outer := VBoxContainer.new(); outer.name = "Outer"; outer.add_theme_constant_override("separation", 4); add_child(outer)
-	pin = VBoxContainer.new(); pin.name = "Pinned"; pin.add_theme_constant_override("separation", 4); outer.add_child(pin)
+	pin_scroll = ScrollContainer.new(); pin_scroll.name = "PinScroll"; pin_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; outer.add_child(pin_scroll)
+	pin = VBoxContainer.new(); pin.name = "Pinned"; pin.add_theme_constant_override("separation", 4); pin.size_flags_horizontal = Control.SIZE_EXPAND_FILL; pin_scroll.add_child(pin)
+	pin.minimum_size_changed.connect(_cap_pin)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL; scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL; outer.add_child(scroll)
+
+func _cap_pin() -> void:
+	if pin_scroll == null or pin == null: return
+	var want := minf(pin.get_combined_minimum_size().y, fit_h * PIN_MAX)
+	if absf(pin_scroll.custom_minimum_size.y - want) > 0.5: pin_scroll.custom_minimum_size.y = want
 
 ## A handheld board (1280x800 leaves it about 570 px): plant cards fold and the pending card's long text hides behind DETAILS until asked for.
 func _compact() -> bool: return fit_h < 700.0 or fit_w < 600.0
@@ -150,6 +159,7 @@ func _build() -> void:
 		var lr := lbl("%s  %s" % [str(r.get("stamp", "m%02d" % int(r.m))), str(r.label)], 12, STAMP_RED if sev else PENCIL); lr.name = "LogRow"
 		lr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; lr.custom_minimum_size = Vector2(160, 0); body.add_child(lr, true)   # F31: a long row (the plant fix, the contractor) used to stretch the whole board past the window after a resume
 	_wrap_long(body); _wrap_long(pin)
+	call_deferred("_cap_pin")
 
 ## F31: no label may ask for more width than the board has. A long label that does not wrap (a log row of a plant fix after a resume, an offer line) sets the minimum width of the whole
 ## scroll column and pushed the board past the window edge: the keys at the right were cut ("AC") and the rate dial left the screen. Every such label now wraps and takes the width it is given.
@@ -317,22 +327,31 @@ func _incident_card(ic: Dictionary) -> Control:
 	var t := lbl(str(ic.get("title", "")), 14, STAMP_RED if pending else PENCIL, "mono_bold"); t.name = "IncidentTitle"; t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; t.custom_minimum_size = Vector2(220, 0); v.add_child(t)
 	if not pending:
 		var dn := lbl(str(ic.get("done", "")), 12, PENCIL, "sans"); dn.name = "IncidentDone"; dn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; dn.custom_minimum_size = Vector2(220, 0); v.add_child(dn)
+		if ic.get("slip") is Dictionary: v.add_child(CompareSlip.make(ic.slip, "", _compact()))   # F33: the three answers side by side while the incident's months run
 		return _paper(v)
 	var b := lbl(str(ic.get("body", "")), 12, PENCIL, "sans"); b.name = "IncidentBody"; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; b.custom_minimum_size = Vector2(220, 0); b.visible = not _compact() or _more.has("IncidentBody"); v.add_child(b)
 	var rows := [["IncidentPlant", str(ic.get("plantKey", "GO TO THE PLANT")), str(ic.get("plantText", "")), func(): _go_plant(ic), true]]
 	for o in ic.get("options", []):
 		var kk := str(o.key)
 		rows.append(["Incident" + kk.capitalize(), str(o.label), str(o.text), func(): _confirm("incident:" + kk, "incident", [kk]), false, "incident:" + kk])
+	var one_row := ic.get("slip") is Dictionary and not _more.has("IncidentBody")   # F33: the three answers are one row of keys and the slip below says what each does (their texts stay in the tooltips and behind "more")
+	var kf: HFlowContainer = null
+	if one_row: kf = HFlowContainer.new(); kf.name = "IncidentKeys"; kf.add_theme_constant_override("h_separation", 8); kf.add_theme_constant_override("v_separation", 6); v.add_child(kf)
 	for r in rows:
-		var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
+		var h: HFlowContainer = kf
+		if not one_row: h = HFlowContainer.new(); h.add_theme_constant_override("h_separation", 8); v.add_child(h)
 		var ak := str(r[5]) if r.size() > 5 else ""; var iarm := ak != "" and _armed.has(ak)   # F31: the contractor's bill and "ignore it" commit the plant: they ask twice (GO TO THE PLANT costs nothing)
-		var k := key(("PRESS AGAIN: " + str(r[1])) if iarm else str(r[1]), r[3], bool(r[4]), 13); k.name = str(r[0]); k.disabled = _busy; k.tooltip_text = str(r[2]); h.add_child(k)
+		var k := key(("PRESS AGAIN: " + str(r[1])) if iarm else str(r[1]), r[3], bool(r[4]), 13); k.name = str(r[0]); k.disabled = _busy; k.tooltip_text = str(r[2]); k.size_flags_vertical = Control.SIZE_SHRINK_BEGIN; h.add_child(k)
 		if ak != "":
 			_reserve(k, [str(r[1]), "PRESS AGAIN: " + str(r[1])], 13)
 			h.add_child(_cancel_slot(iarm, str(r[0]) + "Cancel", func(): _armed.erase(ak); _refresh_keep(), 13))
+		if one_row: continue
 		var tx := lbl(str(r[2]), 12, PENCIL, "sans"); tx.name = str(r[0]) + "Text"; tx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tx.custom_minimum_size = Vector2(220, 0); tx.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tx.visible = not _compact() or _more.has("IncidentBody"); h.add_child(tx)
-	if _compact():
-		var km := key("less" if _more.has("IncidentBody") else "more", func(): _toggle_more("IncidentBody"), false, 11); km.name = "IncidentMore"; v.add_child(km)
+	if _compact() or ic.get("slip") is Dictionary:
+		var km := key("less" if _more.has("IncidentBody") else "more", func(): _toggle_more("IncidentBody"), false, 11); km.name = "IncidentMore"
+		if kf != null: kf.add_child(km)   # folded: "more" rides in the row of answers
+		else: v.add_child(km)
+	if ic.get("slip") is Dictionary: v.add_child(CompareSlip.make(ic.slip, "", _compact()))   # F33: the comparison as a slip: your fix (not yet run) | the contractor | ignore it
 	return _paper(v, Color("#F8D9CF"))
 
 ## GO TO THE PLANT: the run is saved, the incident remembered, and the incident level opens with this plant's state (see CareerIncident).

@@ -147,11 +147,22 @@ export const CAREER_FIX_NH3_INERTS: LevelSpec = {
       fix: r !== null && s.status === 'won' ? { ...r, y: pre.y, cat: pre.cat, m: pre.m } : null,
       result: r !== null ? { ...r, outPct: m.v.out_pct, gasPct: m.v.gas_pct, lossMUSD: m.v.loss_musd } : null,
       options: { contractorMUSD: m.v.contractor_musd, ignoreMUSD: m.v.ignore_musd, contractorOut: m.v.contractor_out, ignoreOut: m.v.ignore_out },
+      /** F33: the side-by-side slip (your fix | the contractor | ignore it), the same numbers as the board's card: purge, output against the clean loop, gas per tonne, USD over the months.
+       * `fix` is null until a commission has measured the loop. */
+      slip: slipOf(s, r),
     };
   },
   solver: ((): (s: S) => Action[] => { let done = false; return (s: S) => { if (done || s.status !== 'playing') return []; done = true; return fixScript(BEST_PURGE[preOf(s).k]!); }; }) as unknown as PersonaFactory<EqState>,
   naive: ((): (s: S) => Action[] => { let done = false; return () => { if (done) return []; done = true; return fixScript(OLD_PURGE); }; }) as unknown as PersonaFactory<EqState>,
 };
+function slipOf(s: S, r: LoopResult | null): Record<string, unknown> {
+  const pre = preOf(s);
+  const col = (lr: LoopResult, kind: 'plant' | 'contractor' | 'ignore'): Record<string, number> => {
+    const e = effectOf(lr, pre.cat);
+    return { purgePct: lr.purge * 100, arPct: lr.ar, outPct: e.outF * 100, gasPct: e.gasF * 100, gasGJt: pre.gjT * e.gasF, lossUSD: optionLossUSD(pre, e, kind) };
+  };
+  return { months: pre.months, gjT: pre.gjT, chosen: '', lapsed: false, fix: r !== null ? col(r, 'plant') : null, contractor: col(statedLoop('contractor', pre.k, pre.cat), 'contractor'), ignore: col(statedLoop('ignore', pre.k, pre.cat), 'ignore') };
+}
 function baseLoop(s: EqState): void {
   s.species = LOOP_SPECIES.slice(); s.palette = []; s.limits = {}; s.presets = structuredClone(PRESETS);
   s.lv.ids = buildLoop(s, false, OLD_PURGE);

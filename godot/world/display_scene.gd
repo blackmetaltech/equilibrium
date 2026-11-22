@@ -18,14 +18,26 @@ const UNITS := {
 	"L36": [["feed", 4, 6, 0, "F-100"], ["hx", 10, 6, 0, "E-101"], ["product", 17, 6, 0, "T-102"]],
 	"L37": [["feed", 2, 3, 0, "F-100"], ["converter", 9, 2, 0, "R-101"], ["flash", 16, 3, 0, "D-102"], ["product", 19, 10, 0, "T-103"]],
 	"L38": [["feed", 2, 4, 0, "F-100"], ["converter", 8, 3, 0, "R-101"], ["hx", 14, 4, 0, "E-102"], ["flash", 19, 3, 0, "D-103"], ["compressor", 8, 10, 0, "K-104"], ["stack", 15, 10, 0, "Z-105"], ["product", 19, 9, 0, "T-106"]],
-	"L39": [["product", 3, 8, 0, "T-301"], ["compressor", 9, 9, 0, "P-301"], ["flash", 17, 4, 0, "D-302"]],
+	"L39": [["product", 3, 8, 0, "T-301"], ["compressor", 8, 9, 2, "P-301"], ["flash", 17, 4, 0, "D-302"]],
 	"CAREER": [["feed", 1, 1, 0, "A"], ["converter", 6, 1, 0, "A"], ["product", 11, 1, 0, "A"],
 		["feed", 13, 1, 0, "B"], ["cstr", 18, 1, 0, "B"],
 		["feed", 1, 9, 0, "C"], ["flash", 6, 9, 0, "C"], ["product", 9, 9, 0, "C"],
 		["feed", 13, 9, 0, "D"], ["boiler", 18, 9, 0, "D"], ["stack", 22, 9, 0, "D"]],
 }
 
+const DECK_H := 4.0   ## L39: the boiler-house deck height (world m; the engine's lift is 14 m)
+var hyd: PumpHouse   ## F33: L39's pump house (null on the other scenes)
+
 func has_scene(id: String) -> bool: return UNITS.has(id)
+
+## The pump house draws itself from the level's view as soon as it stands (the board pushes every change after that).
+func _pull_hyd() -> void:
+	if hyd == null or world == null or world.app == null or world.app.b == null: return
+	var v = world.app.b.q("levelView")
+	if v is Dictionary and str(v.get("kind", "")) == "pumps": hyd.set_view(v)
+
+## A click on the scene: L39 answers the leg or the pump under it ("" = nothing here).
+func pick(p: Vector2, cam: Camera3D) -> String: return hyd.pick(p, cam) if hyd != null and is_instance_valid(hyd) else ""
 
 func build(id: String) -> bool:
 	clear()
@@ -43,6 +55,7 @@ func build(id: String) -> bool:
 	return true
 
 func clear() -> void:
+	hyd = null
 	for c in get_children(): c.queue_free()
 
 func _tag(m: UnitModel, text: String, fp: Vector2i) -> void:
@@ -135,12 +148,16 @@ func _extras(id: String) -> void:
 				_pipe(_tile(pr[0], pr[1]) + Vector3(0, y, 0), _tile(pr[2], pr[3]) + Vector3(0, y, 0), 0.0)
 			_crane(_tile(10.0, 6.0))   # the plant under maintenance
 			_label("TURNAROUND", _tile(10.0, 6.0) + Vector3(0, 12.5, 0), Color("#FFB703"))
-		"L39":   # the condensate return: tank at grade, the pump on its plinth, a riser up to the deaerator on the boiler-house deck
-			_pipe(_tile(6.0, 10.0) + Vector3(0, 0.6, 0), _tile(9.0, 10.0) + Vector3(0, 0.6, 0), 0.0)
-			_pipe(_tile(11.0, 10.0) + Vector3(0, 0.8, 0), _tile(15.0, 10.0) + Vector3(0, 0.8, 0), 0.0)
-			_pipe(_tile(15.0, 10.0) + Vector3(0, 0.8, 0), _tile(15.0, 10.0) + Vector3(0, 7.0, 0), 0.0)
-			_pipe(_tile(15.0, 10.0) + Vector3(0, 7.0, 0), _tile(15.0, 5.0) + Vector3(0, 7.0, 0), 0.0)
-			_box(Vector3(9.0, 0.4, 6.0), _tile(18.0, 5.0) + Vector3(0, 0.2, 0), Color("#7C7466"))
+		"L39":   # the condensate return: tank at grade, the pump on its plinth, a riser up to the deaerator on the boiler-house deck. F33: the lines, the pump's plate and the
+			# NPSH sight-glass are the PumpHouse, drawn from levelView (the size chosen, the velocity guide, the margin)
+			var dk := DECK_H   # the boiler-house deck on its columns: the deaerator stands up on it, so the riser climbs
+			_box(Vector3(9.0, 0.4, 6.0), _tile(18.0, 5.0) + Vector3(0, dk - 0.2, 0), Color("#7C7466"))
+			for cx in [-4.2, 4.2]:
+				for cz in [-2.7, 2.7]: _cyl(_tile(18.0, 5.0) + Vector3(cx, 0.0, cz), _tile(18.0, 5.0) + Vector3(cx, dk - 0.4, cz), 0.18, Color("#5A5650"))
+			var drum := get_node_or_null("deco_D-302") as Node3D
+			if drum != null: drum.position.y += dk
+			hyd = PumpHouse.new(); add_child(hyd); hyd.setup(self)
+			call_deferred("_pull_hyd")
 			_label("PUMP HOUSE", _tile(10.0, 12.5) + Vector3(0, 0.4, 0), Color("#FFB703"))   # on the ground in front of the plinth, clear of the P-301 tag
 		"CAREER":
 			for g in [[1.0, 6.2, "PLANT A"], [13.0, 6.2, "PLANT B"], [1.0, 14.0, "PLANT C"], [13.0, 14.0, "PLANT D"]]:

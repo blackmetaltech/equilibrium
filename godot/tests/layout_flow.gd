@@ -100,6 +100,7 @@ func audit(tag: String) -> void:
 		checks += 1
 		var e: Array = EqTheme.drawn[k]
 		if float(e[0]) < FLOOR - 0.01: fail(tag, "drawn text %.1f px '%s' (%s)" % [float(e[0]), str(e[1]).replace("\n", " "), str(k).get_slice(" | ", 0).right(60)])
+		if str(e[1]).contains("…") and (str(k).contains("Recorder") or str(k).contains("InstrumentBay")): fail(tag, "drawn text cut with an ellipsis '%s' (%s)" % [str(e[1]).replace("\n", " "), str(k).get_slice(" | ", 0).right(60)])   # F33: a legend shortened to "AMMON…" is clipped text
 		if not bool(e[2]): fail(tag, "drawn text clipped (%.0f > %.0f px) '%s' (%s)" % [float(e[3]), float(e[4]), str(e[1]).replace("\n", " "), str(k).get_slice(" | ", 0).right(60)])
 	var vp := Rect2(Vector2.ZERO, Vector2(root.size))
 	for i in dkeys.size():
@@ -136,7 +137,9 @@ func audit(tag: String) -> void:
 		var fl := allowed_px(c)
 		if px < fl - 0.01: fail(tag, "text %.1f px '%s' (%s)" % [px, t.left(30).replace("\n", " "), path.right(70)])
 		texts.append(c)
-		# clipped by its container
+		# clipped by its container (F33: a label or key whose text the engine trims with an ellipsis counts as clipped)
+		if (t.contains("…") and (path.contains("Recorder") or path.contains("InstrumentBay"))) or ((c is Label) and (c as Label).text_overrun_behavior != TextServer.OVERRUN_NO_TRIMMING and line_w(c, (c as Label).text, (c as Label).label_settings.font_size if (c as Label).label_settings != null else c.get_theme_font_size("font_size")) > r.size.x + 1.5 and (c as Label).autowrap_mode == TextServer.AUTOWRAP_OFF):
+			fail(tag, "text cut with an ellipsis '%s' (%s)" % [t.left(30).replace("\n", " "), path.right(70)])
 		if c is Label:
 			var l := c as Label
 			if l.autowrap_mode == TextServer.AUTOWRAP_OFF:

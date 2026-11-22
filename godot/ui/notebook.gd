@@ -7,6 +7,7 @@ static var stub := {}          # a levelInfo-shaped dict for galleries/tests; us
 static var started := {}       # level id -> the job has been worked on (commissioned, or restarted with the build kept): the key says Back to work
 static var _named_pick := {}   # level id -> the species chip picked for a named call-it (L04 limiting reagent), sent with the number
 static var _seen := {}         # app instance id -> last level id the watcher opened for
+static var qa_hold := false    # QA (CB_CAM nbclose): the watcher does not open the notebook for this level start (it opens a frame or two after CB_CAM ran)
 
 class Grid extends Control:
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -365,6 +366,7 @@ class Watch extends Node:
 		Notebook._seen[key] = id
 		# once per level start (a fresh campaign, "Next job", a direct launch): a level that presets parts (L03+) has spent money before the player did anything, so the test is "nothing run yet", not "nothing spent"
 		var runs = PaperStrings.q(app, "runs")
+		if Notebook.qa_hold: Notebook.qa_hold = false; Notebook.close(app); return
 		if str(li.get("phase", "design")) == "design" and int(app.b.g.get("tick", 0)) == 0 and not (runs is Array and not (runs as Array).is_empty()) and not bool(Notebook.started.get(str(li.id), false)): Notebook.open(app)
 
 static func attach(app) -> void:

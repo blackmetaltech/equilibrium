@@ -264,8 +264,8 @@ const levelInfo: QueryFn<EqState> = (s) => {
       return { key: c.key, prompt: t(`lv.${spec.id}.callit.${c.key}`, spec.textVars ? spec.textVars(s) : {}), ...givenOf(s, spec, c.key), unit: c.unit, tol: tolText(c.tol), ...callBounds(c), answered: a !== null, locked: a !== null, ...(a !== null ? { value: fin(a.value) } : {}), ...(over && ok !== undefined ? { ok, truth: fin(tr ?? 0) } : {}) };
     }),
     allowedUnits: Object.entries(spec.units).filter(([type]) => s.palette === null || s.palette.includes(type)).map(([type, u]) => ({ type, max: u.max, used: used(type), priceUSD: u.price })),
-    hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), unit: unitLabel(s, spec.id, hero.unit), value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },
-    secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), unit: unitLabel(s, spec.id, sec.unit), value: m.ok ? fin(sec.value) : 0, limit: fin(sec.limit), pending: !m.ok },
+    hero: { key: hero.key, label: t(`lv.${spec.id}.hero`), legend: i18n.has(`lv.${spec.id}.legend`) ? t(`lv.${spec.id}.legend`) : t(`lv.${spec.id}.hero`), unit: unitLabel(s, spec.id, hero.unit), value: m.ok ? fin(hero.value) : fin(hero.lo), lo: fin(hero.lo), hi: fin(hero.hi), pending: !m.ok },
+    secondary: sec === null ? null : { key: sec.key, label: t(`lv.${spec.id}.sec`), legend: i18n.has(`lv.${spec.id}.legend2`) ? t(`lv.${spec.id}.legend2`) : t(`lv.${spec.id}.sec`), unit: unitLabel(s, spec.id, sec.unit), value: m.ok ? fin(sec.value) : 0, limit: fin(sec.limit), pending: !m.ok },
     /** `lit` is the honest window: true only for an alarm (high / critical) or the GOAL window met; a healthy fault window ('normal') is dark glass and must not read as lit. */
     annunciators: (m.ok || (s.solved !== null && !s.solved.ok) ? spec.annunciators(s, m, goals) : spec.annunciators(s, m, goals).map((a) => (a.key === 'solve' || spec.designLamps?.includes(a.key) ? a : { ...a, state: 'off' as const })))
       .map((a) => ({ ...a, lit: a.state === 'high' || a.state === 'critical' || (a.state === 'normal' && a.key === 'goal') })),
@@ -275,6 +275,8 @@ const levelInfo: QueryFn<EqState> = (s) => {
     coach: coachOf(s, spec),
     /** The build checklist (parts, pipes, settings, ticking from the plant); null on a level without one. */
     buildGuide: buildGuideOf(s, spec),
+    /** F33: the plant stood on the plot when the level opened (an incident loop, a re-tune job): the parts tray folds to a tab. */
+    prebuilt: ((s.lv.prebuilt as string[] | undefined) ?? []).length > 0,
     /** What the intercom says while a first run rolls: the product line only for the very first run of a product level; control / board levels and later runs get their own line (null outside a first run). */
     runLine: spec.firstRun === true && s.phase === 'firstrun' ? t(runLineKey(s, spec)) : null,
     /** Withheld while a prediction is still open (nothing commissioned, none locked): the lesson quotes the numbers the Call-it asks for. */

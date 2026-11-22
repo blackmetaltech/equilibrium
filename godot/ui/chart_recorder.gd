@@ -286,13 +286,14 @@ func _draw() -> void:
 	# pen legends on dymo tape: each pen's label and unit in its own ink (blue hero, red secondary, green third)
 	var avail := pl.size.x - 4.0   # the pen readouts live in the gutter to the right: a legend never runs over them
 	var ly := pl.position.y + 2.0
-	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero) + (" —" if bool(hero.get("pending", false)) else ""), EqTheme.PEN_BLUE, avail)   # pending: the reading is "—", never a made-up number
-	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec) + (" —" if bool(sec.get("pending", false)) else ""), EqTheme.PEN_RED, avail)
-	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail)
+	var tape_max := (pl.end.y - 24.0) if clock_w > 0.0 else 1.0e6
+	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero) + (" —" if bool(hero.get("pending", false)) else ""), EqTheme.PEN_BLUE, avail, tape_max)   # pending: the reading is "—", never a made-up number
+	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec) + (" —" if bool(sec.get("pending", false)) else ""), EqTheme.PEN_RED, avail, tape_max)
+	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail, tape_max)
 	if n == 0 and clock_w == 0.0 and ly + 18.0 <= pl.end.y and pl.size.x > 80.0:   # no runs yet: the line sits under the pen legends, and only when there is room for it
 		EqTheme.ds(self, EqStrings.font("body"), Vector2(pl.position.x + 8.0, ly + 15.0), EqStrings.T("REC_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, pl.size.x - 10.0, fsz, Color("#6B7C76"))
 	if not first_run.is_empty() and runs.size() <= 1 and first_run.get("madeKg") != null and _num(first_run.get("madeKg", 0.0)) > 0.0:   # (madeKg null: this level makes no product, so no counter) a rolling "made so far" counter while the first run plays
-		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 25.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail - clock_w)
+		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 25.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN").to_upper(), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail - clock_w)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
 func _fmtax(v: float) -> String:   # axis labels: compact, never wider than the gutter
@@ -317,19 +318,27 @@ func _dash(a: Vector2, b: Vector2, col: Color) -> void:
 
 func _legend(d: Dictionary) -> String:
 	var u := str(d.get("unit", ""))
-	var lab := str(d.get("label", ""))
-	if u == "" or lab.ends_with(" " + u) or lab.ends_with(", " + u) or lab.ends_with("(" + u + ")") or lab.ends_with("[" + u + "]"): return lab   # the label already says its unit
-	return lab + " " + u
+	var lab := str(d.get("label", "")) if big else str(d.get("legend", d.get("label", "")))   # F33: the level's short pen legend ("NH₃", "COMP"); the long label is the full recorder's title
+	if u == "" or lab.ends_with(" " + u) or lab.ends_with(", " + u) or lab.ends_with("(" + u + ")") or lab.ends_with("[" + u + "]"): return lab.to_upper()   # the label already says its unit
+	return lab.to_upper() + " " + u   # the unit keeps its case (m³/h, not M³/H)
 
-## One strip of Dymo tape (clipped to `avail` px); returns the y for the next strip below it.
-func _tape(p: Vector2, text: String, accent: Color, avail := 1.0e6) -> float:
-	var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)   # 16 px: a long legend is cut short with an ellipsis (below), never set smaller
-	var fit := text.to_upper()
-	while fit.length() > 4 and f.get_string_size(fit, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0 > avail: fit = fit.left(fit.length() - 2).strip_edges() + "…"
-	text = fit
-	var w := minf(f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0, avail)
-	draw_rect(Rect2(p, Vector2(w, 21.0)), EqTheme.DYMO_TAPE)
-	draw_rect(Rect2(p + Vector2(0, 21.0), Vector2(w, 1.0)), Color(1, 1, 1, 0.12))
-	draw_rect(Rect2(p, Vector2(3.0, 21.0)), accent.lightened(0.2))
-	EqTheme.ds(self, f, p + Vector2(7.0, 16.0), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, sz, EqTheme.DYMO_TEXT)
-	return p.y + 23.0
+## One strip of Dymo tape no wider than `avail` px; returns the y for the next strip below it. F33: a legend is never cut with an ellipsis: one that does not fit on one line
+## goes on two (split at the space nearest its middle), and only then is it squeezed (EqTheme.ds, at most to 78 %).
+func _tape(p: Vector2, text: String, accent: Color, avail := 1.0e6, max_y := 1.0e6) -> float:
+	var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
+	var lines := [text]
+	var tw := func(t: String) -> float: return f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0
+	if tw.call(lines[0]) > avail and lines[0].contains(" ") and p.y + 39.0 <= max_y:   # two lines only where they clear the shift clock below
+		var t0: String = lines[0]; var mid := t0.length() / 2; var best := -1
+		for i in t0.length():
+			if t0[i] == " " and (best < 0 or absi(i - mid) < absi(best - mid)): best = i
+		lines = [t0.left(best), t0.substr(best + 1)]
+	var w := 0.0
+	for ln in lines: w = maxf(w, tw.call(ln))
+	w = minf(w, avail)
+	var h := 21.0 + 18.0 * float(lines.size() - 1)
+	draw_rect(Rect2(p, Vector2(w, h)), EqTheme.DYMO_TAPE)
+	draw_rect(Rect2(p + Vector2(0, h), Vector2(w, 1.0)), Color(1, 1, 1, 0.12))
+	draw_rect(Rect2(p, Vector2(3.0, h)), accent.lightened(0.2))
+	for i in lines.size(): EqTheme.ds(self, f, p + Vector2(7.0, 16.0 + 18.0 * i), lines[i], HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, sz, EqTheme.DYMO_TEXT)
+	return p.y + h + 2.0

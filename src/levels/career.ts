@@ -453,7 +453,7 @@ export function incidentView(c: Career): Record<string, unknown> | null {
   const def = INCIDENT_DEFS[i.id], pre = i.pre, plant = plantLabel(i.plant);
   const opt = (kind: 'contractor' | 'ignore'): Record<string, unknown> => {
     const r = statedLoop(kind, i.k, i.cat), e = effectOf(r, i.cat), usd = optionLossUSD(pre, e, kind);
-    return { key: kind, purgePct: r.purge * 100, arPct: r.ar, outPct: e.outF * 100, gasPct: e.gasF * 100, lossUSD: usd, costUSD: kind === 'contractor' ? pre.contractorUSD : 0,
+    return { key: kind, purgePct: r.purge * 100, arPct: r.ar, outPct: e.outF * 100, gasPct: e.gasF * 100, gasGJt: pre.gjT * e.gasF, lossUSD: usd, costUSD: kind === 'contractor' ? pre.contractorUSD : 0,
       label: t(`lv.CAREER.inc.${kind}.key`, { usd: (pre.contractorUSD / 1e6).toFixed(2), out: Math.round(e.outF * 100) }),
       text: t(`lv.CAREER.inc.${kind}.text`, { purge: pctText(r.purge * 100), ar: pctText(r.ar), out: Math.round(e.outF * 100), gas: Math.round((e.gasF - 1) * 100), months: pre.months, usd: (pre.contractorUSD / 1e6).toFixed(2), loss: (usd / 1e6).toFixed(1), plant: plant.toLowerCase() }) };
   };
@@ -463,8 +463,15 @@ export function incidentView(c: Career): Record<string, unknown> | null {
     id: i.id, plant: i.plant, plantLabel: plant, pending: i.choice === '', choice: i.choice, lapsed: i.lapsed, month: i.m, from: i.from, until: i.until, yPct: i.y * 100, cat: i.cat, outF: i.outF, gasF: i.gasF,
     ahead: i.ann === true && i.choice === '', title: t(`lv.CAREER.inc.${i.id}.${i.ann === true && i.choice === '' ? 'title_next' : 'title'}`, vars), body: t(`lv.CAREER.inc.${i.id}.${i.ann === true && i.choice === '' ? 'body_next' : 'body'}`, vars), done, level: def.level, pre,
     plantKey: t('lv.CAREER.inc.plant.key'), plantText: t('lv.CAREER.inc.plant.text', vars), options: [opt('contractor'), opt('ignore')],
+    /** F33: the side-by-side slip (your fix | the contractor | ignore it): purge, output against the clean loop, gas per tonne and the cost over the incident's months, from the same
+     * stated loops and the same mapping as the options. `fix` is null until a loop commissioned at the plant has come back. */
+    slip: { months: pre.months, gjT: pre.gjT, chosen: i.choice, lapsed: i.lapsed,
+      fix: i.choice === 'plant' && !i.lapsed ? { purgePct: i.purge * 100, arPct: i.ar, outPct: i.outF * 100, gasPct: i.gasF * 100, gasGJt: pre.gjT * i.gasF, lossUSD: optionLossUSD(pre, { outF: i.outF, gasF: i.gasF }, 'plant') } : null,
+      contractor: slipCol(opt('contractor')), ignore: slipCol(opt('ignore')) },
   };
 }
+
+const slipCol = (o: Record<string, unknown>): Record<string, unknown> => ({ purgePct: o.purgePct, arPct: o.arPct, outPct: o.outPct, gasPct: o.gasPct, gasGJt: o.gasGJt, lossUSD: o.lossUSD });
 
 /** A persona that plays one month per turn: its decisions, then `advance 1`. */
 function scripted(policy: (c: Career) => Decision[]) {

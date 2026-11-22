@@ -75,6 +75,17 @@ func _round_trip() -> void:
 	check(b.pin.find_child("IncidentCard", true, false) != null, "the waiting incident is pinned above the scroll")
 	var opts: Array = ic.get("options", [])
 	var con_loss := float(opts[0].lossUSD) if opts.size() > 0 else 0.0
+	# F33: the comparison is a side-by-side slip on the card: YOUR FIX not yet run, the contractor and "ignore it" with the engine's stated numbers
+	var cs := b.find_child("IncidentCard", true, false).find_child("CompareSlip", true, false) as CompareSlip
+	check(cs != null, "the incident card carries the comparison slip")
+	if cs != null and opts.size() >= 2:
+		check(cs.head("fix").contains("YOUR FIX") and cs.cell("fix", "purge") == "not yet run" and cs.cell("fix", "usd") == "—", "YOUR FIX reads 'not yet run' before the plant (%s)" % cs.cell("fix", "purge"))
+		check(cs.head("contractor").contains("CONTRACTOR") and cs.head("ignore").contains("IGNORE IT"), "three columns: your fix, the contractor, ignore it")
+		for oi in 2:
+			var o: Dictionary = opts[oi]; var ck := str(o.key)
+			check(cs.cell(ck, "purge") == "%.1f %%" % float(o.purgePct) and cs.cell(ck, "out") == "%d %%" % int(round(float(o.outPct))) and cs.cell(ck, "usd") == "%s MUSD" % CompareSlip.money(float(o.lossUSD)),
+				"the %s column states the card's numbers (%s, %s, %s)" % [ck, cs.cell(ck, "purge"), cs.cell(ck, "out"), cs.cell(ck, "usd")])
+			check(absf(float(o.gasGJt) - float(ic.pre.gjT) * float(o.gasPct) / 100.0) < 1e-6 and cs.cell(ck, "gas") == "%.1f GJ" % float(o.gasGJt), "the %s gas per tonne is the plant's GJ/t times the stated factor (%s)" % [ck, cs.cell(ck, "gas")])
 	# GO TO THE PLANT
 	kp.pressed.emit(); await frames(8)
 	Notebook.close(app); await frames(3)
@@ -93,6 +104,15 @@ func _round_trip() -> void:
 		if str(app.b.g.get("status", "")) != "playing": break
 		app.b.act("tick", [5]); app.game_on_changed(); await frames(2)
 	check(str(app.b.g.get("status", "")) == "won", "the fixed loop runs and the job is won")
+	# F33: after the commission the plant shows the slip, your fix filled in from the measured loop, the other two as on the card
+	app.lvbay.refresh(true); await frames(3)
+	var ps: CompareSlip = app.lvbay.slip_panel
+	check(ps != null and ps.is_visible_in_tree(), "the plant shows the comparison slip after the commission")
+	if ps != null:
+		var sl: Dictionary = view().get("slip", {})
+		check(ps.cell("fix", "purge") == "%.1f %%" % (purge * 100.0) and ps.cell("fix", "usd") != "—", "YOUR FIX now reads the commissioned purge (%s)" % ps.cell("fix", "purge"))
+		check(ps.cell("contractor", "usd") == "%s MUSD" % CompareSlip.money(con_loss), "the contractor's cost in the plant is the card's (%s)" % ps.cell("contractor", "usd"))
+		check(sl.get("fix") is Dictionary and absf(float(sl.fix.lossUSD) / 1e6 - float(view().get("result", {}).get("lossMUSD", -1.0))) < 1e-9 and ps.cell("fix", "usd") == "%s MUSD" % CompareSlip.money(float(sl.fix.lossUSD)), "your fix's cost is the level's own figure (%s)" % ps.cell("fix", "usd"))
 	var res: Dictionary = view().get("result", {}) if view().get("result") is Dictionary else {}
 	var fix: Dictionary = view().get("fix", {}) if view().get("fix") is Dictionary else {}
 	check(not fix.is_empty() and absf(float(fix.purge) - purge) < 1e-9, "the level hands back the loop at %.1f %% purge" % (purge * 100.0))
@@ -102,6 +122,8 @@ func _round_trip() -> void:
 	if host == null or str(host.name) != "printout":
 		app.end_seen = false; Printout.open(app); await frames(4); host = app.modal()
 	check(host != null and str(host.name) == "printout", "the printout is up")
+	var pslip: CompareSlip = host.find_child("PrintSlip", true, false) if host != null else null
+	check(pslip != null and pslip.cell("fix", "purge") == "%.1f %%" % (purge * 100.0), "the printout carries the slip")
 	var bk: Button = host.find_child("BackToCareer", true, false) if host != null else null
 	check(bk != null, "the printout offers BACK TO THE CAREER")
 	check(host == null or host.find_child("Next", true, false) == null, "and no NEXT job (the plant is reached from the board only)")
@@ -121,6 +143,8 @@ func _round_trip() -> void:
 	await refresh()
 	b = board()
 	check(b != null and b.find_child("IncidentDone", true, false) != null and b.pin.find_child("IncidentCard", true, false) == null, "the answered card leaves the pinned strip and says what was done")
+	var cs2: CompareSlip = b.find_child("CompareSlip", true, false) if b != null else null
+	check(cs2 != null and cs2.cell("fix", "purge") == "%.1f %%" % (purge * 100.0) and cs2.head("fix").begins_with("▸ ") and cs2.cell("contractor", "usd") == "%s MUSD" % CompareSlip.money(con_loss), "the answered card's slip has your fix filled in and marked chosen")
 	check(CareerIncident.marker().is_empty(), "the incident marker is cleared")
 	# the numbers change: next month the ammonia plant makes its nominal output times the fix
 	var nom := float(view().plants[0].nominalT)

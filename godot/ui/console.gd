@@ -30,6 +30,9 @@ var _kind := "desktop"
 var _rack_float: PanelContainer
 var _rack_n := 0                  ## F32: tiles the rack holds, and whether any of them can still be placed (no tile to pick = no tray at all)
 var _rack_any := true
+var rack_hold := false            ## F33: a board level (L39's pump house, the Career) has no parts to place: no tray and no tab, whatever layout() runs
+var extra_cover := 0.0            ## F33: px a level's own panel stands above the console (L39's local panel of selectors): the camera frames above it
+var rack_tab := false             ## F33: the plant stood ready when the level opened (levelInfo.prebuilt): the tray folds to a small PARTS tab
 var phase := "design"
 var qa_li := {}                   ## QA / tests: a canned levelInfo that replaces the engine's (see qa())
 var qa_runs: Array = []
@@ -100,14 +103,14 @@ func layout() -> void:
 	var phone := _kind == "phone"; var hand := _kind == "handheld"
 	var tap := maxf(CbLayout.tap(), 44.0)
 	gear.custom_minimum_size = Vector2(tap, tap); gear.offset_left = -tap - 10.0; gear.offset_top = 10.0; gear.offset_right = -10.0; gear.offset_bottom = 10.0 + tap
-	var row_h := 108.0 if _kind == "desktop" else (112.0 if phone else 98.0)   # F32: a phone intercom holds three 16 px lines
+	var row_h := 108.0 if _kind == "desktop" else (112.0 if phone else 114.0)   # F32: a phone intercom holds three 16 px lines; F33: so does a 1280x800 one
 	top_row.custom_minimum_size.y = row_h
 	intercom.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (290.0 if hand else 360.0), row_h)
-	intercom.set_max_lines(3 if (_kind == "desktop" or phone) else 2)   # a phone shows three lines too; a tap opens the whole log
+	intercom.set_max_lines(3)   # three lines on every class (F33: 1280x800 had two, cut mid-sentence); a tap opens the whole log
 	annunciator.max_windows = 4 if phone else 8
-	annunciator.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (410.0 if hand else 230.0), row_h)   # F32: windows wide enough for 16 px legends
+	annunciator.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (380.0 if hand else 230.0), row_h)   # F32: windows wide enough for 16 px legends
 	if phone and annunciator.wins.size() > 4: annunciator.wins = annunciator.wins.slice(0, 4)
-	recorder.custom_minimum_size = Vector2(220.0 if _kind == "desktop" else (200.0 if hand else 190.0), row_h)
+	recorder.custom_minimum_size = Vector2(220.0 if _kind == "desktop" else (230.0 if hand else 190.0), row_h)   # F33: room for the pen legends at 1280x800
 	keys.set_compact(_kind != "desktop")
 	if phone:
 		# the parts drawer: a sheet above its own button holding the tiles in a wrapping, finger-scrolled grid
@@ -136,7 +139,15 @@ func layout() -> void:
 		rack_wrap.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; rack_wrap.size_flags_vertical = Control.SIZE_SHRINK_END; rack_wrap.mouse_filter = Control.MOUSE_FILTER_PASS
 		rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		_rack_flow(false)
-		parts_btn.visible = false; _rack_float.visible = false
+		_rack_float.visible = false
+		var tab_on := rack_tab and _on and _rack_any and _rack_n > 0 and not rack_hold   # F33: a pre-built plant: the tray is a small PARTS tab that opens it
+		parts_btn.visible = tab_on
+		if tab_on:
+			var bh := maxf(tap, 40.0)
+			parts_btn.custom_minimum_size = Vector2(140.0, bh)
+			parts_btn.anchor_left = 0.0; parts_btn.anchor_right = 0.0; parts_btn.anchor_top = 1.0; parts_btn.anchor_bottom = 1.0
+			parts_btn.offset_left = 12.0; parts_btn.offset_right = 152.0; parts_btn.offset_bottom = -(row_h + 30.0); parts_btn.offset_top = -(row_h + 30.0 + bh)
+			parts_btn.text = EqStrings.T("PARTS_TAB") + (" ▾" if rack_open else " ▴")
 		_place_dock()
 	panel.offset_top = 0; panel.offset_bottom = 0; panel.offset_left = 0; panel.offset_right = 0
 	hud_top_left.offset_left = 12.0; hud_top_left.offset_top = 10.0
@@ -165,15 +176,17 @@ func _place_dock() -> void:
 	var vw := app.vw() if app != null else 1920.0
 	var w := minf(vw - 24.0, float(_rack_n) * (PartsRack.TILE.x + 6.0) + 18.0)
 	var h := PartsRack.TILE.y + 22.0
-	rack_wrap.visible = _on and _rack_any and _rack_n > 0
+	rack_wrap.visible = _on and _rack_any and _rack_n > 0 and not rack_hold and (not rack_tab or rack_open)
 	rack_wrap.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	rack_wrap.custom_minimum_size = Vector2(w, h)
 	rack_wrap.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var top := panel.size.y if panel != null and _on else 0.0
+	if rack_tab and parts_btn != null and parts_btn.visible: top += parts_btn.custom_minimum_size.y + 30.0   # the opened tray stands on its tab
 	rack_wrap.offset_left = 12.0; rack_wrap.offset_right = 12.0 + w; rack_wrap.offset_bottom = -(top + 8.0); rack_wrap.offset_top = -(top + 8.0) - h
 
 ## A wide dock (a long rack on a small window) would sit on the plant's lower edge: the camera frames above it too. A short dock only overlaps empty ground at the corner.
 func dock_cover() -> float:
+	if extra_cover > 0.0: return extra_cover
 	if rack_wrap == null or not rack_wrap.visible or rack_wrap.get_parent() != self: return 0.0
 	var vw := app.vw() if app != null else 1920.0
 	return rack_wrap.custom_minimum_size.y + 8.0 if rack_wrap.custom_minimum_size.x > vw * 0.42 else 0.0
@@ -232,6 +245,8 @@ func refresh() -> void:
 		choose_speed(_rec_idx())   # the speed dial opens at the level's recommended speed (levelInfo.recommendedSpeed), not at whatever the last level left
 	elif not running: _shift_seen = false
 	annunciator.set_windows(li.get("annunciators", []) if li.get("annunciators") is Array else [])
+	var tab := bool(li.get("prebuilt", false))
+	if tab != rack_tab: rack_tab = tab; rack_open = false; layout()
 	var runs: Array = qa_runs if not qa_li.is_empty() else (app.b.q("runs") if app.b.q("runs") is Array else [])
 	recorder.feed(li, runs, int(app.b.g.get("tick", 0)))
 	_sync_key()

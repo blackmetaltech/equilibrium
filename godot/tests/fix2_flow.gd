@@ -155,7 +155,7 @@ func _intercom_and_recorder() -> void:
 	# the legend names each pen with its unit
 	var li: Dictionary = app.b.q("levelInfo")
 	var h := rec._legend(rec.hero); var s := rec._legend(rec.sec)
-	check(h == "%s %s" % [li.hero.label, li.hero.unit] and s == "%s %s" % [li.secondary.label, li.secondary.unit] and s.contains("%"), "pen legends carry label and unit (%s | %s)" % [h, s])
+	check(h == "%s %s" % [str(li.hero.legend).to_upper(), li.hero.unit] and s == "%s %s" % [str(li.secondary.legend).to_upper(), li.secondary.unit] and s.contains("%"), "pen legends carry the level's short legend and unit (%s | %s)" % [h, s])   # F33: short legends, never cut
 	# the plot fits every run and the axis holds every value (also a value far off the target band)
 	rec.runs = []
 	for v in [3.0, 10.0, 31.0, 250.0]: rec.record_run(v, 1.0, 0.0)
