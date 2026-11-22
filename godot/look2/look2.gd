@@ -71,6 +71,7 @@ func _set_on(v: bool) -> void:
 		ids = {}
 		_park_env(false)
 		app.get_viewport().scaling_3d_scale = 1.0; app.get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		app.get_viewport().msaa_3d = Viewport.MSAA_DISABLED; app.get_viewport().use_taa = false; app.get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 		if app.plant_world != null: app.plant_world.set_blocked(false); app.plant_world.cam.make_current()
 		if app.chrome != null and app.chrome_shown(): app.chrome.visible = true
 		_hide_paper(false)

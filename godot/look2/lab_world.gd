@@ -97,8 +97,13 @@ func set_quality(t: String) -> void:
 	for r in find_children("*", "ReflectionProbe", true, false): (r as ReflectionProbe).visible = not compat
 	# 3D render scale: full on ultra, FSR at 77 % on high, 60 % on compat (the HUD stays at full resolution)
 	var vp := get_viewport()
-	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if RenderingServer.get_rendering_device() != null and not ultra else Viewport.SCALING_3D_MODE_BILINEAR
-	vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.6)
+	# AA (phase B): ultra = native, MSAA 2x for edges plus TAA; high = FSR2 at 77 % (temporal upscale doubles as AA); compat = FSR1 at 60 % with FXAA
+	var rd := RenderingServer.get_rendering_device() != null
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR if (ultra or not rd) else (Viewport.SCALING_3D_MODE_FSR2 if t == "high" else Viewport.SCALING_3D_MODE_FSR)
+		vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.6)
+	vp.msaa_3d = Viewport.MSAA_2X if ultra else Viewport.MSAA_DISABLED
+	vp.use_taa = ultra
+	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if compat else Viewport.SCREEN_SPACE_AA_DISABLED
 
 # ---- materials -------------------------------------------------------------------------------------------------------------------------------
 const TEX := "res://look2/assets/tex/"
