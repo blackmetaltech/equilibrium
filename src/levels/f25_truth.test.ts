@@ -87,10 +87,10 @@ describe('F25 L10 / L13 / L14 texts', () => {
     const lamp = (): any => (li(e).annunciators as any[]).find((a) => a.key === 'sinter');
     expect(lamp().legend).toBe('BED SINTER');
   });
-  it('L14: the brief and the goal give 400 K and the dial reading in °C', () => {
+  it('L14: the brief gives 400 K and the dial reading in °C (D-B1: the goal is the three tests, no temperature in it)', () => {
     const e = mk('L14');
     expect(JSON.stringify(li(e))).toMatch(/400 K \(126\.85 °C/);
-    expect(JSON.stringify(li(e).goals)).toMatch(/126\.85 °C/);
+    expect(JSON.stringify(li(e).goals)).toMatch(/three tests/);
   });
 });
 

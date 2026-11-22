@@ -100,7 +100,7 @@ func set_quality(t: String) -> void:
 	# AA (phase B): ultra = native, MSAA 2x for edges plus TAA; high = FSR2 at 77 % (temporal upscale doubles as AA); compat = FSR1 at 60 % with FXAA
 	var rd := RenderingServer.get_rendering_device() != null
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR if (ultra or not rd) else (Viewport.SCALING_3D_MODE_FSR2 if t == "high" else Viewport.SCALING_3D_MODE_FSR)
-		vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.6)
+	vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.6)
 	vp.msaa_3d = Viewport.MSAA_2X if ultra else Viewport.MSAA_DISABLED
 	vp.use_taa = ultra
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if compat else Viewport.SCREEN_SPACE_AA_DISABLED

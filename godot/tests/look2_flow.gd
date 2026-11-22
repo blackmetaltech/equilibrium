@@ -131,8 +131,8 @@ func _run_l14() -> void:
 	check(hud != null and hud._fl != null and hud._built, "the L14 HUD is built")
 	check(hud._brief.shown and not hud._brief_done, "the L14 brief is up")
 	var v: VBoxContainer = hud._brief.content
-	check((v.get_child(0) as Label).text == "The glassware bench" and (v.get_child(1) as Label).text.begins_with("Exam Bridge"), "the brief has the place and the title")
-	check((v.get_child(2) as Label).text.contains("13.8 grams") and (v.get_child(3) as Label).text.begins_with("Write Kp"), "the brief has the two notes")
+	check((v.get_child(0) as Label).text == "Your bench, after hours" and (v.get_child(1) as Label).text == "Two Flasks", "the brief has the place and the title")
+	check((v.get_child(2) as Label).text.contains("13.8 g") and (v.get_child(3) as Label).text.begins_with("Call Kp"), "the brief has the two notes")
 	(v.get_node("Begin") as Button).pressed.emit(); await frames(3)
 	var fl: HoloFlask = hud._fl
 	check(hud._tags.size() == 3 and hud._cards.size() == 3, "tags on the flask, the argon bottle and the vent")
@@ -144,8 +144,8 @@ func _run_l14() -> void:
 	check(fl.run(), "RUN commissions")
 	await frames(3)
 	var li = app.b.q("levelInfo")
-	check(not bool(li.hero.pending) and absf(float(li.hero.value) - 17.37) < 0.2, "the gauge reads back after RUN (%s bar)" % str(li.hero.value))
-	check(fl.last.has and absf(float(fl.last.kp) - 85.87) < 0.5 and float(fl.last.alpha) > 50.0, "the last run shows P, alpha and Kp (%s)" % str(fl.last))
+	check(not bool(li.hero.pending) and absf(float(li.hero.value) - 16.56) < 0.2, "the gauge reads back after RUN (D-B1: real N2O4, half a litre) (%s bar)" % str(li.hero.value))
+	check(fl.last.has and absf(float(fl.last.kp) - 51.16) < 0.5 and float(fl.last.alpha) > 50.0, "the last run shows P, alpha and Kp (%s)" % str(fl.last))
 	# the world's knob
 	var lab = app.look2.lab
 	lab.control_changed.emit("T", 450.0); await frames(2)

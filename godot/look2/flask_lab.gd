@@ -11,6 +11,7 @@ const V_BOOK := 1.0e-3
 const GAS_H := 1.5           ## m of drawn gas column at V_BOOK
 const CR := 0.42             ## m, cylinder radius
 const DAIS := Vector3(0, 0.6, -2.0)
+const TWIN_NO2 := 251.2       ## mol/m3 of NO2 in the book's flask: 2 x 0.8373 x 0.15 mol in 1 L (bookWorking); the twin is drawn at this
 const RIG_S := 1.5          ## the experiment is drawn 1.5x on its dais so it reads from the doorway (the HUD carries the true litres)
 var pivot: Node3D
 var flask_V := V_BOOK; var flask_T := 400.0; var flask_Pfix := 0.0; var argon_on := false
@@ -22,6 +23,7 @@ var coil_light: OmniLight3D; var dewar_fog: GPUParticles3D; var gas_light: OmniL
 var _gas_h := GAS_H
 var _wdrag := ""; var _wdrag_v := 0.0
 var _flask_out := ""
+var lever: Node3D; var valve_h: Node3D; var clamp_h: Node3D; var _lever_t := 0.0
 ## QA capture hook (CB_L14DEMO=1): the coach's test 1 on a clock, for the 10 s evidence capture. Engine actions only, as the HUD sends them.
 var _demo := 0 if OS.get_environment("CB_L14DEMO") == "1" else -1
 const DEMO := [[0.8, "commission", []], [2.8, "setParam", ["V", 0.0005]], [4.8, "commission", []], [6.8, "setParam", ["V", 0.001]], [6.85, "argon", [0.15]], [6.9, "setParam", ["Pfix", 9.15e5]], [7.0, "commission", []]]   # test 3: argon at constant P dilutes the NO2 (paler)
@@ -229,12 +231,35 @@ func _build_rig() -> void:
 	_pipe([ap + Vector3(0, 1.7, 0), ap + Vector3(0, 1.85, 0), Vector3(d.x - CR - 0.1, by + 1.85, d.z - 0.2), Vector3(d.x - CR, by + 0.5, d.z - 0.2)], 0.01, M.steel, self, false)
 	_stencil("argon", ap + Vector3(0, 0.9, 0.132), Vector3(0, 0, 1), 0.0016)
 	anchors["argon"] = ap + Vector3(0, 1.9, 0); radius["argon"] = 0.4
+	# D-B1: the twin, the book's flask, beside yours: same glass, the book's brown, a brass plate
+	var tw := Vector3(d.x - 1.2, by, d.z - 0.35)
+	_cyl(0.26, 0.2, tw + Vector3(0, 0.1, 0), mats.stainless, self, -1.0, 32)
+	_cyl(0.22, 1.6, tw + Vector3(0, 1.0, 0), M.glass, self, -1.0, 40)
+	var tg := StandardMaterial3D.new(); tg.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; tg.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; tg.render_priority = 127; tg.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var a1 := 1.0 - exp(-1.1); var cc := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), a1); tg.albedo_color = Color(cc.r, cc.g, cc.b, 1.0 - exp(-2.2))
+	_cyl(0.2, 1.5, tw + Vector3(0, 0.97, 0), tg, self, -1.0, 40)
+	_cyl(0.25, 0.08, tw + Vector3(0, 1.84, 0), mats.stainless, self, -1.0, 32)
+	var pl := Label3D.new(); pl.text = "The book's flask\n9.15 bar"; pl.font_size = 40; pl.pixel_size = 0.0022; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, 0.32, 0.27); add_child(pl)
+	anchors["twin"] = tw + Vector3(0, 1.2, 0); radius["twin"] = 0.3
+	# the RUN lever on the console: pull it to run
+	lever = Node3D.new(); lever.position = cp + Vector3(0.45, 0.95, 0.15); add_child(lever)
+	_box(Vector3(0.16, 0.06, 0.22), Vector3.ZERO, mats.anod, lever)
+	_seg(Vector3.ZERO, Vector3(0, 0.38, -0.12), 0.018, mats.stainless, lever); _sph(0.045, Vector3(0, 0.4, -0.13), _flat(Color(0.9, 0.2, 0.12), 0.1, 0.35), lever)
+	anchors["lever"] = lever.position + Vector3(0, 0.3, 0); radius["lever"] = 0.22
+	# the argon valve: a red quarter-turn handle on the regulator
+	valve_h = Node3D.new(); valve_h.position = ap + Vector3(0, 1.66, 0.09); add_child(valve_h)
+	_box(Vector3(0.18, 0.025, 0.04), Vector3(0.07, 0, 0), _flat(Color(0.85, 0.15, 0.1), 0.1, 0.4), valve_h)
+	anchors["argon_valve"] = valve_h.position; radius["argon_valve"] = 0.16
+	# the clamp on the crosshead: on = the piston is held (constant V); off = it floats at the gauge pressure (constant P)
+	clamp_h = Node3D.new(); clamp_h.position = Vector3(d.x + CR + 0.3, by + 3.15, d.z); add_child(clamp_h)
+	_box(Vector3(0.1, 0.12, 0.1), Vector3.ZERO, mats.anod, clamp_h); _seg(Vector3.ZERO, Vector3(0.32, 0.0, 0), 0.016, M.yellow, clamp_h); _sph(0.035, Vector3(0.33, 0, 0), M.yellow, clamp_h)
+	anchors["clamp"] = clamp_h.position + Vector3(0.2, 0, 0); radius["clamp"] = 0.18
 	# everything built since n0 moves under a pivot scaled about the dais centre (local positions stay as written)
 	pivot = Node3D.new(); pivot.name = "rig"; add_child(pivot)
 	pivot.transform = Transform3D(Basis.from_scale(Vector3.ONE * RIG_S), Vector3(d.x, 0, d.z) * (1.0 - RIG_S))
 	var kids := get_children().slice(n0, get_child_count() - 1)
 	for k in kids: remove_child(k); pivot.add_child(k)
-	for r in ["wheel_v", "wheel_t", "gauge", "feed", "argon"]: anchors[r] = pivot.transform * anchors[r]; radius[r] = float(radius[r]) * RIG_S
+	for r in ["wheel_v", "wheel_t", "gauge", "feed", "argon", "twin", "lever", "argon_valve", "clamp"]: anchors[r] = pivot.transform * anchors[r]; radius[r] = float(radius[r]) * RIG_S
 	var top := pivot.transform * Vector3(d.x, by + 3.25, d.z)
 	# the vent to a fume hood on the back wall
 	var hp := Vector3(d.x, 0, -11.0)
@@ -330,6 +355,7 @@ func _read_params() -> void:
 		var id := str(u.get("id", "")); var pr: Dictionary = u.get("params", {})
 		if id == str(ids.get("flask", "-")):
 			flask_V = float(pr.get("V", V_BOOK)); flask_T = float(pr.get("T", 400.0)); flask_Pfix = float(pr.get("Pfix", 0.0))
+		elif id == str(ids.get("argon", "-")): argon_on = float(pr.get("flow", 0.0)) > 0.0   # the valve shows the feed as set
 
 func set_snapshot(g: Dictionary) -> void:
 	var oldV := flask_V
@@ -344,12 +370,10 @@ func set_snapshot(g: Dictionary) -> void:
 			if int(w[0]) == i_no2: y = float(w[1])
 			if int(w[0]) == i_ar: yar = float(w[1])
 		var P := float(s.get("P", 0.0)); var T := float(s.get("T", 400.0))
-		argon_on = yar > 1e-4
 		if P > 0.0 and T > 0.0:
 			P_bar = P / 1e5
 			var c := y * P / (R * T)
-			if c_book <= 0.0: c_book = c if absf(T - 400.0) < 1.0 and absf(flask_V - V_BOOK) < 1e-6 and not argon_on else 0.0
-			var ref := c_book if c_book > 0.0 else 260.0   # mol/m3 of NO2 in the notebook flask (alpha ~0.5 at 9.15 bar, 400 K) until the first book run is seen
+			var ref := TWIN_NO2   # D-B1: the colour is read against the twin, the book's flask (its NO2 never changes)
 			c_eq = c / ref; _V_eq = flask_V; c_rel = c_eq
 	if gauge_m: gauge_m.set_shader_parameter("value", clampf(P_bar / 20.0, 0.0, 1.0))
 
@@ -387,6 +411,9 @@ func _process(dt: float) -> void:
 	# the wheels mirror their values (a drag in progress wins)
 	if wheel_v and _wdrag != "V": wheel_v.rotation.y = lerp_angle(wheel_v.rotation.y, (flask_V / V_BOOK - 1.0) * TAU, clampf(dt * 5.0, 0, 1))
 	if wheel_t and _wdrag != "T": wheel_t.rotation.y = lerp_angle(wheel_t.rotation.y, (flask_T - 400.0) / 50.0 * PI * 0.5, clampf(dt * 5.0, 0, 1))
+	if lever: _lever_t = maxf(_lever_t - dt, 0.0); lever.rotation.x = lerpf(lever.rotation.x, 0.9 if _lever_t > 0.0 else 0.0, clampf(dt * 12.0, 0, 1))
+	if valve_h: valve_h.rotation.z = lerp_angle(valve_h.rotation.z, PI * 0.5 if argon_on else 0.0, clampf(dt * 8.0, 0, 1))
+	if clamp_h: clamp_h.rotation.y = lerp_angle(clamp_h.rotation.y, 0.0 if flask_Pfix <= 0.0 else -PI * 0.5, clampf(dt * 8.0, 0, 1))
 	_cam_step(dt)
 	_ft_tick(dt)
 
@@ -396,6 +423,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		var mb := e as InputEventMouseButton
 		if mb.pressed:
 			var r := pick(mb.position)
+			if r in ["lever", "argon_valve", "clamp"]: press_control(r); get_viewport().set_input_as_handled(); return
 			if r == "wheel_v" or r == "wheel_t":
 				_wdrag = "V" if r == "wheel_v" else "T"; _wdrag_v = flask_V if _wdrag == "V" else flask_T
 				get_viewport().set_input_as_handled(); return
@@ -411,6 +439,15 @@ func _unhandled_input(e: InputEvent) -> void:
 			_wdrag_v = clampf(snappedf(_wdrag_v + dx * 0.25, 1.0), 250.0, 520.0); wheel_t.rotation.y += dx * 0.02; flask_T = _wdrag_v
 		get_viewport().set_input_as_handled(); return
 	super(e)
+
+## D-B1: the world's switches. The HUD commits control_changed exactly as its own controls did; RUN commissions.
+func press_control(r: String) -> void:
+	match r:
+		"lever": _lever_t = 0.6; control_changed.emit("run", 1.0)
+		"argon_valve": argon_on = not argon_on; control_changed.emit("argon", 0.15 if argon_on else 0.0)
+		"clamp":
+			var pf := 0.0 if flask_Pfix > 0.0 else P_bar * 1.0e5   # releasing the clamp holds the pressure the gauge reads now
+			flask_Pfix = pf; control_changed.emit("Pfix", pf)
 
 func pick(p: Vector2) -> String:
 	var r := super(p)

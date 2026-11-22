@@ -16,7 +16,7 @@ import { ammoniaBuild, ammoniaMeasures, K450_E5, L10_REF, L10_REF_PARTS, kOf, re
 import { L11_CONTRACTS, L11_NH3_MIN, L11_REF, L11_REF_PARTS, L11_T_K } from './l11';
 import { K400_TRUTH, L12_REF, l12RefCost, shiftBuild } from './l12';
 import { bed1ExitC, chainOf, refAcidCost, stairBuild } from './l13';
-import { bookWorking, problem, realFlask, testsDone } from './l14';
+import { bookT, bookWorking, foundBookFlask, problem, realFlask, testsDone } from './l14';
 
 const CH3 = ['L10', 'L11', 'L12', 'L13', 'L14'];
 const oracles = oracleFile.oracles as unknown as { id: string; expected: Record<string, any>; tol: Record<string, number> }[];
@@ -317,11 +317,13 @@ describe('L13 · The Staircase: the engine against the DESIGN table', () => {
   });
 });
 
-describe('L14 · Exam Bridge: The Brown Gas (oracles EQ-NC-024, -030, -031, -034)', () => {
+describe('L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; D-B1: the open flask is real, the book K answers the call)', () => {
   const flask = (e: Env<EqState>) => e.state.solved!.units['U-104']!.info;
   const base = (): Env<EqState> => run(start('L14'), [{ name: 'commission' }]);
-  it('EQ-NC-024: the book flask reads 9.15 bar with alpha 0.8373, Kp 85.87 bar, Kc 2.586 (0.5 %)', () => {
-    const o = oracle('EQ-NC-024'), e = base(), f = flask(e);
+  it('EQ-NC-024: the book flask (the twin: the flask on the book K) reads 9.15 bar with alpha 0.8373, Kp 85.87 bar, Kc 2.586 (0.5 %)', () => {
+    const o = oracle('EQ-NC-024'), e = start('L14');
+    e.state.flowsheet.units.find((u) => u.id === 'U-104')!.params.book_K = bookWorking({ region: 'global' }).kp;   // the twin flask: the unit on the book's own data
+    run(e, [{ name: 'commission' }]); const f = flask(e);
     expect(problem({ region: 'global' }).P).toBe(9.15);
     expect(Math.abs(f.P_bar! - 9.15) / 9.15).toBeLessThan(0.005);
     expect(Math.abs(f.alpha! - (o.expected.alpha as number)) / (o.expected.alpha as number)).toBeLessThan(0.005);
@@ -362,12 +364,24 @@ describe('L14 · Exam Bridge: The Brown Gas (oracles EQ-NC-024, -030, -031, -034
     const c = card(solve('L14')).card;
     expect(c.book_kp_bar).toBeCloseTo(85.87, 1); expect(c.real_kp_bar).toBeCloseTo(r.kp, 9); expect(c.real_p_bar).toBeCloseTo(8.83, 1); expect(c.book_p_bar).toBe(9.15);
   });
-  it('the run record proves the three tests; the order does not matter; the gauge only counts for the notebook flask', () => {
+  it('D-B1: the open flask is real N2O4: 8.83 bar at 400 K, and it reads the book 9.15 bar only at T* (about 406.5 K), which lights the BOOK FLASK star', () => {
+    const e = base();
+    expect(Math.abs(flask(e).P_bar! - 8.83) / 8.83).toBeLessThan(0.005);
+    expect(foundBookFlask(e.state)).toBe(false);
+    const T = bookT({ region: 'global' });
+    expect(T).toBeGreaterThan(405); expect(T).toBeLessThan(408);
+    run(e, [{ name: 'setParam', args: ['U-104', 'T', Math.round(T * 100) / 100] }, { name: 'commission' }]);
+    expect(Math.abs(flask(e).P_bar! - 9.15) / 9.15).toBeLessThan(0.005);
+    expect(foundBookFlask(e.state)).toBe(true);
+    const hot = run(start('L14'), [{ name: 'setParam', args: ['U-104', 'T', 450] }, { name: 'commission' }]);
+    expect(flask(hot).no2_mol_m3!).toBeGreaterThan(flask(e).no2_mol_m3!);   // heating darkens the gas: the shift is real now
+  });
+  it('the run record proves the three tests; the order does not matter; the tests are the goal', () => {
     const e = start('L14');
     expect(testsDone(e.state)).toEqual([false, false, false]);
     run(e, [{ name: 'setParam', args: ['U-104', 'Pfix', 9.15e5] }, { name: 'commission' }]);
-    expect(info(e).goals[0].met).toBe(false);   // 9.15 bar on the gauge by setting the pressure is not the notebook flask
-    expect(card(e).verdictKey).toBe('off_gauge');
+    expect(info(e).goals[0].met).toBe(false);
+    expect(card(e).verdictKey).toBe('tests_open');
     run(e, [{ name: 'setFeed', args: ['F-102', { flow: 0.15 }] }, { name: 'commission' }]);
     expect(testsDone(e.state)).toEqual([false, false, true]);
     run(e, [{ name: 'setParam', args: ['U-104', 'Pfix', 0] }, { name: 'commission' }]);
@@ -375,15 +389,15 @@ describe('L14 · Exam Bridge: The Brown Gas (oracles EQ-NC-024, -030, -031, -034
     run(e, [{ name: 'setFeed', args: ['F-102', { flow: 0 }] }, { name: 'setParam', args: ['U-104', 'V', 0.5e-3] }, { name: 'commission' }]);
     expect(testsDone(e.state)).toEqual([true, true, true]);
     run(e, [{ name: 'setParam', args: ['U-104', 'V', 1e-3] }, { name: 'commission' }]); roll(e);
-    expect(e.state.status).toBe('won'); expect(card(e).stars.earned).toEqual([true, true, false]);
-  });
-  it('the gauge alone wins one star: the notebook flask run first, without the tests or the call', () => {
-    const e = base(); roll(e);
     expect(e.state.status).toBe('won'); expect(card(e).stars.earned).toEqual([true, false, false]);
   });
-  it('the volume typed in litres (1 m3) fails the gauge with the numbers', () => {
+  it('the notebook flask alone does not win: the tests are the goal, and the card names what is still to run', () => {
+    const e = base(); roll(e);
+    expect(e.state.status).toBe('playing'); expect(card(e).verdictKey).toBe('tests_open'); expect(card(e).cause).toContain('halved volume');
+  });
+  it('the volume typed in litres (1 m3) runs none of the tests', () => {
     const e = play('L14', NAIVE.L14!);
-    expect(card(e).verdictKey).toBe('off_gauge'); expect(card(e).won).toBe(false); expect(card(e).histogram).toBeNull(); expect(card(e).cause).toContain('1,000');
+    expect(card(e).verdictKey).toBe('tests_open'); expect(card(e).won).toBe(false); expect(card(e).histogram).toBeNull();
   });
 });
 
@@ -394,13 +408,13 @@ describe('Call it grading at the oracle tolerance', () => {
     for (const a of SPEC_BY_ID[id]!.solver(1003)(e.state, e.ctx(new Rng(1)))) if (a.name !== 'callIt') act(e, a.name, ...(a.args ?? []));
     return roll(e);
   };
-  it('L14: Kp within 0.5 % of EQ-NC-024 earns the third star; 85.9 is in, 86.5 and 83.7 (R = 0.083145) are out', () => {
+  it('L14: Kp within 0.5 % of EQ-NC-024 earns the call star; 85.9 is in, 86.5 and 83.7 (R = 0.083145) are out', () => {
     const kp = oracle('EQ-NC-024').expected.Kp_bar as number;
     for (const [x, ok] of [[kp, true], [85.9, true], [kp * 1.0045, true], [kp * 0.9955, true], [86.5, false], [83.71, false]] as const) {
       const e = call('L14', x);
-      expect(card(e).stars.earned[2], String(x)).toBe(ok); expect(card(e).callIt.ok, String(x)).toBe(ok);
+      expect(card(e).stars.earned[1], String(x)).toBe(ok); expect(card(e).callIt.ok, String(x)).toBe(ok);
     }
-    expect(card(call('L14', null)).stars.earned).toEqual([true, true, false]);
+    expect(card(call('L14', null)).stars.earned).toEqual([true, false, true]);   // the solver also finds the book flask (T*)
   });
   it('L13: bed-1 exit at 420 C inlet is 621 C (DESIGN, 0.5 %) within 1 %; L12: K(400 C) within 2 %; L10: K(450 C) within 5 %', () => {
     expect(Math.abs(bed1ExitC() - 621) / 621).toBeLessThan(0.005);

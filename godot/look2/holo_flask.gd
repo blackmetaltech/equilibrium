@@ -5,7 +5,7 @@ extends RefCounted
 ## this class builds into it. Units: the fields speak deg C, litres, bar, mol/s; the engine and the world speak K, m3, Pa, mol/s (set_control_value and
 ## control_changed use the engine's: "T" K, "V" m3, "Pfix" Pa, "argon" mol/s).
 ## Engine actions: setParam [flask, "T" | "V" | "Pfix", value], setFeed [argon, {flow}], callIt [Kp bar] (once, before the first run), commission (RUN).
-const TESTS := [["called", "Kp called"], ["halve", "Halve volume"], ["inert_v", "Argon, constant V"], ["inert_p", "Argon, constant P"], ["goal", "Book gauge"]]
+const TESTS := [["called", "Kp called"], ["halve", "Halve volume"], ["inert_v", "Argon, constant V"], ["inert_p", "Argon, constant P"], ["gauge", "Book flask found"]]
 var h   ## HoloHud
 var f_T: HoloField
 var f_V: HoloField
@@ -15,6 +15,7 @@ var call_edit: LineEdit
 var call_btn: Button
 var call_note: Label
 var run_btn: Button
+var _st := {}   ## D-B1: read-only status of the world's controls (the +/- form is retired: the wheels, the clamp, the argon valve and the RUN lever are the controls)
 var _checks := {}                 ## key -> {dot, label}
 var _run_nums := {}               ## P, alpha, kp -> HoloNum
 var _runs_lbl: Label
@@ -46,7 +47,12 @@ func _build_cmd() -> void:
 	f_V.committed.connect(func(v: float): commit("V", v / 1000.0))
 	f_P.committed.connect(func(v: float): commit("Pfix", v * 1.0e5))
 	f_A.committed.connect(func(v: float): commit("argon", v))
-	for f in [f_T, f_V, f_P, f_A]: left.add_child(f)
+	for f in [f_T, f_V, f_P, f_A]: f.visible = false; left.add_child(f)   # kept for the engine sync, not shown
+	left.add_child(HoloTheme.label("Your flask", 16, HoloTheme.TEAL_HI, 700))
+	for k in ["T", "V", "clamp", "argon"]:
+		var l := HoloTheme.label("", 16, HoloTheme.INK, 500); l.name = "St_" + k; left.add_child(l); _st[k] = l
+	left.add_child(HoloTheme.label("Turn the wheels. Click the clamp and the argon valve. Pull the lever to run.", 16, HoloTheme.MUTED, 400))
+	left.custom_minimum_size.x = 300; (left.get_child(left.get_child_count() - 1) as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(left); row.add_child(h._vsep())
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 8); right.mouse_filter = Control.MOUSE_FILTER_IGNORE; right.custom_minimum_size.x = 220
 	right.add_child(HoloTheme.label("Call Kp, bar", 16, HoloTheme.MUTED, 500))
@@ -120,6 +126,7 @@ func on_control(key: String, value: float) -> void:
 		"V": f_V.set_value(value * 1000.0)
 		"Pfix": f_P.set_value(value / 1.0e5)
 		"argon": f_A.set_value(value)
+		"run": run(); return
 		_: return
 	h._debounce(key, value, func(v: float): commit(key, v))
 
@@ -181,6 +188,10 @@ func refresh(li: Dictionary, g: Dictionary) -> void:
 		for k in ["P", "alpha", "kp"]: (_run_nums[k] as HoloNum).set_value(float(last[k]))
 		h._put("flask", "gauge", float(last.P)); h._put("flask", "alpha", float(last.alpha))
 		h._put_txt("flask", "%.2f bar" % float(last.P)); h._put_state("flask", "normal")
+	(_st.T as Label).text = "T wheel  %.2f °C" % f_T.value
+	(_st.V as Label).text = "V wheel  %.2f L" % f_V.value
+	(_st.clamp as Label).text = "Clamp on: constant volume" if f_P.value <= 0.0 else "Clamp off: constant pressure, %.2f bar" % f_P.value
+	(_st.argon as Label).text = "Argon valve shut" if aflow <= 0.0 else "Argon valve open"
 	h._put("flask", "T", f_T.value); h._put("flask", "V", f_V.value); h._put("flask", "Pfix", f_P.value)
 	h._put("argon", "flow", aflow); h._put_txt("argon", "off" if aflow <= 0.0 else "%.2f mol/s" % aflow); h._put_state("argon", "off" if aflow <= 0.0 else "normal")
 	var vs: Dictionary = {}
