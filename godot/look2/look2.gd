@@ -39,6 +39,7 @@ func sync() -> void:
 	if not on: return
 	app.chrome.visible = false   # the shell re-shows the console after a dialog; the slice keeps it hidden
 	app.plant_world.visible = false
+	if not Notebook.started.get(lid, false): Notebook.started[lid] = true; Notebook.close(app)   # the slice's brief replaces the paper notebook (L14 opens it at tick 0)
 	if lab.cam != null and not lab.cam.current: lab.cam.make_current()   # the plant camera takes the view back on some refreshes
 	_hide_paper(true)
 	var p = app.b.q("plant")
