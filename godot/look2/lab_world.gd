@@ -95,6 +95,8 @@ func _pbr(n: String, uv := 0.25, tint := Color.WHITE, metal := false, tri := tru
 	m.uv1_triplanar = tri; m.uv1_scale = Vector3.ONE * uv; m.uv1_world_triplanar = tri
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	return m
+func _paint(c: Color) -> StandardMaterial3D:   ## painted carbon steel: the plate's normal and roughness for wear, a flat paint colour
+	var m := _pbr("metal_plate", 0.6, c); m.albedo_texture = null; m.metallic = 0.15; return m
 func _flat(c: Color, metal := 0.0, rough := 0.6, emit := Color.BLACK, e := 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new(); m.albedo_color = c; m.metallic = metal; m.roughness = rough
 	if e > 0.0: m.emission_enabled = true; m.emission = emit; m.emission_energy_multiplier = e
@@ -105,12 +107,12 @@ func _shader(path: String, params := {}) -> ShaderMaterial:
 	return m
 var M := {}
 func _mats() -> void:
-	M.steel = _shader("steel", {"rough_base": 0.28})
+	M.steel = _shader("steel", {"rough_base": 0.34, "metallic": 0.8})
 	M.steel_dull = _shader("steel", {"rough_base": 0.45, "albedo": Color(0.62, 0.64, 0.66)})
-	M.clad = _flat(Color(0.74, 0.76, 0.78), 0.85, 0.38)                       # aluminium jacketing on insulated lines
-	M.paint_green = _pbr("painted_metal_shutter", 0.5, Color(0.36, 0.5, 0.42))
-	M.paint_blue = _pbr("painted_metal_shutter", 0.5, Color(0.25, 0.38, 0.6))
-	M.paint_grey = _pbr("painted_metal_shutter", 0.5, Color(0.55, 0.56, 0.56))
+	M.clad = _flat(Color(0.78, 0.8, 0.82), 0.6, 0.42)                       # aluminium jacketing on insulated lines
+	M.paint_green = _paint(Color(0.36, 0.5, 0.42))
+	M.paint_blue = _paint(Color(0.25, 0.38, 0.6))
+	M.paint_grey = _paint(Color(0.55, 0.56, 0.56))
 	M.yellow = _flat(Color(0.95, 0.72, 0.08), 0.2, 0.5)
 	M.red = _flat(Color(0.72, 0.08, 0.06), 0.2, 0.45)
 	M.black = _flat(Color(0.05, 0.05, 0.055), 0.5, 0.5)
@@ -217,7 +219,7 @@ func _particles(pos: Vector3, amount: int, life: float, vel: Vector3, spread: fl
 func _build_env() -> void:
 	_mats()
 	env = Environment.new()
-	var sky := Sky.new(); var pano := PanoramaSkyMaterial.new(); pano.panorama = load("res://look2/assets/dikhololo_night_1k.hdr"); pano.energy_multiplier = 0.55; sky.sky_material = pano
+	var sky := Sky.new(); var pano := PanoramaSkyMaterial.new(); pano.panorama = load("res://look2/assets/dikhololo_night_1k.hdr"); pano.energy_multiplier = 0.22; sky.sky_material = pano
 	env.background_mode = Environment.BG_SKY; env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY; env.ambient_light_energy = 0.35; env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES; env.tonemap_exposure = 1.05; env.tonemap_white = 6.0
@@ -268,29 +270,21 @@ func _build_hall() -> void:
 	_box(Vector3(1.6, 0.9, 1.4), Vector3(-9.0, 13.2, 3.0), M.paint_grey)
 	_seg(Vector3(-9.0, 12.8, 3.0), Vector3(-9.0, 7.5, 3.0), 0.015, M.black)
 	_box(Vector3(0.5, 0.4, 0.3), Vector3(-9.0, 7.3, 3.0), M.yellow)
-	# gantry walkway along the converter side
-	var gz := -9.0
-	_box(Vector3(34, 0.08, 1.6), Vector3(4, 7.0, gz), M.plate)
-	for i in 9:
-		var x := -13.0 + i * 4.25
-		_seg(Vector3(x, 0, gz - 0.7), Vector3(x, 7.0, gz - 0.7), 0.08, M.paint_grey)
-		_seg(Vector3(x, 0, gz + 0.7), Vector3(x, 7.0, gz + 0.7), 0.08, M.paint_grey)
-	for side in [-0.78, 0.78]:
-		_seg(Vector3(-13, 8.1, gz + side), Vector3(21, 8.1, gz + side), 0.025, M.yellow)
-		_seg(Vector3(-13, 7.6, gz + side), Vector3(21, 7.6, gz + side), 0.02, M.yellow)
-	# LED strips under the gantry (cool white)
-	_box(Vector3(34, 0.04, 0.08), Vector3(4, 6.93, gz + 0.6), _flat(Color.WHITE, 0, 0.5, Color(0.75, 0.88, 1.0), 6.0))
+	# cool LED strips along the glass wall head and fill lights over the loop (the 0.9 gantry in front of the glass is cut: it hid the view)
+	_box(Vector3(60, 0.06, 0.1), Vector3(0, 14.9, -14.9), _flat(Color.WHITE, 0, 0.5, Color(0.75, 0.88, 1.0), 5.0))
 	for i in 4:
-		var l := OmniLight3D.new(); l.light_color = Color(0.75, 0.86, 1.0); l.light_energy = 1.2; l.omni_range = 9.0; l.position = Vector3(-10 + i * 10, 6.6, gz + 0.6); add_child(l)
+		var l := OmniLight3D.new(); l.light_color = Color(0.78, 0.88, 1.0); l.light_energy = 3.0; l.omni_range = 14.0; l.position = Vector3(-12 + i * 9, 7.5, -7.0); add_child(l)
 	# sodium high-bays
 	var k := 0
 	for x in [-24.0, -12.0, 0.0, 12.0, 24.0]:
 		for z in [-6.0, 6.0]:
 			_cyl(0.35, 0.4, Vector3(x, 16.6, z), M.black, self, 0.12)
 			_cyl(0.33, 0.02, Vector3(x, 16.38, z), _flat(Color(1, 0.7, 0.4), 0, 0.5, Color(1.0, 0.62, 0.28), 14.0))
-			var s := SpotLight3D.new(); s.light_color = Color(1.0, 0.64, 0.32); s.light_energy = 9.0; s.spot_range = 26.0; s.spot_angle = 52.0; s.spot_attenuation = 0.8
+			var s := SpotLight3D.new(); s.light_color = Color(1.0, 0.84, 0.66); s.light_energy = 7.0; s.spot_range = 26.0; s.spot_angle = 52.0; s.spot_attenuation = 0.8
 			s.position = Vector3(x, 16.3, z); s.rotation_degrees.x = -90; s.shadow_enabled = k % 3 == 0; s.light_volumetric_fog_energy = 0.5; add_child(s)
 			k += 1
+	var rp := ReflectionProbe.new(); rp.size = Vector3(60, 18, 30); rp.position = Vector3(0, 9, 0); rp.box_projection = true; rp.interior = true
+	rp.update_mode = ReflectionProbe.UPDATE_ONCE; rp.ambient_mode = ReflectionProbe.AMBIENT_ENVIRONMENT; add_child(rp)
 	# clutter: drums, a pallet, a cable tray, hazard signs, fire extinguisher, eyewash
 	for i in 5: _cyl(0.29, 0.88, Vector3(-27.0 + (i % 3) * 0.62, 0.44, 11.5 + (i / 3) * 0.62), M.paint_blue if i % 2 == 0 else M.red)
 	_box(Vector3(1.2, 0.14, 1.0), Vector3(-24.5, 0.07, 12.0), _flat(Color(0.5, 0.38, 0.24), 0, 0.85))
@@ -386,7 +380,7 @@ func _build_loop() -> void:
 	# --- the converter: thick-walled vessel on a skirt, flanged top head, nozzles, sight port, ladder, platform ---
 	var vx := 5.5; var vz := -3.0; var vr := 1.15; var vh := 8.0; var vb := 1.6
 	_cyl(vr * 0.98, vb, Vector3(vx, vb * 0.5 + 0.18, vz), M.paint_grey)     # skirt
-	m_shell = _shader("steel", {"rough_base": 0.24, "yrange": Vector2(-vh * 0.5, vh * 0.5), "emit_gain": 2.2})
+	m_shell = _shader("steel", {"rough_base": 0.3, "metallic": 0.8, "yrange": Vector2(-vh * 0.5, vh * 0.5), "emit_gain": 0.9})
 	shell_node = _cyl(vr, vh, Vector3(vx, vb + vh * 0.5 + 0.18, vz), m_shell, self, -1.0, 48)
 	m_shell_x = _shader("steel_glass", {"yrange": Vector2(-vh * 0.5, vh * 0.5)})
 	shell_x_node = _cyl(vr, vh, shell_node.position, m_shell_x, self, -1.0, 48); shell_x_node.visible = false
@@ -430,7 +424,7 @@ func _build_loop() -> void:
 	_box(Vector3(0.8, 1.4, 0.4), Vector3(vx + 2.4, 0.9, vz + 2.2), M.paint_grey)
 	_box(Vector3(0.5, 0.3, 0.02), Vector3(vx + 2.4, 1.2, vz + 2.41), _flat(Color(0.05, 0.1, 0.1), 0.0, 0.3, Color(0.2, 0.9, 0.8), 1.5))
 	anchors["interlock"] = Vector3(vx + 2.4, 1.9, vz + 2.2); radius["interlock"] = 0.8
-	for bp in [Vector3(vx + 2.4, 1.75, vz + 2.2), Vector3(-26.0, 6.0, 14.6), Vector3(26.0, 6.0, 14.6), Vector3(4.0, 8.4, -9.0)]:
+	for bp in [Vector3(vx + 2.4, 1.75, vz + 2.2), Vector3(-26.0, 6.0, 14.6), Vector3(26.0, 6.0, 14.6), Vector3(4.0, 14.6, -14.6)]:
 		var bm := _flat(Color(1, 0.55, 0.1), 0, 0.3, Color(1.0, 0.5, 0.05), 0.0)
 		_cyl(0.09, 0.18, bp, bm).name = "beacon"
 		beacon_mats.append(bm)
@@ -441,7 +435,7 @@ func _build_loop() -> void:
 	# --- ammonia separator: cold vertical drum with frost and a sight glass ---
 	var sx := 11.5; var sr := 0.8; var sh := 4.2
 	_cyl(sr * 0.9, 0.9, Vector3(sx, 0.63, vz), M.paint_grey)
-	m_sep = _shader("steel", {"rough_base": 0.32, "frost": 0.35, "frost_h": 2.5, "yrange": Vector2(-sh * 0.5, sh * 0.5)})
+	m_sep = _shader("steel", {"rough_base": 0.36, "metallic": 0.75, "frost": 0.25, "frost_h": 1.0, "yrange": Vector2(-sh * 0.5, sh * 0.5)})
 	_cyl(sr, sh, Vector3(sx, 1.08 + sh * 0.5, vz), m_sep)
 	_sph(sr, Vector3(sx, 1.08 + sh, vz), m_sep, self, true)
 	var sb := _sph(sr, Vector3(sx, 1.08, vz), m_sep, self, true); sb.rotation_degrees.x = 180
@@ -504,7 +498,7 @@ func _build_bench() -> void:
 	_seg(fp + Vector3(-0.3, 0, 0), fp + Vector3(-0.3, 0.75, 0), 0.006, M.steel)
 	_seg(fp + Vector3(-0.3, 0.5, 0), fp + Vector3(0.0, 0.5, 0), 0.005, M.steel)
 	# supply line from the converter sample point (a thin steel tube running up the back panel)
-	_pipe([fp + Vector3(0.0, 0.62, 0), fp + Vector3(0.0, 0.8, 0), fp + Vector3(0.0, 0.8, -0.5), Vector3(fp.x, 2.8, bz - 0.6), Vector3(fp.x, 2.8, -1.8), Vector3(5.5, 2.8, -1.8)], 0.008, M.steel, self, false)
+	_pipe([fp + Vector3(0.0, 0.62, 0), fp + Vector3(0.0, 0.8, 0), fp + Vector3(0.0, 0.8, -0.5), Vector3(fp.x, top + 0.9, bz - 0.58)], 0.008, M.steel, self, false)
 	# other glassware: erlenmeyers, beakers, a graduated cylinder, reagent bottles
 	var erl := PackedVector2Array([Vector2(0, 0), Vector2(0.075, 0), Vector2(0.08, 0.01), Vector2(0.03, 0.15), Vector2(0.022, 0.2), Vector2(0.025, 0.205)])
 	var erl_l := PackedVector2Array([Vector2(0, 0.004), Vector2(0.071, 0.004), Vector2(0.075, 0.012), Vector2(0.05, 0.075), Vector2(0, 0.075)])
@@ -611,7 +605,7 @@ func set_snapshot(g: Dictionary) -> void:
 	if co is Dictionary:
 		var T := float(co.get("T", 0.0))
 		if T > 0.0 and _T0 <= 0.0: _T0 = T
-		if _T0 > 0.0: heat_to = clampf((T - _T0 + 12.0) / 70.0, 0.0, 1.3)
+		if _T0 > 0.0: heat_to = clampf((T - _T0 - 4.0) / 60.0, 0.0, 1.3)   # nominal: no glow; +10 K a dull red, +40 K orange, +64 K bright
 		var x := 0.0
 		for w in co.get("w", []): if int(w[0]) == _nh3_i: x = float(w[1])
 		pink_to = clampf(x / 0.18, 0.0, 1.0)
@@ -638,7 +632,7 @@ func _process(dt: float) -> void:
 	# converter: shell glow climbs from the bottom (hot outlet at the bottom bed), shimmer and a red light on the floor
 	if m_shell:
 		var h := maxf(heat - 0.12, 0.0)
-		m_shell.set_shader_parameter("heat_lo", h * 1.05); m_shell.set_shader_parameter("heat_hi", h * 0.35)
+		m_shell.set_shader_parameter("heat_lo", minf(h, 0.62)); m_shell.set_shader_parameter("heat_hi", minf(h, 0.62) * 0.3)   # a bare shell at ~620 C is dull red, never white
 		m_shell_x.set_shader_parameter("heat_lo", h * 1.05); m_shell_x.set_shader_parameter("heat_hi", h * 0.35)
 		m_beds.set_shader_parameter("heat", 0.35 + heat * 0.65); m_peep.set_shader_parameter("heat", 0.4 + heat * 0.6)
 		m_shimmer.set_shader_parameter("strength", clampf(heat, 0.0, 1.2) * 0.02)

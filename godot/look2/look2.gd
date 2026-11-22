@@ -74,6 +74,10 @@ func _hide_paper(h: bool) -> void:
 	for n in PAPER:
 		var c = app.root.get_node_or_null(n)
 		if c is CanvasItem: (c as CanvasItem).visible = not h
+	var slot = app.get("hud_top_left") if "hud_top_left" in app else app.root.find_child("hud_top_left", true, false)
+	if slot is CanvasItem: (slot as CanvasItem).visible = not h
+	for c in app.root.get_children():   # the notebook tab sits on the root when no slot exists
+		if c is Notebook.Tab: (c as CanvasItem).visible = not h
 
 func relayout() -> void:
 	if on and hud != null: hud.layout()
