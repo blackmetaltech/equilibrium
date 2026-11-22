@@ -170,7 +170,12 @@ func _input(e: InputEvent) -> void:
 
 func _pad_draw() -> void:
 	var w = (gen if gen != null and gen.visible else null) if gen != null else (lab if on else null)
-	var show: bool = w != null and CbKit.pad_mode and app.modal() == null and not (w.pad_controls() as Array).is_empty()
+	var hover := ""
+	if w != null and not CbKit.pad_mode and app.modal() == null:   # playtest: point at a world control and the ring and its name line appear
+		var hp: String = w.pick(app.get_viewport().get_mouse_position())
+		for c in w.pad_controls(): if str(c[0]) == hp: hover = hp
+		if hover == "" and w.get("_wdrag") != null and str(w._wdrag) != "": hover = "wheel_v" if str(w._wdrag) == "V" else "wheel_t"
+	var show: bool = w != null and (CbKit.pad_mode or hover != "") and app.modal() == null and not (w.pad_controls() as Array).is_empty()
 	if show and _padl == null:
 		_padl = CanvasLayer.new(); _padl.layer = 6; app.add_child(_padl)
 		_pad_ring = PadRing.new(); _pad_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE; _padl.add_child(_pad_ring)
@@ -179,12 +184,15 @@ func _pad_draw() -> void:
 	_padl.visible = show
 	if not show: return
 	var ctl: Array = w.pad_controls(); pad_i = clampi(pad_i, 0, ctl.size() - 1)
+	if hover != "":
+		for i in ctl.size(): if str(ctl[i][0]) == hover: pad_i = i
 	var id: String = ctl[pad_i][0]
 	var p: Vector2 = w.anchor_screen("flask" if id == "call" else id)
 	_pad_ring.visible = p.x > -9000.0; _pad_ring.position = p - Vector2(28, 28)
 	var vr: Rect2 = app.get_viewport().get_visible_rect()
-	_pad_lbl.text = "%s: %s      ◀ ▶ choose   LB/RB camera   sticks move" % [ctl[pad_i][1], w.pad_value(id)]
-	_pad_lbl.position = Vector2(maxf(16.0, vr.size.x * 0.5 - _pad_lbl.size.x * 0.5), vr.size.y - 150.0)
+	_pad_lbl.text = ("%s: %s      ◀ ▶ choose   LB/RB camera   sticks move" if CbKit.pad_mode else "%s: %s") % [ctl[pad_i][1], w.pad_value(id)]
+	var lp := (p + Vector2(36, -16)) if p.x > -9000.0 else Vector2(vr.size.x * 0.5 - _pad_lbl.size.x * 0.5, 80.0)   # beside the ring, above the HUD
+	_pad_lbl.position = Vector2(clampf(lp.x, 16.0, maxf(16.0, vr.size.x - _pad_lbl.size.x - 16.0)), clampf(lp.y, 16.0, vr.size.y - 40.0))
 
 class PadRing extends Control:
 	func _init() -> void: custom_minimum_size = Vector2(56, 56); size = Vector2(56, 56)

@@ -51,7 +51,7 @@ func _build_cmd() -> void:
 	left.add_child(HoloTheme.label("Your flask", 16, HoloTheme.TEAL_HI, 700))
 	for k in ["T", "V", "clamp", "argon"]:
 		var l := HoloTheme.label("", 16, HoloTheme.INK, 500); l.name = "St_" + k; left.add_child(l); _st[k] = l
-	left.add_child(HoloTheme.label("Turn the wheels. Click the clamp and the argon valve. Pull the lever to run.", 16, HoloTheme.MUTED, 400))
+	left.add_child(HoloTheme.label("Point at a control to see its name. Drag a wheel sideways (or scroll over it). Click the clamp, the argon valve and the RUN lever.", 16, HoloTheme.MUTED, 400))
 	left.custom_minimum_size.x = 300; (left.get_child(left.get_child_count() - 1) as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(left); row.add_child(h._vsep())
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 8); right.mouse_filter = Control.MOUSE_FILTER_IGNORE; right.custom_minimum_size.x = 220
@@ -83,7 +83,7 @@ func _build_list() -> void:
 		hb.add_child(d); hb.add_child(l); _list.add_child(hb); _checks[t[0]] = {"dot": d, "label": l}
 	var sep := ColorRect.new(); sep.color = Color(1, 1, 1, 0.10); sep.custom_minimum_size = Vector2(0, 1); sep.mouse_filter = Control.MOUSE_FILTER_IGNORE; _list.add_child(sep)
 	_runs_lbl = HoloTheme.label("Last run", 16, HoloTheme.TEAL_HI, 700); _list.add_child(_runs_lbl)
-	for r in [["P", "Gauge", "%.2f", " bar"], ["alpha", "Dissociated", "%.1f", " %"], ["kp", "Kp", "%.2f", " bar"]]:
+	for r in [["P", "Gauge", "%.2f", " bar"], ["alpha", "Dissociated", "%.1f", " %"], ["kp", "Kp, real flask", "%.2f", " bar"]]:
 		var n := HoloNum.new(17, 600); n.fmt = r[2]; n.suffix = r[3]; n.custom_minimum_size.x = 90
 		var hb2 := HBoxContainer.new(); hb2.add_theme_constant_override("separation", 10); hb2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var l2 := HoloTheme.label(r[1], 16, HoloTheme.MUTED, 500); l2.size_flags_horizontal = Control.SIZE_EXPAND_FILL

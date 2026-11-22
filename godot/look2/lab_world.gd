@@ -168,6 +168,7 @@ func _torus(r: float, t: float, pos: Vector3, mat: Material, parent: Node = self
 	return _mi(o, pos, mat, parent)
 ## A cylinder from a to b (pipes, struts, rails).
 func _seg(a: Vector3, b: Vector3, r: float, mat: Material, parent: Node = self, seg := 16) -> MeshInstance3D:
+	if a.distance_to(b) < 1e-4: b = a + Vector3(0, 1e-3, 0)   # a zero-length segment cannot be oriented (playtest log)
 	var c := CylinderMesh.new(); c.top_radius = r; c.bottom_radius = r; c.height = a.distance_to(b); c.radial_segments = seg; c.rings = 1
 	var n := MeshInstance3D.new(); n.mesh = c; n.material_override = mat; parent.add_child(n)
 	var d := (b - a).normalized()
@@ -931,7 +932,7 @@ func pad_cams() -> Array: return ["wide", "front", "loop", "converter", "gauge",
 func pad_turn(id: String, dir: int) -> void:
 	if id == "wheel" and wheel != null:
 		wheel_k = clampf(snappedf(wheel_k + 10.0 * dir, 1.0), 400.0, 800.0); wheel.rotation.z -= 0.3 * dir; control_changed.emit("T", wheel_k)
-func pad_value(id: String) -> String: return "set %.0f °C  (up/down: 10 °C)" % (wheel_k - 273.15) if id == "wheel" else ""
+func pad_value(id: String) -> String: return "set %.0f °C  (drag sideways; pad up/down: 10 °C)" % (wheel_k - 273.15) if id == "wheel" else ""
 func press_control(_r: String) -> void: pass
 
 func anchor_screen(role: String) -> Vector2:

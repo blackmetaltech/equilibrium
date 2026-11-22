@@ -443,6 +443,9 @@ func _process(dt: float) -> void:
 
 # ---- wheels: drag to turn (left press on a wheel, drag sideways, release commits) ----------------------------------------------------------------
 func _unhandled_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		var wr := pick((e as InputEventMouseButton).position)
+		if wr == "wheel_v" or wr == "wheel_t": pad_turn(wr, 1 if (e as InputEventMouseButton).button_index == MOUSE_BUTTON_WHEEL_UP else -1); get_viewport().set_input_as_handled(); return   # playtest: scroll over a wheel turns it
 	if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		var mb := e as InputEventMouseButton
 		if mb.pressed:
@@ -475,12 +478,12 @@ func pad_turn(id: String, dir: int) -> void:
 		control_changed.emit("V", v); set_control_value("V", v)
 func pad_value(id: String) -> String:
 	match id:
-		"wheel_t": return "%.2f °C  (up/down: 5 K)" % (flask_T - 273.15)
-		"wheel_v": return "%.2f L  (up/down: 0.05 L)" % (flask_V * 1000.0)
-		"lever": return "A: run"
-		"argon_valve": return ("open" if argon_on else "shut") + "  (A: turn)"
-		"clamp": return ("released: the piston holds %.2f bar(a)" % (flask_Pfix / 1e5) if flask_Pfix > 0.0 else "on: the volume is fixed") + "  (A: toggle)"
-		"call": return "A: write your Kp"
+		"wheel_t": return "%.2f °C  (drag sideways or scroll; pad up/down: 5 K)" % (flask_T - 273.15)
+		"wheel_v": return "%.2f L  (drag sideways or scroll; pad up/down: 0.05 L)" % (flask_V * 1000.0)
+		"lever": return "click or A: run"
+		"argon_valve": return ("open" if argon_on else "shut") + "  (click or A: turn)"
+		"clamp": return ("released: the piston holds %.2f bar(a)" % (flask_Pfix / 1e5) if flask_Pfix > 0.0 else "on: the volume is fixed") + "  (click or A: toggle)"
+		"call": return "type it in the Call box, or A for a keypad"
 	return ""
 
 ## D-B1: the world's switches. The HUD commits control_changed exactly as its own controls did; RUN commissions.
