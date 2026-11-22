@@ -1,22 +1,24 @@
 # ⚗️ EQUILIBRIUM — run a chemical plant where the chemistry is real
 
-**[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.8.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
+**[Releases](https://github.com/ixaxaar/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.9.md)** · **[Issues](https://github.com/ixaxaar/equilibrium/issues)**
 
 **Build a chemical plant, then find out whether it works.** Place feed banks, heaters, exchangers, burners, reactors, columns and recycle loops, pipe them together, and commission the plant. Then real equilibrium, real kinetics and real heat balances decide what happens: the ammonia you can reach at 450 °C and 200 bar, the catalyst that falls asleep below 410 °C, the glycol reactor that crosses its Semenov point and runs away, the argon that builds up in a loop with no purge. The campaign climbs from std-9 stoichiometry to the work of a junior process engineer: PID tuning, interlocks, HAZOP, data reconciliation, and a five-year career running a whole Works.
 
 The front-end is a **Godot 4.7** game drawn as a 1970s control room: annunciator windows, a chart recorder, Bakelite knobs, a DESIGN / COMMISSION / RUN key switch, a green-bar printout. Every rule (thermodynamics, equilibrium, kinetics, flowsheet solving, dynamics, economics) runs in a deterministic TypeScript engine (on the shared COBANANA core) that Godot drives through a headless Node sidecar.
 
-> **Alpha (0.8.0).** Playable on desktop Linux; that is the only platform really supported so far (a Windows zip is built but untested). An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/ixaxaar/equilibrium/issues).
+> **Alpha (0.9.0).** Playable on desktop Linux; that is the only platform really supported so far (a Windows zip is built but untested). An Android debug APK builds locally, and there is a Steam Deck (1280×800) layout. Rough in places: see the [changelog](CHANGELOG.md) and the known gaps below. Tell us what broke or confused you in [issues](https://github.com/ixaxaar/equilibrium/issues).
 
 ![Three adiabatic beds with interstage coolers in the contact plant, with molecule critters in the pipes and the X-T staircase top right](docs/readme/staircase.png)
 
-## What's new in 0.8
+## What's new in 0.9
 
-| An incident fixed in the plant: the Career's ammonia loop with inerts in its feed, re-purged and running | L39 Size the Line: the pump settles where its curve crosses the system curve |
+| L39: the pump house is the instrument (pipes at their size and coloured by velocity, the NPSH sight-glass, the X-Y plotter, selector knobs) | The same job cavitating: a 2-inch suction from the boiler house |
 |---|---|
-| ![incident loop](docs/readme/incident-loop.png) | ![size the line](docs/readme/size-the-line.png) |
+| ![pump house](docs/readme/pump-house.png) | ![pump cavitation](docs/readme/pump-cavitation.png) |
 
-The Career now sends you into a real plant when inerts reach the ammonia feed, and the purge you set there changes the next three months. Chapter 10 adds hydraulics. Money is one currency per number in every region, long shifts at 16x run at 16x even under software rendering, and the Career autosaves and resumes. Details in the [changelog](CHANGELOG.md).
+![The Career's inerts incident in the plant: the re-purged loop running, with the side-by-side slip of your fix, the contractor and ignoring it](docs/readme/incident-slip.png)
+
+0.9 makes the plant readable: every text is 16 px or more, the camera frames the equipment, and the parts tray gets out of the way. The Career fits the window after a resume, grades a call at the first commission, announces the incident a month ahead and asks twice before it spends. Details in the [changelog](CHANGELOG.md).
 
 ## What you actually do
 
@@ -120,9 +122,9 @@ docs/        DESIGN, DECISIONS, CRITIQUE-0.3 … CRITIQUE-0.7, readme screenshot
 
 ## Status and known gaps
 
-0.8 ("The plant behind the numbers") is tagged. A Career incident now opens a real plant to fix, chapter 10 adds pump and line sizing, money uses one currency per number in every region, and long shifts are fast on weak hardware. In round 11 a careful teacher went to the plant for the incident and beat the contractor (2.51 against 2.83 MUSD), and the Career resumed intact after a crash. Still open, from the [critique](docs/CRITIQUE-0.8.md) and `.work/backlog.md`:
+0.9 ("The plant you can read") is tagged. The Career fixes from round 11 are in, the pump house and the incident are things in the plant, and a layout test walks every screen and level at 1920x1080 and 1280x800 for text under 16 px, clipping and overlap. Still open, from the [critique](docs/CRITIQUE-0.9.md) and `.work/backlog.md`:
 
-- **Career**: after a resume the board can be wider than the window, the incident's prediction is graded against the last purge rather than the first, and some commitments are one click while others ask twice. No careful human has finished all 60 months on this build yet.
-- **Gamepad**: the controller works on the main screens but has not had a pad-only pass on every screen.
+- **Gamepad**: a pad-only pass at 1280x800 found the game only partly playable by pad (the notebook's call-it, the loop-panel knobs, the key switch, the speed dial and the Career's yearly choices are out of reach, and the focus ring is faint in places).
+- **Career**: no careful human has finished all 60 months on this build, and the board still repeats the incident warning three times.
 - **Phone**: checked on desktop at phone size only; the device needs the owner's adb authorisation.
 - Releases are pre-releases: a Linux build (smoke-tested) and a Windows zip (untested); no macOS build, and the Android APK is a debug build.

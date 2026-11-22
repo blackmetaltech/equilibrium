@@ -3,8 +3,20 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
-## [Unreleased] 0.9 layer: readability (F32)
+## [0.9.0] - 2026-11-22 · "The plant you can read" (a Career you can trust, the pump house as a plant, 16 px everywhere; the pad pass found the gaps)
 ### Changed
+- **The Career you can trust (F31).** The board fits the window after a resume and after the incident level (long log rows wrap); a call-it is graded against the design at
+  the first commission that solves, frozen then (the same fix in L02, L04, L05, L14, L19, L21, L26, L28, L37); the inerts incident is announced as its own card the month
+  before it starts (one stop per incident; the 30-press ceiling holds, at most 27); the old purge and the catalyst come from one source on every screen; ACCEPT, BOOK, the
+  incident answers and any yearly option that buys or books arm first and confirm, with CANCEL and reserved widths; the strike line counts months past due correctly; the
+  incident log row names the right plant.
+- **The pump house is the instrument (F33).** L39's suction and discharge lines are drawn at their schedule-40 size and coloured by the velocity guide, with ink bands moving at the
+  water's speed; the pump wears its P1-P5 plate and shakes and bubbles when it cavitates; an NPSH sight-glass on the suction line shows available against required with a red
+  band under a 1 m margin; the pump and system curves are on a large X-Y plotter with the operating point under the pen; pipe sizes and the pump are rotary selector knobs
+  (keyboard and pad focus, click a pipe to pick its knob).
+- **The incident as a slip (F33).** YOUR FIX, THE CONTRACTOR and IGNORE IT side by side on green-bar paper (purge, output, gas per tonne, MUSD over the months) on the Career card,
+  in the plant after each commission and on the printout.
+- Recorder legends are short per level and never cut with "…"; a pre-built level folds the parts tray to a tab; the intercom shows three lines at 1280x800.
 - **The plant gets the window (F32).** The parts tray is a small dock at the bottom left that is as wide as its tiles, and it is gone when nothing is left to place; the console is only
   the instrument row. At level open and after a commission the camera frames the equipment's bounding box (footprints and standing heights, projected through the camera's own yaw
   and pitch) so it fills about 90 % of the space above the console; F frames the same way.
@@ -13,7 +25,12 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
   17 px at any window height with a heavy dark outline plate. The annunciator, the recorder legends and tape, the key and speed dials, the parts tiles, the control-panel dials and
   the L39 hydraulics board were re-spaced for it.
 ### Added
+- `godot/tests/fix31_flow.gd` (every key and dial inside the window on fresh start, incident, return from the plant and resume, at three sizes) and `fix33_flow.gd`.
 - `godot/tests/layout_flow.gd`: walks every screen (title, settings, Works map, pause menu, notebook, printout, faceplates, the Career board with an incident card) and the opening view of every level (including `CAREER_FIX_NH3_INERTS` and L39) at 1920x1080 and 1280x800, and fails on text under 16 px, clipped text, overlapping drawn or Control text, and text outside the window.
+### Known gaps
+- **Gamepad:** a pad-only pass at 1280x800 (round 12) found the game only partly operable by pad: the notebook's call-it field and scroll, the loop-panel knobs, the key switch,
+  the speed dial and the Career's yearly-card choices cannot be reached, and the focus ring is faint on several controls. This is the first item for 0.10.
+- No careful human has finished 60 Career months on this build, and there was no Deck Career replay.
 
 ## [0.8.0] - 2026-11-22 · "The plant behind the numbers" (an incident you fix in the plant, a new trade, one currency, fast shifts)
 ### Added
