@@ -26,6 +26,7 @@ func knob_value(unit: String, k: String) -> float:
 	return NAN
 
 func _initialize() -> void:
+	OS.set_environment("CB_LOOK2", "0")   # LOOK2 phase A: this flow checks the 0.9 console in L00; the slice's L00 is checked by look2_flow (docs/LOOK2.md, decision record)
 	OS.set_environment("CB_NOAUTOSAVE", "1"); OS.set_environment("CB_NOCOACH", "1")
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(6)
