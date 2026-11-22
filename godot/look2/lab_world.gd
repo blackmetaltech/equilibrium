@@ -46,7 +46,7 @@ var beacons: Array[SpotLight3D] = []; var beacon_mats: Array[StandardMaterial3D]
 var gauge_mats: Array[ShaderMaterial] = []
 var _t := 0.0
 var _stage := OS.get_environment("CB_STAGE") != "0"   ## the world moves the camera to the two story beats (CB_STAGE=0 for fixed screenshots)
-var wheel: Node3D; var wheel_k := 0.0   ## the lit handwheel on the cooler mirrors the dial
+var wheel: Node3D; var wheel_k := 0.0; var _wh_drag := false; var _wh_val := 0.0   ## the handwheel: drag it to set the cooler (control_changed on release)   ## the lit handwheel on the cooler mirrors the dial
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 func _ready() -> void:
@@ -76,6 +76,7 @@ func set_quality(t: String) -> void:
 	tier = t
 	if env == null: return
 	var ultra := t == "ultra"; var compat := t == "compat"
+	if detail_out != null: detail_out.visible = not compat   # the outdoor structure is the first thing the iGPU tier drops
 	env.sdfgi_enabled = ultra
 	env.ssr_enabled = ultra
 	env.ssil_enabled = ultra
@@ -246,13 +247,13 @@ func _build_env() -> void:
 	var sky := Sky.new(); var pano := PanoramaSkyMaterial.new(); pano.panorama = load("res://look2/assets/dikhololo_night_1k.hdr"); pano.energy_multiplier = 0.22; sky.sky_material = pano
 	env.background_mode = Environment.BG_SKY; env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY; env.ambient_light_energy = 0.35; env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES; env.tonemap_exposure = 1.05; env.tonemap_white = 6.0
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES; env.tonemap_exposure = 1.1; env.tonemap_white = 6.0
 	env.glow_enabled = true; env.glow_intensity = 0.55; env.glow_bloom = 0.06; env.glow_hdr_threshold = 1.1; env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	env.ssao_enabled = true; env.ssao_radius = 1.4; env.ssao_intensity = 2.2
 	env.ssr_enabled = true; env.ssr_max_steps = 96; env.ssr_fade_in = 0.1; env.ssr_fade_out = 2.5
 	env.ssil_enabled = true
 	env.sdfgi_enabled = true; env.sdfgi_use_occlusion = true; env.sdfgi_energy = 0.9; env.sdfgi_cascades = 4; env.sdfgi_min_cell_size = 0.15
-	env.volumetric_fog_enabled = true; env.volumetric_fog_density = 0.006; env.volumetric_fog_albedo = Color(0.82, 0.8, 0.78); env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+	env.volumetric_fog_enabled = true; env.volumetric_fog_density = 0.0065; env.volumetric_fog_albedo = Color(0.7, 0.7, 0.72); env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 	env.volumetric_fog_anisotropy = 0.55; env.volumetric_fog_length = 90.0; env.volumetric_fog_sky_affect = 0.15
 	env.fog_light_color = Color(0.2, 0.2, 0.24); env.fog_density = 0.004
 	env.adjustment_enabled = true; env.adjustment_contrast = 1.08; env.adjustment_saturation = 1.05
@@ -264,7 +265,7 @@ func _build_env() -> void:
 # ---- the hall --------------------------------------------------------------------------------------------------------------------------------
 func _build_hall() -> void:
 	var fl := PlaneMesh.new(); fl.size = Vector2(60, 30); fl.subdivide_width = 1; fl.subdivide_depth = 1
-	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.6}))
+	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.9}))
 	# painted walkway lines and a drain channel
 	for x in [-26.0, 26.0]: _box(Vector3(0.12, 0.004, 26), Vector3(x, 0.003, 0), M.yellow)
 	_box(Vector3(52, 0.004, 0.12), Vector3(0, 0.003, 7.2), M.yellow)
@@ -297,15 +298,15 @@ func _build_hall() -> void:
 	# cool LED strips along the glass wall head and fill lights over the loop (the 0.9 gantry in front of the glass is cut: it hid the view)
 	_box(Vector3(60, 0.06, 0.1), Vector3(0, 14.9, -14.9), _flat(Color.WHITE, 0, 0.5, Color(0.75, 0.88, 1.0), 5.0))
 	for i in 4:
-		var l := OmniLight3D.new(); l.light_color = Color(0.78, 0.88, 1.0); l.light_energy = 3.0; l.omni_range = 14.0; l.position = Vector3(-12 + i * 9, 7.5, -7.0); add_child(l)
+		var l := OmniLight3D.new(); l.light_color = Color(0.7, 0.85, 1.0); l.light_energy = 3.5; l.omni_range = 14.0; l.light_volumetric_fog_energy = 0.3; l.position = Vector3(-12 + i * 9, 7.5, -7.0); add_child(l)
 	# sodium high-bays
 	var k := 0
 	for x in [-24.0, -12.0, 0.0, 12.0, 24.0]:
 		for z in [-6.0, 6.0]:
 			_cyl(0.35, 0.4, Vector3(x, 16.6, z), M.black, self, 0.12)
 			_cyl(0.33, 0.02, Vector3(x, 16.38, z), _flat(Color(1, 0.7, 0.4), 0, 0.5, Color(1.0, 0.62, 0.28), 14.0))
-			var s := SpotLight3D.new(); s.light_color = Color(1.0, 0.84, 0.66); s.light_energy = 7.0; s.spot_range = 26.0; s.spot_angle = 52.0; s.spot_attenuation = 0.8
-			s.position = Vector3(x, 16.3, z); s.rotation_degrees.x = -90; s.shadow_enabled = k % 3 == 0; s.light_volumetric_fog_energy = 0.5; add_child(s)
+			var s := SpotLight3D.new(); s.light_color = Color(1.0, 0.84, 0.66); s.light_energy = 9.0; s.spot_range = 26.0; s.spot_angle = 40.0; s.spot_attenuation = 0.8
+			s.position = Vector3(x, 16.3, z); s.rotation_degrees.x = -90; s.shadow_enabled = k % 3 == 0; s.light_volumetric_fog_energy = 6.0; add_child(s)
 			k += 1
 	var rp := ReflectionProbe.new(); rp.size = Vector3(60, 18, 30); rp.position = Vector3(0, 9, 0); rp.box_projection = true; rp.interior = true
 	rp.update_mode = ReflectionProbe.UPDATE_ONCE; rp.ambient_mode = ReflectionProbe.AMBIENT_ENVIRONMENT; add_child(rp)
@@ -403,7 +404,7 @@ func _build_loop() -> void:
 	_gauge(Vector3(kx - 0.5, 1.2, pz + 0.35), Vector3(0, 0, 1), self, 0.55)
 	anchors["cooler"] = Vector3(kx, 2.4, fz); radius["cooler"] = 2.3
 	_stencil("cooler", Vector3(kx, 1.6, fz + 0.512), Vector3(0, 0, 1), 0.0035)
-	wheel = Node3D.new(); wheel.position = Vector3(kx + 1.2, 1.6, fz + 0.95); add_child(wheel)   # the temperature control valve's handwheel, lit: it turns with the dial
+	wheel = Node3D.new(); wheel.position = Vector3(kx + 1.2, 1.6, fz + 0.95); add_child(wheel); anchors["wheel"] = wheel.position; radius["wheel"] = 0.3   # the temperature control valve's handwheel, lit: it turns with the dial
 	_seg(Vector3(kx + 1.2, 1.6, fz + 0.5), Vector3(kx + 1.2, 1.6, fz + 0.95), 0.03, M.steel)
 	var wr := _torus(0.22, 0.018, Vector3.ZERO, _flat(Color(0.1, 0.5, 0.48), 0.3, 0.35, Color(0.18, 0.77, 0.71), 2.5), wheel); wr.rotation_degrees.x = 90
 	for i in 3: _seg(Vector3.ZERO, Vector3(cos(TAU * i / 3.0), sin(TAU * i / 3.0), 0) * 0.21, 0.012, M.steel, wheel)
@@ -425,6 +426,8 @@ func _build_loop() -> void:
 	# catalyst beds inside (seen in x-ray)
 	m_beds = _shader("beds", {"heat": 0.15, "emit_gain": 1.3})
 	for i in 3: _cyl(vr * 0.9, 1.6, Vector3(vx, vb + 1.4 + i * 2.5, vz), m_beds, self, -1.0, 32)
+	var hero := SpotLight3D.new(); hero.light_color = Color(0.82, 0.9, 1.0); hero.light_energy = 16.0; hero.spot_range = 30.0; hero.spot_angle = 16.0; hero.shadow_enabled = true
+	hero.light_volumetric_fog_energy = 5.0; hero.position = Vector3(vx + 9.0, 15.5, vz + 6.0); add_child(hero); hero.look_at(Vector3(vx, vb + 3.5, vz))   # cool key on the hero vessel through the haze
 	conv_light = OmniLight3D.new(); conv_light.light_color = Color(1.0, 0.35, 0.1); conv_light.light_energy = 0.0; conv_light.omni_range = 6.0; conv_light.position = Vector3(vx, vb + 5.0, vz + 1.6); add_child(conv_light)
 	# heat shimmer above the head
 	m_shimmer = _shader("shimmer", {"strength": 0.0})
@@ -486,7 +489,7 @@ func _build_loop() -> void:
 	_pipe([Vector3(sx, 1.08 + sh + sr, vz), Vector3(sx, 6.0, vz), Vector3(tx, 6.0, vz), Vector3(tx, 6.0, tz), Vector3(tx, 2.2, tz)], 0.09, M.steel)
 	_box(Vector3(0.7, 0.9, 0.7), Vector3(tx, 1.75, tz), M.steel)   # splitter body
 	anchors["splitter"] = Vector3(tx, 2.6, tz); radius["splitter"] = 0.9
-	_pipe([Vector3(tx + 0.35, 1.75, tz), Vector3(19.0, 1.75, tz), Vector3(19.0, 12.6, tz), Vector3(19.0, 12.6, -14.9)], 0.05, M.red)
+	_pipe([Vector3(tx + 0.35, 1.75, tz), Vector3(19.0, 1.75, tz), Vector3(19.0, 12.6, tz), Vector3(19.0, 12.6, -14.9)], 0.05, _paint(Color(0.4, 0.42, 0.41)))   # purge line: grey, not a red stroke across the opening frame
 	_pipe([Vector3(tx, 1.3, tz), Vector3(tx, 0.9, tz), Vector3(tx, 0.9, 3.5), Vector3(-18.0, 0.9, 3.5), Vector3(-18.0, 0.9, fz + 0.2), Vector3(-17.5, Y - 0.12, fz + 0.2)], 0.08, M.steel)
 	# recycle valve with handwheel and actuator
 	var vp := Vector3(4.0, 0.9, 3.5)
@@ -598,6 +601,7 @@ func _build_outside() -> void:
 		for k in int(h / 8.0):
 			var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.75, 0.45); l.light_energy = 1.6; l.omni_range = 8.0; l.position = p + Vector3(2.6, 4.0 + k * 8.0, 0); add_child(l)
 			_sph(0.15, l.position, _flat(Color.WHITE, 0, 0.5, Color(1.0, 0.75, 0.45), 12.0))
+	_outside_detail()
 	_box(Vector3(60, 9, 18), Vector3(-70, 4.5, -45), M.corr)
 	_box(Vector3(40, 12, 22), Vector3(80, 6, -50), M.corr)
 	for i in 40:   # far plant lights to the horizon
@@ -621,6 +625,63 @@ func _build_outside() -> void:
 	anchors["flare"] = Vector3(19.0, 12.9, -14.0); radius["flare"] = 1.0   # where the purge line leaves the hall (the stack itself is far outside)
 	flare_tip = Vector3(fx, fh + 6.0, fz)
 var flare_tip := Vector3.ZERO
+var detail_out: Node3D   ## round 2: structure on the outdoor plant (hidden on compat)
+
+## One MultiMesh for many copies of a part (bolts of the outdoor plant): one draw call.
+func _mm(mesh: Mesh, xf: Array, mat: Material, parent: Node) -> MultiMeshInstance3D:
+	var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.mesh = mesh; mm.instance_count = xf.size()
+	for i in xf.size(): mm.set_instance_transform(i, xf[i])
+	var mi := MultiMeshInstance3D.new(); mi.multimesh = mm; mi.material_override = mat; parent.add_child(mi); return mi
+
+## A unit box stretched from a to b (a strut), as a transform for _mm.
+func _strut(a: Vector3, b: Vector3, w: float) -> Transform3D:
+	var d := b - a; var up := d.normalized()
+	var x := up.cross(Vector3.FORWARD if absf(up.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT).normalized(); var z := x.cross(up)
+	return Transform3D(Basis(x * w, d, z * w), (a + b) * 0.5)
+
+func _outside_detail() -> void:
+	detail_out = Node3D.new(); detail_out.name = "outside_detail"; add_child(detail_out)
+	var box := BoxMesh.new(); box.size = Vector3.ONE
+	var legs := []; var rails := []; var plats := []; var steps := []
+	# cooling towers: the X-braced ring of legs at the base, a lip, a ladder and a lit service platform at the top
+	for t in [[-60.0, -150.0, 1.0], [-10.0, -170.0, 1.1], [45.0, -160.0, 0.95]]:
+		var c := Vector3(t[0], 0, t[1]); var sc: float = t[2]; var r0 := 22.0 * sc
+		for k in 40:
+			var a0 := TAU * k / 40.0; var a1 := TAU * (k + 1) / 40.0
+			legs.append(_strut(c + Vector3(cos(a0) * r0, 0, sin(a0) * r0), c + Vector3(cos(a1) * r0, 4.0 * sc, sin(a1) * r0), 0.6))
+			legs.append(_strut(c + Vector3(cos(a1), 0, sin(a1)) * r0, c + Vector3(cos(a0) * r0, 4.0 * sc, sin(a0) * r0), 0.6))
+		var top := 60.0 * sc; var rt: float = sc * (22.0 - 14.0 * sin(PI * 0.62) + 3.0)
+		_torus(rt + 0.3, 0.5, c + Vector3(0, top, 0), M.concrete_out, detail_out)
+		_torus(rt + 0.2, 0.08, c + Vector3(0, top + 1.1, 0), M.steel_dull, detail_out)
+		for k in 30: steps.append(_strut(c + Vector3(r0 * 0.98, k * 2.0, 0), c + Vector3(r0 * 0.98, k * 2.0 + 0.1, 0.8), 0.08))
+	# distillation columns: insulation, platforms with handrails every 6 m, a caged ladder, a riser pipe, a davit at the top
+	for i in 4:
+		var p := Vector3(-40.0 + i * 25.0, 0, -55.0); var h := 28.0 + i * 6.0
+		_cyl(1.75, h - 2.0, p + Vector3(0, h * 0.5, 0), M.clad, detail_out, -1.0, 24)
+		for k in int(h / 6.0):
+			var y := 6.0 + k * 6.0
+			_cyl(2.8, 0.12, p + Vector3(0, y, 0), M.plate, detail_out, -1.0, 24)
+			_torus(2.75, 0.04, p + Vector3(0, y + 1.05, 0), M.yellow, detail_out)
+			for a in 8: rails.append(_strut(p + Vector3(cos(TAU * a / 8.0) * 2.75, y, sin(TAU * a / 8.0) * 2.75), p + Vector3(cos(TAU * a / 8.0) * 2.75, y + 1.05, sin(TAU * a / 8.0) * 2.75), 0.05))
+		for k in int(h / 0.4): steps.append(_strut(p + Vector3(-2.15, k * 0.4, -0.25), p + Vector3(-2.15, k * 0.4 + 0.03, 0.25), 0.04))
+		_seg(p + Vector3(-2.15, 0, -0.27), p + Vector3(-2.15, h, -0.27), 0.03, M.yellow, detail_out); _seg(p + Vector3(-2.15, 0, 0.27), p + Vector3(-2.15, h, 0.27), 0.03, M.yellow, detail_out)
+		_seg(p + Vector3(1.95, 0.5, 0.9), p + Vector3(1.95, h + 1.0, 0.9), 0.22, M.steel_dull, detail_out)
+		_seg(p + Vector3(0, h, 0), p + Vector3(0, h + 3.0, 0), 0.1, M.yellow, detail_out); _seg(p + Vector3(0, h + 3.0, 0), p + Vector3(2.0, h + 3.0, 0), 0.08, M.yellow, detail_out)
+		var bl := OmniLight3D.new(); bl.light_color = Color(1.0, 0.2, 0.12); bl.light_energy = 3.0; bl.omni_range = 5.0; bl.position = p + Vector3(0, h + 3.4, 0); detail_out.add_child(bl)
+		_sph(0.25, bl.position, _flat(Color.WHITE, 0, 0.5, Color(1.0, 0.2, 0.12), 14.0), detail_out)
+	# tanks: a spiral stair, wind girder, roof handrail, a lit stair head
+	for i in 7:
+		var p := Vector3(-110.0 + i * 34.0, 0, -80.0 - (i % 3) * 22.0)
+		_torus(10.15, 0.18, p + Vector3(0, 11.0, 0), M.steel_dull, detail_out)
+		_torus(9.9, 0.05, p + Vector3(0, 15.4, 0), M.yellow, detail_out)
+		for k in 36:
+			var a := 0.3 + k * 0.05; var y := k * 0.39
+			steps.append(Transform3D(Basis(Vector3.UP, -a) * Basis.from_scale(Vector3(0.25, 0.06, 1.0)), p + Vector3(sin(a) * 10.55, y, cos(a) * 10.55)))
+			rails.append(_strut(p + Vector3(sin(a) * 11.05, y, cos(a) * 11.05), p + Vector3(sin(a) * 11.05, y + 1.0, cos(a) * 11.05), 0.04))
+		var sl := OmniLight3D.new(); sl.light_color = Color(1.0, 0.8, 0.55); sl.light_energy = 1.5; sl.omni_range = 9.0; var ea := 0.3 + 35 * 0.05; sl.position = p + Vector3(sin(ea) * 11.0, 15.6, cos(ea) * 11.0); detail_out.add_child(sl)
+	_mm(box, legs, M.concrete_out, detail_out)
+	_mm(box, rails, M.yellow, detail_out)
+	_mm(box, steps, M.steel_dull, detail_out)
 
 # ---- live state ------------------------------------------------------------------------------------------------------------------------------
 func set_snapshot(g: Dictionary) -> void:
@@ -713,13 +774,13 @@ func _process(dt: float) -> void:
 		b.rotation = Vector3(-0.35, _t * 6.0 + i, 0.0)
 		beacon_mats[i].emission_energy_multiplier = (6.0 + 4.0 * sin(_t * 12.0)) if on else 0.0
 		beacon_mats[i].emission = b.light_color
-	if wheel: wheel.rotation.z = lerp_angle(wheel.rotation.z, (700.0 - wheel_k) / 100.0 * PI, clampf(dt * 4.0, 0, 1))
+	if wheel and not _wh_drag: wheel.rotation.z = lerp_angle(wheel.rotation.z, (700.0 - wheel_k) / 100.0 * PI, clampf(dt * 4.0, 0, 1))
 	_cam_step(dt)
 	_ft_tick(dt)
 
 # ---- camera ----------------------------------------------------------------------------------------------------------------------------------
 const PRESETS := {
-	"wide": [Vector3(-4, 3.2, -3), PI * 0.5 + 0.12, -0.17, 34.0],   # the establishing view: down the length of the hall from the east end
+	"wide": [Vector3(3.0, 4.6, -3.0), PI * 0.5 + 0.42, -0.1, 21.0],   # the establishing view: down the length of the hall from the east end
 	"front": [Vector3(1, 3.2, -4), 0.12, -0.2, 18.5],
 	"loop": [Vector3(-3, 2.5, -4), -0.45, -0.32, 20.0],
 	"converter": [Vector3(5.5, 6.0, -3.0), 0.35, -0.08, 11.0],
@@ -797,12 +858,19 @@ func _unhandled_input(e: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed: t_dist = clampf(t_dist / 0.88, 0.45, 80.0); get_viewport().set_input_as_handled()
 		elif mb.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]: _drag = 1 if mb.pressed else 0
 		elif mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed and wheel != null and pick(mb.position) == "wheel":   # grab the handwheel: drag sideways to turn it, release to commit
+				_wh_drag = true; _wh_val = wheel_k; get_viewport().set_input_as_handled(); return
+			if not mb.pressed and _wh_drag:
+				_wh_drag = false; wheel_k = _wh_val; control_changed.emit("T", _wh_val); get_viewport().set_input_as_handled(); return
 			if mb.pressed: _drag = 2; _drag_moved = 0.0
 			else:
 				if _drag == 2 and _drag_moved < 6.0:
 					var r := pick(mb.position)
 					if r != "": picked.emit(r)
 				_drag = 0
+	elif e is InputEventMouseMotion and _wh_drag:
+		var dx := (e as InputEventMouseMotion).relative.x
+		_wh_val = clampf(snappedf(_wh_val - dx * 0.5, 1.0), 400.0, 800.0); wheel.rotation.z -= dx * 0.015; get_viewport().set_input_as_handled()
 	elif e is InputEventMouseMotion and _drag != 0:
 		var mm := e as InputEventMouseMotion
 		_drag_moved += mm.relative.length()
