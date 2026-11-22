@@ -37,7 +37,7 @@ func _draw() -> void:
 	draw_circle(c, 5.0, CbKit.TX)
 	var fs := CbKit.fs(15)
 	var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	draw_string(f, Vector2(c.x - minf(tw, size.x) * 0.5, c.y + r * 0.62), text, HORIZONTAL_ALIGNMENT_LEFT, size.x, fs, CbKit.TX)
+	EqTheme.ds(self, f, Vector2(c.x - minf(tw, size.x) * 0.5, c.y + r * 0.62), text, HORIZONTAL_ALIGNMENT_LEFT, size.x, fs, CbKit.TX)
 	var fl := CbKit.fs(13)
 	var lw := f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fl).x
-	draw_string(f, Vector2(c.x - minf(lw, size.x) * 0.5, size.y - 3.0), label, HORIZONTAL_ALIGNMENT_LEFT, size.x, fl, CbKit.DIM)
+	EqTheme.ds(self, f, Vector2(c.x - minf(lw, size.x) * 0.5, size.y - 3.0), label, HORIZONTAL_ALIGNMENT_LEFT, size.x, fl, CbKit.DIM)

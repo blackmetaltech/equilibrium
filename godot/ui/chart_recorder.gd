@@ -246,7 +246,7 @@ func _draw() -> void:
 			if not sec.is_empty(): draw_line(Vector2(xi - 10.0, sp[i].y), Vector2(xi + 10.0, sp[i].y), EqTheme.PEN_RED, 3.0)
 			if not third.is_empty(): draw_line(Vector2(xi - 10.0, tp[i].y), Vector2(xi + 10.0, tp[i].y), EqTheme.PEN_GREEN, 3.0)
 			draw_line(Vector2(xi, pl.end.y), Vector2(xi, pl.end.y + 6.0), EqTheme.INK, 1.5)
-			if step >= 18.0 or i == n - 1 or i % 2 == 0: draw_string(mono, Vector2(xi - 20.0, size.y - 2.0), "%d" % int(pts[i].n), HORIZONTAL_ALIGNMENT_CENTER, 40.0, fsz, EqTheme.INK)
+			if step >= 18.0 or i == n - 1 or i % 2 == 0: EqTheme.ds(self, mono, Vector2(xi - 20.0, size.y - 2.0), "%d" % int(pts[i].n), HORIZONTAL_ALIGNMENT_CENTER, 40.0, fsz, EqTheme.INK)
 	elif n > 0:
 		draw_circle(hp[n - 1], 3.0, EqTheme.PEN_BLUE)
 	# gutters over the traces: left axis, right pen readout
@@ -256,36 +256,43 @@ func _draw() -> void:
 	draw_line(Vector2(rx, 0), Vector2(rx, size.y), Color("#8C9A94"), 1.0)
 	draw_line(Vector2(pl.position.x - 1.0, 0), Vector2(pl.position.x - 1.0, size.y), Color("#8C9A94"), 1.0)
 	if _has(hero, "hi"):
-		draw_string(mono, Vector2(2, _y(_num(hero.hi), r, pl) - 1.0), _fmtax(_num(hero.hi)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
+		EqTheme.ds(self, mono, Vector2(2, _y(_num(hero.hi), r, pl) - 1.0), _fmtax(_num(hero.hi)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
 	if _has(hero, "lo"):
-		draw_string(mono, Vector2(2, _y(_num(hero.lo), r, pl) + 13.0), _fmtax(_num(hero.lo)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
+		EqTheme.ds(self, mono, Vector2(2, _y(_num(hero.lo), r, pl) + 13.0), _fmtax(_num(hero.lo)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
 	# the axis ends too: the paper's own top and bottom, so a trace far from the target band still reads against a scale
 	var top_v := r.y; var bot_v := r.x
 	var hi_y := _y(_num(hero.get("hi", top_v)), r, pl) if _has(hero, "hi") else -99.0; var lo_y := _y(_num(hero.get("lo", bot_v)), r, pl) if _has(hero, "lo") else 999.0
-	if absf(hi_y - (pl.position.y + 10.0)) > 14.0 and absf(lo_y - (pl.position.y + 10.0)) > 14.0: draw_string(mono, Vector2(2, pl.position.y + 11.0), _fmtax(top_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
-	if absf(lo_y - pl.end.y) > 14.0 and absf(hi_y - pl.end.y) > 14.0: draw_string(mono, Vector2(2, pl.end.y - 1.0), _fmtax(bot_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
+	if absf(hi_y - (pl.position.y + 10.0)) > 14.0 and absf(lo_y - (pl.position.y + 10.0)) > 14.0: EqTheme.ds(self, mono, Vector2(2, pl.position.y + 11.0), _fmtax(top_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
+	if absf(lo_y - pl.end.y) > 14.0 and absf(hi_y - pl.end.y) > 14.0: EqTheme.ds(self, mono, Vector2(2, pl.end.y - 1.0), _fmtax(bot_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
 	var ct := clock_text()
-	if ct != "" and size.x > 150.0:
-		var cw := minf(mono.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 8.0, rx - pl.position.x - 4.0)
-		draw_rect(Rect2(rx - cw - 2.0, 1.0, cw, 17.0), Color(EqTheme.PORCELAIN, 0.92)); draw_string(mono, Vector2(rx - cw + 2.0, 14.0), ct, HORIZONTAL_ALIGNMENT_LEFT, cw - 4.0, EqTheme.fs(12), EqTheme.PEN_RED.darkened(0.15))
+	var clock_w := 0.0
+	if ct != "" and size.x > 150.0:   # the clock line gives up its ETA, then its total, before it would be smaller than 16 px or run off a narrow paper
+		var room := rx - pl.position.x - 8.0
+		var cf := EqTheme.font("semi")
+		for cand in [ct, ct.get_slice("  ", 0), ct.get_slice(" /", 0)]:
+			ct = cand
+			if cf.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x * 0.9 <= room: break
+		var cw := minf(cf.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 8.0, rx - pl.position.x - 4.0)
+		clock_w = cw + 6.0
+		draw_rect(Rect2(rx - cw - 2.0, pl.end.y - 22.0, cw, 21.0), Color(EqTheme.PORCELAIN, 0.92)); EqTheme.ds(self, cf, Vector2(rx - cw + 2.0, pl.end.y - 6.0), ct, HORIZONTAL_ALIGNMENT_LEFT, cw - 4.0, EqTheme.fs(12), EqTheme.PEN_RED.darkened(0.15))
 	# latest pen values at the right edge
 	if n > 0:
 		var hy := clampf(hp[n - 1].y + 5.0, 14.0, size.y - 6.0)
-		draw_string(mono, Vector2(rx + 4.0, hy), _fmt(_num(pts[n - 1].h)), HORIZONTAL_ALIGNMENT_LEFT, 52.0, fsz, EqTheme.PEN_BLUE)
+		EqTheme.ds(self, mono, Vector2(rx + 4.0, hy), _fmt(_num(pts[n - 1].h)), HORIZONTAL_ALIGNMENT_LEFT, 52.0, fsz, EqTheme.PEN_BLUE)
 		if not sec.is_empty():
 			var sy := clampf(sp[n - 1].y + 5.0, 14.0, size.y - 6.0)
 			if absf(sy - hy) < 14.0: sy = hy + 14.0 if hy + 14.0 <= size.y - 4.0 else hy - 14.0   # two readouts never print over each other
-			draw_string(mono, Vector2(rx + 4.0, sy), _fmt(_num(pts[n - 1].s)), HORIZONTAL_ALIGNMENT_LEFT, 52.0, fsz, EqTheme.PEN_RED)
-	else:
-		draw_string(EqStrings.font("body"), Vector2(pl.position.x + 8.0, pl.position.y + pl.size.y * 0.5 + 5.0), EqStrings.T("REC_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, pl.size.x - 10.0, fsz, Color("#6B7C76"))
+			EqTheme.ds(self, mono, Vector2(rx + 4.0, sy), _fmt(_num(pts[n - 1].s)), HORIZONTAL_ALIGNMENT_LEFT, 52.0, fsz, EqTheme.PEN_RED)
 	# pen legends on dymo tape: each pen's label and unit in its own ink (blue hero, red secondary, green third)
-	var avail := pl.size.x + 52.0
+	var avail := pl.size.x - 4.0   # the pen readouts live in the gutter to the right: a legend never runs over them
 	var ly := pl.position.y + 2.0
 	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero) + (" —" if bool(hero.get("pending", false)) else ""), EqTheme.PEN_BLUE, avail)   # pending: the reading is "—", never a made-up number
 	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec) + (" —" if bool(sec.get("pending", false)) else ""), EqTheme.PEN_RED, avail)
 	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail)
+	if n == 0 and clock_w == 0.0 and ly + 18.0 <= pl.end.y and pl.size.x > 80.0:   # no runs yet: the line sits under the pen legends, and only when there is room for it
+		EqTheme.ds(self, EqStrings.font("body"), Vector2(pl.position.x + 8.0, ly + 15.0), EqStrings.T("REC_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, pl.size.x - 10.0, fsz, Color("#6B7C76"))
 	if not first_run.is_empty() and runs.size() <= 1 and first_run.get("madeKg") != null and _num(first_run.get("madeKg", 0.0)) > 0.0:   # (madeKg null: this level makes no product, so no counter) a rolling "made so far" counter while the first run plays
-		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 21.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail)
+		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 25.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail - clock_w)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
 func _fmtax(v: float) -> String:   # axis labels: compact, never wider than the gutter
@@ -316,14 +323,13 @@ func _legend(d: Dictionary) -> String:
 
 ## One strip of Dymo tape (clipped to `avail` px); returns the y for the next strip below it.
 func _tape(p: Vector2, text: String, accent: Color, avail := 1.0e6) -> float:
-	var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
-	while sz > EqTheme.fs(9) and f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0 > avail: sz -= 1   # a long legend shrinks its type before it clips
+	var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)   # 16 px: a long legend is cut short with an ellipsis (below), never set smaller
 	var fit := text.to_upper()
 	while fit.length() > 4 and f.get_string_size(fit, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0 > avail: fit = fit.left(fit.length() - 2).strip_edges() + "…"
 	text = fit
 	var w := minf(f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0, avail)
-	draw_rect(Rect2(p, Vector2(w, 17.0)), EqTheme.DYMO_TAPE)
-	draw_rect(Rect2(p + Vector2(0, 17.0), Vector2(w, 1.0)), Color(1, 1, 1, 0.12))
-	draw_rect(Rect2(p, Vector2(3.0, 17.0)), accent.lightened(0.2))
-	draw_string(f, p + Vector2(7.0, 13.0), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, sz, EqTheme.DYMO_TEXT)
-	return p.y + 19.0
+	draw_rect(Rect2(p, Vector2(w, 21.0)), EqTheme.DYMO_TAPE)
+	draw_rect(Rect2(p + Vector2(0, 21.0), Vector2(w, 1.0)), Color(1, 1, 1, 0.12))
+	draw_rect(Rect2(p, Vector2(3.0, 21.0)), accent.lightened(0.2))
+	EqTheme.ds(self, f, p + Vector2(7.0, 16.0), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, sz, EqTheme.DYMO_TEXT)
+	return p.y + 23.0

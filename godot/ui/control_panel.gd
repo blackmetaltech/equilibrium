@@ -38,13 +38,13 @@ func _init() -> void:
 	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 4); add_child(vb)
 	var head := HBoxContainer.new(); vb.add_child(head)
 	_title = EqTheme.label(T("TITLE"), 12, EqTheme.INK, "semi"); _title.size_flags_horizontal = Control.SIZE_EXPAND_FILL; head.add_child(_title)
-	stop_key = EqTheme.key_button(T("STOP"), false, 12); stop_key.name = "StopKey"; stop_key.custom_minimum_size = Vector2(0, 30); stop_key.tooltip_text = T("STOP_HINT"); stop_key.visible = false
+	stop_key = EqTheme.key_button(T("STOP"), false, 12); stop_key.name = "StopKey"; stop_key.custom_minimum_size = Vector2(0, 40); stop_key.tooltip_text = T("STOP_HINT"); stop_key.visible = false
 	stop_key.pressed.connect(func(): if app_ref != null and app_ref.chrome != null: app_ref.chrome.stop_and_edit())
 	head.add_child(stop_key)
-	_head = head; head.custom_minimum_size = Vector2(0, 36)   # the Stop key's row is always reserved: showing or hiding Stop never moves the dials or the chart
+	_head = head; head.custom_minimum_size = Vector2(0, 46)   # the Stop key's row is always reserved: showing or hiding Stop never moves the dials or the chart
 	_scroll = ScrollContainer.new(); _scroll.name = "Body"; _scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; _scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL; vb.add_child(_scroll)
 	# the hint line sits under the scrolling body, never inside it: the "Dials are locked" sentence and the Stop key stay on the panel at every size (round 7: cut off at 1280x800)
-	_hint = EqTheme.label(T("HINT"), 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans"); _hint.name = "Hint"; _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _hint.custom_minimum_size = Vector2(120, 34); _hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hint = EqTheme.label(T("HINT"), 12, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans"); _hint.name = "Hint"; _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _hint.custom_minimum_size = Vector2(120, 44); _hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(_hint)
 	_body = VBoxContainer.new(); _body.add_theme_constant_override("separation", 4); _body.size_flags_horizontal = Control.SIZE_EXPAND_FILL; _scroll.add_child(_body)
 	chart = Chart.new(); chart.custom_minimum_size = Vector2(300, 170); chart.size_flags_vertical = Control.SIZE_EXPAND_FILL; _body.add_child(chart)
@@ -252,17 +252,17 @@ class Chart extends Control:
 			draw_line(Vector2(pr.position.x, y), Vector2(pr.end.x, y), Color(EqTheme.INK, 0.12), 1.0)
 		for i in range(0, nb + 1, 2):
 			var y2 := pr.position.y + pr.size.y * i / nb
-			if not empty: draw_string(f, Vector2(2, y2 + 4), _tx(yr.y - (yr.y - yr.x) * i / nb), HORIZONTAL_ALIGNMENT_LEFT, 38, fs, EqTheme.PEN_BLUE)
-			if not shared_axis or bump_mode: draw_string(f, Vector2(pr.end.x + 3, y2 + 4), str(100 - int(100.0 * i / nb)), HORIZONTAL_ALIGNMENT_LEFT, 34, fs, EqTheme.PEN_RED)
+			if not empty: EqTheme.ds(self, f, Vector2(2, y2 + 4), _tx(yr.y - (yr.y - yr.x) * i / nb), HORIZONTAL_ALIGNMENT_LEFT, 38, fs, EqTheme.PEN_BLUE)
+			if not shared_axis or bump_mode: EqTheme.ds(self, f, Vector2(pr.end.x + 3, y2 + 4), str(100 - int(100.0 * i / nb)), HORIZONTAL_ALIGNMENT_LEFT, 34, fs, EqTheme.PEN_RED)
 		var nt := 5
 		for i in range(nt + 1):
 			var x := pr.position.x + pr.size.x * i / nt
 			draw_line(Vector2(x, pr.position.y), Vector2(x, pr.end.y), Color(EqTheme.INK, 0.12), 1.0)
-			if not empty: draw_string(f, Vector2(x - 20, size.y - 5), str(int(round(t0 + (t1 - t0) * i / nt))), HORIZONTAL_ALIGNMENT_CENTER, 40, fs, EqTheme.INK)
+			if not empty: EqTheme.ds(self, f, Vector2(x - 20, size.y - 5), str(int(round(t0 + (t1 - t0) * i / nt))), HORIZONTAL_ALIGNMENT_CENTER, 40, fs, EqTheme.INK)
 		draw_rect(pr, Color(EqTheme.INK, 0.5), false, 1.5)
 		if empty:
 			var msg := ControlPanel.T("EMPTY")
-			draw_string(EqTheme.font("semi"), Vector2(pr.position.x, pr.position.y + pr.size.y * 0.5 + 5), msg, HORIZONTAL_ALIGNMENT_CENTER, pr.size.x, EqTheme.fs(15), Color(EqTheme.INK, 0.55))
+			EqTheme.ds(self, EqTheme.font("semi"), Vector2(pr.position.x, pr.position.y + pr.size.y * 0.5 + 5), msg, HORIZONTAL_ALIGNMENT_CENTER, pr.size.x, EqTheme.fs(15), Color(EqTheme.INK, 0.55))
 			return
 		var X := func(i: int) -> float: return pr.position.x + pr.size.x * (float(t[i]) - t0) / (t1 - t0)
 		var Yv := func(v: float) -> float: return pr.end.y - pr.size.y * (v - yr.x) / (yr.y - yr.x)
@@ -308,7 +308,7 @@ class Chart extends Control:
 			if lx + wd + 24 > pr.end.x: lx = pr.position.x + 6; ly += 15
 			draw_rect(Rect2(lx - 2, ly - 11, wd + 26, 14), Color(EqTheme.GREENBAR_LIGHT, 0.85))
 			draw_line(Vector2(lx, ly - 4), Vector2(lx + 16, ly - 4), g[1], 2.5)
-			draw_string(lf, Vector2(lx + 19, ly), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, ls, EqTheme.INK)
+			EqTheme.ds(self, lf, Vector2(lx + 19, ly), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, ls, EqTheme.INK)
 			lx += wd + 34
 		if bump_mode:
 			var fit: Dictionary = d.bump.get("fit", {})
@@ -323,12 +323,12 @@ class Chart extends Control:
 			var nf := EqTheme.font("semi"); var nsz := EqTheme.fs(15)
 			var nx := pr.end.x - 150.0; var ny := pr.end.y - 66.0
 			draw_set_transform(Vector2(nx, ny), -0.05, Vector2.ONE)
-			draw_string(nf, Vector2(0, 0), "K = %s" % _tx2(K), HORIZONTAL_ALIGNMENT_LEFT, -1, nsz, GRAPHITE)
-			draw_string(nf, Vector2(0, 18), "τ = %s s" % _tx2(tau), HORIZONTAL_ALIGNMENT_LEFT, -1, nsz, GRAPHITE)
-			draw_string(nf, Vector2(0, 36), "θ = %s s" % _tx2(th), HORIZONTAL_ALIGNMENT_LEFT, -1, nsz, GRAPHITE)
+			EqTheme.ds(self, nf, Vector2(0, 0), "K = %s" % _tx2(K), HORIZONTAL_ALIGNMENT_LEFT, -1, nsz, GRAPHITE)
+			EqTheme.ds(self, nf, Vector2(0, 18), "τ = %s s" % _tx2(tau), HORIZONTAL_ALIGNMENT_LEFT, -1, nsz, GRAPHITE)
+			EqTheme.ds(self, nf, Vector2(0, 36), "θ = %s s" % _tx2(th), HORIZONTAL_ALIGNMENT_LEFT, -1, nsz, GRAPHITE)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			draw_string(nf, Vector2(xth + 3, pr.end.y - 4), "θ", HORIZONTAL_ALIGNMENT_LEFT, -1, nsz, GRAPHITE)
-			draw_string(nf, Vector2(xtau + 3, pr.end.y - 4), "θ+τ", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12), GRAPHITE)
+			EqTheme.ds(self, nf, Vector2(xth + 3, pr.end.y - 4), "θ", HORIZONTAL_ALIGNMENT_LEFT, -1, nsz, GRAPHITE)
+			EqTheme.ds(self, nf, Vector2(xtau + 3, pr.end.y - 4), "θ+τ", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12), GRAPHITE)
 
 	func _tx2(v: float) -> String: return "%.2f" % v if absf(v) < 10.0 else "%.1f" % v
 
@@ -346,7 +346,7 @@ class Nixie extends Control:
 		if m.is_empty(): return
 		var lf := EqTheme.font("dymo"); var lsz := EqTheme.fs(12)
 		var lt := str(m.get("label", "")).to_upper(); var lw := minf(lf.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, lsz).x + 8.0, size.x - 8.0)
-		draw_rect(Rect2(4, 4, lw, 16), EqTheme.DYMO_TAPE); draw_string(lf, Vector2(8, 16), lt, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, lsz, EqTheme.DYMO_TEXT)
+		draw_rect(Rect2(4, 4, lw, 21), EqTheme.DYMO_TAPE); EqTheme.ds(self, lf, Vector2(8, 20), lt, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, lsz, EqTheme.DYMO_TEXT)
 		var v := float(m.get("value", 0.0)); var s3 := float(m.get("star3", 0.0)); var met := v <= s3 and v > 0.0
 		var nf := EqTheme.font("mono_bold"); var nsz := EqTheme.fs(32)
 		var txt := fmt(v); var un := str(m.get("unit", ""))
@@ -356,15 +356,15 @@ class Nixie extends Control:
 		var base := Vector2(maxf(6.0, (size.x - tw - uw0) * 0.5), 58.0)
 		var glow := Color("#FF7A1A")
 		for o in [Vector2(-1.5, 0), Vector2(1.5, 0), Vector2(0, -1.5), Vector2(0, 1.5)]:
-			draw_string(nf, base + o, txt, HORIZONTAL_ALIGNMENT_LEFT, size.x, nsz, Color(glow, 0.28))
-		draw_string(nf, base, txt, HORIZONTAL_ALIGNMENT_LEFT, size.x, nsz, Color("#FFB070"))
-		if stale and ran: draw_string(EqTheme.font("dymo"), Vector2(size.x - 66.0, 16.0), "LAST RUN", HORIZONTAL_ALIGNMENT_LEFT, 62.0, EqTheme.fs(11), Color("#C0805A"))
-		draw_string(EqTheme.font("sans"), Vector2(base.x + tw + 4, base.y), un, HORIZONTAL_ALIGNMENT_LEFT, size.x - base.x - tw - 4, EqTheme.fs(12), Color("#C0805A"))
+			EqTheme.ds(self, nf, base + o, txt, HORIZONTAL_ALIGNMENT_LEFT, size.x, nsz, Color(glow, 0.28))
+		EqTheme.ds(self, nf, base, txt, HORIZONTAL_ALIGNMENT_LEFT, size.x, nsz, Color("#FFB070"))
+		if stale and ran: EqTheme.ds(self, EqTheme.font("dymo"), Vector2(size.x - 66.0, 16.0), "LAST RUN", HORIZONTAL_ALIGNMENT_LEFT, 62.0, EqTheme.fs(11), Color("#C0805A"))
+		EqTheme.ds(self, EqTheme.font("sans"), Vector2(base.x + tw + 4, base.y), un, HORIZONTAL_ALIGNMENT_LEFT, size.x - base.x - tw - 4, EqTheme.fs(12), Color("#C0805A"))
 		# the third-star line lights only when the goals are met as well; a metric under the line with goals open is "metric only"
 		var sc := EqTheme.AMBER if (met and goals_ok and ran) else Color("#7A6A58")
 		if not ran: sc = Color("#5A4E40")
 		var line := ("★★★ ≤ %s" % fmt(s3)) if not (met and not goals_ok and ran) else ("metric only ≤ %s" % fmt(s3))
-		draw_string(EqTheme.font("semi"), Vector2(8, 84), line, HORIZONTAL_ALIGNMENT_LEFT, size.x - 10, EqTheme.fs(14), sc)
+		EqTheme.ds(self, EqTheme.font("semi"), Vector2(8, 84), line, HORIZONTAL_ALIGNMENT_LEFT, size.x - 10, EqTheme.fs(14), sc)
 
 # ---------------------------------------------------------------------------------------------------------------- rotary selector switch
 class Selector extends Control:
@@ -374,7 +374,7 @@ class Selector extends Control:
 	var value := 0.0
 	var lo := 0.0
 	var editable := true
-	func _init() -> void: custom_minimum_size = Vector2(150, 132); focus_mode = Control.FOCUS_ALL; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	func _init() -> void: custom_minimum_size = Vector2(176, 132); focus_mode = Control.FOCUS_ALL; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	func setup(l: String, ch: Array, v: float) -> void: label = l; choices = ch; set_value(v)
 	func set_value(v: float) -> void: value = clampf(roundf(v), 0.0, maxf(choices.size() - 1, 0)); queue_redraw()
 	func _c() -> Vector2: return Vector2(34.0, 60.0)
@@ -382,9 +382,9 @@ class Selector extends Control:
 		var n := choices.size(); var gap := 22.0
 		var y0 := 60.0 - gap * (n - 1) * 0.5
 		var w := maxf(28.0, EqTheme.font("dymo").get_string_size(str(choices[i]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 10.0)
-		return Rect2(Vector2(72.0, y0 + gap * i - 8.0), Vector2(minf(w, size.x - 74.0), 16))
+		return Rect2(Vector2(66.0, y0 + gap * i - 10.5), Vector2(minf(w, size.x - 68.0), 21))
 	func _ang(i: int) -> float:
-		var r := _tag(i); var d := (r.position + Vector2(0, 8)) - _c()
+		var r := _tag(i); var d := (r.position + Vector2(0, 10.5)) - _c()
 		return atan2(d.x, -d.y)
 	func _step(dir: int) -> void:
 		var n := choices.size(); if n == 0: return
@@ -415,7 +415,7 @@ class Selector extends Control:
 		for i in choices.size():
 			var r := _tag(i); var on := i == int(value)
 			draw_rect(r, EqTheme.DYMO_TAPE if on else Color("#3A3A3A"))
-			draw_string(lf, r.position + Vector2(4, 12.5), str(choices[i]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 4, ls, EqTheme.AMBER if on else Color("#9A9A9A"))
+			EqTheme.ds(self, lf, r.position + Vector2(4, 16.5), str(choices[i]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 4, ls, EqTheme.AMBER if on else Color("#9A9A9A"))
 		var lt := label.to_upper(); var words := lt.split(" ", false); var lines: Array = [lt]
 		if lf.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(13)).x + 10.0 > size.x and words.size() > 1:
 			var best := 1; var bd := 1e9
@@ -427,5 +427,5 @@ class Selector extends Control:
 		for i in lines.size():
 			var tx: String = lines[i]
 			var lw := minf(lf.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(13)).x + 10.0, size.x)
-			var lr := Rect2((size.x - lw) * 0.5, size.y - 19.0 - (lines.size() - 1 - i) * 18.0, lw, 17.0)
-			draw_rect(lr, EqTheme.DYMO_TAPE); draw_string(lf, lr.position + Vector2(5, 13.0), tx, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, EqTheme.fs(13), EqTheme.DYMO_TEXT)
+			var lr := Rect2((size.x - lw) * 0.5, size.y - 23.0 - (lines.size() - 1 - i) * 22.0, lw, 21.0)
+			draw_rect(lr, EqTheme.DYMO_TAPE); EqTheme.ds(self, lf, lr.position + Vector2(5, 16.0), tx, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, EqTheme.fs(13), EqTheme.DYMO_TEXT)

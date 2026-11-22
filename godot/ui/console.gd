@@ -28,6 +28,8 @@ var _pred_level := ""          ## the last real level id seen: the predict-first
 var _coach_id := ""
 var _kind := "desktop"
 var _rack_float: PanelContainer
+var _rack_n := 0                  ## F32: tiles the rack holds, and whether any of them can still be placed (no tile to pick = no tray at all)
+var _rack_any := true
 var phase := "design"
 var qa_li := {}                   ## QA / tests: a canned levelInfo that replaces the engine's (see qa())
 var qa_runs: Array = []
@@ -98,12 +100,12 @@ func layout() -> void:
 	var phone := _kind == "phone"; var hand := _kind == "handheld"
 	var tap := maxf(CbLayout.tap(), 44.0)
 	gear.custom_minimum_size = Vector2(tap, tap); gear.offset_left = -tap - 10.0; gear.offset_top = 10.0; gear.offset_right = -10.0; gear.offset_bottom = 10.0 + tap
-	var row_h := 108.0 if _kind == "desktop" else 98.0
+	var row_h := 108.0 if _kind == "desktop" else (112.0 if phone else 98.0)   # F32: a phone intercom holds three 16 px lines
 	top_row.custom_minimum_size.y = row_h
-	intercom.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (330.0 if hand else 360.0), row_h)
+	intercom.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (290.0 if hand else 360.0), row_h)
 	intercom.set_max_lines(3 if (_kind == "desktop" or phone) else 2)   # a phone shows three lines too; a tap opens the whole log
 	annunciator.max_windows = 4 if phone else 8
-	annunciator.custom_minimum_size = Vector2(430.0 if _kind == "desktop" else (300.0 if hand else 230.0), row_h)
+	annunciator.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (410.0 if hand else 230.0), row_h)   # F32: windows wide enough for 16 px legends
 	if phone and annunciator.wins.size() > 4: annunciator.wins = annunciator.wins.slice(0, 4)
 	recorder.custom_minimum_size = Vector2(220.0 if _kind == "desktop" else (200.0 if hand else 190.0), row_h)
 	keys.set_compact(_kind != "desktop")
@@ -118,8 +120,8 @@ func layout() -> void:
 		rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 		rack_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_rack_flow(true)
-		parts_btn.visible = _on; parts_btn.custom_minimum_size = Vector2(150.0, btn_h)
-		_rack_float.visible = rack_open and _on
+		parts_btn.visible = _on and _rack_any; parts_btn.custom_minimum_size = Vector2(150.0, btn_h)
+		_rack_float.visible = rack_open and _on and _rack_any
 		for a in ["anchor_left", "anchor_right", "anchor_top", "anchor_bottom"]: _rack_float.set(a, 0.0 if a.begins_with("anchor_l") or a.begins_with("anchor_r") else 1.0)
 		var bt := -(row_h + 22.0 + btn_h + 6.0)
 		_rack_float.offset_left = 12.0; _rack_float.offset_right = 12.0 + dw; _rack_float.offset_bottom = bt; _rack_float.offset_top = bt - dh
@@ -128,12 +130,14 @@ func layout() -> void:
 		parts_btn.offset_left = 12.0; parts_btn.offset_right = 12.0 + 150.0; parts_btn.offset_bottom = -(row_h + 22.0); parts_btn.offset_top = -(row_h + 22.0 + btn_h)
 		parts_btn.text = EqStrings.T("PARTS_TAB") + (" ▾" if rack_open else " ▴")
 	else:
-		if rack_wrap.get_parent() != _vbox: rack_wrap.reparent(_vbox, false)
-		rack_wrap.custom_minimum_size = Vector2(0, 88.0 if _kind == "desktop" else 76.0)
-		rack_wrap.size_flags_horizontal = Control.SIZE_FILL; rack_wrap.size_flags_vertical = Control.SIZE_FILL; rack_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# F32: the tray is a small dock that hugs its tiles and floats at the bottom left of the plant, just above the console (a pre-built level with nothing to place has none),
+		# so the console is only the instrument row and the plant gets the rest of the window
+		if rack_wrap.get_parent() != self: rack_wrap.reparent(self, false)
+		rack_wrap.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; rack_wrap.size_flags_vertical = Control.SIZE_SHRINK_END; rack_wrap.mouse_filter = Control.MOUSE_FILTER_PASS
 		rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		_rack_flow(false)
-		rack_wrap.visible = true; parts_btn.visible = false; _rack_float.visible = false
+		parts_btn.visible = false; _rack_float.visible = false
+		_place_dock()
 	panel.offset_top = 0; panel.offset_bottom = 0; panel.offset_left = 0; panel.offset_right = 0
 	hud_top_left.offset_left = 12.0; hud_top_left.offset_top = 10.0
 	hud_top_left.size = Vector2(minf(420.0, vw - tap - 40.0), tap)
@@ -152,7 +156,33 @@ func close_rack() -> void:
 	if rack_open: rack_open = false; layout()
 
 func _notify_height() -> void:
-	if app != null and app.world != null and app.world.has_method("set_cover_bottom"): app.world.call("set_cover_bottom", console_height())
+	_place_dock()
+	if app != null and app.world != null and app.world.has_method("set_cover_bottom"): app.world.call("set_cover_bottom", console_height() + dock_cover())
+
+## The rack dock (desktop, handheld): as wide as its tiles (at most the window), standing on the console's top edge at the left; hidden when no tile can be picked.
+func _place_dock() -> void:
+	if rack_wrap == null or CbLayout.phone or rack_wrap.get_parent() != self: return
+	var vw := app.vw() if app != null else 1920.0
+	var w := minf(vw - 24.0, float(_rack_n) * (PartsRack.TILE.x + 6.0) + 18.0)
+	var h := PartsRack.TILE.y + 22.0
+	rack_wrap.visible = _on and _rack_any and _rack_n > 0
+	rack_wrap.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	rack_wrap.custom_minimum_size = Vector2(w, h)
+	rack_wrap.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var top := panel.size.y if panel != null and _on else 0.0
+	rack_wrap.offset_left = 12.0; rack_wrap.offset_right = 12.0 + w; rack_wrap.offset_bottom = -(top + 8.0); rack_wrap.offset_top = -(top + 8.0) - h
+
+## A wide dock (a long rack on a small window) would sit on the plant's lower edge: the camera frames above it too. A short dock only overlaps empty ground at the corner.
+func dock_cover() -> float:
+	if rack_wrap == null or not rack_wrap.visible or rack_wrap.get_parent() != self: return 0.0
+	var vw := app.vw() if app != null else 1920.0
+	return rack_wrap.custom_minimum_size.y + 8.0 if rack_wrap.custom_minimum_size.x > vw * 0.42 else 0.0
+
+## The parts rack reports what it holds (PartsRack.refresh): `any` is false when every allowed part is already on the sheet.
+func set_rack_state(n: int, any: bool) -> void:
+	if n == _rack_n and any == _rack_any: return
+	_rack_n = n; _rack_any = any
+	layout()
 
 ## Pixels the console covers at the bottom (the world may centre itself above them).
 func console_height() -> float: return panel.size.y if panel != null and _on else 0.0
@@ -192,7 +222,9 @@ func refresh() -> void:
 		if app.bay != null: app.bay.reset()
 		if app.lvbay != null: app.lvbay.reset()
 	_gl = str(app.b.g.get("level", ""))
+	var was_phase := phase
 	phase = engine_phase()
+	if was_phase == "design" and phase != "design" and app.world != null and app.world.has_method("reframe_if_untouched"): app.world.call("reframe_if_untouched")   # F32: after commission the plant is framed again
 	# a shift that is running (a level that opens mid-shift, or the key just turned) starts at 1x: nothing moves at pause and the coach seems stuck
 	var running := phase == "shift" or phase == "firstrun"
 	if running and not _shift_seen:
@@ -244,7 +276,9 @@ func level_begun() -> void:
 	if recorder != null: recorder.level_id = "<new>"   # a restarted level starts a clean paper
 var _gl := ""
 ## A level change that did not come with an engine `changed` signal still wipes the intercom (no stale coach line from the last job).
+var _dock_h := -1.0
 func _process(_dt: float) -> void:
+	if panel != null and absf(panel.size.y - _dock_h) > 0.5: _dock_h = panel.size.y; _place_dock(); _notify_height()   # the console's height moved (a legend wrapped, a layout class changed): the dock and the camera follow
 	if _on and app != null and app.started and app.b != null and str(app.b.g.get("level", "")) != _gl: refresh()
 	elif _transient_at > 0 and _on and app != null and app.started and app.b != null and Time.get_ticks_msec() - _transient_at > 2500: settle_intercom()
 

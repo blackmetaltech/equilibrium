@@ -35,7 +35,7 @@ func set_speed_note(t: String) -> void:
 	if speed.note != t: speed.note = t; speed.queue_redraw()
 func set_next(i: int, text: String) -> void:
 	if key.next != i or key.next_text != text: key.next = i; key.next_text = text; key.queue_redraw()
-func set_compact(c: bool) -> void: key.custom_minimum_size = Vector2(230, 76) if c else Vector2(250, 96); speed.custom_minimum_size = Vector2(100, 76) if c else Vector2(124, 96); key.compact = c; speed.compact = c; key.queue_redraw(); speed.queue_redraw()
+func set_compact(c: bool) -> void: key.custom_minimum_size = Vector2(220, 76) if c else Vector2(290, 96); speed.custom_minimum_size = Vector2(100, 76) if c else Vector2(124, 96); key.compact = c; speed.compact = c; key.queue_redraw(); speed.queue_redraw()
 
 ## The chunky key.
 class KeyDial extends Control:
@@ -48,7 +48,7 @@ class KeyDial extends Control:
 	var next_text := ""
 	const DEG := PI / 3.0
 	func _init() -> void:
-		custom_minimum_size = Vector2(250, 96); mouse_filter = Control.MOUSE_FILTER_STOP; focus_mode = CbKit.focus_mode()
+		custom_minimum_size = Vector2(290, 96); mouse_filter = Control.MOUSE_FILTER_STOP; focus_mode = CbKit.focus_mode()
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		focus_entered.connect(queue_redraw); focus_exited.connect(queue_redraw)
 	func target_angle() -> float: return (pos - 1) * DEG
@@ -86,12 +86,14 @@ class KeyDial extends Control:
 				draw_arc(lp, 9.0 + 2.0 * sin(Time.get_ticks_msec() * 0.008), 0, TAU, 20, Color(EqTheme.AMBER, 0.55 + 0.4 * sin(Time.get_ticks_msec() * 0.008)), 2.5); queue_redraw()
 			var col := EqTheme.TEXT if on else EqTheme.DIM
 			var tw := f.get_string_size(names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
-			if i == 0: draw_string(f, Vector2(lp.x - 10.0 - tw, lp.y + sz * 0.35 + 4.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
-			elif i == 1: draw_string(f, Vector2(lp.x - tw * 0.5, lp.y - 9.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
-			else: draw_string(f, Vector2(lp.x + 10.0, lp.y + sz * 0.35 + 4.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
-		if next_text != "":   # the caption under the right-hand labels: what one more turn does
-			draw_string(f, Vector2(c.x + 34.0, size.y - 22.0), EqStrings.T("KH_TURN") if EqStrings.T("KH_TURN") != "KH_TURN" else PaperStrings.t("KH_TURN"), HORIZONTAL_ALIGNMENT_LEFT, size.x - c.x - 36.0, EqTheme.fs(11), EqTheme.DIM)
-			draw_string(f, Vector2(c.x + 34.0, size.y - 8.0), next_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - c.x - 36.0, EqTheme.fs(12), EqTheme.AMBER)
+			if i == 0: EqTheme.ds(self, f, Vector2(lp.x - 10.0 - tw, lp.y + sz * 0.35 + 4.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
+			elif i == 1: EqTheme.ds(self, f, Vector2(lp.x - tw * 0.5, lp.y - 9.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
+			else: EqTheme.ds(self, f, Vector2(lp.x + 10.0, lp.y + sz * 0.35 + 4.0), names[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
+		if next_text != "":   # the caption under the right-hand labels: what one more turn does (16 px; the condensed caps when the words are wider than the room beside the key)
+			var cx := c.x + 32.0; var cw := size.x - cx - 2.0
+			var tk: String = EqStrings.T("KH_TURN") if EqStrings.T("KH_TURN") != "KH_TURN" else PaperStrings.t("KH_TURN")
+			EqTheme.ds(self, f, Vector2(cx, size.y - 20.0), tk, HORIZONTAL_ALIGNMENT_LEFT, cw, sz, EqTheme.DIM)
+			EqTheme.ds(self, f, Vector2(cx, size.y - 3.0), next_text, HORIZONTAL_ALIGNMENT_LEFT, cw, sz, EqTheme.AMBER)
 		# escutcheon plate and the key
 		draw_circle(c, 29.0, Color("#0B1413")); draw_circle(c, 27.0, EqTheme.ENAMEL_HI); draw_circle(c, 23.0, Color("#1A2B28"))
 		draw_set_transform(c, angle, Vector2.ONE)
@@ -152,13 +154,13 @@ class SpeedDial extends Control:
 			var tc := (EqTheme.TEXT if on else EqTheme.DIM) * Color(1, 1, 1, dim)
 			if i == 0:   # the pause bars are drawn: no font has the glyph everywhere
 				draw_rect(Rect2(tp.x - 5.0, tp.y - 6.0, 3.5, 12.0), tc); draw_rect(Rect2(tp.x + 1.5, tp.y - 6.0, 3.5, 12.0), tc)
-			else: draw_string(f, Vector2(tp.x - tw * 0.5, tp.y + 4.0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, tc)
+			else: EqTheme.ds(self, f, Vector2(tp.x - tw * 0.5, tp.y + 4.0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, tc)
 		draw_circle(c, 20.0, Color("#0B1413")); draw_circle(c, 18.0, EqTheme.BAKELITE)
 		draw_circle(c, 18.0, Color(1, 1, 1, 0.1), false, 1.5)
 		draw_set_transform(c, angle, Vector2.ONE)
 		draw_rect(Rect2(-2.5, -17, 5, 12), EqTheme.TEAL * Color(1, 1, 1, dim))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		if note != "": draw_string(f, Vector2(0, size.y - 3.0), note, HORIZONTAL_ALIGNMENT_CENTER, size.x, EqTheme.fs(10), EqTheme.AMBER)
+		if note != "": EqTheme.ds(self, f, Vector2(0, size.y - 3.0), note, HORIZONTAL_ALIGNMENT_CENTER, size.x, EqTheme.fs(10), EqTheme.AMBER)
 		if has_focus(): draw_rect(Rect2(Vector2.ZERO, size), EqTheme.TEAL, false, 2.0)
 
 ## The coach points at the key (pulse until the step is done).

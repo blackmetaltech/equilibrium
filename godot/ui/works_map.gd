@@ -467,12 +467,12 @@ class SiteCard extends PanelContainer:
 		var done := C.ch_done(chapter) if chapter > 0 else C.starred("L00")
 		var opened := C.ch_open(chapter)
 		state = "done" if done else ("open" if opened else "locked")
-		var sb := EqTheme.enamel_sb(8, 10.0 if compact else 14.0)
+		var sb := EqTheme.enamel_sb(8, (6.0 if CbLayout.phone else 10.0) if compact else 14.0)   # F32: 16 px text made the cards taller; a phone gives the room back in padding
 		if state == "locked": sb.bg_color = EqTheme.ENAMEL.darkened(0.35)
 		elif state == "done": sb.border_color = EqTheme.TEAL.darkened(0.2)
 		add_theme_stylebox_override("panel", sb)
 		mouse_filter = Control.MOUSE_FILTER_PASS
-		var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 6); add_child(v)
+		var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 3 if CbLayout.phone else 6); add_child(v)
 		var top: BoxContainer = HBoxContainer.new() if narrow else VBoxContainer.new()
 		top.add_theme_constant_override("separation", 10 if narrow else 4); top.mouse_filter = Control.MOUSE_FILTER_IGNORE; v.add_child(top)
 		glyph = Glyph.new(); glyph.clip_contents = true; glyph.kind = str(ch[3]); glyph.state = state; glyph.custom_minimum_size = Vector2(100 if (narrow or compact) else 160, 76 if compact else 92)
@@ -488,7 +488,7 @@ class SiteCard extends PanelContainer:
 		if not opened:
 			var p: int = int(WorksMap.PREREQ[chapter])
 			var rl := EqTheme.label(WorksMap.T("MAP_LOCK_CH") % [p, C.chapter_name(p)], 13, EqTheme.DIM, "sans"); rl.name = "Rule"; rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.custom_minimum_size = Vector2(40, 0); tv.add_child(rl)
-		var fl := HFlowContainer.new(); fl.name = "Nodes"; fl.add_theme_constant_override("h_separation", 6); fl.add_theme_constant_override("v_separation", 4); fl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; v.add_child(fl)
+		var fl := HFlowContainer.new(); fl.name = "Nodes"; fl.add_theme_constant_override("h_separation", 6); fl.add_theme_constant_override("v_separation", 2 if CbLayout.phone else 4); fl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; v.add_child(fl)
 		for id in crit: fl.add_child(_node(id, false))
 		var brs := C.chapter_ids(chapter, true)
 		if not brs.is_empty():
@@ -503,7 +503,7 @@ class SiteCard extends PanelContainer:
 		nb.text = "%s · %s" % [WorksMap.number(id), str(lv.get("title", id)).to_upper()]
 		nb.tooltip_text = nb.text + ("\n" + WorksMap.T("MAP_BRIDGE") if bridge else "") + ("\n" + C.lock_reason(id) if nb.state == "locked" else "")
 		var tap := maxf(CbLayout.tap(), 46.0)
-		nb.custom_minimum_size = Vector2(tap, tap + 16.0)
+		nb.custom_minimum_size = Vector2(tap, tap + (13.0 if CbLayout.phone else 16.0))
 		nb.pressed.connect(func(): if not view.swiping(): view.pressed(id))   # a swipe that began on a lamp scrolls the map: it is never a tap
 		nb.focus_entered.connect(func(): view.select(id))
 		nb.mouse_entered.connect(func(): if not (CbLayout.touch or WorksMap._touch_override): view.select(id))
@@ -552,7 +552,7 @@ class NodeBtn extends Button:
 			var bd := Rect2(c + Vector2(-r * 0.32, -r * 0.05), Vector2(r * 0.64, r * 0.5))
 			draw_rect(bd, Color(EqTheme.DIM, 0.8)); draw_arc(c + Vector2(0, -r * 0.05), r * 0.24, PI, TAU, 10, Color(EqTheme.DIM, 0.8), 2.5)
 		else:
-			draw_string(f, Vector2(c.x - tw * 0.5, c.y + sz * 0.34), num, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, ink)
+			EqTheme.ds(self, f, Vector2(c.x - tw * 0.5, c.y + sz * 0.34), num, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, ink)
 		if bridge:   # the book: two pages on a spine, at the top-right corner
 			var bp := c + Vector2(r * 0.62, -r * 0.78)
 			draw_circle(bp, 9.0, Color("#0B1413"))

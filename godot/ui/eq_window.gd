@@ -43,11 +43,11 @@ func _draw_body() -> void:
 	for k in nx + 1:
 		var gx := pl.position.x + pl.size.x * float(k) / float(nx)
 		draw_line(Vector2(gx, pl.position.y), Vector2(gx, pl.end.y), Color("#B9CBC4", 0.9 if k % 2 == 0 else 0.5), 1.0)
-		draw_string(mono, Vector2(gx - 24.0, size.y - 3.0), "%.0f" % lerpf(xr.x, xr.y, float(k) / float(nx)), HORIZONTAL_ALIGNMENT_CENTER, 48.0, fsz, EqTheme.INK)
+		EqTheme.ds(self, mono, Vector2(gx - 24.0, size.y - 3.0), "%.0f" % lerpf(xr.x, xr.y, float(k) / float(nx)), HORIZONTAL_ALIGNMENT_CENTER, 48.0, fsz, EqTheme.INK)
 	for k in 5:
 		var gy := pl.end.y - pl.size.y * float(k) / 4.0
 		draw_line(Vector2(pl.position.x, gy), Vector2(pl.end.x, gy), Color("#B9CBC4", 0.9 if k % 2 == 0 else 0.5), 1.0)
-		draw_string(mono, Vector2(1.0, gy + 4.0), "%.0f" % (25.0 * k), HORIZONTAL_ALIGNMENT_RIGHT, gl - 5.0, fsz, EqTheme.INK)
+		EqTheme.ds(self, mono, Vector2(1.0, gy + 4.0), "%.0f" % (25.0 * k), HORIZONTAL_ALIGNMENT_RIGHT, gl - 5.0, fsz, EqTheme.INK)
 	var px := func(tk: float) -> float: return pl.position.x + (kelvin_c(tk) - xr.x) / maxf(xr.y - xr.x, 1e-6) * pl.size.x
 	var py := func(x: float) -> float: return pl.end.y - clampf(x, 0.0, 1.0) * pl.size.y
 	# light-off (asleep) and sinter bands
@@ -116,6 +116,6 @@ func _draw_beam(r: Rect2) -> void:
 		draw_line(p0, pan_c + Vector2(-13, 0), Color("#6B5316"), 1.0); draw_line(p0, pan_c + Vector2(13, 0), Color("#6B5316"), 1.0)
 		draw_rect(Rect2(pan_c + Vector2(-14, 0), Vector2(28, 5)), brass)
 		draw_circle(pan_c + Vector2(0, -5), 5.0, side[1])
-		draw_string(EqTheme.font("mono_bold"), pan_c + Vector2(-5, 17), side[2], HORIZONTAL_ALIGNMENT_CENTER, 10.0, EqTheme.fs(10), EqTheme.INK)
+		EqTheme.ds(self, EqTheme.font("mono_bold"), pan_c + Vector2(-5, 17), side[2], HORIZONTAL_ALIGNMENT_CENTER, 10.0, EqTheme.fs(10), EqTheme.INK)
 	var txt := T_("INS_BEAM_LEVEL") if lvl else (T_("INS_QK_HI") if _beam > 0.0 else T_("INS_QK_LO"))
 	tape(Vector2(r.position.x + 4.0, r.end.y - 18.0), "%s  %s" % [T_("INS_BEAM"), txt] if r.size.x > 120.0 else txt, EqTheme.TEAL if lvl else EqTheme.AMBER, r.size.x - 8.0, 10)

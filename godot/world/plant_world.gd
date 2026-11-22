@@ -177,7 +177,7 @@ func _feed_species(g: Dictionary) -> void:
 		if lb == null:
 			lb = Label3D.new(); lb.name = "SpeciesTag"; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true
 			lb.pixel_size = 0.0011; lb.font_size = 34; lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.9); lb.font = EqTheme.font("semi"); lb.render_priority = 6; lb.outline_render_priority = 5
-			lb.position = Vector3(0, m.height + 1.0, 0); m.add_child(lb)
+			lb.position = Vector3(0, m.height + 1.0, 0); Tag3D.setup(lb); m.add_child(lb)
 		lb.text = "%s · %s" % [id, txt]
 		lb.modulate = Color(str(cols[col_i])).lightened(0.35) if col_i >= 0 and col_i < cols.size() else Color("#FFD27A")
 		if col_i < 0: m.set_display({"color": Color("#E9C46A")})
@@ -247,7 +247,7 @@ func show_ports(list: Array) -> void:
 		if cap != "":   # tiny caps beside the pip: V / L / OUT / IN, staggered in height per port so neighbours never overprint
 			var lb := Label3D.new(); lb.text = cap; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true; lb.pixel_size = 0.0011; lb.font_size = 40
 			lb.outline_size = 12; lb.outline_modulate = Color(0, 0, 0, 0.85); lb.modulate = Color("#F4F1DE"); lb.render_priority = 6; lb.outline_render_priority = 5
-			lb.font = EqTheme.font("semi"); lb.position = Vector3(0, r * 2.2 + 0.2 + 0.75 * float(ix % 3), 0); mi.add_child(lb)
+			lb.font = EqTheme.font("semi"); lb.position = Vector3(0, r * 2.2 + 0.2 + 0.75 * float(ix % 3), 0); Tag3D.setup(lb); mi.add_child(lb)
 			if int(total.get(str(it.unit), 0)) > 4: lb.visible = false; _caps.append([lb, mi])   # crowded unit: a caption shows when the cursor is near its pip
 
 var _caps: Array = []
@@ -536,7 +536,7 @@ func fit_view() -> void:
 	var pts: Array = []
 	for id in _units:
 		var st: Array = _unit_state[id]
-		pts.append([Vector2i(int(st[1]), int(st[2])), footprint_of(st[0], st[3])])
+		pts.append([Vector2i(int(st[1]), int(st[2])), footprint_of(st[0], st[3]), (_units[id] as UnitModel).height * (_units[id] as UnitModel).scale.y])
 	if _units.size() < 3 and _big_build(): pts.append([Vector2i.ZERO, Vector2i(NX, NZ)])   # a big build starts nearly empty: frame the whole fenced plot, not the lone feed (L25 opened zoomed on its feed)
 	_fit_boxes(pts, _units.size() < 3)
 
@@ -550,32 +550,45 @@ func _big_build() -> bool:
 	for a in li.get("allowedUnits", []): n += int(a.get("max", 0)) if a.get("max") != null else 0
 	return n >= 6
 
-## Frame tile boxes [[tile, footprint]]: every unit fully inside the space above the console, whatever the yaw (a pre-placed bank is never cropped).
+## Frame tile boxes [[tile, footprint, height?]]: F32 (0.9): the camera frames the equipment's bounding box (ground footprint and standing height, projected through the
+## camera's own yaw and pitch) so it fills about 90 % of the space above the console and left of any board, centred in it. A lone feed keeps some plot around it.
+const FIT_FILL := 0.9
 func _fit_boxes(boxes: Array, keep_plot := false) -> void:
-	var lo := Vector3(1e9, 0, 1e9); var hi := Vector3(-1e9, 0, -1e9)
+	var yaw := deg_to_rad(cam_rig._yaw_to)
+	var bs := Basis.from_euler(Vector3(-deg_to_rad(PITCH), yaw, 0.0))
+	var right := bs.x; var up := bs.y
+	var lo := Vector2(1e9, 1e9); var hi := Vector2(-1e9, -1e9)
 	for bx in boxes:
 		var c0 := tile_to_world(bx[0], bx[1]); var half := Vector3(bx[1].x * GRID * 0.5, 0, bx[1].y * GRID * 0.5)
-		lo.x = minf(lo.x, c0.x - half.x); lo.z = minf(lo.z, c0.z - half.z); hi.x = maxf(hi.x, c0.x + half.x); hi.z = maxf(hi.z, c0.z + half.z)
-	var c := (lo + hi) * 0.5
-	if keep_plot: c = c.lerp(Vector3.ZERO, 0.4)
-	var yaw := deg_to_rad(cam_rig._yaw_to)
-	var right := Vector3.RIGHT.rotated(Vector3.UP, yaw); var fwd := Vector3.FORWARD.rotated(Vector3.UP, yaw)
-	var hx := 0.0; var hy := 0.0
-	for x in [lo.x, hi.x]:
-		for z in [lo.z, hi.z]:
-			var d := Vector3(x, 0, z) - c
-			hx = maxf(hx, absf(d.dot(right))); hy = maxf(hy, absf(d.dot(fwd)) * sin(deg_to_rad(PITCH)))
+		var top: float = float(bx[2]) if bx.size() > 2 else 4.0
+		top += 1.6   # the name tag stands above the model
+		for x in [-half.x, half.x]:
+			for z in [-half.z, half.z]:
+				for y in [0.0, top]:
+					var p := c0 + Vector3(x, y, z)
+					var q := Vector2(p.dot(right), p.dot(up))
+					lo = Vector2(minf(lo.x, q.x), minf(lo.y, q.y)); hi = Vector2(maxf(hi.x, q.x), maxf(hi.y, q.y))
+	var cc := (lo + hi) * 0.5
+	if keep_plot: cc = cc.lerp(Vector2.ZERO, 0.4)
+	# the ground point whose projection is the box centre: pan . right = cc.x, pan . up = cc.y with pan.y = 0
+	var det := right.x * up.z - right.z * up.x
+	var pan := Vector3.ZERO
+	if absf(det) > 1e-4: pan = Vector3((cc.x * up.z - right.z * cc.y) / det, 0.0, (right.x * cc.y - cc.x * up.x) / det)
 	var vr := get_viewport().get_visible_rect().size
-	var frac := clampf((vr.y - cover_bottom) / maxf(vr.y, 1.0), 0.4, 1.0)
-	var need_h := 2.0 * (hy + 4.0) / frac + 4.0          # +4 m: models stand up above their footprint
-	var need_w := 2.0 * (hx + 3.0) * (vr.y / maxf(vr.x - board_cover, 1.0)) + 4.0
-	cam_rig.look_at_ground(c)
-	cam_rig.set_size(clampf(maxf(maxf(need_h, need_w), 34.0), PlantCamera.ZMIN, PlantCamera.ZMAX))
+	var free_w := maxf(vr.x - board_cover - cover_left * 0.0, 1.0) / maxf(vr.y, 1.0)
+	var free_h := clampf((vr.y - cover_bottom) / maxf(vr.y, 1.0), 0.4, 1.0)
+	var need_w := (hi.x - lo.x) / (FIT_FILL * free_w)
+	var need_h := (hi.y - lo.y) / (FIT_FILL * free_h)
+	cam_rig.look_at_ground(pan)
+	cam_rig.set_size(clampf(maxf(maxf(need_h, need_w), 35.0), PlantCamera.ZMIN, PlantCamera.ZMAX))
 	_note_fit()
 
 var _fit_pan := Vector3.ZERO
 var _fit_size := 0.0
 func _note_fit() -> void: _fit_pan = cam_rig._pan_to; _fit_size = cam_rig._size_to
+## After a commission the plant is framed again unless the player has moved the camera since the last frame.
+func reframe_if_untouched() -> void:
+	if _cam_untouched() and not (_units.is_empty() and _deco_level == ""): fit_view()
 func _cam_untouched() -> bool: return cam_rig._pan_to.is_equal_approx(_fit_pan) and absf(cam_rig._size_to - _fit_size) < 0.01
 
 const HX_CAPS := {"hot_in": "HOT IN", "hot_out": "HOT OUT", "cold_in": "COLD IN", "cold_out": "COLD OUT"}
@@ -588,7 +601,7 @@ func _label_hx_ports(m: UnitModel) -> void:
 		lb.render_priority = 6; lb.outline_render_priority = 5
 		var pdir: Vector3 = (m.ports[pn] as Marker3D).get_meta("dir", Vector3.ZERO)
 		var hot := str(pn).begins_with("hot")   # hot tags ride high, cold tags low, pushed outward along the nozzle: no two tags overlap
-		lb.position = (m.ports[pn] as Marker3D).position + pdir * 0.9 + Vector3(0, 1.9 if hot else 0.7, 0); m.add_child(lb)
+		lb.position = (m.ports[pn] as Marker3D).position + pdir * 0.9 + Vector3(0, 1.9 if hot else 0.7, 0); Tag3D.setup(lb); m.add_child(lb)
 
 func set_display(id: String, d: Dictionary) -> void:
 	if _units.has(id): (_units[id] as UnitModel).set_display(d)
@@ -746,7 +759,7 @@ func _is_named_big(type: String) -> bool:
 func _tag_small(m: UnitModel, id: String, type: String) -> void:
 	var lb := Label3D.new(); lb.name = "SmallTag"; lb.text = "%s %s" % [type.replace("_", " ").to_upper(), id]; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true
 	lb.pixel_size = 0.0010; lb.font_size = 32; lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.9); lb.modulate = Color("#FFD27A"); lb.font = EqTheme.font("semi")
-	lb.render_priority = 6; lb.outline_render_priority = 5; lb.position = Vector3(0, m.height + 1.0, 0); m.add_child(lb)
+	lb.render_priority = 6; lb.outline_render_priority = 5; lb.position = Vector3(0, m.height + 1.0, 0); Tag3D.setup(lb); m.add_child(lb)
 
 ## The unit under a screen point. A tall model (stack, converter) would otherwise hide its neighbours behind its whole height: a unit whose body (the lowest
 ## PICK_LOW metres) is hit wins over one that is only hit high up, then the nearest entry wins.
@@ -987,6 +1000,7 @@ func _pulse_hot(snap: int) -> void:
 		n.scale = Vector3.ONE * far * (beat if i != snap else 1.9)
 
 func _process(dt: float) -> void:
+	Tag3D.refit(get_tree(), get_viewport())
 	_coach_tick(); _tick_ghost(); _hover_caps()
 	if _btn_layer != null:
 		var show_btn: bool = (CbLayout.touch or OS.get_environment("CB_CAM_BUTTONS") != "") and input_ok() and not title_mode and app.started

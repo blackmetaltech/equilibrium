@@ -87,8 +87,8 @@ class PvBar extends Control:
 			draw_line(Vector2(x0 - 6.0, y), Vector2(x0 + w + 2.0, y), EqTheme.RED, 2.0, true)
 			draw_colored_polygon(PackedVector2Array([Vector2(x0 - 10.0, y - 5.0), Vector2(x0 - 10.0, y + 5.0), Vector2(x0 - 2.0, y)]), EqTheme.RED)
 		var f2 := EqTheme.font("dymo"); var s := EqTheme.fs(12)
-		draw_string(f2, Vector2(2, 12), "PV", HORIZONTAL_ALIGNMENT_LEFT, -1, s, EqTheme.INK)
-		draw_string(f2, Vector2(2, size.y - 4.0), sp_label, HORIZONTAL_ALIGNMENT_LEFT, -1, s, EqTheme.RED)
+		EqTheme.ds(self, f2, Vector2(2, 12), "PV", HORIZONTAL_ALIGNMENT_LEFT, -1, s, EqTheme.INK)
+		EqTheme.ds(self, f2, Vector2(2, size.y - 4.0), sp_label, HORIZONTAL_ALIGNMENT_LEFT, -1, s, EqTheme.RED)
 
 # ---- opening / attaching -----------------------------------------------------------------------------------------------------
 static func open(app, id: String) -> Faceplate:
@@ -273,7 +273,7 @@ func _rebuild() -> void:
 		_warn = EqTheme.label("", 15, Color("#FFFFFF"), "semi"); _warn.name = "Warn"; _warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _warn.custom_minimum_size = Vector2(210, 44)
 		_warn.max_lines_visible = 2; _warn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		var wp := PanelContainer.new(); wp.name = "WarnBox"; var wsb := StyleBoxFlat.new(); wsb.bg_color = Color("#C4262F"); wsb.set_corner_radius_all(3); wsb.set_content_margin_all(4); wp.add_theme_stylebox_override("panel", wsb); wp.add_child(_warn); _body.add_child(wp); _warn.set_meta("box", wp)
-	_need = EqTheme.label("", 14, EqTheme.RED, "semi"); _need.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _need.custom_minimum_size = Vector2(210, 38); _need.max_lines_visible = 2; _need.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; _body.add_child(_need)
+	_need = EqTheme.label("", 14, EqTheme.RED, "semi"); _need.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _need.custom_minimum_size = Vector2(210, 46); _need.max_lines_visible = 2; _need.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; _body.add_child(_need)
 	var bt := HBoxContainer.new(); bt.add_theme_constant_override("separation", 4); (_outer if _outer != null else _body).add_child(bt); _foot = bt   # phone: Why? / Lens / Window stay pinned under the scrolling body
 	_why = _btn(PaperStrings.t("FP_WHY"), _on_why); _lens = _btn(PaperStrings.t("FP_LENS"), func(): _open_extra("open_lens")); _win = _btn(PaperStrings.t("FP_WINDOW"), func(): _open_extra("open_window"))
 	for b in [_why, _lens, _win]: bt.add_child(b)

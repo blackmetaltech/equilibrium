@@ -34,8 +34,8 @@ func pick_place(id: String) -> void: emit_act("setPlace", [id])
 func _build() -> void:
 	var ch: Dictionary = view.get("choice", {}); var op: Dictionary = view.get("op", {}); var sc: Dictionary = view.get("scene", {})
 	body.add_child(head("PUMP HOUSE · CONDENSATE RETURN", "%s m³/h · %d °C" % [fnum(float(view.get("designQ", 0))), int(sc.get("tempC", 0))]))
-	var pic := Scheme.new(); pic.view = view; pic.name = "Scheme"; pic.custom_minimum_size = Vector2(300, 190 if not narrow else 160); body.add_child(pic)
-	var plot := Curves.new(); plot.view = view; plot.name = "Curves"; plot.custom_minimum_size = Vector2(300, 230 if not narrow else 190); body.add_child(plot)
+	var pic := Scheme.new(); pic.view = view; pic.name = "Scheme"; pic.custom_minimum_size = Vector2(300, 250 if not narrow else 220); body.add_child(pic)
+	var plot := Curves.new(); plot.view = view; plot.name = "Curves"; plot.custom_minimum_size = Vector2(300, 270 if not narrow else 230); body.add_child(plot)
 	body.add_child(_readouts(op))
 	body.add_child(_pipe_row("SUCTION", "suction", str(ch.get("suction", "")), float(view.get("guide", {}).get("vsHi", 1.5)), 0.0))
 	body.add_child(_pipe_row("DISCHARGE", "discharge", str(ch.get("discharge", "")), float(view.get("guide", {}).get("vdHi", 3.0)), float(view.get("guide", {}).get("vdLo", 1.0))))
@@ -115,8 +115,8 @@ class Scheme extends Control:
 	func _draw() -> void:
 		var sc: Dictionary = view.get("scene", {}); var ch: Dictionary = view.get("choice", {}); var op: Dictionary = view.get("op", {}); var g: Dictionary = view.get("guide", {})
 		var w := size.x; var h := size.y; var f := EqTheme.font("mono"); var fb := EqTheme.font("mono_bold"); var fs := EqTheme.fs(11)
-		var gy := h - 18.0                    # grade
-		var deck := 26.0                      # the boiler-house deck, dz up
+		var gy := h - 26.0                    # grade (room under it for the 16 px length labels)
+		var deck := 46.0                      # the boiler-house deck, dz up (room above it for the drum's pressure label)
 		var mpp := (gy - deck) / maxf(float(sc.get("dz", 14.0)), 1.0)
 		draw_rect(Rect2(0, gy, w, h - gy), Color("#B9B29E")); draw_line(Vector2(0, gy), Vector2(w, gy), Color("#6E6A5C"), 2.0)
 		# boiler house and deck (right)
@@ -126,15 +126,15 @@ class Scheme extends Control:
 		# deaerator drum on the deck
 		var dc := Vector2(w * 0.83, deck - 15.0)
 		draw_rect(Rect2(dc.x - 40.0, dc.y - 11.0, 80.0, 22.0), Color("#9AA4A8")); draw_circle(dc + Vector2(-40, 0), 11.0, Color("#9AA4A8")); draw_circle(dc + Vector2(40, 0), 11.0, Color("#9AA4A8"))
-		draw_string(fb, dc + Vector2(-30, 4), "D-302", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
-		draw_string(f, dc + Vector2(-44, -15), "%s bar g" % Ch9Board.fnum(float(sc.get("pDeaBarg", 0.0)), 2), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
+		EqTheme.ds(self, fb, dc + Vector2(-30, 4), "D-302", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
+		EqTheme.ds(self, f, dc + Vector2(-44, -17), "%s bar g" % Ch9Board.fnum(float(sc.get("pDeaBarg", 0.0)), 2), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
 		# collecting tank at grade (left), vented, with its level
 		var tx := 18.0; var tw := 64.0; var th := 58.0
 		var zs := float(sc.get("zs", 2.0)) * mpp
 		draw_rect(Rect2(tx, gy - th, tw, th), Color("#9AA4A8")); draw_rect(Rect2(tx + 3, gy - 6.0 - zs - 8.0, tw - 6, zs + 8.0), Color(HydBoard.WATER, 0.85))
 		draw_line(Vector2(tx + tw * 0.5, gy - th), Vector2(tx + tw * 0.5, gy - th - 10.0), HydBoard.STEEL, 3.0)
-		draw_string(fb, Vector2(tx + 8, gy - th + 14), "T-301", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
-		draw_string(f, Vector2(tx + 6, gy - th + 28), "90 °C", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
+		EqTheme.ds(self, fb, Vector2(tx + 8, gy - th + 17), "T-301", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
+		EqTheme.ds(self, f, Vector2(tx + 6, gy - th + 37), "90 °C", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
 		# pump: near the tank or at the foot of the boiler house
 		var far := str(ch.get("place", "near")) == "far"
 		var pc := Vector2((bx - 34.0) if far else (tx + tw + 46.0), gy - 10.0)
@@ -151,7 +151,7 @@ class Scheme extends Control:
 		draw_rect(Rect2(pc.x - 18.0, gy - 4.0, 52.0, 4.0), Color("#6E6A5C"))
 		draw_circle(pc, 11.0, Color("#2D5DA8")); draw_circle(pc, 4.0, Color("#E4E8E3"))
 		draw_rect(Rect2(pc.x + 10.0, pc.y - 7.0, 22.0, 14.0), Color("#3C4B48"))
-		draw_string(fb, pc + Vector2(-12, -18), str(ch.get("pump", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
+		EqTheme.ds(self, fb, pc + Vector2(6, -18), str(ch.get("pump", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
 		# flow arrows on the discharge and bubbles at the eye when the margin is gone
 		if bool(op.get("ok", false)) and float(op.get("q", 0.0)) > 0.0:
 			var ph := fmod(t * 0.8, 1.0)
@@ -162,15 +162,15 @@ class Scheme extends Control:
 			for i in 5:
 				var ph2 := fposmod(t * 1.3 + i * 0.2, 1.0)
 				draw_circle(pc + Vector2(-14.0 - 8.0 * i, -2.0 - 6.0 * ph2), 1.5 + 2.0 * ph2, Color(1, 1, 1, 0.9 * (1.0 - ph2)))
-			draw_string(fb, pc + Vector2(-60, 22), "CAVITATING", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, HydBoard.BADC)
+			EqTheme.ds(self, fb, pc + Vector2(12, -42), "CAVITATING", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, HydBoard.BADC)
 		# elevation ruler and lengths
 		var ex := bx - 52.0 if not far else bx * 0.5
 		draw_line(Vector2(ex, gy), Vector2(ex, deck), Color("#1E2A2E"), 1.0)
 		draw_line(Vector2(ex - 4, gy), Vector2(ex + 4, gy), Color("#1E2A2E"), 1.0); draw_line(Vector2(ex - 4, deck), Vector2(ex + 4, deck), Color("#1E2A2E"), 1.0)
-		draw_string(fb, Vector2(ex + 5, (gy + deck) * 0.5), "%s m" % Ch9Board.fnum(float(sc.get("dz", 0.0))), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
-		draw_string(f, Vector2(tx + tw + 4, gy - zs - 12.0), "+%s m" % Ch9Board.fnum(float(sc.get("zs", 0.0))), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
-		draw_string(f, Vector2((nozzle.x + pc.x) * 0.5 - 30.0, gy + 13.0), "suction %s m · %s\"" % [Ch9Board.fnum(float(sc.get("ls", 0.0))), str(ch.get("suction", ""))], HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
-		draw_string(f, Vector2(bx - 170.0 if not far else bx + 6.0, gy - 40.0), "discharge %s m · %s\"" % [Ch9Board.fnum(float(sc.get("ld", 0.0))), str(ch.get("discharge", ""))], HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
+		EqTheme.ds(self, fb, Vector2(ex + 5, (gy + deck) * 0.5), "%s m" % Ch9Board.fnum(float(sc.get("dz", 0.0))), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
+		EqTheme.ds(self, f, Vector2(tx + tw + 4, gy - zs - 12.0), "+%s m" % Ch9Board.fnum(float(sc.get("zs", 0.0))), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
+		EqTheme.ds(self, f, Vector2((nozzle.x + pc.x) * 0.5 - 30.0, gy + 19.0), "suction %s m · %s\"" % [Ch9Board.fnum(float(sc.get("ls", 0.0))), str(ch.get("suction", ""))], HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
+		EqTheme.ds(self, f, Vector2(bx - 170.0 if not far else bx + 6.0, gy - 40.0), "discharge %s m · %s\"" % [Ch9Board.fnum(float(sc.get("ld", 0.0))), str(ch.get("discharge", ""))], HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(10), Color("#1E2A2E"))
 	func _pw(nps: String) -> float: return 2.0 + 1.3 * float(nps)
 
 ## The H-Q plot: pump curve (trimmed, solid; full impeller dashed), system curve, operating point, BEP diamond, design flow and the catalogue range; an NPSH strip below.
@@ -180,7 +180,7 @@ class Curves extends Control:
 	func _draw() -> void:
 		var cv: Dictionary = view.get("curves", {}); var op: Dictionary = view.get("op", {})
 		var w := size.x; var h := size.y; var f := EqTheme.font("mono"); var fb := EqTheme.font("mono_bold"); var fs := EqTheme.fs(10)
-		var L := 40.0; var R := 10.0; var T := 8.0; var strip := 52.0; var B := 22.0
+		var L := 40.0; var R := 10.0; var T := 8.0; var strip := 52.0; var B := 26.0
 		var ph := h - T - B - strip - 8.0
 		var qTop := maxf(float(cv.get("qTop", 140.0)), 1.0)
 		var hTop := 10.0
@@ -192,11 +192,12 @@ class Curves extends Control:
 		var rg: Array = cv.get("range", [0, 0])
 		draw_rect(Rect2(X.call(float(rg[0])), T, X.call(float(rg[1])) - X.call(float(rg[0])), ph), Color(HydBoard.OKC, 0.07))
 		for i in range(0, int(hTop) + 1, 10):
-			draw_line(Vector2(L, Y.call(float(i))), Vector2(w - R, Y.call(float(i))), Color(0, 0, 0, 0.08)); draw_string(f, Vector2(4, Y.call(float(i)) + 4), "%d" % i, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
+			draw_line(Vector2(L, Y.call(float(i))), Vector2(w - R, Y.call(float(i))), Color(0, 0, 0, 0.08)); EqTheme.ds(self, f, Vector2(4, Y.call(float(i)) + 4), "%d" % i, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
 		for q in range(0, int(qTop) + 1, 20):
-			draw_line(Vector2(X.call(float(q)), T), Vector2(X.call(float(q)), T + ph), Color(0, 0, 0, 0.06)); draw_string(f, Vector2(X.call(float(q)) - 8, T + ph + 12), "%d" % q, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
-		draw_string(f, Vector2(4, T + 10), "H m", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
-		draw_string(f, Vector2(w - R - 50, T + ph + 12), "Q m³/h", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
+			draw_line(Vector2(X.call(float(q)), T), Vector2(X.call(float(q)), T + ph), Color(0, 0, 0, 0.06))
+			if X.call(float(q)) + 30.0 < w - R - 66.0: EqTheme.ds(self, f, Vector2(X.call(float(q)) - 8, T + ph + 14), "%d" % q, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)   # a tick that would sit under the axis title is left out
+		EqTheme.ds(self, f, Vector2(L + 130, T + 12), "H m", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
+		EqTheme.ds(self, f, Vector2(w - R - 66, T + ph + 14), "Q m³/h", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
 		var dq := float(view.get("designQ", 60.0))
 		for yy in range(int(T), int(T + ph), 8): draw_line(Vector2(X.call(float(dq)), yy), Vector2(X.call(float(dq)), yy + 4), Color("#E0A020"), 1.5)
 		_poly(cv.get("full", []), X, Y, Color("#2D5DA8", 0.45), 1.5, true)
@@ -204,21 +205,21 @@ class Curves extends Control:
 		_poly(cv.get("system", []), X, Y, Color("#C8793C"), 2.5, false)
 		var bp: Array = cv.get("bep", [0, 0]); var bc := Vector2(X.call(float(bp[0])), Y.call(float(bp[1])))
 		draw_colored_polygon(PackedVector2Array([bc + Vector2(0, -6), bc + Vector2(6, 0), bc + Vector2(0, 6), bc + Vector2(-6, 0)]), Color("#2D5DA8"))
-		draw_string(fb, bc + Vector2(7, -6), "BEP", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#2D5DA8"))
+		EqTheme.ds(self, fb, bc + Vector2(8, -10), "BEP", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#2D5DA8"))
 		if bool(op.get("ok", false)):
 			var oc := Vector2(X.call(float(op.q)), Y.call(float(op.h)))
 			draw_circle(oc, 7.0, Color("#1E2A2E")); draw_circle(oc, 4.0, Color("#FFB703"))
-			draw_string(fb, oc + Vector2(8, 14), "%s m³/h, %s m" % [Ch9Board.fnum(float(op.q), 1), Ch9Board.fnum(float(op.h), 1)], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
-		draw_string(fb, Vector2(L + 6, T + 12), "PUMP", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#2D5DA8"))
-		draw_string(fb, Vector2(L + 46, T + 12), "SYSTEM", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#C8793C"))
+			EqTheme.ds(self, fb, oc + Vector2(12, 30), "%s m³/h, %s m" % [Ch9Board.fnum(float(op.q), 1), Ch9Board.fnum(float(op.h), 1)], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E"))
+		EqTheme.ds(self, fb, Vector2(L + 6, T + 12), "PUMP", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#2D5DA8"))
+		EqTheme.ds(self, fb, Vector2(L + 56, T + 12), "SYSTEM", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#C8793C"))
 		# NPSH strip: available (green) against required (red), 0..12 m
-		var sy := T + ph + 18.0; var nTop := 12.0
+		var sy := T + ph + 22.0; var nTop := 12.0
 		var Yn := func(n: float) -> float: return sy + strip * (1.0 - clampf(n / nTop, 0.0, 1.0))
 		draw_rect(Rect2(L, sy, w - L - R, strip), Color("#F7F9F6"))
-		draw_string(f, Vector2(2, sy + 12), "NPSH", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
+		EqTheme.ds(self, f, Vector2(2, sy + 14), "NPSH", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
 		_poly(cv.get("npsha", []), X, Yn, HydBoard.OKC, 2.0, false)
 		_poly(cv.get("npshr", []), X, Yn, HydBoard.BADC, 2.0, false)
-		draw_string(fb, Vector2(w - R - 120, sy + 12), "avail / req'd", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
+		EqTheme.ds(self, fb, Vector2(w - R - 130, sy + 14), "avail / req'd", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ch9Board.PENCIL)
 		if bool(op.get("ok", false)): draw_line(Vector2(X.call(float(op.q)), sy), Vector2(X.call(float(op.q)), sy + strip), Color("#1E2A2E", 0.6), 1.0)
 	func _poly(pts: Array, X: Callable, Y: Callable, col: Color, wd: float, dashed: bool) -> void:
 		if pts.size() < 2: return

@@ -53,14 +53,14 @@ func _draw_body() -> void:
 		var it: Dictionary = items[i]
 		if i % 2 == 0: draw_rect(Rect2(0, y, size.x, row_h), EqTheme.GREENBAR)
 		var col := _ink(str(it.kind))
-		draw_string(mono, Vector2(5, y + row_h - 6.0), str(it.tag), HORIZONTAL_ALIGNMENT_LEFT, tag_w, fsz, EqTheme.INK)
+		EqTheme.ds(self, mono, Vector2(5, y + row_h - 6.0), str(it.tag), HORIZONTAL_ALIGNMENT_LEFT, tag_w, fsz, EqTheme.INK)
 		var w := bw * lerpf(_prev_mw(str(it.unitId)), num(it.MW), _k) / mx
 		draw_rect(Rect2(bx, y + 3.0, w, row_h - 6.0), col)
 		draw_rect(Rect2(bx, y + 3.0, w, row_h - 6.0), col.darkened(0.35), false, 1.0)
-		draw_string(mono, Vector2(size.x - val_w - 4.0, y + row_h - 6.0), "%s %s" % [_fmt(num(it.MW)), InstrPaper.T("INS_MW")], HORIZONTAL_ALIGNMENT_RIGHT, val_w, fsz, col.darkened(0.2))
+		EqTheme.ds(self, mono, Vector2(size.x - val_w - 4.0, y + row_h - 6.0), "%s %s" % [_fmt(num(it.MW)), InstrPaper.T("INS_MW")], HORIZONTAL_ALIGNMENT_RIGHT, val_w, fsz, col.darkened(0.2))
 		y += row_h
 	if more > 0:
-		draw_string(mono, Vector2(5, y + row_h - 6.0), InstrPaper.T("INS_MORE") % more, HORIZONTAL_ALIGNMENT_LEFT, size.x - 10.0, fsz, Color("#6B7C76")); y += row_h
+		EqTheme.ds(self, mono, Vector2(5, y + row_h - 6.0), InstrPaper.T("INS_MORE") % more, HORIZONTAL_ALIGNMENT_LEFT, size.x - 10.0, fsz, Color("#6B7C76")); y += row_h
 	# footer: stacked ribbon of the releases and the total
 	var fy := size.y - foot_h
 	draw_line(Vector2(0, fy), Vector2(size.x, fy), Color("#6B7C76"), 1.0)
@@ -72,9 +72,9 @@ func _draw_body() -> void:
 		var w := rw * num(it.MW) / tot
 		draw_rect(Rect2(rx, fy + 4.0, w, row_h - 5.0), _ink("release").lerp(Color("#E8A0A5"), 0.0 if int(rx) % 2 == 0 else 0.35))
 		draw_rect(Rect2(rx, fy + 4.0, w, row_h - 5.0), Color("#7A1F26"), false, 1.0)
-		if w > 40.0: draw_string(mono, Vector2(rx + 4.0, fy + row_h - 6.0), str(it.tag), HORIZONTAL_ALIGNMENT_LEFT, w - 6.0, EqTheme.fs(11), EqTheme.PORCELAIN)
+		if w > 40.0: EqTheme.ds(self, mono, Vector2(rx + 4.0, fy + row_h - 6.0), str(it.tag), HORIZONTAL_ALIGNMENT_LEFT, w - 6.0, EqTheme.fs(11), EqTheme.PORCELAIN)
 		rx += w
-	draw_string(mono, Vector2(5, fy + row_h - 6.0), _lab("release", InstrPaper.T("INS_FROM")), HORIZONTAL_ALIGNMENT_LEFT, tag_w - 2.0, EqTheme.fs(10), EqTheme.INK)
+	EqTheme.ds(self, mono, Vector2(5, fy + row_h - 6.0), _lab("release", InstrPaper.T("INS_FROM")), HORIZONTAL_ALIGNMENT_LEFT, tag_w - 2.0, EqTheme.fs(10), EqTheme.INK)
 	tape(Vector2(5.0, fy + row_h + 5.0), "%s  %s %s" % [_lab("total", InstrPaper.T("INS_RELEASED")), _fmt(tot), InstrPaper.T("INS_MW")], EqTheme.PEN_RED, size.x - 10.0, 12)
 	var ly := fy + row_h + 30.0 + float(lfs)
 	for i in extra.size():

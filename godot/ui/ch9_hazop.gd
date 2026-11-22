@@ -145,7 +145,7 @@ class Grid extends Control:
 	func _draw() -> void:
 		var ps: Array = view.get("params", []); var gs: Array = view.get("guides", [])
 		var f := EqTheme.font("mono"); var fb := EqTheme.font("mono_bold")
-		for j in gs.size(): draw_string(fb, Vector2(HW + j * _cw() + 4, 20), str(gs[j].label).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, _cw() - 6, EqTheme.fs(12), Ch9Board.PENCIL)
+		for j in gs.size(): EqTheme.ds(self, fb, Vector2(HW + j * _cw() + 4, 20), str(gs[j].label).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, _cw() - 6, EqTheme.fs(12), Ch9Board.PENCIL)
 		for i in ps.size():
 			draw_multiline_string(fb, Vector2(2, TOPH + i * CH + 14), str(ps[i].label).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, HW - 6, EqTheme.fs(10), 2, Ch9Board.PENCIL)
 			for j in gs.size():
@@ -156,13 +156,13 @@ class Grid extends Control:
 					for k in range(0, int(r.size.x + r.size.y), 7): draw_line(Vector2(r.position.x + minf(k, r.size.x), r.position.y + maxf(0, k - r.size.x)), Vector2(r.position.x + maxf(0, k - r.size.y), r.position.y + minf(k, r.size.y)), Color(0, 0, 0, 0.12), 1.0)
 				elif bool(c.get("simulated", false)):
 					var sm: Dictionary = c.sim; draw_rect(r, Ch9Hazop.CLS_COL.get(str(sm.cls), Color.WHITE))
-					draw_string(fb, r.position + Vector2(4, 15), ({"none": "OK", "operability": "OPER", "corrosion": "CORR", "equipment": "EQUIP", "release": "RELEASE"}.get(str(sm.cls), "?")), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 6, EqTheme.fs(12), Color("#1E2A2E"))
-					draw_string(f, r.position + Vector2(4, 30), "%d K" % int(round(float(sm.tOut))), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 6, EqTheme.fs(11), Ch9Board.PENCIL)
+					EqTheme.ds(self, fb, r.position + Vector2(4, 15), ({"none": "OK", "operability": "OPER", "corrosion": "CORR", "equipment": "EQUIP", "release": "RELEASE"}.get(str(sm.cls), "?")), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 6, EqTheme.fs(12), Color("#1E2A2E"))
+					EqTheme.ds(self, f, r.position + Vector2(4, 30), "%d K" % int(round(float(sm.tOut))), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 6, EqTheme.fs(11), Ch9Board.PENCIL)
 				else:
-					draw_rect(r, Color("#F7F2E4")); draw_string(fb, r.position + Vector2(r.size.x * 0.5 - 4, 23), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Color(0, 0, 0, 0.3))
+					draw_rect(r, Color("#F7F2E4")); EqTheme.ds(self, fb, r.position + Vector2(r.size.x * 0.5 - 4, 23), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Color(0, 0, 0, 0.3))
 				draw_rect(r, Color(0, 0, 0, 0.25), false, 1.0)
 				match str(c.get("rowState", "")):   # the tick counts exactly what COVERED n / m counts: a significant deviation with the right consequence class
-					"covered": draw_string(fb, r.position + Vector2(r.size.x - 18, 16), "✓", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.OKGREEN)
-					"wrong": draw_string(fb, r.position + Vector2(r.size.x - 18, 16), "✗", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.STAMP_RED)
-					"extra": draw_string(fb, r.position + Vector2(r.size.x - 16, 16), "·", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.PENCIL)
+					"covered": EqTheme.ds(self, fb, r.position + Vector2(r.size.x - 18, 16), "✓", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.OKGREEN)
+					"wrong": EqTheme.ds(self, fb, r.position + Vector2(r.size.x - 18, 16), "✗", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.STAMP_RED)
+					"extra": EqTheme.ds(self, fb, r.position + Vector2(r.size.x - 16, 16), "·", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16), Ch9Board.PENCIL)
 				if str(ps[i].id) == sel_p and str(gs[j].id) == sel_g: draw_rect(r.grow(1), EqTheme.TEAL, false, 3.0)

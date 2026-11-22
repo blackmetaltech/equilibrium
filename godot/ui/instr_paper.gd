@@ -91,7 +91,7 @@ func tape(p: Vector2, text: String, accent: Color, avail := 1.0e6, sz := 12) -> 
 	draw_rect(Rect2(p, Vector2(w, h)), EqTheme.DYMO_TAPE)
 	draw_rect(Rect2(p + Vector2(0, h), Vector2(w, 1.0)), Color(1, 1, 1, 0.12))
 	draw_rect(Rect2(p, Vector2(3.0, h)), accent.lightened(0.2))
-	draw_string(f, p + Vector2(7.0, float(s) + 1.0), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, s, EqTheme.DYMO_TEXT)
+	EqTheme.ds(self, f, p + Vector2(7.0, float(s) + 1.0), text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w - 9.0, s, EqTheme.DYMO_TEXT)
 	return p.y + h + 2.0
 
 ## Draw the segment a-b clipped to `r` (Liang-Barsky); nothing when it is outside.
@@ -118,12 +118,12 @@ func paper(xr: Vector2, yr: Vector2, xfmt: Callable, yfmt: Callable, gl := 44.0,
 		var x := pl.position.x + pl.size.x * float(k) / float(nx)
 		draw_line(Vector2(x, pl.position.y), Vector2(x, pl.end.y), Color("#B9CBC4", 0.9 if k % 2 == 0 else 0.5), 1.0)
 		var v := lerpf(xr.x, xr.y, float(k) / float(nx))
-		draw_string(mono, Vector2(x - 24.0, size.y - 3.0), xfmt.call(v), HORIZONTAL_ALIGNMENT_CENTER, 48.0, fsz, EqTheme.INK)
+		EqTheme.ds(self, mono, Vector2(x - 24.0, size.y - 3.0), xfmt.call(v), HORIZONTAL_ALIGNMENT_CENTER, 48.0, fsz, EqTheme.INK)
 	for k in ny + 1:
 		var y := pl.end.y - pl.size.y * float(k) / float(ny)
 		draw_line(Vector2(pl.position.x, y), Vector2(pl.end.x, y), Color("#B9CBC4", 0.9 if k % 2 == 0 else 0.5), 1.0)
 		var v := lerpf(yr.x, yr.y, float(k) / float(ny))
-		draw_string(mono, Vector2(1.0, y + 4.0), yfmt.call(v), HORIZONTAL_ALIGNMENT_RIGHT, gl - 5.0, fsz, EqTheme.INK)
+		EqTheme.ds(self, mono, Vector2(1.0, y + 4.0), yfmt.call(v), HORIZONTAL_ALIGNMENT_RIGHT, gl - 5.0, fsz, EqTheme.INK)
 	return pl
 
 func frame() -> void:
@@ -136,7 +136,7 @@ func empty_note(text := "") -> void:
 	var lines := msg.split("\n")
 	var y := size.y * 0.5 + 5.0 - 9.0 * float(lines.size() - 1)
 	for ln in lines:
-		draw_string(f, Vector2(10, y), ln, HORIZONTAL_ALIGNMENT_LEFT, size.x - 20.0, fs, Color("#6B7C76")); y += 18.0
+		EqTheme.ds(self, f, Vector2(10, y), ln, HORIZONTAL_ALIGNMENT_LEFT, size.x - 20.0, fs, Color("#6B7C76")); y += 18.0
 	frame()
 
 func _draw() -> void:

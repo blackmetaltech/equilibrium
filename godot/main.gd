@@ -32,8 +32,12 @@ func game_config() -> Dictionary:
 		"keys": [[tr("KEY_ROTATE"), tr("KEY_ROTATE_DESC")], [tr("KEY_WHEEL"), tr("KEY_WHEEL_DESC")], [tr("KEY_PAN"), tr("KEY_PAN_DESC")], ["Space", EqStrings.T("KEY_HINT")], ["K", EqStrings.T("ANN_ACK")]],
 	}
 
+func _lift_node(n: Node) -> void:
+	if n is Label or n is Button or n is LineEdit or n is RichTextLabel: EqTheme.lift.call_deferred(n)
+
 func game_build_world(parent: Node) -> Node:
 	EqSettings.load_all()
+	get_tree().node_added.connect(_lift_node)   # F32: text the shell builds (Settings) never draws under the 16 px floor
 	plant_world = PlantWorld.new(); plant_world.app = self; parent.add_child(plant_world)
 	plant_world.set_cute.call_deferred(EqSettings.cute)
 	audio_eq = EqAudio.new(); add_child(audio_eq); audio_eq.start_music.call_deferred()

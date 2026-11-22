@@ -48,7 +48,7 @@ func _draw_body() -> void:
 			draw_circle(c, 6.0, EqTheme.PORCELAIN); draw_arc(c, 5.0, 0.0, TAU, 16, EqTheme.PEN_RED, 2.0, true)
 			draw_line(c + Vector2(-3, -3), c + Vector2(3, 3), EqTheme.PEN_RED, 1.5); draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), EqTheme.PEN_RED, 1.5)
 		draw_arc(c, 6.5, 0.0, TAU, 16, EqTheme.INK, 1.0, true)
-		draw_string(EqTheme.font("mono"), c + Vector2(8, -6), "%.0f" % kelvin_c(tk), HORIZONTAL_ALIGNMENT_LEFT, 40.0, EqTheme.fs(11 if not big else 13), EqTheme.INK)
+		EqTheme.ds(self, EqTheme.font("mono"), c + Vector2(8, -6), "%.0f" % kelvin_c(tk), HORIZONTAL_ALIGNMENT_LEFT, 40.0, EqTheme.fs(11 if not big else 13), EqTheme.INK)
 	# operating point: a pen-carriage marker on the G curve
 	var op: Dictionary = data.get("op", {})
 	var now_txt := ""

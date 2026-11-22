@@ -59,33 +59,33 @@ class Plan extends Control:
 		var step := 5.0 if hz <= 60 else 10.0
 		for d in range(0, int(hz) + 1, int(step)):
 			draw_line(Vector2(x0 + d * dx, top), Vector2(x0 + d * dx, top + rh * jobs.size() + 2 * 58.0), Color(0, 0, 0, 0.12), 1.0)
-			draw_string(f, Vector2(x0 + d * dx - 6, 12), str(d), HORIZONTAL_ALIGNMENT_LEFT, 30, fs, Ch9Board.PENCIL)
+			EqTheme.ds(self, f, Vector2(x0 + d * dx - 6, 12), str(d), HORIZONTAL_ALIGNMENT_LEFT, 30, fs, Ch9Board.PENCIL)
 		for i in jobs.size():
 			var j: Dictionary = jobs[i]; var y := top + i * rh
 			if i % 2 == 1: draw_rect(Rect2(x0, y, pw, rh), Color(0, 0, 0, 0.04))
-			draw_string(f, Vector2(2, y + 11), fit_text(f, str(j.label), LW - 8, fs), HORIZONTAL_ALIGNMENT_LEFT, LW - 6, fs, Color("#1E2A2E"))
+			EqTheme.ds(self, f, Vector2(2, y + 11), fit_text(f, str(j.label), LW - 8, fs), HORIZONTAL_ALIGNMENT_LEFT, LW - 6, fs, Color("#1E2A2E"))
 			var s := float(j.start); var e := float(j.finish); var fl := float(j.float)
 			if fl > 0: draw_rect(Rect2(x0 + e * dx, y + 5, fl * dx, 5), Color(0.5, 0.5, 0.5, 0.22))
 			var crit := bool(j.critical); var col := Color("#C8323C") if crit else Color("#3C7E8C")
 			var r := Rect2(x0 + s * dx, y + 2, maxf((e - s) * dx, 2.0), rh - 4)
 			draw_rect(r, col); draw_rect(r, col.darkened(0.35), false, 1.0); draw_rect(Rect2(r.position, Vector2(r.size.x, 3)), Color(1, 1, 1, 0.25))
-			if r.size.x > 24: draw_string(fb, r.position + Vector2(3, 9), "%dd" % int(j.days), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 4, EqTheme.fs(10), Color.WHITE)
+			if r.size.x > 24: EqTheme.ds(self, fb, r.position + Vector2(3, 9), "%dd" % int(j.days), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 4, EqTheme.fs(10), Color.WHITE)
 		var by := top + rh * jobs.size() + 4.0
 		_hist(by, "CREW", view.get("crewByDay", []), float(view.get("limits", {}).get("crew", 0)), x0, pw, dx, Color("#C8793C"))
 		_hist(by + 58.0, "CRANE", view.get("craneByDay", []), float(view.get("limits", {}).get("crane", 0)), x0, pw, dx, Color("#2D5DA8"))
 		var wx := x0 + win * dx
 		for yy in range(int(top - 4), int(by + 2 * 58.0), 8): draw_line(Vector2(wx, yy), Vector2(wx, yy + 4), Color("#E0A020"), 2.0)
-		draw_string(fb, Vector2(wx + 3, top + 10 + rh * jobs.size() - rh * 0.0 - 0), "", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.BLACK)
+		EqTheme.ds(self, fb, Vector2(wx + 3, top + 10 + rh * jobs.size() - rh * 0.0 - 0), "", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.BLACK)
 	func _hist(y: float, cap: String, a: Array, lim: float, x0: float, pw: float, dx: float, col: Color) -> void:
 		var h := 46.0; var mx := maxf(lim, 1.0)
 		for v in a: mx = maxf(mx, float(v))
-		draw_string(EqTheme.font("mono_bold"), Vector2(2, y + 12), cap, HORIZONTAL_ALIGNMENT_LEFT, LW, EqTheme.fs(11), Ch9Board.PENCIL)
-		draw_string(EqTheme.font("mono"), Vector2(2, y + 26), "lim %d" % int(lim), HORIZONTAL_ALIGNMENT_LEFT, LW, EqTheme.fs(10), Ch9Board.PENCIL)
+		EqTheme.ds(self, EqTheme.font("mono_bold"), Vector2(2, y + 12), cap, HORIZONTAL_ALIGNMENT_LEFT, LW, EqTheme.fs(11), Ch9Board.PENCIL)
+		EqTheme.ds(self, EqTheme.font("mono"), Vector2(2, y + 26), "lim %d" % int(lim), HORIZONTAL_ALIGNMENT_LEFT, LW, EqTheme.fs(10), Ch9Board.PENCIL)
 		draw_rect(Rect2(x0, y, pw, h), Color("#F7F9F6"))
 		for d in a.size():
 			var v := float(a[d]); var bh := h * v / mx
 			draw_rect(Rect2(x0 + d * dx, y + h - bh, maxf(dx - 0.5, 1.0), bh), Color("#C8323C") if v > lim else col)
-			if cap == "CREW" and dx >= 12.0 and v > 0.0: draw_string(EqTheme.font("mono"), Vector2(x0 + d * dx + 1.0, y + h - bh - 2.0), "%d" % int(v), HORIZONTAL_ALIGNMENT_LEFT, dx, EqTheme.fs(9), Color("#1E2A2E"))   # crew in use that day, against the limit line
+			if cap == "CREW" and dx >= 12.0 and v > 0.0: EqTheme.ds(self, EqTheme.font("mono"), Vector2(x0 + d * dx + 1.0, y + h - bh - 2.0), "%d" % int(v), HORIZONTAL_ALIGNMENT_LEFT, dx, EqTheme.fs(9), Color("#1E2A2E"))   # crew in use that day, against the limit line
 		var ly := y + h - h * lim / mx; draw_line(Vector2(x0, ly), Vector2(x0 + pw, ly), Color("#1E2A2E"), 1.5)
 
 class Chips extends Control:
@@ -158,7 +158,7 @@ class Chips extends Control:
 			var col := Color("#C8323C") if bool(c.crit) else Color("#3C7E8C")
 			draw_rect(r, Color(col, 0.35) if i == _drag else col); draw_rect(r, col.darkened(0.4), false, 1.0)
 			if i == _sel: draw_rect(r.grow(1.5), Color("#1E2A2E"), false, 2.5)
-			draw_string(f, r.position + Vector2(8, 17), "%d %s" % [i + 1, Plan.fit_text(f, str(c.label), r.size.x - 30, EqTheme.fs(12))], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, EqTheme.fs(12), Color.WHITE)
+			EqTheme.ds(self, f, r.position + Vector2(8, 17), "%d %s" % [i + 1, Plan.fit_text(f, str(c.label), r.size.x - 30, EqTheme.fs(12))], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, EqTheme.fs(12), Color.WHITE)
 		if _drag >= 0:
 			var r2: Rect2 = l[_drag]; r2.position = _pos - r2.size * 0.5
-			draw_rect(r2, Color("#1E2A2E")); draw_string(f, r2.position + Vector2(8, 17), str(chips[_drag].label), HORIZONTAL_ALIGNMENT_LEFT, r2.size.x - 8, EqTheme.fs(12), Color.WHITE)
+			draw_rect(r2, Color("#1E2A2E")); EqTheme.ds(self, f, r2.position + Vector2(8, 17), str(chips[_drag].label), HORIZONTAL_ALIGNMENT_LEFT, r2.size.x - 8, EqTheme.fs(12), Color.WHITE)

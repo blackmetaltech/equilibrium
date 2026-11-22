@@ -199,14 +199,14 @@ func _draw() -> void:
 		var bf := EqTheme.font("mono_bold"); var bt := value_text(); var bs := EqTheme.fs(18)
 		var bw := bf.get_string_size(bt, HORIZONTAL_ALIGNMENT_LEFT, -1, bs).x + 16.0
 		var brc := Rect2(c.x - bw * 0.5, -26.0, bw, 26.0)
-		draw_rect(brc, EqTheme.INK); draw_string(bf, brc.position + Vector2(8, 19), bt, HORIZONTAL_ALIGNMENT_LEFT, bw, bs, EqTheme.PORCELAIN)
+		draw_rect(brc, EqTheme.INK); EqTheme.ds(self, bf, brc.position + Vector2(8, 19), bt, HORIZONTAL_ALIGNMENT_LEFT, bw, bs, EqTheme.PORCELAIN)
 	# number, then the unit in a smaller hand beside it
 	var nr := _num_rect(); var f := EqTheme.font("mono_bold"); var fs := EqTheme.fs(14)
 	var num_t := _num_text(); var uf := EqTheme.font("sans"); var us := EqTheme.fs(13)
 	var nw := f.get_string_size(num_t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x; var uw := uf.get_string_size(" " + unit, HORIZONTAL_ALIGNMENT_LEFT, -1, us).x if unit != "" and choices.is_empty() and not is_off and not _zero_on() else 0.0
 	var tx := maxf(0.0, (size.x - nw - uw) * 0.5)
-	draw_string(f, Vector2(tx, nr.position.y + 17.0), num_t, HORIZONTAL_ALIGNMENT_LEFT, size.x, fs, EqTheme.INK)
-	if uw > 0.0: draw_string(uf, Vector2(tx + nw, nr.position.y + 17.0), " " + unit, HORIZONTAL_ALIGNMENT_LEFT, size.x, us, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.3))
+	EqTheme.ds(self, f, Vector2(tx, nr.position.y + 17.0), num_t, HORIZONTAL_ALIGNMENT_LEFT, size.x, fs, EqTheme.INK)
+	if uw > 0.0: EqTheme.ds(self, uf, Vector2(tx + nw, nr.position.y + 17.0), " " + unit, HORIZONTAL_ALIGNMENT_LEFT, size.x, us, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.3))
 	draw_line(Vector2(tx, nr.position.y + 21.0), Vector2(tx + minf(nw + uw, size.x), nr.position.y + 21.0), EqTheme.TEAL if _hover_num else EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.6), 1.5)
 	# Dymo label: one or two strips of tape
 	var lf := EqTheme.font("dymo"); var ls := EqTheme.fs(13)
@@ -221,8 +221,8 @@ func _draw() -> void:
 	for i in lines.size():
 		var lt: String = lines[i]
 		var lw := minf(lf.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x + 10.0, size.x)
-		var lr := Rect2((size.x - lw) * 0.5, size.y - 19.0 - (lines.size() - 1 - i) * 18.0, lw, 17.0)
-		draw_rect(lr, EqTheme.DYMO_TAPE); draw_string(lf, lr.position + Vector2(5, 13.0), lt, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, ls, EqTheme.DYMO_TEXT)
+		var lr := Rect2((size.x - lw) * 0.5, size.y - 23.0 - (lines.size() - 1 - i) * 22.0, lw, 21.0)
+		draw_rect(lr, EqTheme.DYMO_TAPE); EqTheme.ds(self, lf, lr.position + Vector2(5, 16.0), lt, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, ls, EqTheme.DYMO_TEXT)
 
 func _num_text() -> String:
 	if not choices.is_empty() or is_off or _zero_on(): return value_text()
@@ -248,7 +248,7 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var host: Control = d.host; var pn: PanelContainer = d.panel; var vb: VBoxContainer = d.vb
 	pn.add_theme_stylebox_override("panel", EqTheme.porcelain_sb(6, 18.0))
 	vb.add_theme_constant_override("separation", 10)
-	var head := HBoxContainer.new(); head.name = "Head"; head.custom_minimum_size = Vector2(0, 52); head.clip_contents = true; vb.add_child(head); var ttl := EqTheme.dymo(title if title != "" else "VALUE", 14); ttl.name = "Title"; ttl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; head.add_child(ttl)
+	var head := HBoxContainer.new(); head.name = "Head"; head.custom_minimum_size = Vector2(0, 60); head.clip_contents = true; vb.add_child(head); var ttl := EqTheme.dymo(title if title != "" else "VALUE", 14); ttl.name = "Title"; ttl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; head.add_child(ttl)
 	var ttl_l := ttl.get_child(0) as Label; ttl_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ttl_l.custom_minimum_size = Vector2(minf(280.0, 24.0 + 9.0 * title.length()), 0)   # a long title wraps on the tape, never truncates
 	var disp := Label.new(); disp.label_settings = EqTheme.settings(30, EqTheme.INK, "mono_bold"); disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var field := PanelContainer.new(); var fsb := StyleBoxFlat.new(); fsb.bg_color = Color("#FFFFFF"); fsb.border_color = EqTheme.INK; fsb.set_border_width_all(2); fsb.set_corner_radius_all(3); fsb.set_content_margin_all(8)
@@ -256,7 +256,7 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var absurd := hi >= 1.0e6 or lo <= -1.0e6   # a bound nobody could type: say only what the number is in
 	var hint_t := (PaperStrings.t("KEYPAD_IN") % unit if unit != "" else "") if absurd else (PaperStrings.t("KEYPAD_RANGE") % [PaperStrings.num(lo, integer or lo == roundf(lo)), PaperStrings.num(hi, integer or hi == roundf(hi))]) + (" " + unit if unit != "" else "")
 	var hint := EqTheme.label(hint_t, 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.35), "sans")
-	hint.name = "Hint"; hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hint.clip_text = true; hint.custom_minimum_size = Vector2(300, 2.0 * ceilf(EqTheme.font("sans").get_height(EqTheme.fs(14))) + 2.0)
+	hint.name = "Hint"; hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hint.clip_text = true; hint.custom_minimum_size = Vector2(300, 3.0 * ceilf(EqTheme.font("sans").get_height(EqTheme.fs(14))) + 2.0)   # three lines at 16 px: every keypad is the same size
 	if not allow_range: hint.text = ""
 	vb.add_child(hint)   # always there (empty when no range is shown): same height, so the pad never changes size
 	var reason := EqTheme.label("", 14, EqTheme.RED, "semi"); reason.autowrap_mode = TextServer.AUTOWRAP_OFF; reason.clip_text = true; reason.custom_minimum_size = Vector2(300, ceilf(EqTheme.font("semi").get_height(EqTheme.fs(14))) + 2.0); reason.name = "Reason"; vb.add_child(reason)   # the line is always there (empty until needed): the pad never shifts when a refusal appears

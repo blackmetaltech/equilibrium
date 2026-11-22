@@ -3,6 +3,18 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [Unreleased] 0.9 layer: readability (F32)
+### Changed
+- **The plant gets the window (F32).** The parts tray is a small dock at the bottom left that is as wide as its tiles, and it is gone when nothing is left to place; the console is only
+  the instrument row. At level open and after a commission the camera frames the equipment's bounding box (footprints and standing heights, projected through the camera's own yaw
+  and pitch) so it fills about 90 % of the space above the console; F frames the same way.
+- **16 px is the floor (F32).** Every text is 16 px or more on screen at 1920x1080 and at 1280x800: `EqTheme.fs` floors every size, hand-drawn text goes through `EqTheme.ds`
+  (floored, squeezed to at most 78 % of its width before it would clip), text the shell builds (Settings) is lifted by `EqTheme.lift`, and the 3D name tags (`Tag3D`) are at least
+  17 px at any window height with a heavy dark outline plate. The annunciator, the recorder legends and tape, the key and speed dials, the parts tiles, the control-panel dials and
+  the L39 hydraulics board were re-spaced for it.
+### Added
+- `godot/tests/layout_flow.gd`: walks every screen (title, settings, Works map, pause menu, notebook, printout, faceplates, the Career board with an incident card) and the opening view of every level (including `CAREER_FIX_NH3_INERTS` and L39) at 1920x1080 and 1280x800, and fails on text under 16 px, clipped text, overlapping drawn or Control text, and text outside the window.
+
 ## [0.8.0] - 2026-11-22 · "The plant behind the numbers" (an incident you fix in the plant, a new trade, one currency, fast shifts)
 ### Added
 - **Incidents you fix in the plant (F29).** When inerts creep into the ammonia feed, the Career board pins an incident card with three honest answers and their stated

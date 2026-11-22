@@ -242,7 +242,7 @@ class LampRow extends Control:
 			if on: draw_circle(c + Vector2(-1, -1.2), 1.4, Color(1, 1, 1, 0.8)); draw_circle(c, 9.0, Color(col, 0.18))
 			var w: float = widths[i]
 			if not tight or on:
-				draw_string(f, Vector2(x + 18, size.y * 0.5 + sz * 0.35), n, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, EqTheme.TEXT if on else EqTheme.DIM)
+				EqTheme.ds(self, f, Vector2(x + 18, size.y * 0.5 + sz * 0.35), n, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, EqTheme.TEXT if on else EqTheme.DIM)
 			else: w = 22.0
 			x += w
 

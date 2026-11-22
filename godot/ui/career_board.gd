@@ -360,12 +360,12 @@ func _banner(nm: String, text: String, col: Color, kind := "mono_bold", size := 
 func _strike_banner(d: Dictionary, full: Array) -> Control:
 	var v := VBoxContainer.new(); v.name = "StrikeWarnBox"; v.add_theme_constant_override("separation", 1)
 	var open := _more.has("StrikeWarn")
-	var head_l := lbl(str(d.get("strikeHead", "")), 12, STAMP_RED, "mono_bold"); head_l.name = "StrikeWarn"; head_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; head_l.custom_minimum_size = Vector2(200, 0); head_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var head_l := lbl(str(d.get("strikeHead", "")), 12, STAMP_RED, "semi"); head_l.name = "StrikeWarn"; head_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; head_l.custom_minimum_size = Vector2(200, 0); head_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head_l.tooltip_text = "\n".join(PackedStringArray(full)); head_l.mouse_filter = Control.MOUSE_FILTER_PASS; v.add_child(head_l)
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8); v.add_child(row)
 	var lines := VBoxContainer.new(); lines.add_theme_constant_override("separation", 0); lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL; row.add_child(lines)
 	for ln in d.get("strikeLines", []):
-		var l := lbl("•  " + str(ln), 12, STAMP_RED, "mono_bold"); l.name = "StrikeLine"; l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.custom_minimum_size = Vector2(200, 0); lines.add_child(l, true)
+		var l := lbl("•  " + str(ln), 12, STAMP_RED, "semi"); l.name = "StrikeLine"; l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.custom_minimum_size = Vector2(200, 0); lines.add_child(l, true)
 	var k := key("less ▴" if open else "more ▾", func(): _toggle_more("StrikeWarn"), false, 11); k.name = "StrikeWarnMore"; k.custom_minimum_size = Vector2(maxf(78.0, _tw("less ▴", 11)), 24); k.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	k.tooltip_text = "The full explanation of each strike warning."; row.add_child(k)
 	if open:
@@ -798,14 +798,14 @@ class Cal extends Control:
 			var col := Color("#E8DFC4") if mo >= m else Color("#CFC6AA")
 			draw_rect(r, col); draw_rect(r, Color("#8A7352"), false, 1.0)
 			if mo == m: draw_rect(r, Color("#C8323C"), false, 3.0)
-			draw_string(f, Vector2(r.position.x + 3, r.position.y + 14), Ch9Board.fnum(mo + 1), HORIZONTAL_ALIGNMENT_LEFT, w, fs, Color("#1E2A2E"))
-			draw_string(EqTheme.font("mono"), Vector2(r.position.x + 3, r.position.y + 29), CareerBoard.MON[i], HORIZONTAL_ALIGNMENT_LEFT, w, EqTheme.fs(10), Color("#6A6A60"))
+			EqTheme.ds(self, f, Vector2(r.position.x + 3, r.position.y + 14), Ch9Board.fnum(mo + 1), HORIZONTAL_ALIGNMENT_LEFT, w, fs, Color("#1E2A2E"))
+			EqTheme.ds(self, EqTheme.font("mono"), Vector2(r.position.x + 3, r.position.y + 29), CareerBoard.MON[i], HORIZONTAL_ALIGNMENT_LEFT, w, EqTheme.fs(10), Color("#6A6A60"))
 			for c in view.get("calendar", []):
 				var pc: Color = CareerBoard.PLANT_COL.get(str(c.plant), Color.BLACK)
 				var k := ["nh3", "acid", "meoh", "etoh"].find(str(c.plant))
-				if int(c.turnaroundMonth) == mo: draw_rect(Rect2(r.position.x + w - 14, r.position.y + 2 + k * 8, 10, 7), pc); draw_string(f, Vector2(r.position.x + w - 12, r.position.y + 9 + k * 8), "T", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(8), Color.WHITE)
+				if int(c.turnaroundMonth) == mo: draw_rect(Rect2(r.position.x + w - 14, r.position.y + 2 + k * 8, 10, 7), pc); EqTheme.ds(self, f, Vector2(r.position.x + w - 12, r.position.y + 9 + k * 8), "T", HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(8), Color.WHITE)
 				if int(c.inspectionDueMonth) == mo: draw_circle(Vector2(r.position.x + w - 20, r.position.y + 6 + k * 8), 3.0, pc)
-		draw_string(EqTheme.font("sans"), Vector2(2, 54), "dot = inspection due   T = turnaround booked   (colours: ammonia blue, sulfuric acid orange, methanol green, ethanol purple)", HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(10), Color("#4A4A48"))
+		EqTheme.ds(self, EqTheme.font("sans"), Vector2(2, 54), "dot = inspection due   T = turnaround booked   (colours: ammonia blue, sulfuric acid orange, methanol green, ethanol purple)", HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(10), Color("#4A4A48"))
 
 class Bar extends Control:
 	var cap := ""
@@ -815,7 +815,7 @@ class Bar extends Control:
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE
 	func _draw() -> void:
 		var f := EqTheme.font("mono_bold")
-		draw_string(f, Vector2(0, 10), "%s %d%%" % [cap, int(round(v * 100.0))], HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(10), Color("#1E2A2E"))
+		EqTheme.ds(self, f, Vector2(0, 10), "%s %d%%" % [cap, int(round(v * 100.0))], HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(10), Color("#1E2A2E"))
 		var r := Rect2(0, 14, size.x, 8); draw_rect(r, Color("#3A3020"))
 		var bad := v < limit if high_good else v > limit
 		draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(v, 0, 1), r.size.y)), Color("#C8323C") if bad else Color("#2E8B57"))
@@ -828,7 +828,7 @@ class Spark extends Control:
 		var r := int(round(x / 1e6)); return "%d" % (0 if r == 0 else r)   # never "-0"
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color("#FBF8EC")); draw_rect(Rect2(Vector2.ZERO, size), Color("#B8A888"), false, 1.0)
-		if hist.size() < 2: draw_string(EqTheme.font("sans"), Vector2(6, 28), "Cash and margin history builds as the months pass.", HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(11), Color("#6A6A60")); return
+		if hist.size() < 2: EqTheme.ds(self, EqTheme.font("sans"), Vector2(6, 28), "Cash and margin history builds as the months pass.", HORIZONTAL_ALIGNMENT_LEFT, size.x, EqTheme.fs(11), Color("#6A6A60")); return
 		var f := EqTheme.font("mono"); var fs := EqTheme.fs(9); var lw := 34.0; var top := 16.0   # axis labels live in side gutters and a title band: nothing is drawn over the lines
 		for k in [["cashUSD", Color("#2D5DA8"), true], ["marginUSD", Color("#C8793C"), false]]:
 			var lo := INF; var hi := -INF
@@ -839,5 +839,5 @@ class Spark extends Control:
 			draw_polyline(pts, k[1], 1.8, true)
 			var left: bool = k[2]
 			var tx := 2.0 if left else size.x - lw + 2.0
-			draw_string(f, Vector2(tx, y0 + 8.0), _mu(hi), HORIZONTAL_ALIGNMENT_LEFT, lw - 4.0, fs, k[1]); draw_string(f, Vector2(tx, y1), _mu(lo), HORIZONTAL_ALIGNMENT_LEFT, lw - 4.0, fs, k[1])
-		draw_string(EqTheme.font("mono"), Vector2(lw, 11), "cash (blue, left axis)   operating margin per month (orange, right axis), MUSD", HORIZONTAL_ALIGNMENT_LEFT, size.x - 2.0 * lw, EqTheme.fs(10), Color("#4A4A48"))
+			EqTheme.ds(self, f, Vector2(tx, y0 + 8.0), _mu(hi), HORIZONTAL_ALIGNMENT_LEFT, lw - 4.0, fs, k[1]); EqTheme.ds(self, f, Vector2(tx, y1), _mu(lo), HORIZONTAL_ALIGNMENT_LEFT, lw - 4.0, fs, k[1])
+		EqTheme.ds(self, EqTheme.font("mono"), Vector2(lw, 11), "cash (blue, left axis)   operating margin per month (orange, right axis), MUSD", HORIZONTAL_ALIGNMENT_LEFT, size.x - 2.0 * lw, EqTheme.fs(10), Color("#4A4A48"))

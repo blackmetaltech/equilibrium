@@ -10,6 +10,7 @@ var demo := false
 var max_windows := 8     ## phone: 4
 var _t := 0.0
 const FLASH_HZ := 2.0
+const SQ := 0.8   ## a one-word legend is squeezed to this much of its width before it wraps (EqTheme.ds squeezes to 78 % at most)
 
 func _init() -> void:
 	EqStrings.load_strings()
@@ -126,17 +127,15 @@ func _draw() -> void:
 		# window frame cross-bar (the lens divider of a real window)
 		draw_rect(r, Color(0, 0, 0, 0.55), false, 1.0)
 		var legend := str(w.legend)
+		var avail := r.size.x - 6.0
 		var tw := f.get_string_size(legend, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x
-		if tw <= r.size.x - 8.0:
-			draw_string(f, Vector2(r.position.x, r.position.y + r.size.y * 0.5 + fsz * 0.35), legend, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fsz, txt)
+		if tw <= avail or (legend.find(" ") < 0 and tw * SQ <= avail):   # one line (a one-word legend squeezes a little before it breaks)
+			EqTheme.ds(self, f, Vector2(r.position.x + 3.0, r.position.y + r.size.y * 0.5 + fsz * 0.35), legend, HORIZONTAL_ALIGNMENT_CENTER, avail, fsz, txt)
 		else:
-			var parts := legend.split(" ")
 			var l1 := ""; var l2 := ""
-			for pt in parts:
-				if f.get_string_size((l1 + " " + pt).strip_edges(), HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x <= r.size.x - 6.0 and l2 == "": l1 = (l1 + " " + pt).strip_edges()
+			for pt in legend.split(" "):
+				if f.get_string_size((l1 + " " + pt).strip_edges(), HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x <= avail and l2 == "": l1 = (l1 + " " + pt).strip_edges()
 				else: l2 = (l2 + " " + pt).strip_edges()
 			var cy := r.position.y + r.size.y * 0.5
-			var fz := fsz   # the legend's type shrinks until the longer line fits the window: a window never prints "PRESSURE DRO"
-			while fz > EqTheme.fs(8) and maxf(f.get_string_size(l1, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x, f.get_string_size(l2, HORIZONTAL_ALIGNMENT_LEFT, -1, fz).x) > r.size.x - 6.0: fz -= 1
-			draw_string(f, Vector2(r.position.x, cy - 1.0), l1, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fz, txt)
-			draw_string(f, Vector2(r.position.x, cy + fz * 0.95), l2, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fz, txt)
+			EqTheme.ds(self, f, Vector2(r.position.x + 3.0, cy - 2.0), l1, HORIZONTAL_ALIGNMENT_CENTER, avail, fsz, txt)
+			EqTheme.ds(self, f, Vector2(r.position.x + 3.0, cy + fsz * 0.95), l2, HORIZONTAL_ALIGNMENT_CENTER, avail, fsz, txt)

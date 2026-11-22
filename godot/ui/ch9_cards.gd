@@ -28,7 +28,7 @@ func _build() -> void:
 	var rack := VBoxContainer.new(); rack.add_theme_constant_override("separation", 2); rack.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rack.size_flags_stretch_ratio = 0.9; split.add_child(rack)
 	var cards: Array = view.get("cards", view.get("steps", []))
 	var rh := HBoxContainer.new(); rh.add_theme_constant_override("separation", 8); rack.add_child(rh)
-	rh.add_child(tape("CARD RACK", 12)); rh.add_child(lbl("%d cards (scroll the sheet if the last is below the fold)" % cards.size(), 11, PENCIL, "sans"))
+	rh.add_child(tape("CARD RACK", 12)); var cl := lbl("%d cards" % cards.size(), 11, PENCIL, "sans"); cl.tooltip_text = "Scroll the sheet if the last card is below the fold."; cl.mouse_filter = Control.MOUSE_FILTER_PASS; rh.add_child(cl)   # F32: one short line at 16 px, so the rack never shifts when the sequence column grows
 	for c in cards: rack.add_child(_rack_card(c, sop))
 	# sequence
 	var seq := VBoxContainer.new(); seq.add_theme_constant_override("separation", 4); seq.size_flags_horizontal = Control.SIZE_EXPAND_FILL; seq.size_flags_stretch_ratio = 1.15; split.add_child(seq)
@@ -51,7 +51,7 @@ func _rack_card(c: Dictionary, sop: bool) -> Control:
 	var b := Button.new(); b.focus_mode = Control.FOCUS_ALL; b.alignment = HORIZONTAL_ALIGNMENT_LEFT; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.text = ("%s  (%d min)" % [str(c.label), int(c.mins)]) if int(c.mins) >= 0 else str(c.label); b.tooltip_text = str(c.label)   # mins -1: the call-it answer, shown once the call is locked
 	if b.text.length() <= 38: b.autowrap_mode = TextServer.AUTOWRAP_OFF   # a one-line card stays one line (an autowrap button reserves two), so the whole rack fits
-	b.add_theme_font_override("font", EqTheme.font("mono")); b.add_theme_font_size_override("font_size", EqTheme.fs(12))
+	b.add_theme_font_override("font", EqTheme.font("sans")); b.add_theme_font_size_override("font_size", EqTheme.fs(12))   # F32: the narrower sans keeps a 38-character card on one line at 16 px
 	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]: b.add_theme_color_override(st, EqTheme.INK)
 	for st in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(st, _card_sb(Color("#F6EFD9") if st != "hover" else Color("#FFFAE8"), Color("#8A7A55") if st != "focus" else EqTheme.TEAL))
 	b.custom_minimum_size = Vector2(0, maxf(24.0, Ch9Board.tmin()))
@@ -84,6 +84,7 @@ func _seq_card(o: Dictionary, i: int, n: int, ev: Dictionary) -> Control:
 
 func _summary() -> Control:
 	var h := HFlowContainer.new(); h.add_theme_constant_override("h_separation", 16)
+	h.custom_minimum_size = Vector2(0, 56.0 if _is_sop() else 80.0)   # F32: at 16 px the figures wrap onto two or three rows; the room is reserved so the rack below never moves when a number changes width
 	var mins := float(view.get("mins", 0.0))
 	if _is_sop():
 		h.add_child(lbl("MIN %s" % fnum(mins), 13, Color("#1E2A2E"), "mono_bold"))
@@ -101,7 +102,7 @@ func _summary() -> Control:
 	var miss: Array = view.get("missing", [])
 	if _is_sop() and not bool(view.get("ready", false)) and miss.size() > 0:
 		var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 2); v.add_child(h)
-		var ml := lbl("NOT READY, missing: " + "; ".join(PackedStringArray(miss)), 12, AMBER_INK, "sans"); ml.name = "MissingList"; ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ml.custom_minimum_size = Vector2(240, 0); v.add_child(ml)
+		var ml := lbl("NOT READY, missing: " + "; ".join(PackedStringArray(miss)), 12, AMBER_INK, "sans"); ml.name = "MissingList"; ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ml.custom_minimum_size = Vector2(240, 70); v.add_child(ml)   # three 16 px lines are reserved: the cards below never move as the list shortens
 		return v
 	return h
 
@@ -114,7 +115,7 @@ class Gauges extends Control:
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_IGNORE
 	func _bar(x: float, y: float, w: float, cap: String, v: float, lo: float, hi: float, marks: Array, col: Color) -> void:
 		var f := EqTheme.font("mono_bold")
-		draw_string(f, Vector2(x, y + 11), "%s %s" % [cap, Ch9Board.fnum(v, 1 if absf(v) < 10 else 0)], HORIZONTAL_ALIGNMENT_LEFT, w, EqTheme.fs(12), Color("#1E2A2E"))
+		EqTheme.ds(self, f, Vector2(x, y + 11), "%s %s" % [cap, Ch9Board.fnum(v, 1 if absf(v) < 10 else 0)], HORIZONTAL_ALIGNMENT_LEFT, w, EqTheme.fs(12), Color("#1E2A2E"))
 		var r := Rect2(x, y + 16, w, 9); draw_rect(r, Color("#3A3020")); draw_rect(Rect2(r.position, Vector2(r.size.x * clampf((v - lo) / (hi - lo), 0, 1), r.size.y)), col)
 		for m in marks:
 			var mx := x + w * clampf((float(m[0]) - lo) / (hi - lo), 0, 1); draw_line(Vector2(mx, y + 13), Vector2(mx, y + 28), Color(m[1]), 2.0)
@@ -138,4 +139,4 @@ class Gauges extends Control:
 			if x + w > size.x: x = 0.0; y += 18.0
 			var col := Color("#555") if not on else (Color("#C8323C") if Ch9Cards.FLAG_BAD.has(k) else Color("#2E8B57"))
 			draw_circle(Vector2(x + 6, y + 8), 5.0, col); draw_arc(Vector2(x + 6, y + 8), 5.0, 0, TAU, 14, Color(0, 0, 0, 0.6), 1.0)
-			draw_string(f, Vector2(x + 15, y + 12), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E") if on else Color("#4A4030")); x += w + 4.0
+			EqTheme.ds(self, f, Vector2(x + 15, y + 12), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#1E2A2E") if on else Color("#4A4030")); x += w + 4.0

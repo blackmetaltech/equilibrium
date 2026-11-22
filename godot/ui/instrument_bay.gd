@@ -36,10 +36,10 @@ func layout() -> void:
 	var k := CbLayout.kind
 	var tap := maxf(CbLayout.tap(), 44.0)
 	var land := app.vw() > app.vs_h()   # a landscape phone is short: keep the camera buttons below the panel clear
-	var w := 340.0 if k == "desktop" else (280.0 if k == "handheld" else (300.0 if land else minf(app.vw() * 0.44, 230.0)))
-	var h := 236.0 if k == "desktop" else (196.0 if k == "handheld" else (128.0 if land else 150.0))
-	if _compact and kind == "semenov": w = roundf(w * 0.74); h = roundf(h * 0.74)
-	if view != null: view.custom_minimum_size = Vector2(w - 8.0, h - 24.0)
+	var w := 380.0 if k == "desktop" else (340.0 if k == "handheld" else (300.0 if land else minf(app.vw() * 0.44, 230.0)))
+	var h := 256.0 if k == "desktop" else (236.0 if k == "handheld" else (120.0 if land else 150.0))
+	if _compact and kind == "semenov": var cf := 0.74 if k == "phone" else 0.9; w = roundf(w * cf); h = roundf(h * cf)
+	if view != null: view.custom_minimum_size = Vector2(w - 8.0, h - (34.0 if k == "phone" else 24.0))   # the 16 px caption line is taller: the phone sheet keeps its old height
 	custom_minimum_size = Vector2(w, h)
 	set_anchors_preset(Control.PRESET_TOP_RIGHT); grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	offset_right = -10.0; offset_left = -10.0 - w; offset_top = 10.0 + tap + 8.0; offset_bottom = offset_top + h

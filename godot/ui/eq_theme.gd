@@ -81,8 +81,56 @@ static func font(kind: String) -> Font:
 	_fonts[kind] = f
 	return f
 
+## F32 (0.9 readability): the smallest text anywhere is 16 px on screen at 1920x1080 and at 1280x800 (the desktop and handheld classes both draw at 1 px per logical px;
+## Settings > text size only ever raises it). Every size in the game goes through `fs` (Controls, LabelSettings, Dymo tape) or `ds` (hand-drawn text), so the floor is one number.
+const FLOOR := 16
 ## Text size through the shell's scaling rule so Settings > text size keeps working.
-static func fs(n: int) -> int: return CbKit.fs(n)
+static func fs(n: int) -> int: return maxi(FLOOR, CbKit.fs(n))
+
+## Hand-drawn text (a CanvasItem's _draw): `ci.draw_string` with the floor applied. While `audit` is on (tests/layout_flow.gd) every call records its on-screen size
+## and whether its text fits `width`, so the layout test sees drawn text the same way it sees Labels.
+static var audit := false
+static var drawn := {}
+static func ds(ci: CanvasItem, f: Font, pos: Vector2, text: String, align: int = HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, size := 16, col: Color = Color.WHITE) -> void:
+	size = maxi(size, FLOOR)
+	var sx := 1.0
+	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x if text != "" else 0.0
+	if width > 0.0 and w > width: sx = clampf(width / w, SQUEEZE_MIN, 1.0)   # the floor is 16 px, so a word too wide for its place is squeezed to at most 78 % of its width, never made smaller
+	if audit and text.strip_edges() != "" and ci.is_inside_tree():
+		var xf := ci.get_global_transform_with_canvas()
+		var sc: float = xf.get_scale().y * ci.get_viewport().get_final_transform().get_scale().y
+		var ww := w * sx; var x0 := pos.x
+		if width > 0.0 and align == HORIZONTAL_ALIGNMENT_CENTER: x0 = pos.x + (width - ww) * 0.5
+		elif width > 0.0 and align == HORIZONTAL_ALIGNMENT_RIGHT: x0 = pos.x + width - ww
+		var gr: Rect2 = xf * Rect2(x0, pos.y - float(size) * 0.76, ww, float(size) * 0.92)   # cap height above the baseline, a little descender below
+		var k := "%s | %s | %s" % [str(ci.get_path()), text, str(pos)]
+		drawn[k] = [float(size) * sc, text, width <= 0.0 or ww <= width + 1.5, ww, width, gr]
+	if sx < 1.0:
+		ci.draw_set_transform(pos, 0.0, Vector2(sx, 1.0))
+		ci.draw_string(f, Vector2.ZERO, text, align, width / sx, size, col)
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	else: ci.draw_string(f, pos, text, align, width, size, col)
+const SQUEEZE_MIN := 0.78
+
+## The safety net for text that other code builds (the shell's Settings and dialogs in core, a theme default): any Label / Button / LineEdit / RichTextLabel whose font is under the floor
+## is raised to it. `PlantWorld`'s owner (main.gd) calls this for every node that joins the tree (deferred, so the creator has set its sizes first).
+static var _lifted := {}
+static func lift(n: Node) -> void:
+	if n == null or not is_instance_valid(n): return
+	if n is Label:
+		var l := n as Label
+		if l.label_settings != null:
+			if l.label_settings.font_size < FLOOR:
+				var id := l.label_settings.get_instance_id()
+				if not _lifted.has(id):
+					var d := l.label_settings.duplicate() as LabelSettings; d.font_size = FLOOR; _lifted[id] = d
+				l.label_settings = _lifted[id]
+		elif l.get_theme_font_size("font_size") < FLOOR: l.add_theme_font_size_override("font_size", FLOOR)
+	elif n is Button or n is LineEdit:
+		if (n as Control).get_theme_font_size("font_size") < FLOOR: (n as Control).add_theme_font_size_override("font_size", FLOOR)
+	elif n is RichTextLabel:
+		for k in ["normal_font_size", "bold_font_size", "italics_font_size", "bold_italics_font_size", "mono_font_size"]:
+			if (n as Control).get_theme_font_size(k) < FLOOR: (n as Control).add_theme_font_size_override(k, FLOOR)
 
 static var _ls := {}
 static func settings(size: int, col: Color, kind := "sans") -> LabelSettings:

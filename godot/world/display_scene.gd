@@ -48,7 +48,7 @@ func clear() -> void:
 func _tag(m: UnitModel, text: String, fp: Vector2i) -> void:
 	var lb := Label3D.new(); lb.text = text; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true; lb.pixel_size = 0.0011; lb.font_size = 36
 	lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.85); lb.modulate = Color("#F4F1DE"); lb.font = EqTheme.font("semi")
-	lb.position = Vector3(0, m.height + 0.9, 0); m.add_child(lb)
+	lb.position = Vector3(0, m.height + 0.9, 0); Tag3D.setup(lb); m.add_child(lb)
 
 func _tile(x: float, z: float) -> Vector3:
 	return Vector3(-PlantWorld.PLOT.x * 0.5 + GRID * x, 0.0, -PlantWorld.PLOT.y * 0.5 + GRID * z)
@@ -75,7 +75,7 @@ func _pipe(a: Vector3, b: Vector3, _x: float) -> void: _cyl(a, b, 0.22, Color("#
 
 func _label(text: String, pos: Vector3, col := Color("#F4F1DE")) -> void:
 	var lb := Label3D.new(); lb.text = text; lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.no_depth_test = true; lb.fixed_size = true; lb.pixel_size = 0.0011; lb.font_size = 34
-	lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.85); lb.modulate = col; lb.font = EqTheme.font("semi"); lb.position = pos; add_child(lb)
+	lb.outline_size = 10; lb.outline_modulate = Color(0, 0, 0, 0.85); lb.modulate = col; lb.font = EqTheme.font("semi"); lb.position = pos; Tag3D.setup(lb); add_child(lb)
 
 func _sensor(p: Vector3, h: float, tag: String) -> void:
 	_cyl(p, p + Vector3(0, h, 0), 0.07, Color("#B7BFBB"))

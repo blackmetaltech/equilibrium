@@ -134,8 +134,8 @@ class Strip extends Button:
 		draw_rect(tape, tcol); draw_rect(Rect2(tape.position.x, tape.end.y - 1.0, tape.size.x, 1.0), Color(1, 1, 1, 0.1))
 		if lit: draw_rect(tape, EqTheme.TEAL, false, 2.0)
 		var y := tape.position.y + tape.size.y * 0.5 + sz * 0.34
-		draw_string(f, Vector2(tape.position.x + 12.0 + 1.0, y + 1.0), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(0, 0, 0, 0.9))      # emboss: dark offset, then the light letters
-		draw_string(f, Vector2(tape.position.x + 12.0, y), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, (EqTheme.DYMO_TEXT * Color(1, 1, 1, 0.7)) if dim else EqTheme.DYMO_TEXT)
+		EqTheme.ds(self, f, Vector2(tape.position.x + 12.0 + 1.0, y + 1.0), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(0, 0, 0, 0.9))      # emboss: dark offset, then the light letters
+		EqTheme.ds(self, f, Vector2(tape.position.x + 12.0, y), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, (EqTheme.DYMO_TEXT * Color(1, 1, 1, 0.7)) if dim else EqTheme.DYMO_TEXT)
 
 ## The balance-beam logo: a beam on a fulcrum with two pans. It rocks (damped), settles level and the lock lamp lights; it is kicked again every few seconds.
 class Beam extends Control:

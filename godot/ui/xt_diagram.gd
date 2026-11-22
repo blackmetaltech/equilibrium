@@ -64,7 +64,7 @@ func _draw_body() -> void:
 		draw_line(a, b, Color(col, 0.30 + 0.3 * lit), 8.0 + 4.0 * lit, true)
 		draw_line(a, b, col, 3.0, true)
 		draw_circle(a, 3.5, EqTheme.INK); draw_circle(b, 4.0, col)
-		draw_string(EqTheme.font("mono_bold"), (a + b) * 0.5 + Vector2(6, 14), "%d" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, 20.0, EqTheme.fs(12), EqTheme.INK)
+		EqTheme.ds(self, EqTheme.font("mono_bold"), (a + b) * 0.5 + Vector2(6, 14), "%d" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, 20.0, EqTheme.fs(12), EqTheme.INK)
 	# readout on tape: the last bed's conversion, and the Tmax
 	var last: Dictionary = beds[n - 1]
 	var ly := tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), "%s %.1f %%%s" % [InstrPaper.T("INS_BED") % n, num(last.outX) * 100.0, (" " + InstrPaper.T("INS_ESTIMATE")) if bool(data.get("estimate", false)) else ""], EqTheme.PEN_RED, pl.size.x - 8.0)

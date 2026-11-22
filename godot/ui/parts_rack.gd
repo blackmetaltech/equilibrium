@@ -10,7 +10,7 @@ var _row: Container
 var _focus := 0
 var _sig := ""
 var _tsig := ""
-const TILE := Vector2(100, 112)
+const TILE := Vector2(124, 112)   ## F32: 16 px names and prices need the room (it was 100 x 112 at 13 px)
 
 class Tile extends Control:
 	signal picked(type: String)
@@ -63,17 +63,28 @@ class Tile extends Control:
 			draw_polyline(PackedVector2Array([Vector2(cx - 11.0, 4.0 + bob), Vector2(cx + 11.0, 4.0 + bob), Vector2(cx, 20.0 + bob), Vector2(cx - 11.0, 4.0 + bob)]), EqTheme.INK, 1.5)
 			queue_redraw()
 		var col := EqTheme.TEXT if available else EqTheme.DIM.darkened(0.2)
-		PidSymbols.draw(self, type, Rect2(8, 8, size.x - 16, size.y - 54), col, EqTheme.AMBER if available else col)
-		# Dymo name
+		# Dymo name (16 px: a name too wide for the tape goes on two strips, never smaller type), price and pips along the foot
 		var lf := EqTheme.font("dymo"); var ls := EqTheme.fs(13); var lt := label.to_upper()
-		while ls > 8 and lf.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x + 10.0 > size.x - 8.0: ls -= 1   # a long name steps its type down until the whole word fits the tape
-		var lw := minf(lf.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x + 10.0, size.x - 8.0)
-		var lr := Rect2((size.x - lw) * 0.5, size.y - 40.0, lw, 17.0)
-		draw_rect(lr, EqTheme.DYMO_TAPE); draw_string(lf, lr.position + Vector2(5, 13), lt, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, ls, EqTheme.DYMO_TEXT)
-		# price and pips
-		var mf := EqTheme.font("mono"); var ms := EqTheme.fs(13)
+		var lines: Array = [lt]
+		if lf.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x + 10.0 > size.x - 8.0 and lt.find(" ") >= 0:
+			var best := 1e9; var cut := 0
+			for i in lt.length():
+				if lt[i] == " ":
+					var d := absf(lf.get_string_size(lt.left(i), HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x - lf.get_string_size(lt.substr(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x)
+					if d < best: best = d; cut = i
+			lines = [lt.left(cut), lt.substr(cut + 1)]
+		var tape_h := 21.0
+		var foot := 24.0   # the price line
+		var sym_h := size.y - foot - tape_h * lines.size() - 12.0
+		PidSymbols.draw(self, type, Rect2(8, 8, size.x - 16, sym_h), col, EqTheme.AMBER if available else col)
+		for li in lines.size():
+			var tx: String = lines[li]
+			var lw := minf(lf.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x + 10.0, size.x - 8.0)
+			var lr := Rect2((size.x - lw) * 0.5, size.y - foot - tape_h * float(lines.size() - li), lw, tape_h - 1.0)
+			draw_rect(lr, EqTheme.DYMO_TAPE); EqTheme.ds(self, lf, lr.position + Vector2(5, 16), tx, HORIZONTAL_ALIGNMENT_LEFT, lw - 6.0, ls, EqTheme.DYMO_TEXT)
+		var mf := EqTheme.font("semi"); var ms := EqTheme.fs(13)
 		var ptxt := ("$" + CbKit.num(float(price), 0)) if price != null else ""
-		draw_string(mf, Vector2(6, size.y - 7), ptxt, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.65, ms, EqTheme.TEXT if available else EqTheme.DIM)
+		EqTheme.ds(self, mf, Vector2(6, size.y - 7), ptxt, HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.62, ms, EqTheme.TEXT if available else EqTheme.DIM)
 		if limit != null:
 			var n := mini(int(limit), 6)
 			for i in range(n):
@@ -81,12 +92,11 @@ class Tile extends Control:
 				draw_circle(c, 3.5, EqTheme.AMBER if i < count else EqTheme.ENAMEL_LO); draw_arc(c, 3.5, 0, TAU, 12, EqTheme.DIM, 1.0)
 		if not available and limit != null and count >= int(limit):   # every allowed one is on the sheet (a pre-placed unit too): greyed, and it says so
 			var cap := PaperStrings.t("RACK_ONSITE") if int(limit) == 1 else PaperStrings.t("RACK_LIMIT") % int(limit)
-			var cs := EqTheme.fs(11)
-			while cs > 7 and mf.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, cs).x > size.x - 12.0: cs -= 1
-			draw_rect(Rect2(3, size.y * 0.34, size.x - 6, 17), Color(0, 0, 0, 0.62))
-			draw_string(mf, Vector2(3, size.y * 0.34 + 13.0), cap, HORIZONTAL_ALIGNMENT_CENTER, size.x - 6.0, cs, EqTheme.TEXT.darkened(0.15))
+			var cs := EqTheme.fs(13)
+			draw_rect(Rect2(3, size.y * 0.30, size.x - 6, 23), Color(0, 0, 0, 0.62))
+			EqTheme.ds(self, lf, Vector2(3, size.y * 0.30 + 17.0), cap, HORIZONTAL_ALIGNMENT_CENTER, size.x - 6.0, cs, EqTheme.TEXT.darkened(0.15))
 		if hint != "":
-			draw_string(mf, Vector2(5, 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(13), EqTheme.TEXT.darkened(0.2))
+			EqTheme.ds(self, mf, Vector2(6, 17), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(13), EqTheme.TEXT.darkened(0.2))
 
 static func build(app) -> Control:
 	var rack := PartsRack.new(); rack.app = app
@@ -144,6 +154,9 @@ func refresh() -> void:
 			if it.available or str(it.why) == "err.place.limit": items.append(it)
 	var sig := JSON.stringify(items.map(func(i): return [i.type, i.count, i.available])) + JSON.stringify(prices)
 	if sig == _sig: return
+	var any := false
+	for it0 in items: if bool(it0.available): any = true
+	if app.get("chrome") != null and app.chrome.has_method("set_rack_state"): app.chrome.call("set_rack_state", items.size(), any)   # F32: nothing to place = no tray
 	_sig = sig
 	# the same parts in the same order (only counts, prices or availability moved): update the tiles in place, so a placement never rebuilds the tile
 	# under the next click (a freed tile eats the first press) and keyboard focus stays where it was

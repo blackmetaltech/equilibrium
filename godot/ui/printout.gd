@@ -30,7 +30,7 @@ class Circled extends Control:   # a printed line with the player's number circl
 	func _ready() -> void: custom_minimum_size = Vector2(0, EqTheme.fs(size_px) + 14)
 	func _draw() -> void:
 		var f := EqTheme.font("print"); var fs := EqTheme.fs(size_px)
-		draw_string(f, Vector2(0, fs), text, HORIZONTAL_ALIGNMENT_LEFT, size.x, fs, INKC)
+		EqTheme.ds(self, f, Vector2(0, fs), text, HORIZONTAL_ALIGNMENT_LEFT, size.x, fs, INKC)
 		if not circle_last: return
 		var re := RegEx.new(); re.compile("[-+]?[0-9][0-9,]*\\.?[0-9]*")
 		var last: RegExMatch = null
