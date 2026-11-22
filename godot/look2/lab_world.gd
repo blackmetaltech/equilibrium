@@ -29,7 +29,7 @@ var heat := 0.0; var heat_to := 0.0
 var cw_on := 1.0; var cw_to := 1.0
 var flare := 0.15; var flare_to := 0.15
 var level := 0.55; var level_to := 0.55; var _liq0 := 0.0
-var pink := 0.0; var pink_to := 0.0
+var pink := 0.0; var pink_to := 0.0; var nh3_out := 0.0   ## converter outlet NH3 mole fraction (the HUD may read it)
 var run := 1.0; var run_to := 1.0
 var alarm := 0          ## 0 none, 2 high, 3 critical/tripped
 var tripped := false
@@ -191,9 +191,9 @@ func _gauge(pos: Vector3, facing: Vector3, parent: Node = self, val := 0.6, r :=
 	g.look_at_from_position(pos, pos + facing, Vector3.UP)
 	var bez := _seg(Vector3(0, 0, 0.0), Vector3(0, 0, -0.06), r, M.steel, g, 32)
 	var gm := _shader("gauge", {"value": val})
-	var face := CylinderMesh.new(); face.top_radius = r * 0.88; face.bottom_radius = r * 0.88; face.height = 0.004; face.radial_segments = 32
-	var fn := _mi(face, Vector3(0, 0, -0.062), gm, g); fn.rotation_degrees.x = 90
-	var gl := _mi(face.duplicate(), Vector3(0, 0, -0.068), M.glass, g); gl.rotation_degrees.x = 90
+	var face := QuadMesh.new(); face.size = Vector2.ONE * r * 1.76   # a quad faces +Z; the dial looks out along -Z of this frame
+	var fn := _mi(face, Vector3(0, 0, -0.062), gm, g); fn.rotation_degrees.y = 180
+	var gl := _mi(face.duplicate(), Vector3(0, 0, -0.07), M.glass, g); gl.rotation_degrees.y = 180
 	_seg(Vector3(0, -r, 0.03), Vector3(0, -r - 0.18, 0.03), 0.012, M.steel, g, 8)
 	bez.name = "bezel"; gauge_mats.append(gm)
 	return gm
@@ -392,7 +392,7 @@ func _build_loop() -> void:
 		_cyl(0.035, 0.42, Vector3(vx + cos(a) * vr * 1.06, vb + vh + 0.18, vz + sin(a) * vr * 1.06), M.black, self, -1.0, 6)
 	for i in 4: _torus(vr + 0.01, 0.012, Vector3(vx, vb + 0.18 + 1.6 + i * 1.8, vz), M.steel_dull)   # girth welds
 	# catalyst beds inside (seen in x-ray)
-	m_beds = _shader("beds", {"heat": 0.35})
+	m_beds = _shader("beds", {"heat": 0.15, "emit_gain": 1.3})
 	for i in 3: _cyl(vr * 0.9, 1.6, Vector3(vx, vb + 1.4 + i * 2.5, vz), m_beds, self, -1.0, 32)
 	conv_light = OmniLight3D.new(); conv_light.light_color = Color(1.0, 0.35, 0.1); conv_light.light_energy = 0.0; conv_light.omni_range = 6.0; conv_light.position = Vector3(vx, vb + 5.0, vz + 1.6); add_child(conv_light)
 	# heat shimmer above the head
@@ -479,7 +479,7 @@ func _build_bench() -> void:
 	_box(Vector3(4.9, 0.85, 1.2), Vector3(bx, 0.45, bz), M.paint_grey)
 	_box(Vector3(5.0, 0.9, 0.08), Vector3(bx, top + 0.45, bz - 0.62), M.steel_dull)                 # back panel / shelf
 	_box(Vector3(5.0, 0.03, 0.3), Vector3(bx, top + 0.7, bz - 0.5), M.steel_dull)
-	var lamp := SpotLight3D.new(); lamp.light_color = Color(0.95, 0.97, 1.0); lamp.light_energy = 3.0; lamp.spot_range = 3.5; lamp.spot_angle = 50.0; lamp.shadow_enabled = true
+	var lamp := SpotLight3D.new(); lamp.light_color = Color(0.95, 0.97, 1.0); lamp.light_energy = 6.0; lamp.spot_range = 4.0; lamp.spot_angle = 50.0; lamp.shadow_enabled = true
 	lamp.position = Vector3(bx, top + 1.6, bz + 0.1); lamp.rotation_degrees.x = -90; add_child(lamp)
 	_box(Vector3(4.6, 0.04, 0.08), Vector3(bx, top + 1.65, bz + 0.1), _flat(Color.WHITE, 0, 0.5, Color(0.9, 0.95, 1.0), 5.0))
 	# the sample bulb: a round flask of indicator water, gas bubbling through from a dip tube; pink follows the outlet NH3
@@ -606,9 +606,14 @@ func set_snapshot(g: Dictionary) -> void:
 		var T := float(co.get("T", 0.0))
 		if T > 0.0 and _T0 <= 0.0: _T0 = T
 		if _T0 > 0.0: heat_to = clampf((T - _T0 - 4.0) / 60.0, 0.0, 1.3)   # nominal: no glow; +10 K a dull red, +40 K orange, +64 K bright
-		var x := 0.0
-		for w in co.get("w", []): if int(w[0]) == _nh3_i: x = float(w[1])
-		pink_to = clampf(x / 0.18, 0.0, 1.0)
+		# the snapshot lists the top three components; with this loop's four species, NH3 is the remainder when it is not among them
+		var x := -1.0; var sum := 0.0
+		for w in co.get("w", []):
+			sum += float(w[1])
+			if int(w[0]) == _nh3_i: x = float(w[1])
+		if x < 0.0: x = maxf(1.0 - sum, 0.0)
+		nh3_out = x
+		pink_to = clampf(x / 0.11, 0.0, 1.0)
 		run_to = 1.0 if float(co.get("flow", 0.0)) > 1e-6 and not tripped else 0.15
 	var lq = st.get(str(streams.get("liq", "")), null)
 	if lq is Dictionary:
@@ -634,7 +639,7 @@ func _process(dt: float) -> void:
 		var h := maxf(heat - 0.12, 0.0)
 		m_shell.set_shader_parameter("heat_lo", minf(h, 0.62)); m_shell.set_shader_parameter("heat_hi", minf(h, 0.62) * 0.3)   # a bare shell at ~620 C is dull red, never white
 		m_shell_x.set_shader_parameter("heat_lo", h * 1.05); m_shell_x.set_shader_parameter("heat_hi", h * 0.35)
-		m_beds.set_shader_parameter("heat", 0.35 + heat * 0.65); m_peep.set_shader_parameter("heat", 0.4 + heat * 0.6)
+		m_beds.set_shader_parameter("heat", 0.16 + heat * 0.55); m_peep.set_shader_parameter("heat", 0.4 + heat * 0.6)
 		m_shimmer.set_shader_parameter("strength", clampf(heat, 0.0, 1.2) * 0.02)
 		conv_light.light_energy = h * 6.0 + (1.5 if xray else 0.0) * (0.3 + heat)
 	# compressor and CW pump vibrate while they run
@@ -675,7 +680,7 @@ const PRESETS := {
 	"loop": [Vector3(-3, 2.5, -4), -0.45, -0.32, 20.0],
 	"converter": [Vector3(5.5, 6.0, -3.0), 0.35, -0.08, 11.0],
 	"gauge": [Vector3(6.25, 4.2, -1.6), 0.25, -0.05, 0.85],
-	"bench": [Vector3(-1.4, 1.15, 10.5), -0.25, -0.38, 1.9],
+	"bench": [Vector3(-1.5, 1.1, 10.4), -0.35, -0.3, 2.3],
 	"outside": [Vector3(20, 14, -60), 0.25, 0.04, 70.0],
 	"xray": [Vector3(5.5, 5.8, -3.0), 0.35, -0.06, 9.5],
 }
