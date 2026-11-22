@@ -1,0 +1,85 @@
+class_name Look2
+extends Node
+## LOOK2 phase A glue (docs/LOOK2.md). For the slice level (L00 Night Shift) the old plant view and console are hidden and two new layers take over:
+## LabWorld (look2/lab_world.gd: the process hall, the loop, the plant outside) and HoloHud (look2/holo_hud.gd: anchored readouts, the equilibrium
+## diagram, the cooler dial, the coach line, the clock, the end card). The engine, the level and its actions are unchanged: this file only routes the
+## snapshot to the new layers. CB_LOOK2=0 turns the slice off (the 0.9 look comes back). Quality tier: CB_QUALITY=ultra|high|compat, else auto.
+const LEVELS := ["L00"]
+var app
+var lab: LabWorld
+var hud: HoloHud
+var on := false
+var tier := ""
+var ids := {}   ## role -> engine unit id (found by type in the plant query)
+
+const ROLE_OF_TYPE := {"feed": "feed", "mixer": "mixer", "compressor": "compressor", "heater": "heater", "cooler": "cooler", "eq_reactor": "converter",
+	"nh3_sep": "separator", "splitter": "splitter", "valve": "valve", "flare": "flare", "product": "product", "interlock": "interlock"}
+
+static func enabled() -> bool: return OS.get_environment("CB_LOOK2") != "0"
+
+## The tier: ultra on a Forward+ discrete GPU, high on Forward+ otherwise (or Mobile), compat on the OpenGL compatibility renderer (Xvfb, old GPUs, web).
+static func auto_tier() -> String:
+	var forced := OS.get_environment("CB_QUALITY")
+	if forced in ["ultra", "high", "compat"]: return forced
+	var method := str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "forward_plus"))
+	var rd := RenderingServer.get_rendering_device()
+	if rd == null: return "compat"
+	if method == "mobile": return "high"
+	var dev := RenderingServer.get_video_adapter_type()
+	return "ultra" if dev == RenderingDevice.DEVICE_TYPE_DISCRETE_GPU else "high"
+
+## Called from main.gd after every engine change. Builds or tears down the slice as the level changes.
+func sync() -> void:
+	var lid := str(app.b.g.get("level", "")) if app != null and app.b != null and app.started else ""
+	var want: bool = enabled() and lid in LEVELS and app.chrome != null and app.chrome_shown()
+	if want != on: _set_on(want)
+	if not on: return
+	app.chrome.visible = false   # the shell re-shows the console after a dialog; the slice keeps it hidden
+	var p = app.b.q("plant")
+	if p is Dictionary and ids.is_empty():
+		for u in p.get("units", []):
+			var r: String = ROLE_OF_TYPE.get(str(u.get("type", "")), "")
+			if r != "" and not ids.has(r): ids[r] = str(u.get("id", ""))
+		lab.setup(ids); hud.setup(ids)
+	lab.set_snapshot(app.b.g)
+	hud.refresh()
+
+func _set_on(v: bool) -> void:
+	on = v
+	if v:
+		tier = auto_tier()
+		print("LOOK2 on: tier=%s method=%s adapter=%s" % [tier, RenderingServer.get_current_rendering_method(), RenderingServer.get_video_adapter_name()])
+		ids = {}
+		lab = LabWorld.new(); lab.app = app; lab.name = "LabWorld"; app.plant_world.get_parent().add_child(lab); lab.set_quality(tier)
+		hud = HoloHud.new(); hud.app = app; hud.lab = lab; hud.name = "HoloHud"; app.chrome.get_parent().add_child(hud); hud.build()
+		app.plant_world.set_blocked(true)
+		app.chrome.visible = false
+		lab.make_current()
+	else:
+		if lab != null: lab.queue_free(); lab = null
+		if hud != null: hud.queue_free(); hud = null
+		ids = {}
+		if app.plant_world != null: app.plant_world.set_blocked(false); app.plant_world.cam.make_current()
+		if app.chrome != null and app.chrome_shown(): app.chrome.visible = true
+
+func relayout() -> void:
+	if on and hud != null: hud.layout()
+
+## Toasts and coach lines go to the HUD while the slice is on.
+func toast(text: String, level: String) -> bool:
+	if not on or hud == null: return false
+	hud.toast(text, level); return true
+
+## The level's end: the HUD's end card replaces the paper printout.
+func end_screen() -> bool:
+	if not on or hud == null: return false
+	return hud.end_card()
+
+func camera(spec: String) -> bool:
+	if not on or lab == null: return false
+	lab.set_camera(spec); return true
+
+func key(e: InputEventKey) -> bool:
+	if not on: return false
+	if hud != null and hud.key(e): return true
+	return lab != null and lab.key(e)
