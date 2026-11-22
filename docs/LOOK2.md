@@ -145,3 +145,53 @@ Fixed after scoring (one pass): heater band moved below the glass and a light bo
 Not fixed, for phase B: Mateo's fantasy and control points (retitle and reframe L14 as the player's own question, wheels and a RUN lever as the only controls, a twin reference flask, real K so heat drives the colour, open challenges that add apparatus to the hall); Sigrid's material pass (steel and cladding instead of blotch noise, a real fired heater), a darker L00 night, an establishing L14 view with real depth and fewer neon strips.
 
 **Not done.** The "dial has no cost" level-design finding is for the phase B gate. Real-mouse drags and hover expansion are tested by synthetic events only. The L14 end card and retry were not played through.
+
+## Phase B (11-22 to 11-23): round 3, chapter 3 in the new look, the release
+
+Lead: Ingrid Solheim (Game Lead). One helper at a time; critics once.
+
+### Decision records
+
+**D-B1. L14 becomes "Two Flasks", the player's own experiment (Mateo, round 2 critique).**
+Decided: the form is retired. The player works the wheels (T, V), a RUN lever, an argon valve and a piston clamp in the 3D world. A twin flask stands beside it at the book's numbers. The flask uses real N2O4 data (NIST-JANAF), so heating darkens the gas. The book's K is used only for the Call-Kp. Win: the three Le Chatelier tests (halve V; argon at constant V; argon at constant P). Stars: the Kp call; finding the book's temperature (T* = 406.5 K, where the real flask reads the book's 9.15 bar).
+Why: the round 2 build was an exam with a form that beat the wheels, and with a fixed K the heater did nothing.
+Disagreed: Priya (PM) wanted to keep fixed K and the HUD fields to save time. Overruled: the coordinator's order requires real K and wheel-only controls.
+Engine: src/levels/l14.ts. Tests moved on purpose in ch3.test.ts and f25_truth.test.ts; EQ-NC-024 now runs on the twin.
+
+**D-B2. L00's dial has a cost.**
+Decided: the cooler's controller is slow on this loop, 1 % of its 150-1500 K range per second (13.5 K/s). A turn made too late trips the interlock, and the night is lost (`spec.lost`, with a retry).
+Why: in round 2 a turn at any time won the level.
+Calibration (seed 1003, 650 K turn): learner mode is saved up to about 58 s and is at Critical from about 46 s; engineer mode is saved up to about 38 s and trips from about 42 s. Pinned in levels.test.ts.
+
+**D-B3. fix25 follows Mateo's decision.**
+Learner mode: the checklist line shows while a part row is open. After the pipes, the coach points at a packed bed with "catalyst" text. Engineer mode: no coach (`_engineer_quiet` asserts it). No test checks nothing.
+
+**D-B4. Chapter 3 is the released new-look chapter (Priya).**
+L10-L13 keep the classic build view as a "drafting table". Once commissioned, the player's own flowsheet stands in a hall (look2/gen_world.gd): one model per unit type and pipes on a rack. Beds and converters glow by outlet temperature: dark below light-off, white past the sinter limit. Boilers steam. B (pad X) flips between the two views, and a banner says which view is showing. L14 is the full new look.
+Chapter 3 opens from the start and has its own title-screen strip. The Works Map labels each chapter NEW LOOK (00 and 03) or classic.
+Why: one whole chapter, played end to end, beats five half-converted ones.
+Cut, and written here: a 3D build mode for L10-L13. The hall is a view, not an editor.
+
+**D-B5. L00's catalyst lights off at 643 K (Anjali, domain).**
+Anjali found that the engineer-mode save needed an inlet near 450 K, about 190 K below light-off. The converter now carries L13's light-off rule (Tmin 643 K), and the expert saves at 650 K.
+Star 2 changed from "never Critical" to "keep the catalyst lit: cooler not below 370 C". Engineer mode now spends time at Critical even at the best lit set point; the test asserts zero Critical in learner mode only.
+Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untouched).
+
+**Texture fix (coordinator).** Mipmaps and VRAM compression for every 3D texture, with normal maps as RGTC. Set in project.godot `[importer_defaults]` and in the tracked `.import` files. The screen-space roughness limiter is on (0.35). AA per tier: ultra MSAA 2x + TAA; high FSR2 0.77; compat FSR1 0.6 + FXAA. `godot/tests/textures_flow.gd` fails on regression (56 checks).
+
+**Anjali's chemistry fixes (L14).**
+- Test 3 counts only at the flask's own no-argon pressure, within 0.5 %. A 20 bar argon run is a pressure change, and the tests now say so.
+- The piston draws the engine's volume.
+- The lesson says the book's 9.15 bar is invented; real N2O4 reads 8.83 bar(a).
+- The colour curve is called "fraction absorbed", with k = 1.1 chosen for legibility.
+- The twin's gauge and NO2 come from the engine.
+
+**Naledi's framing fixes.**
+- The clamp holds the flask's own pressure at the current wheels. Her finding: one stored value broke the coached order. look2_flow now drives that order through the world's controls.
+- RUN flushes debounced wheel turns.
+- Why? asks for a prediction instead of giving the answer.
+- bar(a) is explained.
+- L00's cue is the CW PUMP lamp, not a sound the build does not have.
+- Not done: hiding Why? until a test has run. The predict-first wording does the same job.
+
+**Pad.** D-pad left/right picks a world control (a ring marks it, and a line names it and its value). Up/down turns a wheel. A pulls RUN, works the valve or the clamp, or opens the keypad for the Call box. LB/RB step the camera presets; the sticks and triggers move the camera. X flips the views in chapter 3. godot/tests/pad3_flow.gd drives all of it with real joypad events.
