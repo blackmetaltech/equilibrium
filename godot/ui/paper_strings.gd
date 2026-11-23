@@ -27,7 +27,7 @@ const S := {
 	"IC_NO_RUN": "This job has no shift to run: it is judged on the commission. Turn the key back to DESIGN to change the plant.", "IC_FIRST_EDIT": "The first run is on show: change anything in the design to stop it.", "KH_DESIGN": "COMMISSION", "KH_COMMISSIONED": "RUN", "KH_BACK": "BACK TO DESIGN", "KH_RUN": "STOP + EDIT", "KH_TURN": "TURN FOR",
 	"HX_HOT_IN": "HOT IN", "HX_HOT_OUT": "HOT OUT", "HX_COLD_IN": "COLD IN", "HX_COLD_OUT": "COLD OUT",
 	"UT_FIRED": "fired", "UT_STEAM": "steam", "UT_CW": "cooling water", "UT_REFRIG": "refrigerant", "UT_NONE": "none (adiabatic)", "UT_ZERO": "This %s does 0 kW: pick a utility and a duty.", "UT_COLD": "Cooling water cannot heat anything. A heater needs fired or steam.", "UT_HOT": "Fired heat or steam cannot cool anything. A cooler needs water or refrigerant.",
-	"KEYPAD_OK": "Enter", "KEYPAD_CLEAR": "Clear", "KEYPAD_IN": "in %s", "KEYPAD_NONUM": "Type a number first.", "KEYPAD_REJECT1": "%s is outside the scale.", "KEYPAD_REJECT": "%s is outside the scale (%s to %s).", "KEYPAD_RANGE": "%s to %s",
+	"KEYPAD_OK": "Enter", "KEYPAD_PAD": "D-pad move  ·  A key  ·  X del  ·  Y clear  ·  RB enter", "KEYPAD_CLEAR": "Clear", "KEYPAD_IN": "in %s", "KEYPAD_NONUM": "Type a number first.", "KEYPAD_REJECT1": "%s is outside the scale.", "KEYPAD_REJECT": "%s is outside the scale (%s to %s).", "KEYPAD_RANGE": "%s to %s",
 }
 ## One solved stream (flow mol/s, mass kg/s, T K, P Pa, top-3) from `streamTable`, or {} when the plant is not solved.
 static func stream_row(app, id: String) -> Dictionary:

@@ -153,6 +153,9 @@ func _banner_refresh() -> void:
 	var t := banner_text(_b_state, CbKit.pad_mode)
 	if _banner_lbl.text != t: _banner_lbl.text = t
 
+func _hint_off() -> void:
+	if app != null and app.pad != null and app.pad.hint != null and gen != null and gen.visible: app.pad.hint.visible = false
+
 func _gen_off() -> void:
 	if _rack_off and app.chrome != null: _rack_off = false; app.chrome.hall_hold = false; app.chrome.layout()   # leaving the hall gives the rack back
 	if gen != null: gen.queue_free(); gen = null
@@ -314,6 +317,6 @@ func _park_env(park: bool) -> void:
 ## The notebook tab and the paper hub can appear a frame after the last engine change: keep them hidden while the slice is on.
 func _process(_dt: float) -> void:
 	_pad_draw()
-	if app != null: app.set_meta("cb_pad_hint_off", gen != null and gen.visible)   # 0.13: the drafting table's pad row ("LB/RB tray ...") does nothing over the hall
+	if gen != null and gen.visible: _hint_off.call_deferred()   # 0.13: the drafting table's pad row ("LB/RB tray ...") does nothing over the hall; CbPad shows it again every frame, so hide it after its _process
 	if gen != null: _banner_refresh()
 	if on: _hide_paper(true)
