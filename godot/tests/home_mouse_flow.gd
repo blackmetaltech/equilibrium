@@ -85,6 +85,13 @@ func _run() -> void:
 		var nb: Control = map.find_child("Level_" + id, true, false)
 		check(nb != null, "%s: the map has the chapter's first job" % id)
 		if nb == null: break
+		# 0.13: the map is the site model; a chapter's jobs show on the sheet once its building is chosen (hover its tag), then the job can be hovered and clicked
+		var chn: int = WorksMap.Campaign.chapter_of(id)
+		var stop: Control = map.find_child("Stop_%d" % chn, true, false)
+		check(stop != null, "%s: the model has a building tag for chapter %d" % [id, chn])
+		if stop == null: break
+		await hover(stop.get_viewport().get_final_transform() * (stop.get_global_transform_with_canvas() * Vector2(stop.size.x * 0.5, stop.size.y - 16.0))); await frames(2)
+		check(nb.is_visible_in_tree(), "%s: hovering the chapter's building shows its jobs on the sheet" % id)
 		# hover lights the node
 		var sc: ScrollContainer = map.find_child("List", true, false)
 		var n0 := 0
