@@ -47,7 +47,7 @@ class Answer extends Control:
 	func _draw() -> void:
 		draw_line(Vector2(0, size.y - 4), Vector2(size.x, size.y - 4), EqTheme.INK, 2.0)
 		var f := EqTheme.font("mono_bold"); var fs := EqTheme.fs(22)
-		if text == "": EqTheme.ds(self, EqTheme.font("sans"), Vector2(4, size.y - 12), PaperStrings.t("NB_TAP"), HORIZONTAL_ALIGNMENT_LEFT, size.x - 8, EqTheme.fs(15), EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.55))
+		if text == "": EqTheme.ds(self, EqTheme.font("sans"), Vector2(4, size.y - 12), EqVerb.adapt(PaperStrings.t("NB_TAP")), HORIZONTAL_ALIGNMENT_LEFT, size.x - 8, EqTheme.fs(15), EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.55))
 		else: EqTheme.ds(self, f, Vector2(4, size.y - 10), text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 8, fs, EqTheme.RED if refused else EqTheme.PEN_BLUE)
 		if has_focus(): draw_rect(Rect2(0, 0, size.x, size.y), EqTheme.TEAL, false, 3.0)
 

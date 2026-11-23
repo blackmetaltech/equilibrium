@@ -3,6 +3,7 @@ extends SceneTree
 ## 1. the annunciator in a hall level writes only what is lit, in sentence case, plus one goal stamp; every condition stays reachable (tooltip).
 ## 2. the chart recorder: legends sit above the plot (never over the trace), the printout countdown has its own line under the paper, and the console row fits 1600x900 (the pause pip was cut at the right edge).
 ## 3. the notebook brief: at most three short lines first, the rest behind a More button, no Call-it rule said twice, every paragraph one or two sentences, the engine's note untouched.
+## 4. 'tap' follows the device: click with a mouse, tap on touch, press A with a pad (the notebook's answer box, the intercom).
 ## Prints LOOK2-UI-FLOW OK / LOOK2-UI-FLOW FAILED n.
 var fails := 0
 var checks := 0
@@ -61,6 +62,7 @@ func _run() -> void:
 
 	await _recorder()
 	await _brief()
+	await _verbs()
 
 func _recorder() -> void:
 	app.start_level("L04", true); await frames(10)
@@ -133,3 +135,41 @@ func _brief() -> void:
 		for sx in vis: words += str(sx).split(" ").size()
 		check(words <= 75, "%s: the first lines are short (%d words)" % [id, words])
 		Notebook.close(app); await frames(3)
+
+func _verbs() -> void:
+	EqVerb.forced = "mouse"
+	check(EqVerb.adapt("tap to enter") == "click to enter" and EqVerb.adapt("Tap the converter R-106.") == "Click the converter R-106.", "mouse: click")
+	EqVerb.forced = "touch"
+	check(EqVerb.adapt("tap to enter") == "tap to enter" and EqVerb.adapt("Tap the converter R-106.") == "Tap the converter R-106.", "touch: tap")
+	EqVerb.forced = "pad"
+	check(EqVerb.adapt("tap to enter") == "press A to enter" and EqVerb.adapt("Tap the converter R-106.") == "Press A on the converter R-106." and EqVerb.adapt("Turn, wheel, or tap the number") == "Turn, wheel, or press A on the number", "pad: press A")
+	check(EqVerb.adapt("tapped out, no word here") == "tapped out, no word here" and EqVerb.adapt("Start work") == "Start work", "only the word tap changes")
+	EqVerb.forced = ""
+	# the last input decides: a touch, then a real mouse move
+	var t := InputEventScreenTouch.new(); EqVerb.note(t)
+	check(EqVerb.device() == "touch", "a touch makes it touch")
+	var m := InputEventMouseMotion.new(); m.device = InputEvent.DEVICE_ID_EMULATION; EqVerb.note(m)
+	check(EqVerb.device() == "touch", "a mouse event made by the touch itself does not change it")
+	m = InputEventMouseMotion.new(); m.device = 0; EqVerb.note(m)
+	check(EqVerb.device() == "mouse", "a real mouse makes it mouse")
+	CbKit.pad_mode = true
+	check(EqVerb.device() == "pad", "pad mode makes it pad")
+	CbKit.pad_mode = false
+	# on screen: the answer box in the notebook, under a mouse and a pad
+	app.start_level("L04", true); await frames(8)
+	Notebook.open(app); await frames(4)
+	var ans: Node = app.root.find_child("Answer", true, false)
+	EqTheme.drawn.clear(); EqTheme.audit = true; ans.queue_redraw(); await frames(2); EqTheme.audit = false
+	var texts: Array = []
+	for k in EqTheme.drawn: if str(k).contains(str(ans.get_path())): texts.append(str(EqTheme.drawn[k][1]))
+	check(texts.has("click to enter"), "the notebook answer box says click to enter under a mouse: %s" % str(texts))
+	CbKit.pad_mode = true
+	EqTheme.drawn.clear(); EqTheme.audit = true; ans.queue_redraw(); await frames(2); EqTheme.audit = false
+	texts = []
+	for k in EqTheme.drawn: if str(k).contains(str(ans.get_path())): texts.append(str(EqTheme.drawn[k][1]))
+	check(texts.has("press A to enter"), "and press A to enter with a pad: %s" % str(texts))
+	CbKit.pad_mode = false
+	check(app.chrome.intercom != null, "intercom exists")
+	app.chrome.intercom.say("mara", "Tap the converter R-106.", "info")
+	check(str(app.chrome.intercom.last().text) == "Click the converter R-106.", "the intercom says click under a mouse: %s" % str(app.chrome.intercom.last().text))
+	Notebook.close(app)

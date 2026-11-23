@@ -30,7 +30,7 @@ var _body: VBoxContainer
 var _scen: VBoxContainer       ## L33: one row per scenario under the strip chart (levelView.scenarios)
 var _scen_sig := ""
 
-static func T(k: String) -> String: return S.get(k, k)
+static func T(k: String) -> String: return EqVerb.adapt(S.get(k, k))
 
 func _init() -> void:
 	name = "ControlPanel"; mouse_filter = Control.MOUSE_FILTER_PASS

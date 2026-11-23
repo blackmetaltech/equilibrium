@@ -36,7 +36,7 @@ func _build() -> void:
 	sh.add_child(key("CLEAR", func(): emit_act("clear")))
 	var order: Array = view.get("order", []); var trace: Array = view.get("trace", [])
 	if order.is_empty():
-		var hint := lbl("Tap cards on the rack to build the order.", 13, Color("#3A3020")); hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; seq.add_child(hint)
+		var hint := lbl(EqVerb.adapt("Tap cards on the rack to build the order."), 13, Color("#3A3020")); hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; seq.add_child(hint)
 	for i in order.size():
 		var ev := {}
 		for e in trace: if int(e.i) == i: ev = e

@@ -443,7 +443,7 @@ func _sync_coach() -> void:
 	var sig := name_t + "|" + text
 	if sig != _coach_sig:
 		var first := _coach_sig == ""
-		_coach_sig = sig; _coach_name.text = name_t; _coach_text.text = text; _coach_why.text = why; _coach_whybtn.visible = why != ""
+		_coach_sig = sig; _coach_name.text = name_t; _coach_text.text = EqVerb.adapt(text); _coach_why.text = why; _coach_whybtn.visible = why != ""
 		if not first: _coach.pulse()
 		_coach.fit()
 	if text != "" and not _coach.shown and not _brief.shown: _coach.appear(0.1)

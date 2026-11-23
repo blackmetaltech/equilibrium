@@ -319,6 +319,7 @@ func next_tick() -> void:
 
 ## Pad A acknowledges the annunciator when something is flashing and nothing else wants the button.
 func _input(e: InputEvent) -> void:
+	EqVerb.note(e)
 	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_ESCAPE:
 		_from_esc = true; super(e); _from_esc = false; return
 	if e is InputEventJoypadButton and e.pressed and e.button_index == JOY_BUTTON_A and CbPad.enabled and started and chrome != null and modal() == null \

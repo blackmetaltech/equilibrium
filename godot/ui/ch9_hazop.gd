@@ -133,7 +133,7 @@ class Grid extends Control:
 						if x.param == ps[i].id and x.guide == gs[j].id:
 							if not bool(x.meaningful): return "%s / %s: no meaningful deviation" % [ps[i].label, gs[j].label]
 							if bool(x.simulated): return "%s / %s: %s (T out %d K)" % [ps[i].label, gs[j].label, x.sim.cls, int(round(float(x.sim.tOut)))]
-							return "%s / %s: tap to simulate" % [ps[i].label, gs[j].label]
+							return EqVerb.adapt("%s / %s: tap to simulate" % [ps[i].label, gs[j].label])
 		for j in gs.size():
 			if at.y < TOPH and at.x >= HW + j * _cw() and at.x < HW + (j + 1) * _cw(): return str(gs[j].label)
 		return ""
