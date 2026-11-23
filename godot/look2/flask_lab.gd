@@ -53,7 +53,7 @@ func _ready() -> void:
 	if OS.get_environment("CB_FRAMETIME") == "1": _ft_start()
 
 # ---- the room: a vast private laboratory. Round 3: walls you can read, a reactor bay behind glass, a gantry, benches of coloured glass, columns, tanks
-const HALL := Vector3(64, 24, 44)   ## x span, height, z span; the floor runs z -24..20
+const HALL := Vector3(64, 24, 56)   ## x span, height, z span; the floor runs z -36..20
 var mats := {}
 func _lab_mats() -> void:
 	var st := StandardMaterial3D.new(); st.metallic = 1.0; st.roughness = 0.24; st.albedo_color = Color(0.78, 0.79, 0.8); st.anisotropy_enabled = true; st.anisotropy = 0.7
@@ -87,7 +87,7 @@ var _clamp_lbl: Label3D   ## playtest: the CLAMP sign is screen-sized; in the wi
 func _build_room() -> void:
 	_lab_mats()
 	_wallwhite = _flat(Color(0.84, 0.86, 0.88), 0.0, 0.38)
-	var x0 := -32.0; var x1 := 32.0; var z0 := -24.0; var z1 := 20.0; var H := 24.0
+	var x0 := -32.0; var x1 := 32.0; var z0 := -36.0; var z1 := 20.0; var H := 24.0   # 0.12 lab to 8: the back wall pushed out (was -24) so the bay is deep enough for a second, bigger machine
 	var fl := PlaneMesh.new(); fl.size = Vector2(x1 - x0, z1 - z0)
 	var ep := StandardMaterial3D.new(); ep.albedo_color = Color(0.7, 0.72, 0.74); ep.roughness = 0.16; ep.metallic = 0.0   # phase C (owner: the lab should gleam): light poured epoxy, polished
 	ep.normal_enabled = true; ep.normal_texture = _tex("concrete_floor_02_nor"); ep.normal_scale = 0.12; ep.uv1_scale = Vector3(16, 12, 1)
@@ -150,18 +150,75 @@ func _build_room() -> void:
 	# cable trays overhead, conduits down the pilasters
 	for z in [-8.0, 0.0, 12.0]: _box(Vector3(x1 - x0 - 2.0, 0.1, 0.6), Vector3(0, 11.0, z), mats.stainless_dull); _box(Vector3(x1 - x0 - 2.0, 0.08, 0.5), Vector3(0, 11.06, z), _flat(Color(0.1, 0.1, 0.12), 0.0, 0.7))
 	for x in [-24.0, -12.0, 12.0, 24.0]: _seg(Vector3(x + 0.5, 0.5, -8.0), Vector3(x + 0.5, 11.0, -8.0), 0.05, mats.stainless_dull)
+	_build_mezzanine(x0, x1)
+	_build_autoclave(Vector3(23.0, 0, -32.0))
 	# key and fill: a cool key on the hero, warm cove light, practicals; the hero is backlit by the bay
 	var key := SpotLight3D.new(); key.light_color = Color(0.92, 0.95, 1.0); key.light_energy = 28.0; key.spot_range = 24.0; key.spot_angle = 16.0; key.shadow_enabled = true
 	key.position = DAIS + Vector3(4.0, 15.0, 5.0); key.light_volumetric_fog_energy = 2.5; add_child(key); key.look_at(DAIS + Vector3(0, 2.0, 0))
 	_spot(DAIS + Vector3(-5.0, 7.0, -6.0), DAIS + Vector3(0, 2.5, 0), Color(0.5, 0.75, 1.0), 6.0, 16.0, 28.0, 1.0)
+	# one strong cool rim from behind the apparatus (the glass side): the tower separates from the wall
+	var rim := _spot(Vector3(DAIS.x - 1.2, 9.0, -9.4), DAIS + Vector3(0, 2.8, 0), Color(0.55, 0.8, 1.0), 45.0, 16.0, 20.0, 3.0); rim.name = "RimLight"   # 0.12: 160 bloomed white over the apparatus
 	for f in [Vector3(-16, 6, 4), Vector3(16, 6, 4), Vector3(0, 7, 12), Vector3(0, 7, -9)]:
 		var o := OmniLight3D.new(); o.light_color = Color(1.0, 0.82, 0.62); o.light_energy = 3.5; o.omni_range = 18.0; o.position = f; add_child(o)
 	for gx in [-24.0, -14.0, -4.0, 6.0, 16.0, 26.0]:   # a grid of warm high-bay downlights: the lab is lit like a place someone works in
 		for gz2 in [-6.0, 4.0, 13.0]:
 			_cyl(0.45, 0.25, Vector3(gx, 17.8, gz2), mats.anod); _cyl(0.38, 0.02, Vector3(gx, 17.67, gz2), mats.warm)
 			_spot(Vector3(gx, 17.6, gz2), Vector3(gx, 0, gz2 + 0.01), Color(1.0, 0.85, 0.66), 5.0, 22.0, 38.0, 0.8, false)
-	var rp := ReflectionProbe.new(); rp.size = Vector3(64, 24, 44); rp.position = Vector3(0, 12, -2); rp.box_projection = true; rp.interior = true; rp.update_mode = ReflectionProbe.UPDATE_ONCE; add_child(rp)
+	var rp := ReflectionProbe.new(); rp.size = Vector3(64, 24, 56); rp.position = Vector3(0, 12, -8); rp.box_projection = true; rp.interior = true; rp.update_mode = ReflectionProbe.UPDATE_ONCE; add_child(rp)
 	anchors["bench"] = Vector3(-18.0, 1.4, 4.0)
+
+## A mezzanine catwalk along the hall side of the glass wall (grating deck, toe board, two rails, posts, columns, a stair at the left end), broken round the vent pipe.
+func _build_mezzanine(x0: float, x1: float) -> void:
+	var y := 5.2; var zc := -11.4
+	for seg in [[x0 + 1.0, -2.4], [2.4, x1 - 1.0]]:
+		var a: float = seg[0]; var b: float = seg[1]; var cx := (a + b) * 0.5; var ln := b - a
+		_box(Vector3(ln, 0.12, 2.0), Vector3(cx, y, zc), M.plate)
+		_box(Vector3(ln, 0.3, 0.06), Vector3(cx, y + 0.2, zc + 1.0), mats.anod)   # toe board
+		_box(Vector3(ln, 0.05, 0.05), Vector3(cx, y + 1.1, zc + 1.0), mats.stainless)   # top rail
+		_box(Vector3(ln, 0.03, 0.03), Vector3(cx, y + 0.65, zc + 1.0), mats.stainless_dull)   # mid rail
+		_box(Vector3(ln, 0.04, 0.12), Vector3(cx, y - 0.1, zc + 0.95), mats.warm)   # a warm strip under the lip
+		var n := int(ln / 2.0)
+		for i in n + 1: _seg(Vector3(a + i * ln / n, y + 0.06, zc + 1.0), Vector3(a + i * ln / n, y + 1.1, zc + 1.0), 0.022, mats.stainless)
+		for i in int(ln / 8.0) + 1: _box(Vector3(0.3, y, 0.3), Vector3(a + 0.5 + i * 8.0, y * 0.5, zc - 0.8), mats.anod)
+	# the stair down at x -29, toward the hall
+	var sx := -29.0
+	for i in 13: _box(Vector3(1.1, 0.06, 0.3), Vector3(sx, y - 0.4 * (i + 1), zc + 1.0 + 0.3 * (i + 1)), M.plate)
+	for sd in [-0.55, 0.55]:
+		_seg(Vector3(sx + sd, y + 1.1, zc + 1.0), Vector3(sx + sd, y - 0.2, zc + 1.0), 0.02, mats.stainless)
+		_seg(Vector3(sx + sd, y + 1.1, zc + 1.0), Vector3(sx + sd, 1.1, zc + 1.0 + 3.9), 0.025, mats.stainless)
+		_seg(Vector3(sx + sd, y - 0.1, zc + 1.0), Vector3(sx + sd, 0.0, zc + 1.0 + 3.9), 0.03, mats.anod)
+
+## The second, bigger machine, far down the bay: a tall high-pressure autoclave in a gantry frame, a bolted closure, a hoist, a ladder, a lit sight glass.
+func _build_autoclave(p: Vector3) -> void:
+	var R := 2.7; var h0 := 1.8; var h1 := 11.0
+	_cyl(R + 0.6, 0.5, p + Vector3(0, 0.25, 0), mats.anod, self, -1.0, 40)   # foundation
+	_cyl(R * 0.9, h0 - 0.5, p + Vector3(0, 0.5 + (h0 - 0.5) * 0.5, 0), mats.enamel_navy, self, -1.0, 40)   # skirt
+	_cyl(R, h1, p + Vector3(0, h0 + h1 * 0.5, 0), mats.stainless, self, -1.0, 56)
+	_sph(R, p + Vector3(0, h0, 0), mats.stainless, self, true).rotation_degrees.x = 180
+	_sph(R, p + Vector3(0, h0 + h1, 0), mats.stainless, self, true)
+	var fy := h0 + h1 - 1.4   # the bolted closure flange
+	_cyl(R + 0.35, 0.45, p + Vector3(0, fy, 0), mats.stainless_dull, self, -1.0, 56)
+	for i in 28:
+		var a := TAU * i / 28.0
+		_cyl(0.11, 0.2, p + Vector3(cos(a) * (R + 0.2), fy + 0.3, sin(a) * (R + 0.2)), mats.anod, self, -1.0, 8)
+	for k in 5: _torus(R + 0.03, 0.05, p + Vector3(0, h0 + 2.0 + k * 2.0, 0), mats.stainless_dull)
+	_cyl(0.32, 1.4, p + Vector3(0, h0 + h1 + R + 0.4, 0), mats.stainless_dull); _cyl(0.5, 0.2, p + Vector3(0, h0 + h1 + R + 1.15, 0), mats.copper)
+	var sgl := _flat(Color(0.2, 0.1, 0.05), 0.0, 0.2, Color(1.0, 0.6, 0.25), 3.0)   # the sight glass, warm
+	_cyl(0.5, 0.14, p + Vector3(0, h0 + 5.0, R), sgl).rotation_degrees.x = 90
+	_cyl(0.6, 0.1, p + Vector3(0, h0 + 5.0, R - 0.02), mats.stainless_dull).rotation_degrees.x = 90
+	# the gantry frame: four legs, two cross beams, a hoist on a rail with its chain
+	for sx in [-5.0, 5.0]:
+		for sz in [-4.0, 4.0]: _box(Vector3(0.4, 19.0, 0.4), p + Vector3(sx, 9.5, sz), mats.enamel_navy)
+	for sz in [-4.0, 4.0]: _box(Vector3(10.4, 0.5, 0.5), p + Vector3(0, 19.0, sz), mats.enamel_navy)
+	_box(Vector3(0.6, 0.6, 8.4), p + Vector3(0, 19.2, 0), M.yellow)
+	_box(Vector3(1.2, 0.8, 1.2), p + Vector3(0, 18.5, 0), M.yellow); _seg(p + Vector3(0, 18.1, 0), p + Vector3(0, h0 + h1 + R + 1.3, 0), 0.03, M.black)
+	for y in [6.5, 12.0]:   # landings with a rail
+		_box(Vector3(10.0, 0.12, 1.2), p + Vector3(0, y, 4.0), M.plate); _box(Vector3(10.0, 0.05, 0.05), p + Vector3(0, y + 1.1, 4.6), mats.stainless)
+	for i in 30: _box(Vector3(0.7, 0.04, 0.04), p + Vector3(R + 1.6, 0.4 + i * 0.4, 0.0), mats.stainless_dull)   # the ladder rungs
+	_seg(p + Vector3(R + 1.25, 0.2, 0), p + Vector3(R + 1.25, 12.2, 0), 0.03, mats.stainless_dull); _seg(p + Vector3(R + 1.95, 0.2, 0), p + Vector3(R + 1.95, 12.2, 0), 0.03, mats.stainless_dull)
+	_pipe([p + Vector3(-R, 4.0, 0), p + Vector3(-R - 3.0, 4.0, 0), p + Vector3(-R - 3.0, 4.0, 7.0)], 0.22, mats.stainless_dull, self, true)
+	var gl := OmniLight3D.new(); gl.light_color = Color(1.0, 0.6, 0.3); gl.light_energy = 2.0; gl.omni_range = 7.0; gl.position = p + Vector3(0, h0 + 5.0, R + 1.4); add_child(gl)
+	_spot(p + Vector3(-6.0, 20.0, 8.0), p + Vector3(0, 8.0, 0), Color(0.78, 0.88, 1.0), 40.0, 34.0, 26.0, 1.5)
 
 # ---- the rig: dais, gas cylinder with screw piston, coils, gauge, wheels, dewar of liquid N2O4, argon, fume hood -----------------------------------
 func _build_rig() -> void:
@@ -232,9 +289,18 @@ func _build_rig() -> void:
 	anchors["gauge"] = gp + Vector3(0, 0.3, 0); radius["gauge"] = 0.3
 	# the console on the dais with the T wheel and screens
 	var cp := Vector3(d.x - 1.9, by, d.z + 1.5)
-	var desk := _box(Vector3(1.6, 0.9, 0.7), cp + Vector3(0, 0.45, 0), _paint(Color(0.14, 0.15, 0.17))); desk.rotation_degrees.y = 35
+	# a powder-coated control desk (roughness 0.5) with an angled panel, three knobs and two small lamps
+	var dk := Node3D.new(); dk.name = "ControlDesk"; dk.position = cp; dk.rotation_degrees.y = 35; add_child(dk)
+	_box(Vector3(1.6, 0.82, 0.7), Vector3(0, 0.41, 0), _flat(Color(0.2, 0.3, 0.32), 0.15, 0.5), dk)
+	_box(Vector3(1.66, 0.04, 0.76), Vector3(0, 0.84, 0), mats.stainless_dull, dk)
+	var pan := _box(Vector3(1.5, 0.05, 0.5), Vector3(0, 0.9, -0.04), _flat(Color(0.09, 0.1, 0.11), 0.15, 0.5), dk); pan.rotation_degrees.x = 14
+	for k in 3:
+		var kb := _cyl(0.05, 0.05, Vector3(-0.55 + k * 0.17, 0.05, -0.1), mats.stainless, pan, -1.0, 20)
+		_box(Vector3(0.008, 0.012, 0.045), Vector3(0, 0.03, -0.02), M.red, kb)
+	_sph(0.026, Vector3(0.42, 0.04, -0.12), _flat(Color(0.1, 0.5, 0.2), 0.0, 0.3, Color(0.3, 1.0, 0.5), 3.0), pan)
+	_sph(0.026, Vector3(0.54, 0.04, -0.12), _flat(Color(0.6, 0.35, 0.05), 0.0, 0.3, Color(1.0, 0.7, 0.2), 3.0), pan)
 	var scr := _box(Vector3(1.3, 0.55, 0.04), cp + Vector3(0.12, 1.25, -0.2), _flat(Color(0.02, 0.03, 0.035), 0.2, 0.12, Color(0.1, 0.42, 0.4), 0.12)); scr.rotation_degrees = Vector3(-15, 35, 0); scr.scale = Vector3(0.7, 0.7, 1)
-	wheel_t = Node3D.new(); wheel_t.position = cp + Vector3(0.0, 1.0, 0.3); add_child(wheel_t); wheel_t.rotation_degrees = Vector3(55, 35, 0)
+	wheel_t = Node3D.new(); wheel_t.position = cp + Vector3(0.0, 1.1, 0.3); add_child(wheel_t); wheel_t.rotation_degrees = Vector3(55, 35, 0)
 	_torus(0.2, 0.02, Vector3.ZERO, M.brass, wheel_t)
 	for i in 4: _seg(Vector3.ZERO, Vector3(cos(TAU * i / 4.0), 0, sin(TAU * i / 4.0)) * 0.19, 0.012, M.brass, wheel_t)
 	_torus(0.215, 0.005, Vector3(0, 0.025, 0), _flat(Color.WHITE, 0, 0.4, Color(1.0, 0.55, 0.2), 3.0), wheel_t)
@@ -268,7 +334,8 @@ func _build_rig() -> void:
 	var a1 := 1.0 - exp(-1.1); var cc := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), a1); tg.albedo_color = Color(cc.r, cc.g, cc.b, 1.0 - exp(-2.2))
 	_cyl(0.2, 1.5, tw + Vector3(0, 0.97, 0), tg, self, -1.0, 40)
 	_cyl(0.25, 0.08, tw + Vector3(0, 1.84, 0), mats.stainless, self, -1.0, 32)
-	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 34; pl.pixel_size = 0.00056; pl.fixed_size = true; pl.no_depth_test = true; pl.render_priority = 127; pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; pl.outline_size = 10; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, -0.12, 0.45); add_child(pl)   # 0.12 (Sigrid: 8 px): fixed screen size, like the CLAMP sign
+	_box(Vector3(0.5, 0.14, 0.02), tw + Vector3(0, 0.1, 0.262), M.brass).name = "BrassPlate"   # a small brass plate on the stand; the lettering shows on the near cameras only
+	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 34; pl.pixel_size = 0.00056; pl.fixed_size = true; pl.render_priority = 127; pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; pl.outline_size = 0; pl.modulate = Color(0.12, 0.07, 0.02); pl.position = tw + Vector3(0, 0.1, 0.285); add_child(pl)   # fixed screen size (>= 16 px for layout_flow), depth-tested so only the plate's face shows it
 	anchors["twin"] = tw + Vector3(0, 1.2, 0); radius["twin"] = 0.3
 	# the RUN lever on the console: pull it to run
 	lever = Node3D.new(); lever.position = cp + Vector3(0.45, 0.95, 0.15); add_child(lever)
@@ -469,6 +536,7 @@ func set_control_value(k: String, v: float) -> void:
 
 func _process(dt: float) -> void:
 	if _clamp_lbl != null: _clamp_lbl.visible = t_dist < 9.0
+	if twin_plate != null: twin_plate.visible = t_dist < 9.0
 	_t += dt
 	if cam != null and not cam.current and visible: cam.make_current()
 	c_show = lerpf(c_show, c_rel, clampf(dt * 2.5, 0, 1))
