@@ -15,6 +15,7 @@ var _duty := {}   ## boiler id -> steam kg/s from the engine (the plume follows 
 var _preset := "wide"
 var _ctr := Vector3.ZERO   ## plant centre (m)
 var _span := 4.0          ## plant extent (m)
+var _stack_at := Vector3.ZERO   ## the flue analyser cabinet (the "stack" camera)
 var _analyser := {}   ## stack id -> Label3D (the flue analyser screen)
 var _types := {}              ## unit id -> type
 var _tmax := {}               ## unit id -> sinter limit K (beds), 0 if none
@@ -192,7 +193,7 @@ func _stack(id: String, c: Vector3) -> void:
 	_box(Vector3(0.7, 0.5, 0.02), cab + Vector3(0, 1.25, 0.31), scr, plant)
 	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.0035; t.modulate = Color(0.5, 1.0, 0.9)
 	t.outline_size = 0; t.position = cab + Vector3(0, 1.25, 0.33); t.width = 180.0; t.autowrap_mode = TextServer.AUTOWRAP_OFF; plant.add_child(t)
-	_analyser[id] = t
+	_analyser[id] = t; _stack_at = cab
 	_steam[id] = _particles(c + Vector3(0, 9.5, 0), 24, 5.0, Vector3(0, 1.4, 0), 10.0, 1.0, Color(0.75, 0.74, 0.72, 0.28), plant, 3.5)
 
 ## Phase C (chapter 1): a fired burner box. Refractory-lined steel casing, a burner throat with a forced-draft blower folded in (D-C2), a peep
@@ -260,6 +261,8 @@ const GEN_PRESETS := {
 func set_camera(spec: String) -> void:
 	for part in spec.split(","):
 		var p := part.strip_edges()
+		if p == "stack" and not _analyser.is_empty():   # the flue analyser close up
+			_preset = p; t_focus = _stack_at + Vector3(0, 1.4, 0); t_yaw = -0.5; t_pitch = -0.08; t_dist = 3.6; continue
 		if not GEN_PRESETS.has(p): continue
 		_preset = p
 		var v: Array = GEN_PRESETS[p]; t_focus = _ctr + Vector3(0, (v[0] as Vector3).y, 0); t_yaw = v[1]; t_pitch = v[2]
@@ -275,4 +278,4 @@ func key(e: InputEventKey) -> bool:
 	return false
 
 func pad_controls() -> Array: return []
-func pad_cams() -> Array: return ["wide", "plant", "close"]
+func pad_cams() -> Array: return ["wide", "plant", "close", "stack"] if not _analyser.is_empty() else ["wide", "plant", "close"]
