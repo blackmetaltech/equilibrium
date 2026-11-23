@@ -209,7 +209,25 @@ func _pad_draw() -> void:
 	var vr: Rect2 = app.get_viewport().get_visible_rect()
 	_pad_lbl.text = ("%s: %s      ◀ ▶ choose   LB/RB camera   sticks move" if CbKit.pad_mode else "%s: %s") % [ctl[pad_i][1], w.pad_value(id)]
 	var lp := (p + Vector2(36, -16)) if p.x > -9000.0 else Vector2(vr.size.x * 0.5 - _pad_lbl.size.x * 0.5, 80.0)   # beside the ring, above the HUD
-	_pad_lbl.position = Vector2(clampf(lp.x, 16.0, maxf(16.0, vr.size.x - _pad_lbl.size.x - 16.0)), clampf(lp.y, 16.0, vr.size.y - 40.0))
+	var fit := func(q: Vector2) -> Vector2: return Vector2(clampf(q.x, 16.0, maxf(16.0, vr.size.x - _pad_lbl.size.x - 16.0)), clampf(q.y, 16.0, vr.size.y - 40.0))
+	var pos: Vector2 = fit.call(lp)
+	if p.x > -9000.0:   # playtest: the name line must not sit on a HUD card (the Call box); try right, left, above, below the ring
+		var cards: Array = _hud_rects()
+		for q in [lp, p + Vector2(-36.0 - _pad_lbl.size.x, -16), p + Vector2(-_pad_lbl.size.x * 0.5, -64), p + Vector2(-_pad_lbl.size.x * 0.5, 40)]:
+			var c: Vector2 = fit.call(q); var r := Rect2(c, _pad_lbl.size); var hit := false
+			for hr in cards: if (hr as Rect2).intersects(r): hit = true; break
+			if not hit: pos = c; break
+	_pad_lbl.position = pos
+
+func _hud_rects() -> Array:
+	var out := []
+	if hud == null: return out
+	for c in hud.get_children():
+		if not (c is Control) or not (c as Control).visible or (c as Control).size.x <= 40.0: continue
+		var r := (c as Control).get_global_rect(); var vs: Vector2 = app.get_viewport().get_visible_rect().size
+		if r.size.x > vs.x * 0.8 and r.size.y > vs.y * 0.8: continue   # full-screen layers (the leader lines) are not cards
+		out.append(r)
+	return out
 
 class PadRing extends Control:
 	func _init() -> void: custom_minimum_size = Vector2(56, 56); size = Vector2(56, 56)
