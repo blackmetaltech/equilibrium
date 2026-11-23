@@ -3,14 +3,40 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
-## [Unreleased] · "Pad on the drafting table" (the classic build view is playable by gamepad alone)
+## [0.11.0] - 2026-11-23 · "The Bench in the new look" (LOOK2 phase C)
+### Changed
+- **L14 Two Flasks has a real goal.** Find the temperature where your 1 L flask reads the book's 9.15 bar. Run one argon test too, to show what shifts it. You have six runs, the tests included, counted across restarts. All three Le Chatelier tests are a star, and the Kp call is another (D-C1, D-C8, D-C9).
+- **Chapter 1 is new look.** L01-L04 use the drafting table and the hall, like chapter 3. The Works Map marks chapter 1 "New look" (D-C2, D-C4).
+- **The hall flip is R3 on a pad.** X turns a part on the drafting table now; X still returns from the hall (D-C5).
+- **The L14 T wheel steps 1 K by pad and scroll.** At 5 K steps the goal could not be reached by pad (D-C6).
+- **Site and README** cut to one or two short sentences per paragraph. The download button names the version.
 ### Added
+- **Real vessel models in the hall:** dished heads, clad shells with seams, flanged nozzles, manways, skirts and legs, caged ladders and ring platforms, saddled drums, gate valves and a two-level pipe rack. Pipes lie on the rack.
+- **A burner** whose flame follows its outlet temperature, and **a stack with a flue analyser** that reads the engine's O2, CO2, SO2 and CO.
+- **Downlights over your plant** in the hall; the cameras frame the plant you drew, low and close.
+- **The L14 lab gleams:** a pale polished epoxy floor, white upper walls, a light ceiling with LED lines.
+- **The recorder counts down to the printout** on every first run.
+- `scripts/desk-gpu.sh`: hand play rendered on the GPU inside the tester's own virtual display.
+- **The drafting table by pad alone** (D-C5): the classic build view is playable from the notebook to the win with a gamepad.
 - **A pad hand for the plot** (`godot/ui/pad_plot.gd`). Every unit and every free port gets a focus target at its place on the screen. The D-pad moves between them, A on a unit opens its faceplate and puts the focus on its first knob (the D-pad then walks the plate's chips and knobs; a knob used to keep the arrows and never let go), A on a port starts or ends a pipe through the same `port_clicked` the mouse uses (so the piping rules and refusals are the only rules), B puts away the pipe, plate or selection. Mouse players never see it.
 - **A part by pad.** LB/RB walk the tray (a folded tray opens first), A takes the part, the D-pad (or the left stick) moves the cursor, A places, X turns, B puts it back. The cursor starts on the nearest free spot, so the ghost is green, not a red slab.
 - **Dialogs keep the focus.** In the notebook, a brief or a keypad the focus cannot leave to the tray behind, a D-pad press with nowhere to go scrolls the page, and the right stick scrolls it.
 - **The key and the speed dial by pad.** A on the focused key turns it, A on the focused dial steps it, Back steps it. Both dials took focus only if they were built after the first pad press.
 - `godot/tests/pad_build_flow.gd`: L01 and L10 played from the notebook to the win with real joypad events only. `godot/tests/pipe_drag_flow.gd`: the mouse pipe-drag regression below.
+- The flue analyser, the downlights and the plant bed sounds are new; no human has listened to the sound (docs/ASSETS.md).
 ### Fixed
+- A drag from the pipe-in-hand's own outlet did nothing (L03: mixer to burner never connected); `pipe_drag_flow` case 6.
+- Editing L14 between runs refunded lab time (runs left went 9 to 10).
+- The L14 coach kept asking for the volume test after the goal was met.
+- The printout countdown was cut ("MAD", "PRINTOUT IN 18"); it has its own recorder line.
+- The hall banner said "nothing built yet" over a drawn plant; it says "not commissioned yet".
+- The CLAMP sign was cut by the HUD in the wide view; it shows close up only. The control name line sits on a dark plate.
+- L02's Call it says it is graded on your first run.
+- The flue analyser says "mol % wet", shows H2O, and reads CO in ppm (Anjali).
+- The hall camera spec ignored "plant" when given with other words; "plant" is now a low hero view (Sigrid).
+- Flows are isolated from machine gamepads: another session's virtual pad pressed buttons inside the pad flows (`scripts/flows.sh`, D-C7).
+- The engine timing test failed under load: it timed the wall clock. It now times the thread's CPU, with the same 25 ms bound.
+- The control name line in the new look no longer sits on HUD cards.
 - LB/RB on the build screen opened the Codex behind the tray (the shell's drawer switch); the tray's own LB/RB and A also fought each other.
 - The placement cursor could not move along one axis with the camera at 45 degrees: sideways and forward input both picked the same axis (a stick or D-pad never went along x). Ties now go by the input's direction.
 - Back (speed dial) ran the shell's bare clock change, so the dial and the engine's clock disagreed, and did nothing useful in the hall after commissioning. It goes through the console now.

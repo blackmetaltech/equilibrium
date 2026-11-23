@@ -1,16 +1,30 @@
 # ⚗️ EQUILIBRIUM — run a chemical plant where the chemistry is real
 
-**[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.10.md)** · **[Site](https://equilibrium.blackmetal.tech)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
+**[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.11.md)** · **[Site](https://equilibrium.blackmetal.tech)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
 
 **Build a chemical plant and turn the key. Real chemistry decides if it works.**
 
 A **Godot 4.7** game with the chemistry engine in TypeScript.
 
-> **Alpha (0.10.1).** Chapter 3 and the prologue are in the new look; the rest is classic. Played on Linux; Windows untested.
+> **Alpha (0.11.0).** Chapters 1 and 3 and the prologue are in the new look; the rest is classic. Played on Linux; Windows untested.
 
 ![The title: the night plant hall in the new look, the menu on glass](docs/readme/title-new-look.jpg)
 
-## What's new in 0.10: chapter 3 in the new look
+## What's new in 0.11: chapter 1 in the new look
+
+![L14: the private lab, bright, with the twin flask on the dais](docs/readme/lab-gleam.jpg)
+
+**L14 has a real goal.** Find the temperature where your flask reads the book's 9.15 bar, and show why with one argon test. Six runs.
+
+**Chapter 1 joins the hall.** Your bench plant, the sulfur burner and the boiler stand in 3D once they run.
+
+| Your L13 plant in the hall: a catalyst bed glowing at its band, a boiler steaming behind | The flue analyser reads the engine's own gas, wet basis |
+|---|---|
+| ![chapter 3 hall](docs/readme/ch3-hall-vessels.jpg) | ![flue analyser](docs/readme/flue-analyser.jpg) |
+
+**Pad everywhere.** The drafting table now plays by gamepad alone. **Sound.** The plant hums, roars and hisses with its state; no human has listened yet.
+
+## What was new in 0.10: chapter 3 in the new look
 
 ![Two Flasks: halve the volume and the brown darkens at once, then fades part of the way back as N2O4 re-forms; argon at constant pressure thins it](docs/readme/colour-shift.gif)
 
