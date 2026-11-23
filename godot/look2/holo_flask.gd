@@ -5,7 +5,7 @@ extends RefCounted
 ## this class builds into it. Units: the fields speak deg C, litres, bar, mol/s; the engine and the world speak K, m3, Pa, mol/s (set_control_value and
 ## control_changed use the engine's: "T" K, "V" m3, "Pfix" Pa, "argon" mol/s).
 ## Engine actions: setParam [flask, "T" | "V" | "Pfix", value], setFeed [argon, {flow}], callIt [Kp bar] (once, before the first run), commission (RUN).
-const TESTS := [["gauge", "Goal: 1 L, clamp on, no argon: read 9.15 bar"], ["halve", "Halve volume"], ["inert_v", "Argon, constant V"], ["inert_p", "Argon, constant P"], ["called", "Kp called"]]   # phase C: the book flask is the goal
+const TESTS := [["gauge", "Goal: 9.15 bar at 1 L (clamp on, no argon) + one argon test"], ["halve", "Halve volume"], ["inert_v", "Argon, constant V"], ["inert_p", "Argon, constant P"], ["called", "Kp called"]]   # phase C: the book flask is the goal
 var h   ## HoloHud
 var f_T: HoloField
 var f_V: HoloField

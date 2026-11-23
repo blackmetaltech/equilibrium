@@ -64,6 +64,9 @@ export function foundBookFlask(s: S): boolean {
     return !argon && P === 0 && Math.abs(V - V_BOOK) <= 0.005 * V_BOOK && relErr(realFlask(s, T).P, want) <= L14_GAUGE_TOL;
   });
 }
+/** D-C9 (Naledi): the job is the book's flask AND one finished inert-gas test (argon at constant V or at constant P) on record, so the win cannot be a
+ *  one-dial bisection with no equilibrium idea in it. Order free: find first and run the argon test after, or the other way round. */
+export function jobDone(s: S): boolean { const t = testsDone(s); return foundBookFlask(s) && (t[1] || t[2]); }
 const flaskOf = (s: S) => s.flowsheet.units.find((u) => u.type === 'lab_flask');
 const argonFeed = (s: S) => s.flowsheet.units.find((u) => u.type === 'feed' && (s.feeds[u.id]?.x[s.species.indexOf('Ar')] ?? 0) > 0.5);
 
@@ -108,10 +111,10 @@ const COACH: CoachStep[] = [
   { id: 'call_kp', role: 'mentor', done: (s) => s.prediction !== null },
   { id: 'turn_volume', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[0] || (s.ui.coachStep ?? '') === 'read_colour' || commissions(s) >= 4 || foundBookFlask(s) },
   { id: 'read_colour', role: 'mentor', focus: 'lab_flask', done: (s) => ['read_colour', 'argon_v', 'argon_p', 'why'].includes(s.ui.coachStep ?? '') || testsDone(s)[1] || changedSinceRun(s) || foundBookFlask(s) },
-  { id: 'argon_v', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[1] || ['argon_p', 'why'].includes(s.ui.coachStep ?? '') || foundBookFlask(s) },
-  { id: 'argon_p', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[2] || (s.ui.coachStep ?? '') === 'why' || foundBookFlask(s) },
+  { id: 'argon_v', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[1] || ['argon_p', 'why'].includes(s.ui.coachStep ?? '') || jobDone(s) },
+  { id: 'argon_p', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[2] || (s.ui.coachStep ?? '') === 'why' || jobDone(s) },
   { id: 'find', role: 'mentor', focus: 'lab_flask', done: (s) => foundBookFlask(s) },   // phase C: the goal
-  { id: 'why', role: 'mentor', done: (s) => s.ui.coachStep === 'why' },
+  { id: 'why', role: 'mentor', done: (s) => s.ui.coachStep === 'why' || testsDone(s).filter((x) => x).length < 2 },   // Naledi: never ask about argon runs that did not happen
 ];
 
 export const L14: LevelSpec = {
@@ -127,8 +130,8 @@ export const L14: LevelSpec = {
     sealSetup(s);
   },
   measures: flaskMeasures,
-  goals: (s, m) => [{ key: 'book', met: foundBookFlask(s), value: m.v.runs!, target: L14_RUNS }],
-  lost: (s) => (!foundBookFlask(s) && burns(s) >= L14_RUNS ? 'lv.L14.lost' : null),   // lab time is up
+  goals: (s, m) => [{ key: 'book', met: jobDone(s), value: m.v.runs!, target: L14_RUNS }],
+  lost: (s) => (!jobDone(s) && burns(s) >= L14_RUNS ? 'lv.L14.lost' : null),   // lab time is up
   extraStars: (s, m) => [m.v.tests === 3, predictionOf(s, 'kp_bar') !== null && relErr(predictionOf(s, 'kp_bar')!.value, bookWorking(s).kp) <= L14_KP_TOL],
   callIt: { key: 'kp_bar', unit: 'bar', tol: L14_KP_TOL, truth: (s) => bookWorking(s).kp },
   hero: (s, m) => ({ key: 'gauge', unit: 'bar', value: m.v.p_bar!, lo: problem(s).P * (1 - L14_GAUGE_TOL), hi: problem(s).P * (1 + L14_GAUGE_TOL) }),   // the band is the twin, the book's flask (the client draws its plate and its brown from it)
@@ -151,6 +154,7 @@ export const L14: LevelSpec = {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
     const left = Math.max(0, L14_RUNS - burns(s));
+    if (foundBookFlask(s) && left > 0) return { key: 'need_argon', cause: t('lv.L14.cause.need_argon', { left }) };
     return { key: left === 0 ? 'out_of_runs' : 'not_found', cause: t('lv.L14.cause.not_found', { left, P: f(s, m.v.p_bar!) }) };
   },
   equation: (s, m) => {

@@ -267,3 +267,14 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
 - **Six** leaves one bracketing miss for a full-star player. A careless player has to choose between the tests star and the find.
 - **Tests:** ch3.test.ts and f25_truth.test.ts changed on purpose. The any-order test now fits its proof in six runs; the expert solver uses five.
 - **Not done:** Mateo's cut of the three test lines from the L14 checklist. They stay, because they are a star's instructions.
+
+**D-C9. L14's job needs one argon test on record as well as the book's reading (Naledi, against Mateo).**
+- **Naledi (severe):** after D-C1 and D-C8 the win was a one-dial bisection on T with no equilibrium idea in it. The tests cost runs, so a learner chasing the win had good reason to skip them, and the end card did not teach them.
+- **Mateo's opposite proposal:** cut the three test lines from the checklist.
+- **Decision:** I side with Naledi. The game exists to teach, and her gate keeps Mateo's tension: one argon test plus at most five runs to find T*.
+- **How it works:**
+  - `jobDone` = the book's flask AND argon at constant V or at constant P on record, in either order.
+  - A find without an argon test says "Now show why" and names the test.
+  - The coach's argon steps are not skipped until the job is done, and the "why" step is skipped when fewer than two tests ran.
+  - The lesson now states the three Le Chatelier outcomes. The dead goal strings are removed.
+- **Tests:** ch3.test.ts adds "the find alone does not win" and "a T-only bisection loses at run six". f25_truth.test.ts changed on purpose.

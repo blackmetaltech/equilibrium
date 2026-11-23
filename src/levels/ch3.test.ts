@@ -409,10 +409,18 @@ describe('L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; D-B1: the open
     for (let i = 1; i < 3; i++) run(e, [{ name: 'setParam', args: ['U-104', 'T', 370 + i] }, { name: 'commission' }]);
     roll(e); expect(e.state.status).toBe('lost');
   });
-  it('phase C: the book flask alone wins at once (the tests are a star)', () => {
+  it('D-C9 (Naledi): the book flask alone does not win; one argon test on record completes the job, in either order', () => {
     const e = start('L14');
     run(e, [{ name: 'setParam', args: ['U-104', 'T', Math.round(bookT({ region: 'global' }) * 100) / 100] }, { name: 'commission' }]); roll(e);
+    expect(foundBookFlask(e.state)).toBe(true); expect(e.state.status).toBe('playing');
+    expect(card(e).verdictKey).toBe('need_argon'); expect(card(e).cause).toContain('argon test');
+    run(e, [{ name: 'setFeed', args: ['F-102', { flow: 0.15 }] }, { name: 'commission' }]); roll(e);   // argon at constant volume
     expect(e.state.status).toBe('won'); expect(card(e).stars.earned).toEqual([true, false, false]);
+  });
+  it('D-C9: a bisection on T alone, with no argon run, never wins and loses at the sixth run', () => {
+    const e = start('L14');
+    for (const T of [400, 410, 406.5, 405, 407, 406]) run(e, [{ name: 'setParam', args: ['U-104', 'T', T] }, { name: 'commission' }]);
+    roll(e); expect(foundBookFlask(e.state)).toBe(true); expect(e.state.status).toBe('lost');
   });
   it('the notebook flask at 400 K does not win: it reads 8.83 bar, and the card says to turn the T wheel', () => {
     const e = base(); roll(e);
