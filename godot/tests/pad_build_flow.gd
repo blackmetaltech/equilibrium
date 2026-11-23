@@ -156,11 +156,14 @@ func place(type: String, tx: int, ty: int) -> String:
 	var n0 := units().size()
 	var r := rack()
 	var tile: Control = null
+	var first_tile: Control = null
 	for i in 14:
 		await btn(JOY_BUTTON_RIGHT_SHOULDER)
 		check(app.cur == app.home, "RB walks the tray, it never opens the Codex behind it")
 		tile = focus()
+		if i == 0: first_tile = tile
 		if tile != null and "type" in tile and str(tile.type) == type: break
+	check(first_tile != null and r != null and r.tiles.find(first_tile) >= 0, "0.13: the first RB from the sheet lands on a tray tile (the pad's last tile, the first at first)")
 	check(tile != null and "type" in tile and str(tile.type) == type, "RB brings the %s tile into focus (focus: %s)" % [type, str(tile.name) if tile != null else "none"])
 	await btn(JOY_BUTTON_A)
 	check(w.placing == type, "A takes a %s from the tray (placing '%s')" % [type, w.placing])

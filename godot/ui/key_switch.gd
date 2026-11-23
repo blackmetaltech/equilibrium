@@ -145,6 +145,7 @@ class SpeedDial extends Control:
 			elif e.keycode == KEY_LEFT: sw.speed_chosen.emit(maxi(pos - 1, 0)); accept_event()
 	func _draw() -> void:
 		var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
+		var msz := EqTheme.fs(20)   # 0.13: the 1x 4x 16x marks read about 12 px at 1600x900 (scale 0.83); 20 logical is 16.7 there
 		var c := _centre()
 		var dim := 1.0 if enabled else 0.55
 		for i in 4:
@@ -153,12 +154,12 @@ class SpeedDial extends Control:
 			var on := i == pos
 			draw_circle(lp, 3.5, EqTheme.TEAL if on else Color("#22332F"))
 			var t := EqStrings.T("SPEED_%d" % i)
-			var tw := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
+			var tw := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, msz).x
 			var tp := c + Vector2(sin(a), -cos(a)) * 41.0
 			var tc := (EqTheme.TEXT if on else EqTheme.DIM) * Color(1, 1, 1, dim)
 			if i == 0:   # the pause bars are drawn: no font has the glyph everywhere
 				draw_rect(Rect2(tp.x - 5.0, tp.y - 6.0, 3.5, 12.0), tc); draw_rect(Rect2(tp.x + 1.5, tp.y - 6.0, 3.5, 12.0), tc)
-			else: EqTheme.ds(self, f, Vector2(tp.x - tw * 0.5, tp.y + 4.0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, tc)
+			else: EqTheme.ds(self, f, Vector2(tp.x - tw * 0.5, tp.y + 4.0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, msz, tc)
 		draw_circle(c, 20.0, Color("#0B1413")); draw_circle(c, 18.0, EqTheme.BAKELITE)
 		draw_circle(c, 18.0, Color(1, 1, 1, 0.1), false, 1.5)
 		draw_set_transform(c, angle, Vector2.ONE)

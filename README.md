@@ -1,16 +1,36 @@
 # ⚗️ EQUILIBRIUM — build a chemical plant, turn the key, read what it makes
 
-**[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.12.md)** · **[Site](https://equilibrium.blackmetal.tech)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
+**[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.13.md)** · **[Site](https://equilibrium.blackmetal.tech)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
 
 **Build a chemical plant and turn the key. Equilibrium, kinetics and heat decide if it works.**
 
 A **Godot 4.7** game with the chemistry engine in TypeScript.
 
-> **Alpha (0.12.0).** The prologue and chapters 1-3 are in the new look (L09 is still classic). Played on Linux; Windows and macOS untested.
+> **Alpha (0.13.0).** The prologue and chapters 1-4 are in the new look. Played on Linux; Windows and macOS untested.
 
 ![The title: your private lab, the flask rig on its dais, the tank bay behind the glass](docs/readme/title-lab.jpg)
 
-## What's new in 0.12: the lab at home
+## What's new in 0.13: inside the bed
+
+**The packed bed has a quartz window.** Ceramic balls sit over and under the catalyst, iron pellets grey, V2O5 pellets brown. More catalyst is a deeper bed. The pellets glow by the temperature down the bed, and five thermowells read it in °C.
+
+| L15: the bed through its window, the thermowell readings beside it | L18: a glass kettle of peroxide with a head of foam (catalase: the most) |
+|---|---|
+| ![bed window](docs/readme/bed-window.jpg) | ![kettle foam](docs/readme/kettle-foam.jpg) |
+
+**L09 is a lab bench in the hall.** A flow calorimeter in a water jacket, a bomb calorimeter and a clamshell tube furnace whose ends glow with its temperature. Chapter 2 is whole in the new look.
+
+| L09: the bench with the furnace reading 361 °C | The Works map: a scale model on the planning table |
+|---|---|
+| ![lab bench](docs/readme/lab-bench.jpg) | ![works map](docs/readme/works-map.jpg) |
+
+**The Works map is a scale model.** One building per stop, lit when open, grey when locked, a flag when done. The brief has a pencil sketch of the plant you will build.
+
+![Night Shift: the cooling water pump trips, the cooler is left alone, the interlock takes the loop down to the flare](docs/readme/night-trip.gif)
+
+**The hall console is smoked glass** and the banner says how to orbit and zoom. The recorder follows the plant during a first run.
+
+## What was new in 0.12: the lab at home
 
 **The lab is the home screen.** The title, the Works map and the briefings live in your private lab. The map and the brief lie on a drafting table.
 

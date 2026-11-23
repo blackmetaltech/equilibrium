@@ -67,7 +67,39 @@ func _process(dt: float) -> void:
 	# fixed shots: the preset is held every frame (the lab's own stick and key camera moves are overruled), the title sways a little
 	var p: Array = FlaskLab.L14_PRESETS[SHOTS.get(view, "wide")]
 	lab.t_focus = p[0]; lab.t_yaw = p[1] + (0.2 * sin(_t * 0.12) if view == "title" and not CbSettings.reduced_motion else 0.0); lab.t_pitch = p[2]; lab.t_dist = p[3]
+	var site := HomeMap.sheet_w > 0.0 and HomeMap.model != null and is_instance_valid(HomeMap.model)
+	if site and view == "table": _frame_site()
+	if HomeMap.model != null and is_instance_valid(HomeMap.model): HomeMap.model.visible = view == "table"   # the briefing card has the table to itself
+	_tame_key(dt)
 	if lab.cam != null and not lab.cam.current: lab.make_current()
+
+## The table shot with the site model: the board fills the window left of the sheet (the focus is moved sideways by half the sheet, the distance fits the board to what is left).
+func _frame_site() -> void:
+	var vs: Vector2 = app.get_viewport().get_visible_rect().size
+	var room := vs.x - HomeMap.sheet_w - 48.0
+	var ppu := room / 9.0                                     # pixels per metre of the board at the focus
+	var d := clampf(vs.y / (0.9326 * ppu), 4.0, 13.0)         # 2 tan(25 deg) = 0.9326 (the lab camera is 50 degrees, height-fixed)
+	var shift := (HomeMap.sheet_w + 24.0) * 0.5 / ppu
+	lab.t_focus = FlaskLab.TABLE_AT + Vector3(shift, 1.0, 0.1); lab.t_yaw = 0.0; lab.t_pitch = -0.95; lab.t_dist = d
+
+## The key light over the apparatus is a 28-watt spot for the L14 rig; seen from the table it burns the dais white. On the table and card shots it is turned down (the rest of the lab keeps it).
+var _key: SpotLight3D
+var _key_e := -1.0
+var _rim: SpotLight3D
+var _rim_e := -1.0
+func _tame_key(dt: float) -> void:
+	if _key == null or not is_instance_valid(_key): _key = lab.get_node_or_null("KeySpot") as SpotLight3D; _key_e = _key.light_energy if _key != null else -1.0
+	if _key == null: return
+	var near := view == "table" or view == "card"
+	var want := _key_e * (0.14 if near else (0.7 if view == "title" else 1.0))
+	_key.light_energy = lerpf(_key.light_energy, want, clampf(dt * 5.0, 0.0, 1.0))
+	# the title looks straight into the rim light behind the rod: its bloom was a white halo over the rod and the title; turned down there (the lab keeps it for the L14 shots)
+	if _rim == null or not is_instance_valid(_rim): _rim = lab.get_node_or_null("RimLight") as SpotLight3D; _rim_e = _rim.light_energy if _rim != null else -1.0
+	if _rim != null: _rim.light_energy = lerpf(_rim.light_energy, _rim_e * (0.3 if view == "title" else 1.0), clampf(dt * 5.0, 0.0, 1.0))
+	if lab.dais_mat != null:   # the pale gloss epoxy of the dais top: a grey matt one while the table is the subject
+		var m := lab.dais_mat
+		m.albedo_color = m.albedo_color.lerp(Color(0.40, 0.42, 0.45) if near else Color(0.74, 0.76, 0.78), clampf(dt * 5.0, 0.0, 1.0))
+		m.roughness = lerpf(m.roughness, 0.55 if near else 0.22, clampf(dt * 5.0, 0.0, 1.0))
 
 # ---- the title screen shows over the lab; the map over the table --------------------------------------------------------------------------------
 ## The title UI root (hidden while the table is shown so the plan has the lab to itself).
@@ -108,7 +140,7 @@ static func brief(app, map_host: Control, id: String) -> bool:
 
 func _build_card(app, map_host: Control, id: String, li: Dictionary) -> void:
 	var vw: float = app.vw(); var vh: float = app.vs_h()
-	var w := minf(vw - 40.0, 760.0)
+	var w := minf(vw - 40.0, 820.0)
 	var d: Dictionary = app.dialog("homecard", w, 0.0, EqTheme.ENAMEL_HI, 0.0)
 	card_host = d.host; var vb: VBoxContainer = d.vb
 	# a sheet of paper lying on the drafting table: paper colour, a thin edge, a soft drop shadow, dark ink (the lamp over the table lights the sheet behind it)
@@ -119,6 +151,9 @@ func _build_card(app, map_host: Control, id: String, li: Dictionary) -> void:
 	vb.add_theme_constant_override("separation", 10)
 	var title := EqTheme.label("%s · %s" % [WorksMap.number(id), str(li.get("title", id))], 30, INK, "title"); title.name = "CardTitle"; title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(title)
 	var rule := ColorRect.new(); rule.color = Color(0.3, 0.38, 0.5, 0.35); rule.custom_minimum_size = Vector2(0, 2); rule.mouse_filter = Control.MOUSE_FILTER_IGNORE; vb.add_child(rule)
+	var plant = app.b.q("plant")
+	var sketch := PlantSketch.make(li, plant)   # 0.13: the plant of the job in pencil
+	vb.add_child(sketch)
 	var parts := BriefLines.split(li.get("note", []) if li.get("note") is Array else [], str(li.get("predictNote", "")) if li.get("predictNote") != null else "")
 	for ln in parts.first:
 		var l := EqTheme.label(EqVerb.adapt(str(ln)), 19, INK, "sans"); l.name = "CardLine"; l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.size_flags_horizontal = Control.SIZE_EXPAND_FILL; vb.add_child(l)

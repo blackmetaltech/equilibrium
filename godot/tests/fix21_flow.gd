@@ -120,6 +120,13 @@ func _l09_notebook() -> void:
 	await frames(10)
 	var vr := root.get_visible_rect()
 	var st := (nb as Node).find_child("Start", true, false) as Control
+	# under load the notebook can still be sliding in after 10 frames (the suite saw the key at y 1032 mid-slide); wait, at most 240 frames,
+	# until the key has held still for 5 frames, then judge it where it rests. The assertion is unchanged.
+	if st != null:
+		var last := st.get_global_rect(); var still := 0; var n := 0
+		while still < 5 and n < 240:
+			await frames(1); n += 1
+			var now := st.get_global_rect(); still = still + 1 if now.is_equal_approx(last) else 0; last = now
 	var tt := (nb as Node).find_child("Title", true, false) as Control
 	check(st != null and st.get_global_rect().end.y <= vr.size.y + 1.0 and st.is_visible_in_tree(), "the Start key is on screen at 1080p (%s)" % str(st.get_global_rect() if st != null else "none"))
 	check(tt != null and tt.get_global_rect().position.y >= -1.0, "the title is on screen (%s)" % str(tt.get_global_rect() if tt != null else "none"))

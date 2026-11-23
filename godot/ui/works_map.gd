@@ -7,6 +7,7 @@ extends RefCounted
 ## Unlocks: chapter N+1 opens when chapter N's critical-path levels all have a star (bridges are optional); chapters 8 and 9 open after chapter 5; inside
 ## a chapter the levels go in order. Engineer rank comes from total stars. Mouse, touch (tap selects, tap again or START starts) and pad all work.
 ## Landscape: a grid of site cards joined by pipes on the bay; narrow or portrait: one column down the coast with the pipe in a left gutter.
+## 0.13 in the lab (wide window): the map is a scale model of the Works on the planning table (look2/site_model.gd, look2/home_map.gd) with one slim sheet for the chosen chapter.
 ## Progress lives in `Campaign` (user://eq_campaign.cfg): the engine's own progress record is never written by the shell (see the campaign report).
 
 const S := {
@@ -48,8 +49,8 @@ const CHAPTERS := [
 const BRIDGES := [4, 9, 14, 18]
 ## Which chapter must be done before this one opens (-1: open from the start).
 ## D-B4 (phase B): chapter 3 is the new-look chapter and opens from the start (the title screen has a strip for it); 00 is the new-look prologue.
-const NEW_LOOK := [0, 1, 2, 3]
-const PART_LOOK := {2: "L09 classic"}   ## 0.12: chapter 2 builds in the hall (L05-L08); the L09 bench is still the classic view
+const NEW_LOOK := [0, 1, 2, 3, 4]
+const PART_LOOK := {}   ## 0.13: L09 and chapter 4 are in the new look too, so no job is a classic exception (a job id here reads "L0x classic")
 const PREREQ := {0: -1, 1: -1, 2: 1, 3: -1, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 5, 10: 5, 11: 5}   # Hydraulics and Career open after chapter 5 like chapters 8 and 9
 ## Total stars for each Engineer rank.
 const RANKS := [["Trainee", 0], ["Shift Engineer", 6], ["Senior Engineer", 20], ["Process Engineer", 40], ["Plant Manager", 65], ["Chief Engineer", 90]]
@@ -262,19 +263,26 @@ static func open(app: CbApp) -> void:
 	var vw := app.vw(); var vh := app.vs_h()
 	var narrow := vw < 1000.0 or vh > vw * 1.1
 	var home: bool = LabHome.is_up() and not app.started and not compact
+	var site: bool = home and not narrow   # 0.13: a wide window in the lab gets the site model and one slim sheet
 	paper = home   # 0.12: opened from the title in the lab: the map is the lit plan on the planning table, the lab shows round it
-	var d: Dictionary = app.dialog("levels", minf(vw - (16.0 if compact else 40.0), 1860.0) * (0.66 if home else 1.0), (vh - (16.0 if compact else 40.0)) * (0.74 if home else 1.0), EqTheme.ENAMEL_HI, 0.0 if home else 0.55)
+	var sw := HomeMap.width_for(vw)
+	var d: Dictionary = app.dialog("levels", (sw if site else minf(vw - (16.0 if compact else 40.0), 1860.0) * (0.66 if home else 1.0)), (vh - 48.0) if site else (vh - (16.0 if compact else 40.0)) * (0.74 if home else 1.0), EqTheme.ENAMEL_HI, 0.0 if home else 0.55)
 	var host: Control = d.host; var vb: VBoxContainer = d.vb
+	if site:   # the sheet sits at the right edge of the window, full height; the model has the rest of the table
+		var pn: PanelContainer = d.panel
+		pn.remove_meta("cb_dlg"); pn.set_anchors_preset(Control.PRESET_FULL_RECT)
+		pn.anchor_left = 1.0; pn.anchor_top = 0.0; pn.anchor_bottom = 0.0; pn.offset_left = -(sw + 24.0); pn.offset_right = -24.0; pn.offset_top = 24.0; pn.offset_bottom = 0.0   # the sheet is as tall as its content
+		HomeMap.sheet_w = sw
 	if home:   # paper on the table: opaque sheet, thin edge, soft shadow (no glass wall)
 		var sheet := StyleBoxFlat.new(); sheet.bg_color = P_PAPER; sheet.border_color = Color(0.72, 0.68, 0.58); sheet.set_border_width_all(1); sheet.set_corner_radius_all(3)
 		sheet.shadow_color = Color(0.05, 0.03, 0.0, 0.45); sheet.shadow_size = 16; sheet.shadow_offset = Vector2(3, 7)
-		for sd in ["left", "right"]: sheet.set("content_margin_" + sd, 26)
-		for sd in ["top", "bottom"]: sheet.set("content_margin_" + sd, 18)
+		for sd in ["left", "right"]: sheet.set("content_margin_" + sd, 20 if site else 26)
+		for sd in ["top", "bottom"]: sheet.set("content_margin_" + sd, 16 if site else 18)
 		(d.panel as PanelContainer).add_theme_stylebox_override("panel", sheet)
 	else: (d.panel as PanelContainer).add_theme_stylebox_override("panel", HoloTheme.box(Color(HoloTheme.GLASS, 0.94), Color(HoloTheme.TEAL, 0.4), 1, 14, int(10.0 if compact else 18.0)))   # owner review: the glass language
 	if LabHome.is_up() and not app.started: LabHome.map_opened(app, host)   # every layout: the title UI steps aside while the map and its briefing card are up (on a handheld the card used to be drawn over the menu)
 	vb.add_theme_constant_override("separation", 6 if compact else 10)
-	var view := MapView.new(); view.app = app; view.host = host; view.narrow = narrow
+	var view := MapView.new(); view.app = app; view.host = host; view.narrow = narrow or site; view.site = site
 	view.build(vb)
 	app.focus_dialog()
 
@@ -299,10 +307,15 @@ class MapView extends RefCounted:
 	var bay: Bay
 	var scroll: ScrollContainer
 	var levels_by_id: Dictionary = {}
+	var site := false              ## the lab site model: stops (chapter -> HomeMap.StopBtn), groups (chapter -> its sheet group), the chapter shown
+	var stops: Dictionary = {}
+	var groups: Dictionary = {}
+	var shown := -1
 
 	func build(vb: VBoxContainer) -> void:
 		var compact := CbLayout.compact
 		for l in app.b.levels(): levels_by_id[str((l as Dictionary).id)] = l
+		if site: HomeMap.build(self, vb); return
 		# header: title, rank plate, close
 		var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 14); vb.add_child(hb)
 		var t := EqTheme.label(WorksMap.T("MAP_TITLE"), 26 if compact else 32, WorksMap.pk(EqTheme.TEXT, WorksMap.P_INK), "title"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.name = "Title"; hb.add_child(t)
@@ -321,7 +334,7 @@ class MapView extends RefCounted:
 		start_btn.pressed.connect(func(): if WorksMap.sel_id != "": WorksMap.start(app, host, WorksMap.sel_id))
 		ibh.add_child(start_btn)
 		if not (compact and narrow):
-			var lg := EqTheme.label((WorksMap.T("MAP_LEGEND") if not WorksMap.paper else "grey: locked   white: done   blue: three stars   book: exam bridge") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 16, WorksMap.pk(EqTheme.DIM, WorksMap.P_DIM), "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
+			var lg := EqTheme.label((WorksMap.T("MAP_LEGEND") if not WorksMap.paper else "grey: locked   white: done   blue: three stars   book: exam bridge") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 20, WorksMap.pk(EqTheme.DIM, WorksMap.P_DIM), "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
 		# first focus: the first open, unstarred node (else the first open one)
 		var pick: NodeBtn = null
 		for id in WorksMap.Campaign.ids:
@@ -400,6 +413,7 @@ class MapView extends RefCounted:
 	## Select a node: show its job and rule in the info bar; START is live when the node is open.
 	func select(id: String, announce := true) -> void:
 		WorksMap.sel_id = id
+		if site: HomeMap.show_chapter(self, WorksMap.Campaign.chapter_of(id))
 		var lv: Dictionary = levels_by_id.get(id, {})
 		var why := WorksMap.Campaign.lock_reason(id)
 		var head := "%s · %s" % [WorksMap.number(id), str(lv.get("title", id))]
@@ -407,6 +421,17 @@ class MapView extends RefCounted:
 		info.text = head + "\n" + (why if why != "" else brief)
 		start_btn.disabled = why != ""
 		for k in nodes: (nodes[k] as NodeBtn).set_selected(k == id)
+
+	## A chapter chosen on the model: its sheet shows, on its default job (a chapter the engine has no job for yet only says so).
+	func select_chapter(n: int) -> void:
+		var id := HomeMap.default_level(n)
+		if id != "": select(id); return
+		HomeMap.show_chapter(self, n)
+		WorksMap.sel_id = ""
+		var ch: Array = WorksMap.CHAPTERS[n]
+		info.text = "%02d · %s\n%s" % [n, str(ch[1]), WorksMap.T("MAP_SOON")]
+		start_btn.disabled = true
+		for k in nodes: (nodes[k] as NodeBtn).set_selected(false)
 
 	## The finger is dragging a list (CbTouchScroll's cancel arrives as a release while the finger is still over the lamp, which the button would count as a tap).
 	func swiping() -> bool:
@@ -608,6 +633,8 @@ class NodeBtn extends Button:
 	var stars := 0
 	var hard := false
 	var sel := false
+	var row := false      ## 0.13: a row of the chapter sheet (lamp, the job's title, three stars) instead of a lamp on a card
+	var title := ""
 	func _init() -> void:
 		flat = true; focus_mode = Control.FOCUS_ALL; mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var e := StyleBoxEmpty.new()
@@ -621,7 +648,11 @@ class NodeBtn extends Button:
 		var f := EqStrings.font("cap")
 		var r := minf(size.x, size.y - 16.0) * 0.5 - 2.0
 		var c := Vector2(size.x * 0.5, r + 3.0)
+		if row: r = 17.0; c = Vector2(r + 8.0, size.y * 0.5)
 		var lit := has_focus() or is_hovered() or sel
+		if row:
+			var rb := StyleBoxFlat.new(); rb.bg_color = Color(0.95, 0.62, 0.15, 0.20) if lit else Color(1, 1, 1, 0.0); rb.set_corner_radius_all(4)
+			draw_style_box(rb, Rect2(0, 1, size.x, size.y - 2.0)); draw_line(Vector2(4, size.y - 0.5), Vector2(size.x - 4.0, size.y - 0.5), Color(WorksMap.P_DIM, 0.35), 1.0)
 		var fill := EqTheme.LAMP_OFF; var ink := EqTheme.DIM; var ring := Color("#0B1413")
 		match state:
 			"done": fill = EqTheme.TEAL if stars >= 3 else EqTheme.LAMP_WHITE; ink = EqTheme.INK
@@ -655,10 +686,13 @@ class NodeBtn extends Button:
 			draw_circle(bp, 9.0, WorksMap.pk(Color("#0B1413"), WorksMap.P_INK))
 			draw_colored_polygon(PackedVector2Array([bp + Vector2(-6, -4), bp + Vector2(0, -2), bp + Vector2(0, 5), bp + Vector2(-6, 3)]), EqTheme.AMBER)
 			draw_colored_polygon(PackedVector2Array([bp + Vector2(6, -4), bp + Vector2(0, -2), bp + Vector2(0, 5), bp + Vector2(6, 3)]), EqTheme.AMBER.lightened(0.3))
+		if row:   # the title of the job beside the lamp
+			var tx := c.x + r + 12.0
+			EqTheme.ds(self, f, Vector2(tx, size.y * 0.5 + 6.0), title, HORIZONTAL_ALIGNMENT_LEFT, size.x - tx - 62.0, 18, WorksMap.P_INK if state != "locked" else WorksMap.P_DIM)
 		# the stars: solid gold for Engineer wins, hollow gold for Learner wins, a grey dot when not earned
-		var sy := c.y + r + 11.0
+		var sy := c.y + r + 11.0 if not row else size.y * 0.5
 		for i in 3:
-			var p := Vector2(size.x * 0.5 + (i - 1) * 13.0, sy)
+			var p := Vector2(size.x * 0.5 + (i - 1) * 13.0, sy) if not row else Vector2(size.x - 40.0 + (i - 1) * 14.0, sy)
 			if i < stars:
 				var pts := _star(p, 6.0)
 				if hard: draw_colored_polygon(pts, EqTheme.AMBER)

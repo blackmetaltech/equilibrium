@@ -218,7 +218,11 @@ func pad_step(dir: int) -> bool:
 		var c = app.get("chrome")
 		if c != null and (bool(c.rack_tab) or CbLayout.phone) and not bool(c.rack_hold) and not bool(c.rack_open): c.call("toggle_rack")   # a folded tray (pre-built plant) or the phone's drawer opens first
 		else: return false
-	_focus = posmod(_focus + dir, tiles.size()); _show_focus()
+	var fo := get_viewport().gui_get_focus_owner()
+	var on_tile: bool = fo is Tile and tiles.has(fo)
+	if on_tile: _focus = posmod(_focus + dir, tiles.size())   # 0.13: from the plot (no tile focused) LB / RB land on the tile the pad last stood on, the first one at first, not a step away from it (LB used to land on the last)
+	else: _focus = clampi(_focus, 0, tiles.size() - 1)
+	_show_focus()
 	var tl: Tile = tiles[_focus]   # deferred: the shell's pad node (first press) re-seats the focus after this handler
 	(func() -> void: if is_instance_valid(tl) and tl.is_visible_in_tree() and tl.focus_mode == Control.FOCUS_ALL: tl.grab_focus()).call_deferred()
 	return true

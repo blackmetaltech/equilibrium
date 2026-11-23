@@ -5,7 +5,7 @@ extends Node
 ## diagram, the cooler dial, the coach line, the clock, the end card). The engine, the level and its actions are unchanged: this file only routes the
 ## snapshot to the new layers. CB_LOOK2=0 turns the slice off (the 0.9 look comes back). Quality tier: CB_QUALITY=ultra|high|compat, else auto.
 var _rack_off := false   ## 0.12: the parts rack is hidden while the hall shows
-const GEN_LEVELS := ["L01", "L02", "L03", "L04", "L05", "L06", "L07", "L08", "L10", "L11", "L12", "L13"]   ## D-B4 + D-C2 (chapter 1): build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
+const GEN_LEVELS := ["L01", "L02", "L03", "L04", "L05", "L06", "L07", "L08", "L09", "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18"]   ## D-B4 + D-C2 (chapter 1): build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
 const LEVELS := ["L00", "L14"]   ## L00 Night Shift (the process hall), L14 The Brown Gas (the private lab, look2/flask_lab.gd)
 var app
 var lab   ## LabWorld (L00) or FlaskLab (L14): the same contract (setup, set_snapshot, anchor_screen, anchor_size, set_camera, key, cam, picked, control_changed)
@@ -115,6 +115,8 @@ func _gen_sync(lid: String) -> void:
 		gen = GenWorld.new(); gen.app = app; gen.name = "GenWorld"; app.plant_world.get_parent().add_child(gen); gen.set_quality(tier); gen.setup({})
 		_banner = CanvasLayer.new(); _banner.layer = 5; app.add_child(_banner)
 		_banner_lbl = HoloTheme.label("", 16, HoloTheme.INK, 600); _banner_lbl.position = Vector2(400, 10); _banner.add_child(_banner_lbl)
+		var bsb := StyleBoxFlat.new(); bsb.bg_color = Color(0.04, 0.05, 0.06, 0.8); bsb.set_corner_radius_all(4); bsb.content_margin_left = 10; bsb.content_margin_right = 10; bsb.content_margin_top = 4; bsb.content_margin_bottom = 4
+		_banner_lbl.add_theme_stylebox_override("normal", bsb)   # 0.13 (Sigrid): a smoked plate under the hint, so sparks and lamps in the hall do not dot the text
 		print("LOOK2 gen on: %s tier=%s" % [lid, tier])
 	var li = app.b.q("levelInfo")
 	var phase := str(li.get("phase", "design")) if li is Dictionary else "design"
@@ -128,13 +130,33 @@ func _gen_sync(lid: String) -> void:
 		if _parked.is_empty(): _park_env(true)
 		gen.make_current()
 		var built: bool = gen.anchors.size() > 0   # playtest: a drawn plant that is not commissioned yet is not "nothing built"
-		_banner_lbl.text = "New look: your plant in the hall.  B or pad X: the drafting table" if phase != "design" else ("New look: your plant, not commissioned yet.  B or pad X: back to the drafting table" if built else "New look: the hall (nothing built yet).  B or pad X: back to the drafting table")
+		_b_state = "hall" if phase != "design" else ("ready" if built else "empty")
 	else:
 		gen.visible = false; app.plant_world.visible = true; app.plant_world.set_blocked(false)
 		if not _parked.is_empty(): _park_env(false)
 		if app.plant_world.cam != null: app.plant_world.cam.make_current()
-		_banner_lbl.text = "Drafting table (classic view). Commission and your plant stands in the hall.  B or pad R3 (right stick press): the hall"
+		_b_state = "table"
+	_banner_refresh()
 	_banner_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8)); _banner_lbl.add_theme_constant_override("outline_size", 6)
+
+## 0.13: the banner over the hall: short and plain, and it says what the camera does (LabWorld: right or middle drag orbits, the wheel zooms; pad: right stick orbits, LT/RT zoom).
+var _b_state := ""
+static func banner_text(state: String, pad: bool) -> String:
+	var flip := "X" if pad else "B"
+	match state:
+		"hall": return "Your plant in the hall  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
+		"ready": return "Your plant, not commissioned yet  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
+		"empty": return "The hall, nothing built yet  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
+	return "Drafting table  ·  %s: the hall" % ("R3" if pad else "B")
+static func _orbit_hint(pad: bool) -> String:
+	return "Right stick: orbit  ·  LT / RT: zoom" if pad else "Right-drag: orbit  ·  wheel: zoom"
+func _banner_refresh() -> void:
+	if _banner_lbl == null: return
+	var t := banner_text(_b_state, CbKit.pad_mode)
+	if _banner_lbl.text != t: _banner_lbl.text = t
+
+func _hint_off() -> void:
+	if app != null and app.pad != null and app.pad.hint != null and gen != null and gen.visible: app.pad.hint.visible = false
 
 func _gen_off() -> void:
 	if _rack_off and app.chrome != null: _rack_off = false; app.chrome.hall_hold = false; app.chrome.layout()   # leaving the hall gives the rack back
@@ -297,4 +319,6 @@ func _park_env(park: bool) -> void:
 ## The notebook tab and the paper hub can appear a frame after the last engine change: keep them hidden while the slice is on.
 func _process(_dt: float) -> void:
 	_pad_draw()
+	if gen != null and gen.visible: _hint_off.call_deferred()   # 0.13: the drafting table's pad row ("LB/RB tray ...") does nothing over the hall; CbPad shows it again every frame, so hide it after its _process
+	if gen != null: _banner_refresh()
 	if on: _hide_paper(true)

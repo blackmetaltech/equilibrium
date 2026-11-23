@@ -83,6 +83,13 @@ func _run() -> void:
 		check(map != null and LabHome.up.view == "table", "%s: A opens the map and the camera goes to the planning table" % id)
 		if map == null: break
 		check(not (app.root.get_node("title") as Control).visible, "%s: the title menu steps aside while the map is on the table" % id)
+		# 0.13: the map is the site model: the d-pad walks the building tags, the sheet follows the focused one, A on a tag steps into its sheet
+		var chn: int = WorksMap.Campaign.chapter_of(id)
+		check(await _walk_to("Stop_%d" % chn), "%s: the d-pad reaches the chapter's building tag (focus '%s')" % [id, _focus_name()])
+		var shown: Control = map.find_child("Level_" + id, true, false)
+		check(shown != null and shown.is_visible_in_tree(), "%s: focusing the building shows the chapter's jobs on the sheet" % id)
+		await btn(JOY_BUTTON_A); await frames(2)
+		check(app.root.get_node_or_null("homecard") == null and _focus_name().begins_with("Level_"), "%s: A on the building steps into its sheet (focus '%s')" % [id, _focus_name()])
 		check(await _walk_to("Level_" + id), "%s: the d-pad reaches the chapter's first job (focus '%s')" % [id, _focus_name()])
 		await btn(JOY_BUTTON_A); await frames(4)
 		if id == "CAREER":

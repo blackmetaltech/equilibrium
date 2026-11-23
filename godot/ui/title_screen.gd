@@ -67,7 +67,8 @@ static func build(app: CbApp, root: Control) -> bool:
 		var place := func() -> void:
 			if is_instance_valid(plate): plate.reset_size(); plate.position = Vector2(vw - plate.size.x - 44.0, maxf(6.0, (vh - plate.size.y) * 0.5))
 		place.call_deferred(); root.get_tree().process_frame.connect(place, CONNECT_ONE_SHOT)
-	var foot := EqTheme.label(T("TITLE_FOOT"), 16, EqTheme.DIM, "sans"); foot.name = "Foot"
+	var foot := EqTheme.label(T("TITLE_FOOT"), 20, EqTheme.TEXT, "sans"); foot.name = "Foot"   # 0.13: 20 logical = 16.7 px at 1600x900; the floor was bright and the dim grey vanished on it
+	foot.label_settings = foot.label_settings.duplicate(); foot.label_settings.outline_size = 4; foot.label_settings.outline_color = Color(0, 0, 0, 0.7)
 	foot.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT); foot.grow_horizontal = Control.GROW_DIRECTION_BEGIN; foot.grow_vertical = Control.GROW_DIRECTION_BEGIN; foot.offset_right = -20.0; foot.offset_bottom = -12.0
 	root.add_child(foot)
 	if first != null: _focus_later.call_deferred(first)

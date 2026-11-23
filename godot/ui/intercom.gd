@@ -62,6 +62,13 @@ func _do_act() -> void:
 	_show_last()
 	if cb.is_valid(): cb.call()
 
+## 0.13: over the hall the intercom's inset is black glass with a faint edge, not a dark-teal tray.
+func skin(hall: bool) -> void:
+	var s := _sb()
+	if hall:
+		s.bg_color = Color(0.0, 0.0, 0.0, 0.34); s.border_color = Color(1, 1, 1, 0.12); s.set_border_width_all(1); s.set_corner_radius_all(7)
+	add_theme_stylebox_override("panel", s)
+
 func _sb() -> StyleBoxFlat:
 	var s := EqTheme.enamel_sb(4, 6.0).duplicate() as StyleBoxFlat
 	s.bg_color = EqTheme.ENAMEL_LO; s.border_color = Color("#12211F"); s.set_border_width_all(2); s.border_width_bottom = 2; s.shadow_size = 0

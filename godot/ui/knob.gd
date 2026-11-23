@@ -234,10 +234,12 @@ func _num_text() -> String:
 # ---- keypad (also used by the notebook's Call-it answer line) ----------------------------------------------------------------
 class KeyCatcher extends Control:
 	var on_key: Callable
+	var on_pad: Callable   ## 0.13: pad shortcuts on the keypad: X delete, Y clear, RB OK (button index -> bool)
 	func _init() -> void: focus_mode = Control.FOCUS_NONE; mouse_filter = Control.MOUSE_FILTER_IGNORE; custom_minimum_size = Vector2(1, 1)
 	## `_input`, not unhandled input: a focused keypad button would otherwise swallow Enter, and synthetic key events carry a keycode but no unicode.
 	var _last_ms := {}   # keycode -> msec of the last accepted press
 	func _input(e: InputEvent) -> void:
+		if e is InputEventJoypadButton and e.pressed and on_pad.is_valid() and bool(on_pad.call((e as InputEventJoypadButton).button_index)): get_viewport().set_input_as_handled(); return
 		if e is InputEventKey and e.pressed and on_key.is_valid():
 			# a held key repeats only after ~400 ms: an "echo" that arrives within 200 ms of the same key's last press is a fast second tap ("66"), not a repeat, so it counts
 			var code: int = e.keycode if e.keycode != KEY_NONE else e.physical_keycode
@@ -247,7 +249,7 @@ class KeyCatcher extends Control:
 			if bool(on_key.call(e)): get_viewport().set_input_as_handled()
 
 static func keypad(app, title: String, unit: String, initial: String, lo: float, hi: float, on_ok: Callable, integer := false, allow_range := true) -> Dictionary:
-	var d: Dictionary = app.dialog("keypad", 340.0, 0.0, EqTheme.TEAL, 0.5)
+	var d: Dictionary = app.dialog("keypad", 400.0 if CbKit.pad_mode else 340.0, 0.0, EqTheme.TEAL, 0.5)   # 0.13: a pad's hint line needs the room
 	var host: Control = d.host; var pn: PanelContainer = d.panel; var vb: VBoxContainer = d.vb
 	pn.add_theme_stylebox_override("panel", EqTheme.porcelain_sb(6, 18.0))
 	vb.add_theme_constant_override("separation", 10)
@@ -263,6 +265,9 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	if not allow_range: hint.text = ""
 	vb.add_child(hint)   # always there (empty when no range is shown): same height, so the pad never changes size
 	var reason := EqTheme.label("", 14, EqTheme.RED, "semi"); reason.autowrap_mode = TextServer.AUTOWRAP_OFF; reason.clip_text = true; reason.custom_minimum_size = Vector2(300, ceilf(EqTheme.font("semi").get_height(EqTheme.fs(14))) + 2.0); reason.name = "Reason"; vb.add_child(reason)   # the line is always there (empty until needed): the pad never shifts when a refusal appears
+	var padhint := EqTheme.label(PaperStrings.t("KEYPAD_PAD") if CbKit.pad_mode else "", 14, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.2), "sans"); padhint.name = "PadHint"; padhint.autowrap_mode = TextServer.AUTOWRAP_OFF; padhint.clip_text = true
+	padhint.custom_minimum_size = Vector2(300, ceilf(EqTheme.font("sans").get_height(EqTheme.fs(14))) + 2.0)   # the same height with or without a pad
+	vb.add_child(padhint)
 	var buf := [initial if initial != "" else ""]
 	var upd := func() -> void: disp.text = (buf[0] if buf[0] != "" else "0") + (" " + unit if unit != "" else "")
 	upd.call()
@@ -293,7 +298,24 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 	var kc := EqTheme.key_button(PaperStrings.t("KEYPAD_CLEAR"), false, 18); kc.name = "Clear"; kc.size_flags_horizontal = Control.SIZE_EXPAND_FILL; kc.pressed.connect(func(): press.call("C")); row.add_child(kc)
 	var kbk := EqTheme.key_button("DEL", false, 18); kbk.name = "Backspace"; kbk.tooltip_text = "Backspace"; kbk.size_flags_horizontal = Control.SIZE_EXPAND_FILL; kbk.pressed.connect(func(): press.call("B")); row.add_child(kbk)
 	var ko := EqTheme.key_button(PaperStrings.t("KEYPAD_OK"), true, 18); ko.size_flags_horizontal = Control.SIZE_EXPAND_FILL; ko.pressed.connect(func(): enter.call()); row.add_child(ko)
+	# 0.13: the D-pad walks the keys as a grid, row by row and column by column, wrapping at the edges, and the bottom row hands over to Clear / DEL / OK; the pad starts on 5
+	var keys: Array = grid.get_children()
+	for i in keys.size():
+		var r := i / 3; var c := i % 3; var kk: Control = keys[i]
+		kk.focus_neighbor_left = keys[r * 3 + posmod(c - 1, 3)].get_path(); kk.focus_neighbor_right = keys[r * 3 + posmod(c + 1, 3)].get_path()
+		kk.focus_neighbor_top = keys[posmod(r - 1, 4) * 3 + c].get_path() if r > 0 else row.get_child(c).get_path()
+		kk.focus_neighbor_bottom = keys[(r + 1) * 3 + c].get_path() if r < 3 else row.get_child(c).get_path()
+	for c in 3:
+		var rb: Control = row.get_child(c)
+		rb.focus_neighbor_top = keys[9 + c].get_path(); rb.focus_neighbor_bottom = keys[c].get_path()
+		rb.focus_neighbor_left = row.get_child(posmod(c - 1, 3)).get_path(); rb.focus_neighbor_right = row.get_child(posmod(c + 1, 3)).get_path()
 	var catcher := KeyCatcher.new(); host.add_child(catcher)
+	catcher.on_pad = func(b: int) -> bool:
+		match b:
+			JOY_BUTTON_X: press.call("B"); return true
+			JOY_BUTTON_Y: press.call("C"); return true
+			JOY_BUTTON_RIGHT_SHOULDER: enter.call(); return true
+		return false
 	catcher.on_key = func(e: InputEventKey) -> bool:
 		if e.ctrl_pressed or e.alt_pressed or e.meta_pressed: return false
 		var u := e.unicode
@@ -308,4 +330,5 @@ static func keypad(app, title: String, unit: String, initial: String, lo: float,
 			KEY_ENTER, KEY_KP_ENTER: enter.call(); return true   # commits and closes (a value out of range stays open and says so)
 		return false
 	app.focus_dialog()
+	if CbKit.pad_mode: (func() -> void: if is_instance_valid(keys[4]) and (keys[4] as Control).is_visible_in_tree(): (keys[4] as Control).grab_focus()).call_deferred()   # after the shell's own focus pick
 	return d

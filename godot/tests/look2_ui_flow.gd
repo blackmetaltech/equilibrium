@@ -63,6 +63,8 @@ func _run() -> void:
 	await _recorder()
 	await _brief()
 	await _verbs()
+	await _hall()
+	await _small_text()
 
 func _recorder() -> void:
 	app.start_level("L04", true); await frames(10)
@@ -173,3 +175,60 @@ func _verbs() -> void:
 	app.chrome.intercom.say("mara", "Tap the converter R-106.", "info")
 	check(str(app.chrome.intercom.last().text) == "Click the converter R-106.", "the intercom says click under a mouse: %s" % str(app.chrome.intercom.last().text))
 	Notebook.close(app)
+
+## 0.13 (Kofi): over the hall the console is smoked glass (not the flat teal slab), the banner is short and says how to orbit and zoom, and the speed marks clear 16 px at 1600x900.
+func _hall() -> void:
+	CbKit.pad_mode = false
+	app.start_level("L02", true); await frames(10)
+	var l2 = app.look2
+	var teal := (app.chrome.panel.get_theme_stylebox("panel") as StyleBoxFlat).bg_color
+	check(not app.chrome.hall_hold, "L02 drafting: the hall is not showing")
+	l2.gen_flip = true; l2.sync(); await frames(4)
+	check(app.chrome.hall_hold, "L02: the hall shows")
+	var sb := app.chrome.panel.get_theme_stylebox("panel") as StyleBoxFlat
+	check(sb.bg_color.get_luminance() < 0.09 and sb.bg_color.a < 0.97, "the console over the hall is dark smoked glass, not the teal slab (%s)" % str(sb.bg_color))
+	check(sb.bg_color != teal and sb.border_width_top <= 2 and sb.shadow_size >= 10, "the hall console has a thin edge and a deep shadow (border %d, shadow %d)" % [sb.border_width_top, sb.shadow_size])
+	var line1: String = str(l2._banner_lbl.text).get_slice("\n", 0)
+	check(line1.length() <= 56 and line1.contains("B: drafting table"), "the banner's first line is short and plain: '%s'" % line1)
+	check(not str(l2._banner_lbl.text).contains("New look"), "no 'New look' in the banner")
+	var l2t := str(l2._banner_lbl.text)
+	check(l2t.contains("orbit") and l2t.contains("zoom") and l2t.contains("drag") and l2t.contains("wheel"), "the banner says how to orbit and zoom with the mouse: '%s'" % l2t)
+	CbKit.pad_mode = true; await frames(3)
+	l2t = str(l2._banner_lbl.text)
+	check(l2t.to_lower().contains("right stick") and l2t.contains("orbit") and l2t.contains("zoom") and l2t.contains("X:") and not l2t.contains("wheel"), "with a pad the banner names the stick and the triggers: '%s'" % l2t)
+	CbKit.pad_mode = false; await frames(3)
+	check(str(l2._banner_lbl.text).contains("wheel"), "back to the mouse wording")
+	l2.gen_flip = false; l2.sync(); await frames(4)
+	var sb2 := app.chrome.panel.get_theme_stylebox("panel") as StyleBoxFlat
+	check(not app.chrome.hall_hold and sb2.bg_color == teal, "the drafting table keeps the old enamel console (%s)" % str(sb2.bg_color))
+	check(not str(l2._banner_lbl.text).contains("orbit"), "no orbit hint on the drafting table")
+
+## The headless window does not stretch, so the project's canvas_items / expand rule is applied by hand: 1600x900 draws the 1920x1080 layout at 0.833.
+const _STRETCH := 1600.0 / 1920.0
+func _px(c: Control) -> float:
+	var sz: int = (c as Label).label_settings.font_size if (c as Label).label_settings != null else c.get_theme_font_size("font_size")
+	return float(sz) * c.get_global_transform_with_canvas().get_scale().y * c.get_viewport().get_final_transform().get_scale().y * _STRETCH
+
+## 0.13 (Kofi): by eye at 1600x900 (canvas scale 0.83) the speed marks, the title foot and the Works map legend read about 12 px. Each must be 16 px or more on screen here.
+func _small_text() -> void:
+	CbLayout.forced = "desktop"; root.size = Vector2i(1600, 900); await frames(6)
+	app.start_level("L04", true); await frames(10)
+	var sp: Control = app.chrome.keys.speed
+	var t: Array = []
+	EqTheme.drawn.clear(); EqTheme.audit = true; sp.queue_redraw(); await frames(2); EqTheme.audit = false
+	var marks := 0
+	for k in EqTheme.drawn:
+		if not str(k).contains(str(sp.get_path())): continue
+		var e: Array = EqTheme.drawn[k]
+		if str(e[1]).ends_with("×"):
+			marks += 1
+			check(float(e[0]) * _STRETCH >= 16.0, "speed mark '%s' is %.1f px on screen at 1600x900" % [str(e[1]), float(e[0]) * _STRETCH])
+	check(marks == 3, "three speed marks are drawn (%d)" % marks)
+	app.to_title(); await frames(6)
+	var foot := app.root.find_child("Foot", true, false) as Label
+	check(foot != null and _px(foot) >= 16.0, "title foot line: %.1f px at 1600x900" % (_px(foot) if foot != null else 0.0))
+	app.start_level("L01", true); await frames(6)
+	WorksMap.open(app); await frames(6)
+	var lg := app.root.find_child("Legend", true, false) as Label
+	check(lg != null and _px(lg) >= 16.0, "Works map legend: %.1f px at 1600x900" % (_px(lg) if lg != null else 0.0))
+	app.back(); await frames(3)

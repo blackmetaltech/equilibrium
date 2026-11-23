@@ -12,6 +12,7 @@ const GAS_H := 1.5           ## m of drawn gas column at V_BOOK
 const CR := 0.42             ## m, cylinder radius
 const DAIS := Vector3(0, 0.6, -2.0)
 var _hood_diffuser: StandardMaterial3D
+var dais_mat: StandardMaterial3D
 var TWIN_NO2 := 251.2         ## mol/m3 of NO2 in the book's flask; set in setup from the engine's book gauge (the hero band) with the book's own constants
 const RIG_S := 1.5          ## the experiment is drawn 1.5x on its dais so it reads from the doorway (the HUD carries the true litres)
 var pivot: Node3D
@@ -154,7 +155,7 @@ func _build_room() -> void:
 	_build_autoclave(Vector3(23.0, 0, -32.0))
 	# key and fill: a cool key on the hero, warm cove light, practicals; the hero is backlit by the bay
 	var key := SpotLight3D.new(); key.light_color = Color(0.92, 0.95, 1.0); key.light_energy = 28.0; key.spot_range = 24.0; key.spot_angle = 16.0; key.shadow_enabled = true
-	key.position = DAIS + Vector3(4.0, 15.0, 5.0); key.light_volumetric_fog_energy = 2.5; add_child(key); key.look_at(DAIS + Vector3(0, 2.0, 0))
+	key.position = DAIS + Vector3(4.0, 15.0, 5.0); key.light_volumetric_fog_energy = 2.5; key.name = "KeySpot"; add_child(key); key.look_at(DAIS + Vector3(0, 2.0, 0))
 	_spot(DAIS + Vector3(-5.0, 7.0, -6.0), DAIS + Vector3(0, 2.5, 0), Color(0.5, 0.75, 1.0), 6.0, 16.0, 28.0, 1.0)
 	# one strong cool rim from behind the apparatus (the glass side): the tower separates from the wall
 	var rim := _spot(Vector3(DAIS.x - 1.2, 9.0, -9.4), DAIS + Vector3(0, 2.8, 0), Color(0.55, 0.8, 1.0), 45.0, 16.0, 20.0, 3.0); rim.name = "RimLight"   # 0.12: 160 bloomed white over the apparatus
@@ -225,7 +226,7 @@ func _build_rig() -> void:
 	var d := DAIS
 	# the dais: two stepped discs with an LED ring
 	# Sigrid 0.11: a pale grey epoxy plinth with a stainless kick plate and a yellow hazard edge, not a black disc
-	var epx := _flat(Color(0.74, 0.76, 0.78), 0.0, 0.22)
+	var epx := _flat(Color(0.74, 0.76, 0.78), 0.0, 0.22); dais_mat = epx   # the home shots darken it (look2/home.gd)
 	_cyl(4.2, 0.3, Vector3(d.x, 0.15, d.z), mats.stainless_dull, self, -1.0, 64)
 	_cyl(4.18, 0.02, Vector3(d.x, 0.305, d.z), epx, self, -1.0, 64)
 	_cyl(3.2, 0.3, Vector3(d.x, 0.45, d.z), epx, self, -1.0, 64)

@@ -131,6 +131,10 @@ func _input(e: InputEvent) -> void:
 			JOY_BUTTON_A: w.pad_place()
 			JOY_BUTTON_X: w.rotate_ghost()
 			JOY_BUTTON_B: w.cancel_place(); _refocus()
+			JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER:   # 0.13: LB / RB with a part in hand put it back and step the tray; they fell through to the shell's drawer switch and opened the Codex (the 0.12 "stray Codex")
+				w.cancel_place()
+				var rk = app.root.find_child("PartsRack", true, false)
+				if rk != null and rk.has_method("pad_step"): rk.pad_step(-1 if jb.button_index == JOY_BUTTON_LEFT_SHOULDER else 1)
 			_: return
 		get_viewport().set_input_as_handled(); return
 	match jb.button_index:
