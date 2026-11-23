@@ -35,6 +35,9 @@ var hall_hold := false            ## 0.12: the new look shows the hall: the part
 var extra_cover := 0.0            ## F33: px a level's own panel stands above the console (L39's local panel of selectors): the camera frames above it
 var rack_tab := false             ## F33: the plant stood ready when the level opened (levelInfo.prebuilt): the tray folds to a small PARTS tab
 var phase := "design"
+var _enamel_panel: StyleBoxFlat   ## the drafting table's console (flat enamel); the hall swaps it for smoked glass (_skin)
+var _glass_panel: StyleBoxFlat
+var _hall_skin := false
 var qa_li := {}                   ## QA / tests: a canned levelInfo that replaces the engine's (see qa())
 var qa_runs: Array = []
 const SPEEDS := [0, 1, 4, 16]
@@ -61,7 +64,7 @@ func build() -> void:
 	panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE); panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var sb := EqTheme.enamel_sb(0, 10.0); sb.set_corner_radius_all(0); sb.border_width_top = 3; sb.shadow_size = 14; sb.shadow_offset = Vector2(0, -3)
 	sb.content_margin_top = 8; sb.content_margin_bottom = 8; sb.content_margin_left = 12; sb.content_margin_right = 12
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", sb); _enamel_panel = sb
 	add_child(panel)
 	_vbox = VBoxContainer.new(); _vbox.add_theme_constant_override("separation", 8); _vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE; panel.add_child(_vbox)
 	top_row = HBoxContainer.new(); top_row.name = "TopRow"; top_row.add_theme_constant_override("separation", 10); top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE; _vbox.add_child(top_row)
@@ -152,9 +155,24 @@ func layout() -> void:
 			parts_btn.text = EqStrings.T("PARTS_TAB") + (" ▾" if rack_open else " ▴")
 		_place_dock()
 	panel.offset_top = 0; panel.offset_bottom = 0; panel.offset_left = 0; panel.offset_right = 0
+	_skin()
 	hud_top_left.offset_left = 12.0; hud_top_left.offset_top = 10.0
 	hud_top_left.size = Vector2(minf(420.0, vw - tap - 40.0), tap)
 	call_deferred("_notify_height")
+
+## 0.13: over the hall the strip is dark smoked glass (the look HoloHud has), not the flat teal slab of the drafting table. Same controls, same places; only the paint changes.
+func _skin() -> void:
+	if panel == null or hall_hold == _hall_skin: return
+	_hall_skin = hall_hold
+	if _glass_panel == null:
+		var g := StyleBoxFlat.new(); g.bg_color = Color(0.039, 0.063, 0.078, 0.86); g.set_corner_radius_all(0)
+		g.border_color = Color(0.97, 0.93, 0.86, 0.24); g.border_width_top = 1
+		g.shadow_color = Color(0, 0, 0, 0.62); g.shadow_size = 18; g.shadow_offset = Vector2(0, -4)
+		g.content_margin_top = 8; g.content_margin_bottom = 8; g.content_margin_left = 12; g.content_margin_right = 12
+		_glass_panel = g
+	panel.add_theme_stylebox_override("panel", _glass_panel if _hall_skin else _enamel_panel)
+	panel.modulate = Color(1.0, 0.975, 0.93) if _hall_skin else Color.WHITE   # warm white type
+	if intercom != null: intercom.skin(_hall_skin)
 
 const PHONE_TAP := 62.4   ## 48 dp on the Pixel 9a (2.6 px/dp, the phone layout draws at 0.5 physical px per logical px)
 

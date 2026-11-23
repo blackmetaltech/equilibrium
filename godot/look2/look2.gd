@@ -128,13 +128,30 @@ func _gen_sync(lid: String) -> void:
 		if _parked.is_empty(): _park_env(true)
 		gen.make_current()
 		var built: bool = gen.anchors.size() > 0   # playtest: a drawn plant that is not commissioned yet is not "nothing built"
-		_banner_lbl.text = "New look: your plant in the hall.  B or pad X: the drafting table" if phase != "design" else ("New look: your plant, not commissioned yet.  B or pad X: back to the drafting table" if built else "New look: the hall (nothing built yet).  B or pad X: back to the drafting table")
+		_b_state = "hall" if phase != "design" else ("ready" if built else "empty")
 	else:
 		gen.visible = false; app.plant_world.visible = true; app.plant_world.set_blocked(false)
 		if not _parked.is_empty(): _park_env(false)
 		if app.plant_world.cam != null: app.plant_world.cam.make_current()
-		_banner_lbl.text = "Drafting table (classic view). Commission and your plant stands in the hall.  B or pad R3 (right stick press): the hall"
+		_b_state = "table"
+	_banner_refresh()
 	_banner_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8)); _banner_lbl.add_theme_constant_override("outline_size", 6)
+
+## 0.13: the banner over the hall: short and plain, and it says what the camera does (LabWorld: right or middle drag orbits, the wheel zooms; pad: right stick orbits, LT/RT zoom).
+var _b_state := ""
+static func banner_text(state: String, pad: bool) -> String:
+	var flip := "X" if pad else "B"
+	match state:
+		"hall": return "Your plant in the hall  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
+		"ready": return "Your plant, not commissioned yet  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
+		"empty": return "The hall, nothing built yet  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
+	return "Drafting table  ·  %s: the hall" % ("R3" if pad else "B")
+static func _orbit_hint(pad: bool) -> String:
+	return "Right stick: orbit  ·  LT / RT: zoom" if pad else "Right-drag: orbit  ·  wheel: zoom"
+func _banner_refresh() -> void:
+	if _banner_lbl == null: return
+	var t := banner_text(_b_state, CbKit.pad_mode)
+	if _banner_lbl.text != t: _banner_lbl.text = t
 
 func _gen_off() -> void:
 	if _rack_off and app.chrome != null: _rack_off = false; app.chrome.hall_hold = false; app.chrome.layout()   # leaving the hall gives the rack back
@@ -297,4 +314,6 @@ func _park_env(park: bool) -> void:
 ## The notebook tab and the paper hub can appear a frame after the last engine change: keep them hidden while the slice is on.
 func _process(_dt: float) -> void:
 	_pad_draw()
+	if app != null: app.set_meta("cb_pad_hint_off", gen != null and gen.visible)   # 0.13: the drafting table's pad row ("LB/RB tray ...") does nothing over the hall
+	if gen != null: _banner_refresh()
 	if on: _hide_paper(true)

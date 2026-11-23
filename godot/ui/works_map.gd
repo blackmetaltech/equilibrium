@@ -321,7 +321,7 @@ class MapView extends RefCounted:
 		start_btn.pressed.connect(func(): if WorksMap.sel_id != "": WorksMap.start(app, host, WorksMap.sel_id))
 		ibh.add_child(start_btn)
 		if not (compact and narrow):
-			var lg := EqTheme.label((WorksMap.T("MAP_LEGEND") if not WorksMap.paper else "grey: locked   white: done   blue: three stars   book: exam bridge") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 16, WorksMap.pk(EqTheme.DIM, WorksMap.P_DIM), "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
+			var lg := EqTheme.label((WorksMap.T("MAP_LEGEND") if not WorksMap.paper else "grey: locked   white: done   blue: three stars   book: exam bridge") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 20, WorksMap.pk(EqTheme.DIM, WorksMap.P_DIM), "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
 		# first focus: the first open, unstarred node (else the first open one)
 		var pick: NodeBtn = null
 		for id in WorksMap.Campaign.ids:
