@@ -22,10 +22,9 @@ step() { # step <name> <command...>   (runs the command, logs to $LOG_DIR/<name>
   fi
 }
 
-smoke() {
-  CB_SMOKE=1 timeout 300 godot --headless --path godot 2>&1 | tee "$LOG_DIR/smoke.log" >/dev/null || true
-  grep -q "SMOKE OK" "$LOG_DIR/smoke.log" || { echo "no SMOKE OK line"; return 1; }
-  if grep -E "SCRIPT ERROR|Parse Error" "$LOG_DIR/smoke.log"; then return 1; fi
+smoke() {   # the shared runner: SMOKE OK required, no script error in the log (see core/qa/run-flow.sh)
+  CB_SMOKE=1 core/qa/run-flow.sh -k smoke -T 300 -o "$LOG_DIR" -- | tee "$LOG_DIR/smoke.verdict"
+  [[ "$(head -c4 "$LOG_DIR/smoke.verdict")" == PASS ]]
 }
 
 godot_import() { godot --headless --path godot --import || true; }   # exit code ignored, like CI
