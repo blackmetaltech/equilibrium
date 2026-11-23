@@ -5,7 +5,7 @@ extends Node
 ## diagram, the cooler dial, the coach line, the clock, the end card). The engine, the level and its actions are unchanged: this file only routes the
 ## snapshot to the new layers. CB_LOOK2=0 turns the slice off (the 0.9 look comes back). Quality tier: CB_QUALITY=ultra|high|compat, else auto.
 var _rack_off := false   ## 0.12: the parts rack is hidden while the hall shows
-const GEN_LEVELS := ["L01", "L02", "L03", "L04", "L05", "L06", "L10", "L11", "L12", "L13"]   ## D-B4 + D-C2 (chapter 1): build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
+const GEN_LEVELS := ["L01", "L02", "L03", "L04", "L05", "L06", "L07", "L08", "L10", "L11", "L12", "L13"]   ## D-B4 + D-C2 (chapter 1): build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
 const LEVELS := ["L00", "L14"]   ## L00 Night Shift (the process hall), L14 The Brown Gas (the private lab, look2/flask_lab.gd)
 var app
 var lab   ## LabWorld (L00) or FlaskLab (L14): the same contract (setup, set_snapshot, anchor_screen, anchor_size, set_camera, key, cam, picked, control_changed)

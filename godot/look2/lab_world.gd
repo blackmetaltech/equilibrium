@@ -1019,12 +1019,13 @@ func _vessel(c: Vector3, r: float, h: float, shell: Material, parent: Node, opts
 		var top := y0 + h + 0.1
 		for sx in [-0.22, 0.22]: _seg(lb + Vector3(sx, 0, 0), lb + Vector3(sx, top + 1.0, 0), 0.022, M.yellow, parent)
 		for i in int(top / 0.3): _seg(lb + Vector3(-0.22, 0.3 + i * 0.3, 0), lb + Vector3(0.22, 0.3 + i * 0.3, 0), 0.012, M.yellow, parent)
-		for i in int((top - 2.2) / 0.9): _torus(0.4, 0.012, lb + ld * 0.2 + Vector3(0, 2.4 + i * 0.9, 0), M.yellow, parent)
+		for i in int((top - 2.2) / 0.9): _torus(0.4, 0.014, lb + ld * 0.2 + Vector3(0, 2.4 + i * 0.9, 0), M.steel_dull, parent)   # 0.12: galvanised cage hoops (yellow read as halos)
+		for k in 5: var ak := PI * (0.15 + 0.175 * k); _seg(lb + ld * 0.2 + Vector3(cos(ak) * 0.4 * (1.0 if k != 2 else 1.0), 2.4, sin(ak) * 0.4) * Vector3(1, 1, 1), lb + ld * 0.2 + Vector3(cos(ak) * 0.4, top + 1.0, sin(ak) * 0.4), 0.01, M.steel_dull, parent)   # cage verticals
 		_lathe(PackedVector2Array([Vector2(r + 0.05, 0), Vector2(r + 1.0, 0), Vector2(r + 1.0, 0.05), Vector2(r + 0.05, 0.05)]), 40, M.plate, Vector3(c.x, top, c.z), parent, false)
-		_torus(r + 1.0, 0.02, Vector3(c.x, top + 1.05, c.z), M.yellow, parent); _torus(r + 1.0, 0.016, Vector3(c.x, top + 0.55, c.z), M.yellow, parent)
+		_torus(r + 1.0, 0.02, Vector3(c.x, top + 1.05, c.z), M.steel_dull, parent); _torus(r + 1.0, 0.016, Vector3(c.x, top + 0.55, c.z), M.steel_dull, parent)   # galvanised handrail
 		for i in 12:
 			var a := TAU * i / 12.0
-			_seg(Vector3(c.x + cos(a) * (r + 1.0), top, c.z + sin(a) * (r + 1.0)), Vector3(c.x + cos(a) * (r + 1.0), top + 1.05, c.z + sin(a) * (r + 1.0)), 0.016, M.yellow, parent)
+			_seg(Vector3(c.x + cos(a) * (r + 1.0), top, c.z + sin(a) * (r + 1.0)), Vector3(c.x + cos(a) * (r + 1.0), top + 1.05, c.z + sin(a) * (r + 1.0)), 0.016, M.steel_dull, parent)
 	return y0 + h
 
 ## A horizontal drum on two saddles with dished ends (boilers, separators, exchangers lying down).

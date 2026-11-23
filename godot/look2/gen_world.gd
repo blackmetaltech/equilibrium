@@ -66,6 +66,11 @@ func rebuild() -> void:
 			"stoich_reactor": _vessel(c, 0.55, 1.5, _shader("steel", {"rough_base": 0.28, "metallic": 0.85, "blotch": 0.1}), plant, {"legs": true, "base": 0.6})   # the bench reactor (L01, L04)
 			"burner": _burner(id, c)
 			"splitter": _splitter(id, c)
+			"cooler": _exchanger(c, 3.2, 0.42, M.enamel_green, true)    # 0.12 (chapter 2): CW cooler
+			"hx": _exchanger(c, 5.2, 0.62, M.heat_paint, false)          # feed-effluent exchanger (L08)
+			"heater": _heater(id, c)
+			"gasifier": _gasifier(id, c)
+			"co_burner": _burner(id, c)
 			_: _box(Vector3(1.0, 1.0, 1.0), c + Vector3(0, 0.5, 0), M.steel_dull, plant)
 		var lab := Label3D.new(); lab.text = id; lab.font_size = 36; lab.pixel_size = 0.0009; lab.fixed_size = true; lab.no_depth_test = true; lab.render_priority = 10; lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lab.modulate = Color(0.9, 0.95, 1.0, 0.95)
 		lab.outline_size = 12; lab.outline_modulate = Color(0, 0, 0, 0.85); lab.position = c + Vector3(0, _height(ty) + 0.6, 0); plant.add_child(lab)
@@ -105,6 +110,11 @@ func rebuild() -> void:
 func _height(ty: String) -> float:
 	match ty:
 		"splitter": return 1.6
+		"cooler": return 2.0
+		"hx": return 2.6
+		"heater": return 7.5
+		"gasifier": return 6.2
+		"co_burner": return 2.6
 		"eq_reactor": return 7.0
 		"eq_bed": return 3.4
 		"compressor": return 1.6
@@ -181,6 +191,64 @@ func _vent(id: String, c: Vector3) -> void:
 
 ## Phase C (chapter 1): the stack with its flue analyser. A tapered brick-red stack with a sampling platform; at the base, the analyser cabinet
 ## whose screen reads the engine's stack composition (y_O2, y_CO2, y_SO2, y_CO, y_H2O) in mol %.
+## 0.12 (chapter 2, L07/L08): a horizontal shell-and-tube exchanger on two saddles: a flanged channel head with a pass-partition bonnet, a dished rear head, shell
+## nozzles top and bottom with flanges, channel nozzles, a nameplate. Green enamel with CW stubs for a cooler; grey heat paint for a process exchanger.
+func _exchanger(c: Vector3, L: float, r: float, paint: Material, cw: bool) -> void:
+	var y := r + 0.75
+	var sh := _cyl(r, L, c + Vector3(0, y, 0), paint, plant, -1.0, 36); sh.rotation_degrees.z = 90
+	_cyl(r + 0.12, 0.12, c + Vector3(-L * 0.5, y, 0), M.steel_dull, plant, -1.0, 36).rotation_degrees.z = 90   # girth flange
+	var ch := _cyl(r, 0.7, c + Vector3(-L * 0.5 - 0.41, y, 0), paint, plant, -1.0, 36); ch.rotation_degrees.z = 90   # channel
+	_cyl(r + 0.12, 0.1, c + Vector3(-L * 0.5 - 0.8, y, 0), M.steel_dull, plant, -1.0, 36).rotation_degrees.z = 90   # cover flange
+	for i in 16: var a := i * TAU / 16.0; _cyl(0.025, 0.2, c + Vector3(-L * 0.5 - 0.8, y + sin(a) * (r + 0.07), cos(a) * (r + 0.07)), M.steel_dull, plant).rotation_degrees.z = 90   # cover bolts
+	_sph(r, c + Vector3(L * 0.5, y, 0), paint, plant, true).rotation_degrees.z = -90   # rear head
+	for sx in [-L * 0.3, L * 0.3]:   # saddles with a wear plate and a base plate
+		_box(Vector3(0.25, y - 0.15, r * 1.6), c + Vector3(sx, (y - 0.15) * 0.5, 0), M.paint_grey, plant)
+		_box(Vector3(0.4, 0.03, r * 1.9), c + Vector3(sx, 0.015, 0), M.steel_dull, plant)
+	for nz in [[-L * 0.32, 1.0], [L * 0.32, -1.0]]:   # shell nozzles: in at the top, out at the bottom
+		_seg(c + Vector3(nz[0], y + nz[1] * r * 0.9, 0), c + Vector3(nz[0], y + nz[1] * (r + 0.35), 0), 0.09, M.steel_dull, plant)
+		_cyl(0.17, 0.05, c + Vector3(nz[0], y + nz[1] * (r + 0.35), 0), M.steel_dull, plant)
+	for nz2 in [0.35, -0.35]:   # channel nozzles (the tube side)
+		var cp := c + Vector3(-L * 0.5 - 0.41, y + nz2 * r * 1.5, 0)
+		_seg(cp, cp + Vector3(0, 0, 0.5 + r), 0.08, M.paint_green if cw else M.steel_dull, plant)
+		var f := _cyl(0.15, 0.05, cp + Vector3(0, 0, 0.5 + r), M.steel_dull, plant); f.rotation_degrees.x = 90
+	_box(Vector3(0.28, 0.18, 0.01), c + Vector3(0.0, y, r + 0.005), _flat(Color(0.8, 0.72, 0.45), 0.8, 0.35), plant)   # nameplate
+
+## 0.12 (chapter 2): a box fired heater: a radiant firebox in heat paint on legs with a peep window that glows with the fire, a convection section above it with
+## a header box, a stack with a damper, a ladder and a platform at the convection level. Its fire follows the outlet temperature, like the burner.
+func _heater(id: String, c: Vector3) -> void:
+	for lx in [-1.1, 1.1]: for lz in [-0.9, 0.9]: _box(Vector3(0.2, 1.0, 0.2), c + Vector3(lx, 0.5, lz), M.paint_grey, plant)   # legs
+	_box(Vector3(2.6, 3.2, 2.2), c + Vector3(0, 2.6, 0), M.heat_paint, plant)   # radiant box
+	for x in [-1.3, -0.43, 0.43, 1.3]: _box(Vector3(0.06, 3.24, 2.24), c + Vector3(x, 2.6, 0), M.steel_dull, plant)   # buckstays
+	_box(Vector3(2.0, 1.2, 1.6), c + Vector3(0, 4.8, 0), M.heat_paint, plant)   # convection section
+	_box(Vector3(2.1, 0.3, 0.3), c + Vector3(0, 4.8, 0.95), M.steel_dull, plant)   # header box
+	_lathe(PackedVector2Array([Vector2(0.35, 0), Vector2(0.3, 2.4), Vector2(0.0, 2.4)]), 24, M.steel_dull, c + Vector3(0, 5.4, 0), plant, true)   # stack
+	_box(Vector3(0.7, 0.06, 0.7), c + Vector3(0, 6.2, 0), M.black, plant)   # damper
+	_box(Vector3(2.8, 0.05, 0.8), c + Vector3(0, 4.2, 1.5), M.plate, plant)   # platform
+	for sx in [-1.4, 1.4]: _seg(c + Vector3(sx, 4.2, 1.9), c + Vector3(sx, 5.2, 1.9), 0.02, M.steel_dull, plant)
+	_seg(c + Vector3(-1.4, 5.2, 1.9), c + Vector3(1.4, 5.2, 1.9), 0.02, M.steel_dull, plant)
+	for sx2 in [-0.2, 0.2]: _seg(c + Vector3(1.6 + sx2, 0, 1.4), c + Vector3(1.6 + sx2, 4.2, 1.4), 0.02, M.yellow, plant)   # ladder
+	for i in 13: _seg(c + Vector3(1.4, 0.3 + i * 0.3, 1.4), c + Vector3(1.8, 0.3 + i * 0.3, 1.4), 0.012, M.yellow, plant)
+	var gm := _glowmat()
+	for zz in [1.12, -1.12]: var pw := _cyl(0.14, 0.04, c + Vector3(0.0, 1.6, zz), gm, plant); pw.rotation_degrees.x = 90   # peep windows
+	for bx in [-0.6, 0.6]: _cyl(0.18, 0.4, c + Vector3(bx, 0.85, 0), M.steel_dull, plant)   # floor burners under the box
+	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.omni_range = 4.0; l.position = c + Vector3(0, 1.6, 1.8); plant.add_child(l)
+	_glow[id] = {"mat": gm, "light": l, "kind": "burner"}
+
+## 0.12 (chapter 2, L07): a moving-bed coke gasifier: a refractory-lined shell in heat paint on a skirt, a coke hopper and lock on top, a cone bottom to an ash
+## lock, air tuyeres round the base, a sight glass that glows with the bed, a gas offtake near the top, a caged ladder and a top platform.
+func _gasifier(id: String, c: Vector3) -> void:
+	_vessel(c, 0.85, 3.6, M.heat_paint, plant, {"base": 1.4, "ladder": true})
+	_lathe(PackedVector2Array([Vector2(0.85, 0), Vector2(0.25, -0.8), Vector2(0.25, -1.0), Vector2(0.0, -1.0)]), 32, M.heat_paint, c + Vector3(0, 1.4, 0), plant, true)   # cone bottom
+	_box(Vector3(0.5, 0.5, 0.5), c + Vector3(0, 0.25, 0), M.steel_dull, plant)   # ash lock
+	_lathe(PackedVector2Array([Vector2(0.0, 0), Vector2(0.2, 0), Vector2(0.6, 0.9), Vector2(0.6, 1.2), Vector2(0.0, 1.2)]), 24, M.paint_grey, c + Vector3(0, 5.6, 0), plant, true)   # coke hopper
+	_cyl(0.22, 0.4, c + Vector3(0, 5.4, 0), M.steel_dull, plant)   # coal lock
+	for i in 8: var a := i * TAU / 8.0; _seg(c + Vector3(cos(a) * 0.86, 1.9, sin(a) * 0.86), c + Vector3(cos(a) * 1.15, 1.75, sin(a) * 1.15), 0.05, M.steel_dull, plant)   # air tuyeres
+	_lathe(PackedVector2Array([Vector2(1.0, 0), Vector2(1.18, 0), Vector2(1.18, 0.18), Vector2(1.0, 0.18)]), 32, M.steel_dull, c + Vector3(0, 1.7, 0), plant, false)   # bustle main
+	_seg(c + Vector3(0.85, 4.6, 0), c + Vector3(1.5, 4.6, 0), 0.16, M.steel_dull, plant)   # gas offtake
+	var gm := _glowmat(); var sg := _cyl(0.12, 0.04, c + Vector3(0, 2.4, 0.87), gm, plant); sg.rotation_degrees.x = 90   # sight glass on the bed
+	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.omni_range = 3.5; l.position = c + Vector3(0, 2.4, 1.6); plant.add_child(l)
+	_glow[id] = {"mat": gm, "light": l, "kind": "burner"}
+
 ## 0.12 (chapter 2, L06): a flow splitter as it stands in a plant: a header on two stanchions, an equal tee, a block valve on each leg and a flow-control
 ## valve with a diaphragm actuator on the bypass leg (the split fraction is that valve's opening).
 func _splitter(id: String, c: Vector3) -> void:
@@ -321,7 +389,7 @@ func set_camera(spec: String) -> void:
 		var p := part.strip_edges()
 		if p == "plant" and not anchors.is_empty():   # Sigrid 0.11: a hero view, low and close on the unit that tells the story (the first reactor, bed or burner), the rest receding
 			var hid := ""
-			for gid in anchors: if str(_types.get(gid, "")) in ["eq_reactor", "burner", "stoich_reactor", "pfr", "cstr"]: hid = gid; break
+			for gid in anchors: if str(_types.get(gid, "")) in ["eq_reactor", "burner", "stoich_reactor", "pfr", "cstr", "gasifier", "co_burner", "heater"]: hid = gid; break
 			if hid == "": hid = _glow.keys()[0] if not _glow.is_empty() else str(anchors.keys()[anchors.size() / 2])
 			var hp: Vector3 = (anchors.get(hid, _ctr) as Vector3)
 			# 0.12 (Sigrid: L03's camera sat inside a rack beam): the camera stands on the hero's own side of the pipe rack (the rack runs at _ctr.z - 1.6; L03's burner
@@ -329,8 +397,9 @@ func set_camera(spec: String) -> void:
 			var side := 1.0 if hp.z >= _ctr.z - 1.6 else -1.0
 			var room := (HALL_MAX.z - hp.z) if side > 0.0 else (hp.z - HALL_MIN.z)
 			var sk := -1.0 if str(_types.get(hid, "")) == "burner" else 1.0   # the burner is framed from its sight-glass side
-			_preset = p; t_focus = Vector3(hp.x, 1.7, hp.z); t_pitch = -0.07; t_dist = 8.0
-			if side > 0.0 or room > 7.0: t_yaw = (sk * PI * 0.2) if side > 0.0 else (PI - sk * PI * 0.2); t_dist = clampf((room - 0.4) / cos(PI * 0.2), 5.0, 8.0)
+			var hh := _height(str(_types.get(hid, "")))   # 0.12: tall heroes (the gasifier, the fired heater) are framed whole: focus and distance scale with the unit
+			_preset = p; t_focus = Vector3(hp.x, clampf(hh * 0.42, 1.7, 3.2), hp.z); t_pitch = -0.07; t_dist = clampf(hh * 1.5, 8.0, 12.0)
+			if side > 0.0 or room > 7.0: t_yaw = (sk * PI * 0.2) if side > 0.0 else (PI - sk * PI * 0.2); t_dist = clampf((room - 0.4) / cos(PI * 0.2), 5.0, t_dist)
 			else: t_yaw = PI - sk * PI * 0.25; t_pitch = -0.5; t_dist = clampf((room - 0.3) / (cos(0.5) * cos(PI * 0.25)), 4.5, 8.0)   # behind the rack with the glass wall close: raised, from the glass side, the rack behind the units
 			continue   # vessels from the open side (the rack behind); the burner from its face, with the stack
 		if p == "stack" and not _analyser.is_empty():   # the flue analyser close up
