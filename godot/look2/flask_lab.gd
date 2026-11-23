@@ -479,14 +479,14 @@ func pad_controls() -> Array: return [["wheel_t", "T wheel"], ["wheel_v", "V whe
 func pad_cams() -> Array: return ["wide", "flask", "gauge", "wheel", "bench", "dewar"]
 func pad_turn(id: String, dir: int) -> void:
 	if id == "wheel_t":
-		flask_T = clampf(snappedf(flask_T + 5.0 * dir, 1.0), 250.0, 520.0); wheel_t.rotation.y += 0.3 * dir
+		flask_T = clampf(snappedf(flask_T + 1.0 * dir, 1.0), 250.0, 520.0); wheel_t.rotation.y += 0.06 * dir   # phase C: 1 K steps; the book flask wins only at 406 or 407 K
 		control_changed.emit("T", flask_T); set_control_value("T", flask_T)
 	elif id == "wheel_v":
 		var v := clampf(snappedf(flask_V + 0.05e-3 * dir, 0.05e-3), 0.25e-3, 2.0e-3); wheel_v.rotation.y += 0.3 * dir
 		control_changed.emit("V", v); set_control_value("V", v)
 func pad_value(id: String) -> String:
 	match id:
-		"wheel_t": return "%.2f °C  (drag sideways or scroll; pad up/down: 5 K)" % (flask_T - 273.15)
+		"wheel_t": return "%.2f °C  (drag sideways or scroll; pad up/down: 1 K)" % (flask_T - 273.15)
 		"wheel_v": return "%.2f L  (drag sideways or scroll; pad up/down: 0.05 L)" % (flask_V * 1000.0)
 		"lever": return "click or A: run"
 		"argon_valve": return ("open" if argon_on else "shut") + "  (click or A: turn)"

@@ -168,7 +168,9 @@ func _run_l14() -> void:
 	check(app.b.q("levelInfo").get("firstRun", null) == null, "L14 (phase C): the three tests alone do not win; the book flask does")
 	if lab.flask_Pfix > 0.0: lab.press_control("clamp")
 	if lab.argon_on: lab.press_control("argon_valve")
-	lab.control_changed.emit("T", 406.5); await frames(2); lab.press_control("lever"); await frames(4)   # the book flask: 1 L, no argon, clamp on, T*
+	for i in 6: lab.pad_turn("wheel_t", 1); await frames(1)   # the book flask by pad: 400 K + 6 x 1 K = 406 K (only 406 and 407 K read 9.15 bar within 0.5 %)
+	check(is_equal_approx(lab.flask_T, 406.0), "L14: six pad turns of the T wheel reach 406 K (%.1f)" % lab.flask_T)
+	lab.press_control("lever"); await frames(4)
 	check(app.b.q("levelInfo").get("firstRun", null) is Dictionary, "L14: finding the book flask starts the settle before the printout (goal %s)" % str(app.b.q("levelInfo").goals[0]))
 	check(int(app.speed) > 0, "L14: the clock runs during the settle after the winning run (speed %s, status %s, goal %s)" % [str(app.speed), str(app.b.g.get("status", "")), str(app.b.q("levelInfo").goals[0])])
 	if lab.flask_Pfix > 0.0: lab.press_control("clamp")
