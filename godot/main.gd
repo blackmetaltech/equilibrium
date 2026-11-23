@@ -133,6 +133,7 @@ func game_camera(spec: String) -> void:
 			for a in f.slice(1):
 				if a == "true" or a == "false": args.append(a == "true")
 				elif a.is_valid_float(): args.append(float(a))
+				elif a.begins_with("{") or a.begins_with("["): args.append(JSON.parse_string(a))   # 0.13 captures: object args (setFeed) as JSON
 				else: args.append(a)
 			b.act(f[0], args)
 		elif part.begins_with("ff="): b.act("tick", [int(part.substr(3))])
