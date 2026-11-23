@@ -271,10 +271,10 @@ export const PLANNED: string[] = [
 ]
 export const IDEAS = 'Ideas from the design doc that are not built or scheduled: a daily shift, Hindi strings, more plants (urea, chlor-alkali), stage-by-stage distillation, a teacher mode.';
 export const NOT_CHECKED: string[] = [
-  'The art review of 0.12 scored the new look 6.3 of 10 against a target of 6.5 or more. Six scenes are under 6.5 and the lab is 7.5 against 8.',
+  'The art review of 0.13 scored the new look 6.5 of 10 (6.48) against a target of 6.5 or more. Ten of 26 scenes are under 6.5; vessel materials are the main reason.',
   'Nobody has listened to the sound.',
   'The Windows build has not been played by a person.',
-  'The phone layout was not re-checked by hand in 0.12.',
+  'The phone layout was not re-checked by hand in 0.13.',
 ];
 
 function nowSection(): string {

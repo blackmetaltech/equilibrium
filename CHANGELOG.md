@@ -8,16 +8,19 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
 - **The Works map is a scale model** of the Works on the lab's planning table: one building per stop, lit when open, grey when locked, a flag when done. Pick a stop and its jobs show on a sheet beside it.
 - **The brief has a pencil sketch** of the plant you will build.
 - **Chapter 4 builds in the hall.** The packed bed has a quartz window: ceramic balls over and under the catalyst, iron pellets grey, V2O5 pellets brown. More catalyst is a deeper bed. The pellets glow by the temperature down the bed, and five thermowells read it in °C.
-- **L18 has glass kettles.** The peroxide bubbles and foams by its catalyst: catalase most, iodide less, none barely.
-- **L09 is a bench in the hall.** A flow calorimeter, a bomb calorimeter with its firing leads and O2 gauge, and a tube furnace whose bore glows with its temperature. Chapter 2 is whole in the new look.
+- **L18 has glass kettles.** The peroxide bubbles, and a head of foam rises with the rate: catalase most, iodide less, none barely.
+- **L09 is a lab bench in the hall.** A flow calorimeter in a water jacket, a bomb calorimeter with its bomb and oxygen cylinder, and a clamshell tube furnace. The tube ends glow with its temperature, which climbs with the recorder during the first run. Chapter 2 is whole in the new look.
 - **The hall console is smoked glass** while the hall shows. The banner is short and says how to orbit and zoom.
 - **The flue analyser view** shows the probe, the sample line and the cabinet, under a work light.
 - **The fired heater fills the L08 view.**
+- **Each chapter 4 job has its own view** of the bed. The thermowell readings stand on dark plates. The hall hint sits on a smoked plate.
 - **Low-end graphics:** the hall floor is no longer near black.
 - **Pad:** LB and RB from the plot land on the last tile you used. The keypad has a pad hint and shortcuts (X delete, Y clear, RB enter). The pad hint row is hidden over the hall.
 ### Fixed
 - A warm patch on the hall floor with no lamp over it (L10-L12): the outside flare's light came in through a window gap.
 - A glare halo over the rod on the title.
+- The bed window had no glass: it was drawn facing away.
+- The analyser screen cut off "FLUE".
 - The speed dial marks, the title foot line and the Works map legend were under 16 px.
 ### Added
 - A test that the version agrees in every file that carries it.
