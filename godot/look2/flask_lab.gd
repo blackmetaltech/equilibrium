@@ -165,8 +165,12 @@ func _build_room() -> void:
 func _build_rig() -> void:
 	var d := DAIS
 	# the dais: two stepped discs with an LED ring
-	_cyl(4.2, 0.3, Vector3(d.x, 0.15, d.z), _paint(Color(0.16, 0.17, 0.19)), self, -1.0, 64)
-	_cyl(3.2, 0.3, Vector3(d.x, 0.45, d.z), _paint(Color(0.2, 0.21, 0.23)), self, -1.0, 64)
+	# Sigrid 0.11: a pale grey epoxy plinth with a stainless kick plate and a yellow hazard edge, not a black disc
+	var epx := _flat(Color(0.74, 0.76, 0.78), 0.0, 0.22)
+	_cyl(4.2, 0.3, Vector3(d.x, 0.15, d.z), mats.stainless_dull, self, -1.0, 64)
+	_cyl(4.18, 0.02, Vector3(d.x, 0.305, d.z), epx, self, -1.0, 64)
+	_cyl(3.2, 0.3, Vector3(d.x, 0.45, d.z), epx, self, -1.0, 64)
+	_torus(3.17, 0.025, Vector3(d.x, 0.6, d.z), M.yellow)   # hazard edge on the step
 	# round 3 fix (Sigrid): a steel plinth with a hand rail, not a neon halo
 	_torus(3.21, 0.03, Vector3(d.x, 0.6, d.z), mats.stainless_dull)
 	_torus(4.21, 0.03, Vector3(d.x, 0.3, d.z), mats.stainless_dull)

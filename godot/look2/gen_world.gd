@@ -184,13 +184,16 @@ func _stack(id: String, c: Vector3) -> void:
 	_lathe(PackedVector2Array([Vector2(0.75, 0), Vector2(0.45, 9.0), Vector2(0.5, 9.0), Vector2(0.5, 9.4), Vector2(0.0, 9.4)]), 32, brick, c, plant, true)
 	for y in [3.0, 6.0, 8.9]: _torus(0.75 - y * 0.033 + 0.03, 0.04, c + Vector3(0, y, 0), M.black, plant)
 	_lathe(PackedVector2Array([Vector2(0.62, 0), Vector2(1.5, 0), Vector2(1.5, 0.05), Vector2(0.62, 0.05)]), 32, M.plate, c + Vector3(0, 4.0, 0), plant, false)
-	_torus(1.5, 0.02, c + Vector3(0, 5.05, 0), M.yellow, plant)
+	_torus(1.5, 0.025, c + Vector3(0, 5.05, 0), M.steel_dull, plant); _torus(1.5, 0.02, c + Vector3(0, 4.55, 0), M.steel_dull, plant)
+	for i in 10: _seg(c + Vector3(cos(i * TAU / 10.0) * 1.5, 4.05, sin(i * TAU / 10.0) * 1.5), c + Vector3(cos(i * TAU / 10.0) * 1.5, 5.05, sin(i * TAU / 10.0) * 1.5), 0.018, M.steel_dull, plant)   # Sigrid: handrail stanchions, steel not UI halos
 	for sx in [-0.2, 0.2]: _seg(c + Vector3(sx, 0, -0.95), c + Vector3(sx, 5.0, -0.95), 0.02, M.yellow, plant)
 	for i in 13: _seg(c + Vector3(-0.2, 0.3 + i * 0.3, -0.95), c + Vector3(0.2, 0.3 + i * 0.3, -0.95), 0.012, M.yellow, plant)
 	_seg(c + Vector3(0.6, 4.3, 0), c + Vector3(1.2, 4.3, 0.4), 0.02, M.steel_dull, plant)   # sample probe line
 	_seg(c + Vector3(1.2, 4.3, 0.4), c + Vector3(1.4, 1.6, 0.9), 0.02, M.steel_dull, plant)
 	var cab := c + Vector3(1.5, 0, 1.1)
-	_box(Vector3(0.9, 1.7, 0.6), cab + Vector3(0, 0.85, 0), _paint(Color(0.82, 0.83, 0.8)), plant)
+	_box(Vector3(0.9, 1.7, 0.6), cab + Vector3(0, 0.85, 0), _flat(Color(0.62, 0.65, 0.68), 0.15, 0.45), plant)   # grey powder-coat analyser cabinet
+	_box(Vector3(0.82, 0.72, 0.03), cab + Vector3(0, 1.25, 0.3), _flat(Color(0.15, 0.16, 0.17), 0.3, 0.4), plant)   # recessed bezel
+	_seg(cab + Vector3(-0.3, 1.7, 0), cab + Vector3(-0.3, 2.6, 0), 0.03, M.steel_dull, plant)   # conduit up to the sample line
 	var scr := _flat(Color(0.02, 0.05, 0.05), 0.0, 0.2); scr.emission_enabled = true; scr.emission = Color(0.1, 0.5, 0.45); scr.emission_energy_multiplier = 0.5
 	_box(Vector3(0.74, 0.62, 0.02), cab + Vector3(0, 1.25, 0.31), scr, plant)
 	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.0016; t.modulate = Color(0.5, 1.0, 0.9)
@@ -268,8 +271,13 @@ const GEN_PRESETS := {
 	"close": [Vector3(0.0, 2.0, -6.0), PI * 0.05, -0.12, 9.0],
 }
 func set_camera(spec: String) -> void:
-	for part in spec.split(","):
+	for part in spec.replace(" ", ",").split(",", false):   # CB_CAM hands "nbclose plant": spaces separate too (every 0.11 hall shot had silently been "wide")
 		var p := part.strip_edges()
+		if p == "plant" and not _glow.is_empty():   # Sigrid 0.11: a hero view, low and close on the unit that tells the story (the first reactor, bed or burner), the rest receding
+			var hid: String = _glow.keys()[0]
+			for gid in _glow: if str(_types.get(gid, "")) in ["eq_reactor", "burner"]: hid = gid; break
+			var hp: Vector3 = (anchors.get(hid, _ctr) as Vector3)
+			_preset = p; t_focus = Vector3(hp.x, 2.6, hp.z); t_yaw = (-PI * 0.22 if str(_types.get(hid, "")) == "burner" else PI * 0.78); t_pitch = -0.06; t_dist = 8.5; continue   # vessels from the open side (the rack behind); the burner from its face, with the stack
 		if p == "stack" and not _analyser.is_empty():   # the flue analyser close up
 			_preset = p; t_focus = _stack_at + Vector3(0, 1.4, 0); t_yaw = -0.5; t_pitch = -0.08; t_dist = 3.6; continue
 		if not GEN_PRESETS.has(p): continue
