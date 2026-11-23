@@ -3,6 +3,23 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [0.12.0] - 2026-11-23 · "The Lab at Home" (LOOK2, layer 0.12)
+### Changed
+- **The lab is the home screen.** The title, the Works map and the briefings live in the private lab. The map and the brief lie on a drafting table as paper.
+- **The lab is bigger.** The back wall moved out, with a catwalk along the glass and a tall autoclave in a gantry down the bay. The dais has a control desk.
+- **The hall's equipment is rebuilt.** The sulfur burner is a drum on saddles with a burner front and fan. The fired heater has ribs, a breeching and a rain hood. The pipe rack is I-beams in primer and stands behind the plant. Ladders have cages.
+- **Each level gets its own camera.** The hero view fits the main unit whole and picks a different unit per level. L04 has its own props.
+- **Bed glow follows temperature.** Dull red at 450 °C, orange at 650 °C. A sintered bed throbs red-orange; a sleeping bed is plain steel.
+- **Unit names are nameplates** on the units. A screen label shows only for the unit you point at.
+- **Chapter 2 builds in the hall.** L05-L08 have their own splitter, gasifier, CO burner, fired heater, exchanger and cooler. L09, the calorimeter exam, is still in the classic look.
+- **Plain text.** Briefs open with three short lines. The prompts say click, tap or press A to match your device. The annunciator lists only what is lit. The Works map is in sentence case. No selling words in the text; a test guards it.
+- **Larger port dots** (1.6x, 24 px pick radius).
+### Fixed
+- A white glint on the hall floor in every view (a fill light and the moon's highlight).
+- The heat ledger cut its last line; the equilibrium window's labels sat on the operating point and the axis.
+- A missing metal texture logged an error on every hall build.
+- Flaky tests: fix18 (a clock-seeded Career and an overflowing card), build_guide (clicks during the notebook's settle), fix28 (the shift clock ran before the test parked it).
+
 ## [0.11.0] - 2026-11-23 · "The Bench in the new look" (LOOK2 phase C)
 ### Changed
 - **L14 Two Flasks has a goal you can miss.** Find the temperature where your 1 L flask reads the book's 9.15 bar. Run one argon test too, to show what shifts it. You have six runs, the tests included, counted across restarts. All three Le Chatelier tests are a star, and the Kp call is another (D-C1, D-C8, D-C9).
