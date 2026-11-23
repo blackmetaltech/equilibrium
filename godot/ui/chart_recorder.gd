@@ -168,9 +168,50 @@ func _gui_input(e: InputEvent) -> void:
 		accept_event()
 
 # ---- drawing -------------------------------------------------------------------------------------------------------------------------------------
+const STRIP_H := 24.0   ## the line under the paper (printout countdown or shift clock)
+const TAPE_H := 23.0
+
+func _gl() -> float: return 62.0 if big else 54.0   # wide enough for 130.2 / 1.56M without the left digits being clipped
+
+## The text of the line under the paper: the printout countdown while a first run plays, else the shift clock. "" = no line (the paper takes the room).
+func _strip_text() -> String:
+	if size.x <= 150.0: return ""
+	if not first_run.is_empty():
+		var left := maxi(0, int(ceil(_num(first_run.get("len", 0.0)) - _num(first_run.get("t", 0.0)))))
+		var t := EqStrings.T("REC_PRINT_T") % left
+		var made := first_run.get("madeKg") != null and _num(first_run.get("madeKg", 0.0)) > 0.0 and runs.size() <= 1
+		var full := "%s  ·  %s %s kg" % [t, EqStrings.T("REC_FIRSTRUN"), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))] if made else t
+		var f := EqStrings.font("body")
+		return full if f.get_string_size(full, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16)).x <= size.x - 12.0 else t
+	var ct := clock_text()
+	if ct == "": return ""
+	var cf := EqTheme.font("semi")
+	for cand in [ct, ct.get_slice("  ", 0), ct.get_slice(" /", 0)]:   # the clock gives up its ETA, then its total, before it would run off the strip
+		if cf.get_string_size(cand, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(16)).x <= size.x - 12.0: return cand
+	return ct.get_slice(" /", 0)
+
+func _strip_h() -> float: return STRIP_H if _strip_text() != "" else 0.0
+
+## The pen legends sit in a band above the plot, left to right, wrapping to a second row where a narrow paper needs it. Returns {items: [{text, accent, x, y, w}], h}.
+func _legend_layout(with_unit := true) -> Dictionary:
+	var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
+	var x0 := _gl() + 4.0; var avail := size.x - 56.0 - x0 - 4.0
+	var list: Array = [[_legend(hero, with_unit) + (" —" if bool(hero.get("pending", false)) else ""), EqTheme.PEN_BLUE]]   # pending: the reading is "—", never a made-up number
+	if not sec.is_empty(): list.append([_legend(sec, with_unit) + (" —" if bool(sec.get("pending", false)) else ""), EqTheme.PEN_RED])
+	if not third.is_empty(): list.append([_legend(third, with_unit), EqTheme.PEN_GREEN])
+	var items: Array = []; var x := 0.0; var y := 2.0
+	for it in list:
+		var w := minf(f.get_string_size(str(it[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0, avail)
+		if x > 0.0 and x + w > avail: x = 0.0; y += TAPE_H
+		items.append({"text": it[0], "accent": it[1], "x": x0 + x, "y": y, "w": w})
+		x += w + 4.0
+	if with_unit and y > 2.0: return _legend_layout(false)   # two rows would squeeze the plot: the units go before the plot shrinks
+	return {"items": items, "h": y + TAPE_H - 2.0}
+
 func _plot() -> Rect2:
-	var gl := 62.0 if big else 54.0   # wide enough for 130.2 / 1.56M without the left digits being clipped
-	return Rect2(gl, 4.0, size.x - gl - 60.0, size.y - 8.0 - 16.0)
+	var gl := _gl()
+	var top := 4.0 + float(_legend_layout().h)
+	return Rect2(gl, top, size.x - gl - 60.0, maxf(size.y - _strip_h() - 20.0 - top, 12.0))
 
 ## The hero pen's axis: the target band and every plotted value (and the live reading) with a margin, so no trace ever leaves the paper.
 func _range() -> Vector2:
@@ -201,7 +242,8 @@ func _y(v: float, r: Vector2, pl: Rect2) -> float: return pl.end.y - (v - r.x) /
 func _draw() -> void:
 	var pl := _plot()
 	var mono := EqTheme.font("mono"); var fsz := EqTheme.fs(13)
-	draw_rect(Rect2(Vector2.ZERO, size), EqTheme.PORCELAIN)
+	var ph := size.y - _strip_h()   # the paper ends here; the line under it (countdown or clock) is drawn on the enamel below
+	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, ph)), EqTheme.PORCELAIN)
 	var r := _range(); var sr := _srange()
 	# grid, scrolling with the paper
 	var gx := fposmod(-paper, 16.0)
@@ -246,15 +288,15 @@ func _draw() -> void:
 			if not sec.is_empty(): draw_line(Vector2(xi - 10.0, sp[i].y), Vector2(xi + 10.0, sp[i].y), EqTheme.PEN_RED, 3.0)
 			if not third.is_empty(): draw_line(Vector2(xi - 10.0, tp[i].y), Vector2(xi + 10.0, tp[i].y), EqTheme.PEN_GREEN, 3.0)
 			draw_line(Vector2(xi, pl.end.y), Vector2(xi, pl.end.y + 6.0), EqTheme.INK, 1.5)
-			if step >= 18.0 or i == n - 1 or i % 2 == 0: EqTheme.ds(self, mono, Vector2(xi - 20.0, size.y - 2.0), "%d" % int(pts[i].n), HORIZONTAL_ALIGNMENT_CENTER, 40.0, fsz, EqTheme.INK)
+			if step >= 18.0 or i == n - 1 or i % 2 == 0: EqTheme.ds(self, mono, Vector2(xi - 20.0, ph - 2.0), "%d" % int(pts[i].n), HORIZONTAL_ALIGNMENT_CENTER, 40.0, fsz, EqTheme.INK)
 	elif n > 0:
 		draw_circle(hp[n - 1], 3.0, EqTheme.PEN_BLUE)
 	# gutters over the traces: left axis, right pen readout
-	draw_rect(Rect2(0, 0, pl.position.x - 1.0, size.y), EqTheme.PORCELAIN)
+	draw_rect(Rect2(0, 0, pl.position.x - 1.0, ph), EqTheme.PORCELAIN)
 	var rx := size.x - 56.0
-	draw_rect(Rect2(rx, 0, 56.0, size.y), EqTheme.PORCELAIN)
-	draw_line(Vector2(rx, 0), Vector2(rx, size.y), Color("#8C9A94"), 1.0)
-	draw_line(Vector2(pl.position.x - 1.0, 0), Vector2(pl.position.x - 1.0, size.y), Color("#8C9A94"), 1.0)
+	draw_rect(Rect2(rx, 0, 56.0, ph), EqTheme.PORCELAIN)
+	draw_line(Vector2(rx, 0), Vector2(rx, ph), Color("#8C9A94"), 1.0)
+	draw_line(Vector2(pl.position.x - 1.0, 0), Vector2(pl.position.x - 1.0, ph), Color("#8C9A94"), 1.0)
 	if _has(hero, "hi"):
 		EqTheme.ds(self, mono, Vector2(2, _y(_num(hero.hi), r, pl) - 1.0), _fmtax(_num(hero.hi)), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, EqTheme.PEN_BLUE.darkened(0.2))
 	if _has(hero, "lo"):
@@ -264,40 +306,23 @@ func _draw() -> void:
 	var hi_y := _y(_num(hero.get("hi", top_v)), r, pl) if _has(hero, "hi") else -99.0; var lo_y := _y(_num(hero.get("lo", bot_v)), r, pl) if _has(hero, "lo") else 999.0
 	if absf(hi_y - (pl.position.y + 10.0)) > 14.0 and absf(lo_y - (pl.position.y + 10.0)) > 14.0: EqTheme.ds(self, mono, Vector2(2, pl.position.y + 11.0), _fmtax(top_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
 	if absf(lo_y - pl.end.y) > 14.0 and absf(hi_y - pl.end.y) > 14.0: EqTheme.ds(self, mono, Vector2(2, pl.end.y - 1.0), _fmtax(bot_v), HORIZONTAL_ALIGNMENT_RIGHT, pl.position.x - 6.0, fsz, Color("#6B7C76"))
-	var ct := clock_text()
-	var clock_w := 0.0
-	if ct != "" and size.x > 150.0:   # the clock line gives up its ETA, then its total, before it would be smaller than 16 px or run off a narrow paper
-		var room := rx - pl.position.x - 8.0
-		var cf := EqTheme.font("semi")
-		for cand in [ct, ct.get_slice("  ", 0), ct.get_slice(" /", 0)]:
-			ct = cand
-			if cf.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x * 0.9 <= room: break
-		var cw := minf(cf.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 8.0, rx - pl.position.x - 4.0)
-		clock_w = cw + 6.0
-		draw_rect(Rect2(rx - cw - 2.0, pl.end.y - 22.0, cw, 21.0), Color(EqTheme.PORCELAIN, 0.92)); EqTheme.ds(self, cf, Vector2(rx - cw + 2.0, pl.end.y - 6.0), ct, HORIZONTAL_ALIGNMENT_LEFT, cw - 4.0, EqTheme.fs(12), EqTheme.PEN_RED.darkened(0.15))
 	# latest pen values at the right edge
 	if n > 0:
-		var hy := clampf(hp[n - 1].y + 5.0, 14.0, size.y - 6.0)
+		var hy := clampf(hp[n - 1].y + 5.0, 14.0, ph - 6.0)
 		EqTheme.ds(self, mono, Vector2(rx + 4.0, hy), _fmt(_num(pts[n - 1].h)), HORIZONTAL_ALIGNMENT_LEFT, 52.0, fsz, EqTheme.PEN_BLUE)
 		if not sec.is_empty():
-			var sy := clampf(sp[n - 1].y + 5.0, 14.0, size.y - 6.0)
-			if absf(sy - hy) < 14.0: sy = hy + 14.0 if hy + 14.0 <= size.y - 4.0 else hy - 14.0   # two readouts never print over each other
+			var sy := clampf(sp[n - 1].y + 5.0, 14.0, ph - 6.0)
+			if absf(sy - hy) < 14.0: sy = hy + 14.0 if hy + 14.0 <= ph - 4.0 else hy - 14.0   # two readouts never print over each other
 			EqTheme.ds(self, mono, Vector2(rx + 4.0, sy), _fmt(_num(pts[n - 1].s)), HORIZONTAL_ALIGNMENT_LEFT, 52.0, fsz, EqTheme.PEN_RED)
-	# pen legends on dymo tape: each pen's label and unit in its own ink (blue hero, red secondary, green third)
-	var avail := pl.size.x - 4.0   # the pen readouts live in the gutter to the right: a legend never runs over them
-	var ly := pl.position.y + 2.0
-	var tape_max := (pl.end.y - 24.0) if clock_w > 0.0 else 1.0e6
-	ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(hero) + (" —" if bool(hero.get("pending", false)) else ""), EqTheme.PEN_BLUE, avail, tape_max)   # pending: the reading is "—", never a made-up number
-	if not sec.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(sec) + (" —" if bool(sec.get("pending", false)) else ""), EqTheme.PEN_RED, avail, tape_max)
-	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail, tape_max)
-	if n == 0 and clock_w == 0.0 and ly + 18.0 <= pl.end.y and pl.size.x > 80.0:   # no runs yet: the line sits under the pen legends, and only when there is room for it
-		EqTheme.ds(self, EqStrings.font("body"), Vector2(pl.position.x + 8.0, ly + 15.0), EqStrings.T("REC_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, pl.size.x - 10.0, fsz, Color("#6B7C76"))
-	if not first_run.is_empty():   # the first run plays: what it made so far (when the level makes product) and how long until the printout (Priya's gate: never a silent wait)
-		var left := maxi(0, int(ceil(_num(first_run.get("len", 0.0)) - _num(first_run.get("t", 0.0)))))
-		var made := first_run.get("madeKg") != null and _num(first_run.get("madeKg", 0.0)) > 0.0 and runs.size() <= 1
-		if made: _tape(Vector2(pl.position.x + 4.0, pl.end.y - 25.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN").to_upper(), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail - clock_w)
-		_tape(Vector2(pl.position.x + 4.0, pl.end.y - (47.0 if made else 25.0)), (EqStrings.T("REC_PRINT_T") % left).to_upper(), EqTheme.TEAL, avail - clock_w)   # playtest: its own line, never cut after "MAD"
-	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
+	# pen legends on dymo tape, in their own band above the plot: never over the trace, never over the readouts
+	for it in _legend_layout().items: _tape(Vector2(it.x, it.y), it.text, it.accent, it.w, 1.0e6, true)
+	if n == 0 and pl.size.y >= 26.0 and pl.size.x > 80.0:   # no runs yet: the line sits at the top of the plot
+		EqTheme.ds(self, EqStrings.font("body"), Vector2(pl.position.x + 8.0, pl.position.y + 17.0), EqStrings.T("REC_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, pl.size.x - 10.0, fsz, Color("#6B7C76"))
+	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, ph)), Color("#4B5B55"), false, 1.0)
+	var st := _strip_text()
+	if st != "":   # its own line under the paper (Priya's gate: never a silent wait before the printout)
+		draw_rect(Rect2(0, ph, size.x, STRIP_H), EqTheme.ENAMEL_LO)
+		EqTheme.ds(self, EqTheme.font("semi") if first_run.is_empty() else EqStrings.font("body"), Vector2(6.0, ph + 17.0), st, HORIZONTAL_ALIGNMENT_LEFT, size.x - 12.0, EqTheme.fs(16), EqTheme.TEAL.lightened(0.25) if not first_run.is_empty() else EqTheme.TEXT)
 
 func _fmtax(v: float) -> String:   # axis labels: compact, never wider than the gutter
 	if absf(v) >= 1.0e6: return "%.2fM" % (v / 1.0e6)
@@ -319,19 +344,20 @@ func _dash(a: Vector2, b: Vector2, col: Color) -> void:
 	while t < l:
 		draw_line(a + dir * t, a + dir * minf(t + 6.0, l), col, 1.5); t += 11.0
 
-func _legend(d: Dictionary) -> String:
+func _legend(d: Dictionary, with_unit := true) -> String:
 	var u := str(d.get("unit", ""))
 	var lab := str(d.get("label", "")) if big else str(d.get("legend", d.get("label", "")))   # F33: the level's short pen legend ("NH₃", "COMP"); the long label is the full recorder's title
+	if not with_unit: return lab.to_upper()
 	if u == "" or lab.ends_with(" " + u) or lab.ends_with(", " + u) or lab.ends_with("(" + u + ")") or lab.ends_with("[" + u + "]"): return lab.to_upper()   # the label already says its unit
 	return lab.to_upper() + " " + u   # the unit keeps its case (m³/h, not M³/H)
 
 ## One strip of Dymo tape no wider than `avail` px; returns the y for the next strip below it. F33: a legend is never cut with an ellipsis: one that does not fit on one line
 ## goes on two (split at the space nearest its middle), and only then is it squeezed (EqTheme.ds, at most to 78 %).
-func _tape(p: Vector2, text: String, accent: Color, avail := 1.0e6, max_y := 1.0e6) -> float:
+func _tape(p: Vector2, text: String, accent: Color, avail := 1.0e6, max_y := 1.0e6, one_line := false) -> float:
 	var f := EqStrings.font("cap"); var sz := EqTheme.fs(13)
 	var lines := [text]
 	var tw := func(t: String) -> float: return f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + 12.0
-	if tw.call(lines[0]) > avail and lines[0].contains(" ") and p.y + 39.0 <= max_y:   # two lines only where they clear the shift clock below
+	if not one_line and tw.call(lines[0]) > avail and lines[0].contains(" ") and p.y + 39.0 <= max_y:   # two lines only where they clear the shift clock below
 		var t0: String = lines[0]; var mid := t0.length() / 2; var best := -1
 		for i in t0.length():
 			if t0[i] == " " and (best < 0 or absi(i - mid) < absi(best - mid)): best = i

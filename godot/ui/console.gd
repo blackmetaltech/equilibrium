@@ -109,6 +109,7 @@ func layout() -> void:
 	intercom.set_max_lines(3)   # three lines on every class (F33: 1280x800 had two, cut mid-sentence); a tap opens the whole log
 	annunciator.max_windows = 4 if phone else 8
 	annunciator.custom_minimum_size = Vector2(500.0 if _kind == "desktop" else (380.0 if hand else 230.0), row_h)   # F32: windows wide enough for 16 px legends
+	if annunciator.sentence: annunciator.custom_minimum_size.x = 280.0 if _kind == "desktop" else (300.0 if hand else 230.0)   # sentences need less than a grid of chips; the room goes to the recorder, and the key switch stays on screen at 1600x900
 	if phone and annunciator.wins.size() > 4: annunciator.wins = annunciator.wins.slice(0, 4)
 	recorder.custom_minimum_size = Vector2(220.0 if _kind == "desktop" else (230.0 if hand else 190.0), row_h)   # F33: room for the pen legends at 1280x800
 	keys.set_compact(_kind != "desktop")
@@ -245,7 +246,7 @@ func refresh() -> void:
 		choose_speed(_rec_idx())   # the speed dial opens at the level's recommended speed (levelInfo.recommendedSpeed), not at whatever the last level left
 	elif not running: _shift_seen = false
 	var sent: bool = app.look2 != null and (app.look2.on or app.look2.gen != null)   # the new look: sentences for what is lit, not a wall of caps chips
-	if sent != annunciator.sentence: annunciator.sentence = sent; annunciator.queue_redraw()
+	if sent != annunciator.sentence: annunciator.sentence = sent; annunciator.queue_redraw(); layout()
 	annunciator.set_windows(li.get("annunciators", []) if li.get("annunciators") is Array else [])
 	var tab := bool(li.get("prebuilt", false))
 	if tab != rack_tab: rack_tab = tab; rack_open = false; layout()
