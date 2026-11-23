@@ -133,7 +133,7 @@ func rebuild() -> void:
 		_pipe(pts, 0.09 if not recyc else 0.13, (M.clad if k % 2 == 0 else M.steel_dull) if not recyc else _loop_paint(), plant, true)
 		if recyc:   # chapter 5: the recycle line is the loop's own colour, with flow arrows stencilled along its rack run
 			var a0: Vector3 = pts[2]; var a1: Vector3 = pts[3]; var dd := (a1 - a0)
-			for q in 3: if dd.length() > 1.0: var cone := _cyl(0.0, 0.28, a0 + dd * (0.25 + 0.25 * q) + Vector3(0, 0.2, 0), _flat(Color(0.95, 0.92, 0.85), 0.0, 0.5), plant, 0.12, 12); cone.look_at(cone.position + dd.normalized(), Vector3.UP); cone.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
+			for q in 3: if dd.length() > 1.0: var cone := _cyl(0.0, 0.28, a0 + dd * (0.25 + 0.25 * q) + Vector3(0, 0.2, 0), _flat(Color(0.78, 0.74, 0.66), 0.0, 0.5), plant, 0.12, 12); cone.look_at(cone.position + dd.normalized(), Vector3.UP); cone.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
 		if absf(b.x - a.x) > 2.2: _valve(Vector3((a.x + b.x) * 0.5, y, zr), Vector3(signf(b.x - a.x), 0, 0), 0.09, plant)   # a block valve on each line
 		k += 1
 	# pipe rack posts along the main run
@@ -147,14 +147,14 @@ func rebuild() -> void:
 			var sx := _ctr.x - _span * 0.4 + _span * 0.8 * float(i) / float(maxi(1, n - 1))
 			var sp := SpotLight3D.new(); sp.light_specular = 0.05; sp.light_color = Color(1.0, 0.94, 0.86); sp.light_energy = (8.0 if tier != "compat" else 1.2); sp.spot_range = 22.0; sp.spot_angle = 40.0   # 0.13 (Sigrid: "warm pools on the floor with no source"): wide, near-white, low specular: hall light, not a fire
 			sp.light_volumetric_fog_energy = 1.0; sp.shadow_enabled = i % 2 == 0; sp.position = Vector3(sx, 15.5, _ctr.z + 1.0); plant.add_child(sp); sp.rotation_degrees.x = -90
-			_cyl(0.5, 0.25, Vector3(sx, 15.8, _ctr.z + 1.0), M.paint_grey, plant); _cyl(0.42, 0.02, Vector3(sx, 15.67, _ctr.z + 1.0), _flat(Color(1, 1, 1), 0, 0.3, Color(1.0, 0.9, 0.75), 3.0), plant)
+			_cyl(0.5, 0.25, Vector3(sx, 15.8, _ctr.z + 1.0), M.paint_grey, plant); _cyl(0.42, 0.02, Vector3(sx, 15.67, _ctr.z + 1.0), _flat(Color(0.8, 0.8, 0.8), 0, 0.3, Color(1.0, 0.9, 0.75), 3.0), plant)
 	var hb := 0
 	for id5 in at:   # warm high-bay spots over the converters and beds, so the row is lit from above and not only glowing
 		if str(_types[id5]) in ["eq_bed", "eq_reactor"] and hb < 3:
 			var hc: Vector3 = at[id5]; hb += 1
 			var hs := SpotLight3D.new(); hs.light_color = Color(1.0, 0.82, 0.6); hs.light_energy = 20.0 if tier != "compat" else 2.5; hs.spot_range = 17.0; hs.spot_angle = 26.0; hs.light_specular = 0.0
 			hs.position = Vector3(hc.x + 1.5, 12.5, hc.z + 5.5); plant.add_child(hs); hs.look_at(hc + Vector3(0, 3.5, 0), Vector3.UP); hs.spot_angle = 16.0; hs.light_energy *= 0.6   # 0.13: aimed at the shell from the front, so its pool lands on the vessel and behind it, not on bare floor beside it (Sigrid's L10-L12 "pool with no source")
-			_cyl(0.4, 0.2, Vector3(hc.x, 12.6, hc.z + 0.6), M.paint_grey, plant, 0.3); _cyl(0.34, 0.02, Vector3(hc.x, 12.49, hc.z + 0.6), _flat(Color(1, 1, 1), 0, 0.3, Color(1.0, 0.85, 0.65), 3.0), plant)
+			_cyl(0.4, 0.2, Vector3(hc.x, 12.6, hc.z + 0.6), M.paint_grey, plant, 0.3); _cyl(0.34, 0.02, Vector3(hc.x, 12.49, hc.z + 0.6), _flat(Color(0.8, 0.8, 0.8), 0, 0.3, Color(1.0, 0.85, 0.65), 3.0), plant)
 	print("LOOK2 gen: %d units, %d pipes" % [at.size(), k])
 	set_camera(_preset)   # re-frame the new plant
 
@@ -314,7 +314,7 @@ func _separator(c: Vector3) -> void:
 	_vessel(c, 0.6, 3.0, _shader("steel", {"rough_base": 0.4, "frost": 0.5, "frost_h": 1.2, "metallic": 0.6}), plant, {"base": 0.8})
 
 func _tank(c: Vector3) -> void:
-	_vessel(c, 1.2, 2.4, _flat(Color(0.86, 0.87, 0.85), 0.1, 0.35), plant, {"legs": true, "base": 0.6})
+	_vessel(c, 1.2, 2.4, _coat(Color(0.6, 0.63, 0.61), 0.45, 0.7, 0.5, 0.15), plant, {"legs": true, "base": 0.6})
 
 func _vent(id: String, c: Vector3) -> void:
 	_cyl(0.25, 6.0, c + Vector3(0, 3.0, 0), M.rust, plant)
@@ -443,11 +443,11 @@ func _stack(id: String, c: Vector3) -> void:
 	for i in 10: _seg(c + Vector3(cos(i * TAU / 10.0) * 1.5, 4.05, sin(i * TAU / 10.0) * 1.5), c + Vector3(cos(i * TAU / 10.0) * 1.5, 5.05, sin(i * TAU / 10.0) * 1.5), 0.018, M.steel_dull, plant)   # Sigrid: handrail stanchions, steel not UI halos
 	for sx in [-0.8, -0.4]: _seg(c + Vector3(sx, 0, 0.95), c + Vector3(sx, 5.0, 0.95), 0.02, M.yellow, plant)   # the ladder faces the front cameras (+z)
 	for i in 13: _seg(c + Vector3(-0.8, 0.3 + i * 0.3, 0.95), c + Vector3(-0.4, 0.3 + i * 0.3, 0.95), 0.012, M.yellow, plant)
-	var ss := _flat(Color(0.84, 0.86, 0.88), 1.0, 0.2)   # stainless
+	var ss: Material = M.ss   # stainless
 	_flange(c + Vector3(0.65, 4.3, 0), Vector3.RIGHT, 0.04, plant); _seg(c + Vector3(0.55, 4.3, 0), c + Vector3(0.7, 4.3, 0), 0.025, ss, plant)   # the probe flange on the stack wall
 	_pipe([c + Vector3(0.7, 4.3, 0), c + Vector3(1.1, 4.3, 0.5), c + Vector3(1.2, 2.6, 1.0), c + Vector3(1.2, 1.72, 1.0)], 0.018, ss, plant, false)   # 0.13: 0.018 so it reads at the analyser view   # the 0.02 m stainless sample line down to the cabinet
 	var cab := c + Vector3(1.5, 0, 1.1)
-	_box(Vector3(0.9, 1.7, 0.6), cab + Vector3(0, 0.85, 0), _flat(Color(0.62, 0.65, 0.68), 0.15, 0.45), plant)   # grey powder-coat analyser cabinet
+	_box(Vector3(0.9, 1.7, 0.6), cab + Vector3(0, 0.85, 0), _enamel(Color(0.5, 0.53, 0.56)), plant)   # grey matte instrument enamel analyser cabinet
 	_box(Vector3(0.82, 0.72, 0.03), cab + Vector3(0, 1.25, 0.3), _flat(Color(0.15, 0.16, 0.17), 0.3, 0.4), plant)   # recessed bezel
 	_seg(cab + Vector3(-0.3, 1.7, 0), cab + Vector3(-0.3, 2.6, 0), 0.03, M.steel_dull, plant)   # conduit up to the sample line
 	var scr := _flat(Color(0.015, 0.02, 0.02), 0.0, 0.15); scr.emission_enabled = true; scr.emission = Color(0.05, 0.16, 0.12); scr.emission_energy_multiplier = 0.6   # a dark LCD that glows faintly, not a teal slab
@@ -536,14 +536,14 @@ func _exam_props(c: Vector3) -> void:
 	_seg(Vector3(sx, 0.02, sz), Vector3(sx, 1.25, sz), 0.018, M.steel_dull, plant)
 	_box(Vector3(0.5, 0.025, 0.06), Vector3(sx, 0.015, sz), M.steel_dull, plant); _box(Vector3(0.06, 0.025, 0.5), Vector3(sx, 0.015, sz), M.steel_dull, plant)
 	var cb := _box(Vector3(0.34, 0.44, 0.02), Vector3(sx, 1.4, sz + 0.03), _flat(Color(0.45, 0.3, 0.18), 0.0, 0.85), plant); cb.rotation_degrees.x = -12.0
-	var sheet := _box(Vector3(0.28, 0.36, 0.006), Vector3(sx, 1.4, sz + 0.044), _flat(Color(0.9, 0.9, 0.86), 0.0, 0.9), plant); sheet.rotation_degrees.x = -12.0
+	var sheet := _box(Vector3(0.28, 0.36, 0.006), Vector3(sx, 1.4, sz + 0.044), _flat(Color(0.74, 0.74, 0.7), 0.0, 0.9), plant); sheet.rotation_degrees.x = -12.0
 	_box(Vector3(0.12, 0.04, 0.03), Vector3(sx, 1.62, sz + 0.04), M.steel_dull, plant).rotation_degrees.x = -12.0   # the clip
 	var t := Label3D.new(); t.text = "INSPECTION\nREPORT"; t.font_size = 48; t.pixel_size = 0.0012; t.modulate = Color(0.1, 0.1, 0.12); t.outline_size = 0; t.shaded = true
 	t.position = Vector3(sx, 1.46, sz + 0.05); t.rotation_degrees.x = -12.0; plant.add_child(t)
 	var leg := c + Vector3(0.55 * cos(PI * 0.75), 0.0, 0.55 * sin(PI * 0.75))   # the inspection tag on the front-left leg
 	_seg(leg + Vector3(0, 0.75, 0), leg + Vector3(0.1, 0.62, 0.12), 0.004, M.black, plant)
 	_box(Vector3(0.1, 0.16, 0.006), leg + Vector3(0.1, 0.52, 0.14), _flat(Color(0.8, 0.12, 0.08), 0.0, 0.5), plant)
-	_box(Vector3(0.07, 0.06, 0.007), leg + Vector3(0.1, 0.55, 0.14), _flat(Color(0.92, 0.9, 0.82), 0.0, 0.7), plant)
+	_box(Vector3(0.07, 0.06, 0.007), leg + Vector3(0.1, 0.55, 0.14), _flat(Color(0.76, 0.74, 0.68), 0.0, 0.7), plant)
 	var bx := c.x + 1.2; var bz := c.z + 0.8   # the sample bomb on a stand, tapped off the reactor
 	_seg(Vector3(bx, 0.0, bz), Vector3(bx, 0.95, bz), 0.02, M.paint_grey, plant); _box(Vector3(0.3, 0.02, 0.3), Vector3(bx, 0.01, bz), M.steel_dull, plant)
 	_seg(c + Vector3(0.5, 0.95, 0.4), Vector3(bx, 1.0, bz), 0.015, M.steel_dull, plant)   # the sample line from the shell
@@ -626,7 +626,7 @@ func _packed_bed(id: String, c: Vector3, u: Dictionary) -> void:
 	_cyl(r * 0.98, base - r * 0.25, Vector3(c.x, (base - r * 0.25) * 0.5, c.z), M.paint_grey, plant, -1.0, 40); _cyl(r * 1.14, 0.06, Vector3(c.x, 0.03, c.z), M.paint_grey, plant, -1.0, 40)
 	# the bed: a dark core so nothing shows through gaps, ceramic balls below and above, the catalyst in slices that glow on their own
 	_arc(r - 0.1, yb0, yb1 + ib, PI * 0.5 - wa - 0.1, PI * 0.5 + wa + 0.1, 12, _flat(Color(0.03, 0.03, 0.03), 0.0, 0.9), c, plant)   # the voids between pellets
-	var ball := _flat(Color(0.86, 0.84, 0.78), 0.0, 0.45)
+	var ball := _flat(Color(0.76, 0.74, 0.68), 0.0, 0.45)
 	_pellets(c, r - 0.04, yb0, yb0 + ib, PI * 0.5 - wa, PI * 0.5 + wa, 0.034, ball, 1)
 	_pellets(c, r - 0.04, yb1, yb1 + ib, PI * 0.5 - wa, PI * 0.5 + wa, 0.034, ball, 2)
 	var mats: Array = []; var n := clampi(int(depth / 0.18), 3, 10)
@@ -705,7 +705,7 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 	var lh := h * 0.62
 	_cyl(r - 0.012, lh, c + Vector3(0, y0 + lh * 0.5, 0), liq, plant, -1.0, 32); _sph(r - 0.012, c + Vector3(0, y0, 0), liq, plant, true).rotation_degrees.x = 180
 	# the foam head: dense white over the darker liquid, lit from inside a little so it reads through the glass; its height is the reaction rate (Sigrid 0.13)
-	var fm := _flat(Color(0.97, 0.98, 0.98, 0.94), 0.0, 0.95, Color(0.9, 0.93, 0.95), 0.35); fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var fm := _flat(Color(0.78, 0.79, 0.79, 0.94), 0.0, 0.95, Color(0.9, 0.93, 0.95), 0.35); fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var foam := _cyl(r - 0.03, 0.02, c + Vector3(0, y0 + lh + 0.01, 0), fm, plant, -1.0, 32)
 	fm.albedo_color.a = 0.55
 	# the foam's skin: bubbles of mixed size against the glass and over the top, revealed from the liquid line up as the head grows (Sigrid 0.13: a smooth cylinder read as a plastic tub)
@@ -718,7 +718,7 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 		var rr := r - 0.02 - (0.0 if rng.randf() < 0.75 else rng.randf_range(0.0, r - 0.05))
 		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * sc), Vector3(cos(a) * rr, fy, sin(a) * rr)))
 		var v := rng.randf_range(0.82, 1.0); mm.set_instance_color(i, Color(v, v, v * 1.02))
-	var bm := _flat(Color(1, 1, 1, 0.85), 0.0, 0.15); bm.vertex_color_use_as_albedo = true; bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; bm.metallic_specular = 0.8
+	var bm := _flat(Color(0.8, 0.8, 0.8, 0.85), 0.0, 0.15); bm.vertex_color_use_as_albedo = true; bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; bm.metallic_specular = 0.8
 	var froth := MultiMeshInstance3D.new(); froth.multimesh = mm; froth.material_override = bm; froth.position = c + Vector3(0, y0 + lh, 0); plant.add_child(froth)
 	mm.visible_instance_count = 0
 	_cyl(r + 0.1, 0.06, c + Vector3(0, y0 + h + 0.1, 0), M.steel, plant, -1.0, 40)   # the lid flange and the clamp ring
@@ -730,7 +730,7 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 	for sg2 in [-1.0, 1.0]: _seg(c + Vector3(sg2 * (r + 0.06), y0 + 0.2 + (0.6 if sg2 > 0 else 0.0), 0), c + Vector3(sg2 * (r + 0.3), y0 + 0.2 + (0.6 if sg2 > 0 else 0.0), 0), 0.02, M.paint_green, plant)   # jacket water in and out
 	var lbl := Label3D.new(); lbl.text = {"none": "NO CATALYST", "iodide": "IODIDE", "catalase": "CATALASE"}.get(cat, cat.to_upper()); lbl.font = load("res://ui/fonts/Archivo-Variable.ttf")
 	lbl.font_size = 40; lbl.pixel_size = 0.0016; lbl.outline_size = 0; lbl.modulate = Color(0.08, 0.09, 0.1); lbl.shaded = true; lbl.position = c + Vector3(0, 0.75, 0.66); plant.add_child(lbl)
-	_box(Vector3(0.42, 0.09, 0.01), c + Vector3(0, 0.75, 0.652), _flat(Color(0.9, 0.86, 0.6), 0.2, 0.5), plant)
+	_box(Vector3(0.42, 0.09, 0.01), c + Vector3(0, 0.75, 0.652), _flat(Color(0.76, 0.72, 0.5), 0.2, 0.5), plant)
 	var bub := _particles(c + Vector3(0, y0 + 0.08, 0), 220, 1.2, Vector3(0, 0.5, 0), 8.0, 0.05, Color(1.0, 1.0, 1.0, 0.95), plant, 1.4)
 	(bub.process_material as ParticleProcessMaterial).emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX; (bub.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(r * 0.6, 0.05, r * 0.6)
 	(bub.process_material as ParticleProcessMaterial).gravity = Vector3.ZERO; bub.emitting = false
@@ -757,7 +757,7 @@ func _kettles_live(info: Dictionary, running: bool) -> void:
 func _calorimeter_bench(id: String, c: Vector3) -> void:
 	var top := 0.92
 	var resin := _flat(Color(0.2, 0.22, 0.23), 0.0, 0.45)   # epoxy resin top
-	var frame := _flat(Color(0.7, 0.72, 0.74), 0.6, 0.35)   # powder-coated steel frame
+	var frame := _coat(Color(0.52, 0.54, 0.56), 0.35, 0.5, 0.5, 0.3)   # powder-coated steel frame
 	_box(Vector3(3.6, 0.05, 1.0), c + Vector3(0.6, top, 0), resin, plant)
 	_box(Vector3(3.6, 0.012, 0.02), c + Vector3(0.6, top + 0.026, 0.5), _flat(Color(0.3, 0.32, 0.33), 0.0, 0.3), plant)   # the drip lip
 	for lx in [-1.15, 2.35]: for lz in [-0.45, 0.45]: _box(Vector3(0.05, top - 0.03, 0.05), c + Vector3(lx, (top - 0.03) * 0.5, lz), frame, plant)
@@ -780,7 +780,7 @@ func _calorimeter_bench(id: String, c: Vector3) -> void:
 	var dw := c + Vector3(-0.35, top + 0.025, 0.05)
 	var jacket := _flat(Color(0.8, 0.9, 0.95, 0.22), 0.0, 0.04); jacket.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_cyl(0.19, 0.4, dw + Vector3(0, 0.2, 0), jacket, plant, -1.0, 32)
-	_cyl(0.13, 0.36, dw + Vector3(0, 0.19, 0), _flat(Color(0.86, 0.88, 0.9), 1.0, 0.12), plant, -1.0, 32)   # the silvered Dewar
+	_cyl(0.13, 0.36, dw + Vector3(0, 0.19, 0), _flat(Color(0.78, 0.8, 0.82), 1.0, 0.14), plant, -1.0, 32)   # the silvered Dewar
 	_cyl(0.2, 0.025, dw + Vector3(0, 0.41, 0), M.black, plant, -1.0, 32)
 	var ther := _seg(dw + Vector3(0.08, 0.3, 0), dw + Vector3(0.08, 0.55, 0), 0.0045, _flat(Color(0.75, 0.08, 0.06), 0.0, 0.4, Color(0.6, 0.05, 0.03), 0.4), plant, 8)
 	_seg(dw + Vector3(0.08, 0.3, 0), dw + Vector3(0.08, 0.85, 0), 0.008, clear, plant, 8)   # the thermometer
@@ -791,11 +791,11 @@ func _calorimeter_bench(id: String, c: Vector3) -> void:
 	_pipe([dw + Vector3(0.0, 0.62, 0.0), dw + Vector3(0.0, 0.7, 0.0), dw + Vector3(-0.5, 0.7, 0.3), dw + Vector3(-0.75, 0.0, 0.3)], 0.006, M.brass, plant, false)
 	# 2. the bomb calorimeter: the cabinet, its lid and screen, the bomb in its stand, the O2 cylinder and regulator
 	var bc := c + Vector3(0.6, top + 0.025, 0.0)
-	_box(Vector3(0.55, 0.34, 0.45), bc + Vector3(0, 0.17, 0), _flat(Color(0.86, 0.86, 0.84), 0.1, 0.4), plant)
+	_box(Vector3(0.55, 0.34, 0.45), bc + Vector3(0, 0.17, 0), _enamel(Color(0.56, 0.58, 0.58)), plant)
 	_cyl(0.13, 0.04, bc + Vector3(-0.1, 0.36, 0.0), M.steel, plant, -1.0, 28)   # the bucket lid
 	var scr := _box(Vector3(0.2, 0.13, 0.015), bc + Vector3(0.15, 0.3, 0.2), _flat(Color(0.03, 0.05, 0.06), 0.2, 0.2, Color(0.15, 0.45, 0.6), 0.6), plant); scr.rotation_degrees.x = -25.0
 	var bomb := c + Vector3(1.0, top + 0.025, 0.15)
-	_cyl(0.09, 0.02, bomb, M.steel_dull, plant); _cyl(0.06, 0.2, bomb + Vector3(0, 0.12, 0), _flat(Color(0.82, 0.84, 0.86), 1.0, 0.2), plant, -1.0, 24); _cyl(0.07, 0.04, bomb + Vector3(0, 0.24, 0), _flat(Color(0.82, 0.84, 0.86), 1.0, 0.2), plant, -1.0, 24)
+	_cyl(0.09, 0.02, bomb, M.steel_dull, plant); _cyl(0.06, 0.2, bomb + Vector3(0, 0.12, 0), M.ss, plant, -1.0, 24); _cyl(0.07, 0.04, bomb + Vector3(0, 0.24, 0), M.ss, plant, -1.0, 24)
 	_cyl(0.012, 0.04, bomb + Vector3(0.025, 0.28, 0), M.brass, plant); _cyl(0.012, 0.04, bomb + Vector3(-0.025, 0.28, 0), M.brass, plant)   # the valve and the electrode
 	var oc := c + Vector3(1.0, 0.0, -0.75)   # the oxygen cylinder by the bench, chained
 	_cyl(0.11, 1.3, oc + Vector3(0, 0.65, 0), M.paint_green, plant); _sph(0.11, oc + Vector3(0, 1.3, 0), M.paint_green, plant, true); _cyl(0.03, 0.08, oc + Vector3(0, 1.43, 0), M.brass, plant)
@@ -803,7 +803,7 @@ func _calorimeter_bench(id: String, c: Vector3) -> void:
 	_pipe([oc + Vector3(0, 1.47, 0), oc + Vector3(0.0, 1.47, 0.4), bomb + Vector3(0.025, 0.32, 0)], 0.005, M.steel, plant, false)
 	# 3. the tube furnace: a clamshell body on feet, the split line and hinges, the quartz work tube through it, the controller
 	var tf := c + Vector3(1.85, top + 0.025, 0.0)
-	var body := _flat(Color(0.9, 0.9, 0.87), 0.15, 0.4)
+	var body: Material = _enamel(Color(0.6, 0.6, 0.57))
 	for sgx in [-0.18, 0.18]: _box(Vector3(0.06, 0.12, 0.3), tf + Vector3(sgx, 0.06, 0), M.black, plant)
 	var sh1 := _cyl(0.2, 0.5, tf + Vector3(0, 0.3, 0), body, plant, -1.0, 32); sh1.rotation_degrees.z = 90
 	_box(Vector3(0.5, 0.012, 0.42), tf + Vector3(0, 0.3, 0), M.black, plant)   # the split line
@@ -887,7 +887,7 @@ func _tubular(id: String, c: Vector3) -> void:
 ## 0.14 (L23): the fermenter. A tall stainless tank with a cone bottom on legs, a manway, an agitator drive on the roof, a CO2 vent, and a wide sight glass with
 ## the beer inside at the engine's level, frothing with CO2 (gas) and turning (spin).
 func _fermenter(id: String, c: Vector3) -> void:
-	var ss := _flat(Color(0.8, 0.82, 0.84), 0.9, 0.22); ss.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var ss := _flat(Color(0.72, 0.74, 0.76), 0.9, 0.3); ss.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var r := 1.3; var y0 := 1.4; var h := 4.2
 	var wa0 := 0.35; var wb0 := y0 + 0.4; var wb1 := y0 + h - 0.4   # the shell leaves the sight window open (the glass and the beer fill it)
 	_arc(r, y0, y0 + h, PI * 0.5 + wa0, PI * 2.5 - wa0, 44, ss, c, plant)
@@ -935,7 +935,7 @@ func _column(id: String, c: Vector3, u: Dictionary) -> void:
 	_pipe([c + Vector3(-1.4, 1.5, 0.4), c + Vector3(-0.6, 1.5, 0.4), c + Vector3(-0.6, 1.8, 0.2)], 0.1, M.clad, plant, false)
 	_kind[id] = "boiler"; _steam[id] = _particles(c + Vector3(-3.4, 0.4, 0.9), 26, 2.5, Vector3(0, 1.4, 0), 14.0, 0.5, Color(0.92, 0.94, 0.96, 0.4), plant, 3.0)
 	# tray windows: a column of small round sight glasses, each showing a lit froth layer
-	var froth := _flat(Color(0.95, 0.9, 0.7), 0.0, 0.6, Color(1.0, 0.9, 0.6), 0.5)
+	var froth := _flat(Color(0.78, 0.73, 0.56), 0.0, 0.6, Color(1.0, 0.9, 0.6), 0.5)
 	var tags: Array = []
 	var nt := 8
 	for k in nt:
@@ -953,7 +953,7 @@ func _column(id: String, c: Vector3, u: Dictionary) -> void:
 ## (L26): the nitric acid absorber: a tall stainless tray tower whose sight glasses show the gas colour: brown NO2 low in the tower, clearing toward the top.
 func _absorber(id: String, c: Vector3, nitric: bool) -> void:
 	var r := 0.9 if not nitric else 0.8; var y0 := 1.0; var h := 7.5 if not nitric else 11.0
-	var paint := _flat(Color(0.32, 0.36, 0.3), 0.1, 0.6) if not nitric else _flat(Color(0.78, 0.8, 0.82), 0.85, 0.28)
+	var paint: Material = _coat(Color(0.32, 0.36, 0.3), 0.5, 0.7) if not nitric else M.ss
 	_cyl(r, h, c + Vector3(0, y0 + h * 0.5, 0), paint, plant, -1.0, 40)
 	for i in int(h / 1.2): _cyl(r + 0.015, 0.05, c + Vector3(0, y0 + 0.6 + i * 1.2, 0), M.steel_dull, plant, -1.0, 40)
 	_dished(r, c + Vector3(0, y0 + h, 0), paint, plant, true)
@@ -975,7 +975,7 @@ func _absorber(id: String, c: Vector3, nitric: bool) -> void:
 ## 0.14 (L26): the ammonia burner: a squat flanged converter on a frame. Inside, under the flange, the platinum gauze; a peep window shows it glowing at the
 ## engine's outlet temperature (bright orange-yellow at 860 C). The N2O abater basket sits under it in the plant (n2o_abater: a small basket vessel).
 func _gauze_burner(id: String, c: Vector3) -> void:
-	var ss := _flat(Color(0.75, 0.77, 0.79), 0.85, 0.3)
+	var ss: Material = M.ss
 	_cyl(1.2, 0.5, c + Vector3(0, 3.4, 0), ss, plant, 0.3, 40)   # the inlet cone above
 	_cyl(1.35, 0.16, c + Vector3(0, 3.1, 0), M.steel_dull, plant, -1.0, 48)   # the gauze flange
 	for i in 24: var a := i * TAU / 24.0; _cyl(0.03, 0.22, c + Vector3(cos(a) * 1.28, 3.1, sin(a) * 1.28), M.black, plant, -1.0, 8)
@@ -990,7 +990,7 @@ func _gauze_burner(id: String, c: Vector3) -> void:
 	_glow[id] = {"mat": gm, "light": l, "kind": "burner", "window": true, "extra": [ring], "flick": true, "lampk": 1.4, "ringk": 1.0}
 
 func _abater(c: Vector3) -> void:
-	var ss := _flat(Color(0.72, 0.74, 0.76), 0.85, 0.32)
+	var ss: Material = M.ss
 	_vessel(c, 0.55, 1.2, ss, plant, {"legs": true, "base": 0.7})
 
 ## 0.14 (L24): the containment yard's CSTR: a jacketed stirred reactor in a concrete bund, with a big dial thermometer on the front, the agitator drive, a bursting disc
@@ -1022,7 +1022,7 @@ func _relief(id: String, c: Vector3) -> void:
 
 ## 0.14 (L24): the interlock: a trip cabinet with its lamp, and the shut-off valve it closes.
 func _interlock(id: String, c: Vector3) -> void:
-	_box(Vector3(0.8, 1.6, 0.4), c + Vector3(0, 0.8, 0), _flat(Color(0.75, 0.73, 0.68), 0.1, 0.5), plant)
+	_box(Vector3(0.8, 1.6, 0.4), c + Vector3(0, 0.8, 0), _enamel(Color(0.55, 0.55, 0.52)), plant)
 	_box(Vector3(0.7, 0.4, 0.02), c + Vector3(0, 1.25, 0.21), _flat(Color(0.12, 0.12, 0.13), 0.2, 0.4), plant)
 	var lamp := _flat(Color(0.4, 0.05, 0.03), 0.0, 0.3, Color(1.0, 0.08, 0.04), 0.0); lamp.resource_name = "trip_lamp"
 	_cyl(0.06, 0.05, c + Vector3(-0.2, 1.25, 0.23), lamp, plant).rotation_degrees.x = 90
@@ -1075,8 +1075,8 @@ func _ch56_live(info: Dictionary, running: bool, g: Dictionary) -> void:
 
 
 var _loop := false   ## chapter 5: the plant is a recycle loop (compressor + mixer3 + separator)
-var _lp: StandardMaterial3D
-func _loop_paint() -> StandardMaterial3D:
+var _lp: ShaderMaterial
+func _loop_paint() -> ShaderMaterial:
 	if _lp == null: _lp = _paint(Color(0.78, 0.42, 0.12))   # process gas in the loop: one colour all round
 	return _lp
 
