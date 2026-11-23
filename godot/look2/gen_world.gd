@@ -109,6 +109,7 @@ func rebuild() -> void:
 		var fu := str(s.get("from", {}).get("unit", "")); var tu := str(s.get("to", {}).get("unit", ""))
 		if not at.has(fu) or not at.has(tu): continue
 		if not _out.has(fu): _out[fu] = str(s.id)
+		if _lid == "L09" and (str(_types[fu]) in ["stoich_reactor", "stack"] or str(_types[tu]) in ["stoich_reactor", "stack"]): continue   # 0.13: the bench has its own tubing; a rack pipe rose out of the bomb cabinet
 		var a: Vector3 = at[fu]; var b: Vector3 = at[tu]
 		var y := 2.38 if k % 2 == 0 else 3.28   # phase C: every run lies on one of the rack's two levels
 		var zr := _rack_z
@@ -166,7 +167,7 @@ func _plate(id: String, c: Vector3, ty: String) -> void:
 	var o := _plate_at(ty)
 	if ty == "packed_bed" and _beds.has(id): o = [0.0, 0.5, float(_beds[id].r) * 0.98 + 0.004, 0.0]   # on the skirt, under the window
 	if _lid == "L09" and ty == "stoich_reactor": o = [0.6, 0.82, 0.556, 0.0]   # on the bench's front edge
-	if _lid == "L09" and ty == "stack": o = [0.0, 0.82, 0.406, 0.0]
+	if _lid == "L09" and ty == "stack": o = [0.0, 1.0, 0.03, 0.0]
 	var p := c + Vector3(o[0], o[1], o[2])
 	if float(o[3]) > 0.0: _box(Vector3(float(o[3]) * 2.0 + 0.1, 0.05, 0.02), p + Vector3(0, -0.02, -0.004), M.paint_grey, plant)   # a tie bar between the legs carries the plate
 	_box(Vector3(0.34, 0.13, 0.012), p + Vector3(0, 0, 0.006), _flat(Color(0.74, 0.75, 0.76), 0.85, 0.35), plant)   # the stamped plate
@@ -604,7 +605,8 @@ func _packed_bed(id: String, c: Vector3, u: Dictionary) -> void:
 		mats.append(m)
 	_box(Vector3(2.0 * r * sin(wa), 0.03, 0.04), c + Vector3(0, yb0 - 0.015, r * cos(wa) - 0.05), M.steel_dull, plant)   # the support grid's edge
 	# the window: quartz in a bolted frame, two vertical bars and two curved rails
-	var glass := _flat(Color(0.85, 0.92, 0.95, 0.06), 0.0, 0.12); glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; glass.metallic_specular = 0.25
+	var glass := _flat(Color(0.85, 0.92, 0.95, 0.1), 0.0, 0.04); glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; glass.metallic_specular = 0.7
+	glass.cull_mode = BaseMaterial3D.CULL_DISABLED   # 0.13 (Sigrid: "no glass in the window"): _arc's outward winding faced away, so the quartz was culled
 	_arc(r + 0.012, wy0, wy1, PI * 0.5 - wa, PI * 0.5 + wa, 12, glass, c, plant)
 	for sg in [-1.0, 1.0]:
 		var a: float = PI * 0.5 + sg * wa
@@ -622,13 +624,19 @@ func _packed_bed(id: String, c: Vector3, u: Dictionary) -> void:
 		var p0 := c + Vector3(cos(a2) * r, ty, sin(a2) * r); var d := Vector3(cos(a2), 0, sin(a2))
 		_seg(p0, p0 + d * 0.16, 0.018, M.steel_dull, plant, 8); _cyl(0.035, 0.05, p0 + d * 0.19, M.brass, plant, -1.0, 12).rotation = Vector3(0, 0, PI * 0.5)
 		var t := Label3D.new(); t.text = "--"; t.font = load("res://ui/fonts/Archivo-Variable.ttf"); t.font_size = 48; t.pixel_size = 0.0026; t.outline_size = 10; t.outline_modulate = Color(0, 0, 0, 0.9)
-		t.modulate = Color(1.0, 0.86, 0.6); t.position = p0 + d * 0.3 + Vector3(0, 0.0, 0.02); t.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; t.double_sided = true; plant.add_child(t); tags.append(t)
+		t.pixel_size = 0.0026 if tier != "compat" else 0.0036   # 0.13 (Sigrid): compat tags were 12 px
+		t.modulate = Color(1.0, 0.86, 0.6); t.position = p0 + d * 0.48 + Vector3(0, 0.0, 0.02); t.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; t.double_sided = true; t.sorting_offset = 0.05; plant.add_child(t); tags.append(t)
+		_seg(p0 + d * 0.21, p0 + d * 0.36, 0.01, M.steel_dull, plant, 6)   # the lead to the readout, ending short of the plate
+		var pq := MeshInstance3D.new(); var qm := QuadMesh.new(); qm.size = Vector2(0.34, 0.15) * (1.0 if tier != "compat" else 1.35); pq.mesh = qm
+		var pm := _flat(Color(0.05, 0.05, 0.06, 0.8), 0.0, 0.6); pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; pm.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y; pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		pq.material_override = pm; pq.position = t.position; plant.add_child(pq)   # the readout plate: dark, so the number reads against the shell and the glow
 	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.45, 0.15); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 2.5; l.position = c + Vector3(0, (yb0 + yb1) * 0.5, r + 0.7); plant.add_child(l)
 	# the sight-glass lamp: a small flood on a bracket over the window, lighting the charge from outside, as plants light their sight glasses
 	var lp := c + Vector3(0, wy1 + 0.25, r + 0.45)
 	_seg(c + Vector3(0, wy1 + 0.25, r), lp, 0.015, M.steel_dull, plant, 8); _cyl(0.07, 0.1, lp, M.black, plant, 0.05, 16)
-	var sl := SpotLight3D.new(); sl.light_color = Color(1.0, 0.94, 0.85); sl.light_energy = 4.0 if tier != "compat" else 2.0; sl.spot_range = wy1 - wy0 + 1.2; sl.spot_angle = 32.0; sl.light_specular = 0.2
-	sl.position = lp + Vector3(0, -0.05, 0); plant.add_child(sl); sl.look_at(c + Vector3(0, (wy0 + wy1) * 0.5, 0.0), Vector3.UP)
+	var sl := SpotLight3D.new(); sl.light_color = Color(1.0, 0.94, 0.85); sl.light_energy = 2.2 if tier != "compat" else 1.2; sl.spot_range = wy1 - wy0 + 1.2; sl.spot_angle = 26.0; sl.light_specular = 0.2; sl.spot_attenuation = 0.4
+	# 0.13 (Sigrid): the lamp washed the cold top layer brighter than the hot ones below; it is dimmer now and aimed at the lower part, so the glow sets the brightness
+	sl.position = lp + Vector3(0, -0.05, 0); plant.add_child(sl); sl.look_at(c + Vector3(0, wy0 + (wy1 - wy0) * 0.3, 0.0), Vector3.UP)
 	_beds[id] = {"mats": mats, "tags": tags, "light": l, "depth": depth, "h": y0 + h + r * 0.45 + 0.4, "r": r}
 
 ## The bed's temperatures from the engine: T(depth) from T_in to T_out, the steep part near the inlet (an adiabatic bed converts most where it is coldest and
@@ -662,10 +670,11 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 	_cyl(r + 0.06, h, c + Vector3(0, y0 + h * 0.5, 0), glass, plant, -1.0, 40)   # the jacket
 	_cyl(r, h + 0.08, c + Vector3(0, y0 + h * 0.5 + 0.04, 0), glass, plant, -1.0, 40)   # the vessel wall
 	_sph(r, c + Vector3(0, y0, 0), glass, plant, true).rotation_degrees.x = 180   # its round bottom
-	var liq := _flat(Color(0.72, 0.84, 0.92, 0.5), 0.0, 0.08); liq.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var liq := _flat(Color(0.32, 0.5, 0.62, 0.62), 0.0, 0.08); liq.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var lh := h * 0.62
 	_cyl(r - 0.012, lh, c + Vector3(0, y0 + lh * 0.5, 0), liq, plant, -1.0, 32); _sph(r - 0.012, c + Vector3(0, y0, 0), liq, plant, true).rotation_degrees.x = 180
-	var fm := _flat(Color(0.96, 0.97, 0.97, 0.72), 0.0, 0.9); fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# the foam head: dense white over the darker liquid, lit from inside a little so it reads through the glass; its height is the reaction rate (Sigrid 0.13)
+	var fm := _flat(Color(0.97, 0.98, 0.98, 0.94), 0.0, 0.95, Color(0.9, 0.93, 0.95), 0.35); fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var foam := _cyl(r - 0.014, 0.02, c + Vector3(0, y0 + lh + 0.01, 0), fm, plant, -1.0, 32)
 	_cyl(r + 0.1, 0.06, c + Vector3(0, y0 + h + 0.1, 0), M.steel, plant, -1.0, 40)   # the lid flange and the clamp ring
 	_cyl(r + 0.12, 0.03, c + Vector3(0, y0 - 0.02, 0), M.steel_dull, plant, -1.0, 40)
@@ -680,6 +689,10 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 	var bub := _particles(c + Vector3(0, y0 + 0.08, 0), 220, 1.2, Vector3(0, 0.5, 0), 8.0, 0.05, Color(1.0, 1.0, 1.0, 0.95), plant, 1.4)
 	(bub.process_material as ParticleProcessMaterial).emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX; (bub.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(r * 0.6, 0.05, r * 0.6)
 	(bub.process_material as ParticleProcessMaterial).gravity = Vector3.ZERO; bub.emitting = false
+	var rim := SpotLight3D.new(); rim.light_color = Color(0.85, 0.92, 1.0); rim.light_energy = 6.0 if tier != "compat" else 3.0; rim.spot_range = 4.0; rim.spot_angle = 22.0; rim.light_specular = 1.0
+	rim.position = c + Vector3(-1.2, y0 + h + 1.4, -1.0); plant.add_child(rim); rim.look_at(c + Vector3(0, y0 + h * 0.7, 0), Vector3.UP)   # the rim light that draws the glass edge
+	var key := SpotLight3D.new(); key.light_color = Color(1.0, 0.95, 0.88); key.light_energy = 4.0 if tier != "compat" else 2.0; key.spot_range = 5.0; key.spot_angle = 30.0; key.light_specular = 0.6; key.shadow_enabled = tier != "compat"
+	key.position = c + Vector3(1.0, y0 + h + 1.8, 1.6); plant.add_child(key); key.look_at(c + Vector3(0, y0 + h * 0.6, 0), Vector3.UP)
 	_kettles[id] = {"bub": bub, "foam": foam, "act": float(KETTLE_ACT.get(cat, 0.3)), "top": y0 + lh, "c": c}
 
 func _kettles_live(info: Dictionary, running: bool) -> void:
@@ -687,56 +700,84 @@ func _kettles_live(info: Dictionary, running: bool) -> void:
 		var k: Dictionary = _kettles[id]; var x := float((info.get(id, {}) as Dictionary).get("X", 0.0))
 		var act: float = float(k.act) * clampf(x * 1.2, 0.0, 1.0) if running else 0.0
 		var bub := k.bub as GPUParticles3D; bub.emitting = act > 0.02; bub.amount_ratio = clampf(act, 0.05, 1.0)
-		var f := k.foam as MeshInstance3D; var th := 0.006 + 0.045 * act
+		var f := k.foam as MeshInstance3D; var th := 0.008 + 0.3 * act
 		(f.mesh as CylinderMesh).height = th; f.position = (k.c as Vector3) + Vector3(0, float(k.top) + th * 0.5, 0)
 
-## 0.13 (L09, the exam bench): a lab bench in the hall with the three fixtures the exam compares. The flow calorimeter (the engine's isothermal reactor: CH4 and
-## O2 burn at 25 C and its duty is the heat at constant pressure): a Dewar bucket with a stirrer, a thermometer and a burner tube. The bomb calorimeter beside it (constant
-## volume): a steel bomb in a water bucket under a lid, with firing leads. A pressure gauge on the bomb's O2 line.
+## 0.13 (L09, the exam bench), rebuilt after Sigrid's 0.13 score ("a school desk, a stovepipe through a paint tin"): a laboratory bench in the hall under its
+## own lamp, with the three fixtures the exam compares. Left: the flow calorimeter (the engine's isothermal reactor: CH4 and O2 burn at 25 C and its duty is the
+## heat at constant pressure): a silvered Dewar in a clear water jacket with a stirrer, a thermometer and the small gas flame in its glass chimney. Middle: the bomb
+## calorimeter (constant volume): the instrument cabinet with its lid and screen, the steel oxygen bomb in its stand beside it, the O2 cylinder with a regulator.
+## Right: a clamshell tube furnace on the bench; the quartz work tube's ends glow with the furnace temperature the level reports, its controller reads it.
 func _calorimeter_bench(id: String, c: Vector3) -> void:
 	var top := 0.92
-	var wood := _flat(Color(0.32, 0.2, 0.12), 0.0, 0.55)
-	_box(Vector3(3.4, 0.06, 1.1), c + Vector3(0.6, top, 0), _flat(Color(0.12, 0.12, 0.13), 0.0, 0.35), plant)   # epoxy bench top
-	for lx in [-1.0, 2.2]: for lz in [-0.45, 0.45]: _box(Vector3(0.06, top - 0.03, 0.06), c + Vector3(lx, (top - 0.03) * 0.5, lz), M.paint_grey, plant)
-	_box(Vector3(3.2, 0.04, 0.9), c + Vector3(0.6, 0.18, 0), wood, plant)   # the shelf
-	# the flow calorimeter: a silvered Dewar in a cork-lined can, a stirrer motor on a bracket, a long thermometer, the gas burner tube down into it
-	var dw := c + Vector3(-0.4, top + 0.03, 0)
-	_cyl(0.2, 0.42, dw + Vector3(0, 0.21, 0), _flat(Color(0.8, 0.82, 0.84), 1.0, 0.18), plant, -1.0, 32)
-	_cyl(0.21, 0.03, dw + Vector3(0, 0.43, 0), _flat(Color(0.12, 0.12, 0.12), 0.0, 0.6), plant, -1.0, 32)
-	_seg(dw + Vector3(0.1, 0.4, 0), dw + Vector3(0.1, 0.95, 0), 0.006, _flat(Color(0.9, 0.95, 0.97, 0.5), 0.0, 0.05), plant, 8)   # thermometer
-	var ther := _seg(dw + Vector3(0.1, 0.4, 0), dw + Vector3(0.1, 0.62, 0), 0.004, _flat(Color(0.75, 0.08, 0.06), 0.0, 0.4, Color(0.6, 0.05, 0.03), 0.4), plant, 8)
-	_seg(dw + Vector3(-0.3, 0.0, -0.25), dw + Vector3(-0.3, 0.9, -0.25), 0.012, M.steel, plant); _seg(dw + Vector3(-0.3, 0.75, -0.25), dw + Vector3(-0.05, 0.75, 0), 0.01, M.steel, plant)   # retort stand
-	_cyl(0.05, 0.12, dw + Vector3(-0.05, 0.75, 0), M.enamel_blue, plant)
-	_seg(dw + Vector3(-0.05, 0.69, 0), dw + Vector3(-0.05, 0.2, 0), 0.004, M.steel, plant)
-	_pipe([dw + Vector3(-0.12, 0.3, 0.05), dw + Vector3(-0.12, 0.6, 0.05), dw + Vector3(-0.7, 0.6, 0.3), dw + Vector3(-0.9, 0.05, 0.3)], 0.006, M.brass, plant, false)   # gas line
-	# the bomb calorimeter: an insulated jacket with a hinged lid, firing leads, the O2 line with its gauge
-	var bb := c + Vector3(0.6, top + 0.03, 0)
-	_cyl(0.24, 0.36, bb + Vector3(0, 0.18, 0), _flat(Color(0.75, 0.76, 0.74), 0.2, 0.45), plant, -1.0, 32)
-	_cyl(0.25, 0.05, bb + Vector3(0, 0.385, 0), M.enamel_blue, plant, -1.0, 32)
-	_cyl(0.06, 0.08, bb + Vector3(0, 0.45, 0), M.steel, plant)
-	for sg in [-1.0, 1.0]: _pipe([bb + Vector3(sg * 0.05, 0.47, 0), bb + Vector3(sg * 0.05, 0.62, 0), bb + Vector3(sg * 0.25 + 0.4, 0.55, -0.3), bb + Vector3(sg * 0.05 + 0.75, 0.0, -0.35)], 0.004, M.red if sg < 0 else M.black, plant, false)   # firing leads
-	_box(Vector3(0.36, 0.2, 0.22), bb + Vector3(0.8, 0.1, -0.3), _flat(Color(0.62, 0.64, 0.6), 0.2, 0.5), plant)   # the ignition unit
-	var gm := _gauge(bb + Vector3(0.75, 0.42, 0.12), Vector3(0, 0, 1), plant, 0.0, 0.07)
-	_seg(bb + Vector3(0.75, 0.24, 0.12), bb + Vector3(0.75, 0.33, 0.12), 0.008, M.brass, plant)
-	_bench = {"ther": ther, "dw": dw, "gauge": gm}
+	var resin := _flat(Color(0.2, 0.22, 0.23), 0.0, 0.45)   # epoxy resin top
+	var frame := _flat(Color(0.7, 0.72, 0.74), 0.6, 0.35)   # powder-coated steel frame
+	_box(Vector3(3.6, 0.05, 1.0), c + Vector3(0.6, top, 0), resin, plant)
+	_box(Vector3(3.6, 0.012, 0.02), c + Vector3(0.6, top + 0.026, 0.5), _flat(Color(0.3, 0.32, 0.33), 0.0, 0.3), plant)   # the drip lip
+	for lx in [-1.15, 2.35]: for lz in [-0.45, 0.45]: _box(Vector3(0.05, top - 0.03, 0.05), c + Vector3(lx, (top - 0.03) * 0.5, lz), frame, plant)
+	for lx2 in [-1.15, 2.35]: _box(Vector3(0.05, 0.05, 0.95), c + Vector3(lx2, 0.15, 0), frame, plant)
+	_box(Vector3(3.5, 0.05, 0.05), c + Vector3(0.6, 0.15, -0.45), frame, plant)
+	_box(Vector3(3.6, 0.9, 0.04), c + Vector3(0.6, top + 0.45, -0.52), _flat(Color(0.82, 0.82, 0.8), 0.0, 0.7), plant)   # the backboard
+	_box(Vector3(3.6, 0.03, 0.22), c + Vector3(0.6, top + 0.62, -0.4), frame, plant)   # a shelf with reagent bottles
+	var amber := _flat(Color(0.42, 0.22, 0.06, 0.85), 0.0, 0.12); amber.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var clear := _flat(Color(0.88, 0.93, 0.95, 0.35), 0.0, 0.08); clear.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for i in 9:
+		var bx := -0.9 + i * 0.36
+		_cyl(0.045, 0.16, c + Vector3(bx, top + 0.715, -0.4), amber if i % 3 != 1 else clear, plant, -1.0, 16); _cyl(0.025, 0.03, c + Vector3(bx, top + 0.81, -0.4), M.black, plant, -1.0, 12)
+	# the bench lamp: an angled arm and a shade, its spot the scene's key light
+	var lb := c + Vector3(-0.85, top + 0.03, 0.25)
+	_cyl(0.08, 0.03, lb, M.black, plant); _seg(lb, lb + Vector3(0.0, 0.55, -0.15), 0.012, M.black, plant); _seg(lb + Vector3(0.0, 0.55, -0.15), lb + Vector3(0.35, 0.75, 0.0), 0.012, M.black, plant)
+	_cyl(0.12, 0.14, lb + Vector3(0.4, 0.7, 0.0), _flat(Color(0.2, 0.32, 0.26), 0.3, 0.4), plant, 0.04, 20)
+	var key := SpotLight3D.new(); key.light_color = Color(1.0, 0.92, 0.8); key.light_energy = 5.0 if tier != "compat" else 2.5; key.spot_range = 3.5; key.spot_angle = 55.0; key.light_specular = 0.3; key.shadow_enabled = tier != "compat"
+	key.position = lb + Vector3(0.4, 0.66, 0.0); plant.add_child(key); key.look_at(c + Vector3(0.6, top, 0.05), Vector3.UP)
+	# 1. the flow calorimeter
+	var dw := c + Vector3(-0.35, top + 0.025, 0.05)
+	var jacket := _flat(Color(0.8, 0.9, 0.95, 0.22), 0.0, 0.04); jacket.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_cyl(0.19, 0.4, dw + Vector3(0, 0.2, 0), jacket, plant, -1.0, 32)
+	_cyl(0.13, 0.36, dw + Vector3(0, 0.19, 0), _flat(Color(0.86, 0.88, 0.9), 1.0, 0.12), plant, -1.0, 32)   # the silvered Dewar
+	_cyl(0.2, 0.025, dw + Vector3(0, 0.41, 0), M.black, plant, -1.0, 32)
+	var ther := _seg(dw + Vector3(0.08, 0.3, 0), dw + Vector3(0.08, 0.55, 0), 0.0045, _flat(Color(0.75, 0.08, 0.06), 0.0, 0.4, Color(0.6, 0.05, 0.03), 0.4), plant, 8)
+	_seg(dw + Vector3(0.08, 0.3, 0), dw + Vector3(0.08, 0.85, 0), 0.008, clear, plant, 8)   # the thermometer
+	_cyl(0.045, 0.1, dw + Vector3(-0.07, 0.62, 0), M.enamel_blue, plant); _seg(dw + Vector3(-0.07, 0.57, 0), dw + Vector3(-0.07, 0.15, 0), 0.004, M.steel, plant)   # stirrer
+	_seg(dw + Vector3(0.0, 0.42, 0.0), dw + Vector3(0.0, 0.62, 0.0), 0.022, clear, plant, 16)   # the glass chimney over the burner jet
+	var fl := _flat(Color(0.3, 0.5, 1.0), 0.0, 0.5, Color(0.35, 0.55, 1.0), 2.5); fl.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; fl.albedo_color.a = 0.7
+	var flame := _cyl(0.0, 0.05, dw + Vector3(0, 0.47, 0), fl, plant, 0.012, 12)   # the small blue methane flame
+	_pipe([dw + Vector3(0.0, 0.62, 0.0), dw + Vector3(0.0, 0.7, 0.0), dw + Vector3(-0.5, 0.7, 0.3), dw + Vector3(-0.75, 0.0, 0.3)], 0.006, M.brass, plant, false)
+	# 2. the bomb calorimeter: the cabinet, its lid and screen, the bomb in its stand, the O2 cylinder and regulator
+	var bc := c + Vector3(0.6, top + 0.025, 0.0)
+	_box(Vector3(0.55, 0.34, 0.45), bc + Vector3(0, 0.17, 0), _flat(Color(0.86, 0.86, 0.84), 0.1, 0.4), plant)
+	_cyl(0.13, 0.04, bc + Vector3(-0.1, 0.36, 0.0), M.steel, plant, -1.0, 28)   # the bucket lid
+	var scr := _box(Vector3(0.2, 0.13, 0.015), bc + Vector3(0.15, 0.3, 0.2), _flat(Color(0.03, 0.05, 0.06), 0.2, 0.2, Color(0.15, 0.45, 0.6), 0.6), plant); scr.rotation_degrees.x = -25.0
+	var bomb := c + Vector3(1.0, top + 0.025, 0.15)
+	_cyl(0.09, 0.02, bomb, M.steel_dull, plant); _cyl(0.06, 0.2, bomb + Vector3(0, 0.12, 0), _flat(Color(0.82, 0.84, 0.86), 1.0, 0.2), plant, -1.0, 24); _cyl(0.07, 0.04, bomb + Vector3(0, 0.24, 0), _flat(Color(0.82, 0.84, 0.86), 1.0, 0.2), plant, -1.0, 24)
+	_cyl(0.012, 0.04, bomb + Vector3(0.025, 0.28, 0), M.brass, plant); _cyl(0.012, 0.04, bomb + Vector3(-0.025, 0.28, 0), M.brass, plant)   # the valve and the electrode
+	var oc := c + Vector3(1.0, 0.0, -0.75)   # the oxygen cylinder by the bench, chained
+	_cyl(0.11, 1.3, oc + Vector3(0, 0.65, 0), M.paint_green, plant); _sph(0.11, oc + Vector3(0, 1.3, 0), M.paint_green, plant, true); _cyl(0.03, 0.08, oc + Vector3(0, 1.43, 0), M.brass, plant)
+	var gm := _gauge(oc + Vector3(0.0, 1.5, 0.06), Vector3(0, 0, 1), plant, 0.0, 0.05)
+	_pipe([oc + Vector3(0, 1.47, 0), oc + Vector3(0.0, 1.47, 0.4), bomb + Vector3(0.025, 0.32, 0)], 0.005, M.steel, plant, false)
+	# 3. the tube furnace: a clamshell body on feet, the split line and hinges, the quartz work tube through it, the controller
+	var tf := c + Vector3(1.85, top + 0.025, 0.0)
+	var body := _flat(Color(0.9, 0.9, 0.87), 0.15, 0.4)
+	for sgx in [-0.18, 0.18]: _box(Vector3(0.06, 0.12, 0.3), tf + Vector3(sgx, 0.06, 0), M.black, plant)
+	var sh1 := _cyl(0.2, 0.5, tf + Vector3(0, 0.3, 0), body, plant, -1.0, 32); sh1.rotation_degrees.z = 90
+	_box(Vector3(0.5, 0.012, 0.42), tf + Vector3(0, 0.3, 0), M.black, plant)   # the split line
+	for hx in [-0.15, 0.15]: _cyl(0.015, 0.06, tf + Vector3(hx, 0.3, -0.2), M.steel_dull, plant).rotation_degrees.z = 90
+	_box(Vector3(0.08, 0.04, 0.05), tf + Vector3(0, 0.5, 0.0), M.black, plant)   # the latch handle
+	var tube := _cyl(0.045, 1.0, tf + Vector3(0, 0.3, 0), clear, plant, -1.0, 20); tube.rotation_degrees.z = 90
+	var bore := _flat(Color(0.25, 0.1, 0.05), 0.0, 0.8); bore.emission_enabled = true; bore.emission = Color(0.55, 0.07, 0.02); bore.emission_energy_multiplier = 0.0
+	for sgx2 in [-1.0, 1.0]:
+		var e := _cyl(0.043, 0.02, tf + Vector3(sgx2 * 0.252, 0.3, 0), bore, plant, -1.0, 20); e.rotation_degrees.z = 90   # the glowing core seen down the tube
+		var ec := _torus(0.05, 0.01, tf + Vector3(sgx2 * 0.26, 0.3, 0), bore, plant); ec.rotation_degrees.z = 90
+	var ctl := tf + Vector3(0.48, 0.0, 0.1)
+	_box(Vector3(0.24, 0.3, 0.28), ctl + Vector3(0, 0.15, 0), _flat(Color(0.25, 0.27, 0.3), 0.3, 0.45), plant)
+	_box(Vector3(0.16, 0.06, 0.01), ctl + Vector3(0, 0.22, 0.142), _flat(Color(0.02, 0.02, 0.02), 0.2, 0.3), plant)
+	var rd := Label3D.new(); rd.text = "25 °C"; rd.font_size = 40; rd.pixel_size = 0.0012; rd.modulate = Color(1.0, 0.3, 0.15); rd.outline_size = 0; rd.position = ctl + Vector3(0, 0.22, 0.149); plant.add_child(rd)
+	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 0.9; l.position = tf + Vector3(0.0, 0.3, 0.0); plant.add_child(l)
+	_bench = {"ther": ther, "dw": dw, "gauge": gm, "furnace": bore, "flight": l, "fread": rd, "flame": flame}
 
-## The lab furnace (L09's third fixture, the engine's stack): a tube furnace on its own stand. Its bore glows with the furnace temperature the level reports
-## (298 K to 2400 K over the first run); the reaction "switches on" when it passes T = DeltaH / DeltaS.
-func _lab_furnace(id: String, c: Vector3) -> void:
-	var top := 0.92
-	_box(Vector3(1.2, 0.06, 0.8), c + Vector3(0, top, 0), _flat(Color(0.12, 0.12, 0.13), 0.0, 0.35), plant)
-	for lx in [-0.55, 0.55]: for lz in [-0.35, 0.35]: _box(Vector3(0.06, top - 0.03, 0.06), c + Vector3(lx, (top - 0.03) * 0.5, lz), M.paint_grey, plant)
-	var f := c + Vector3(0, top + 0.03, 0)
-	_box(Vector3(0.8, 0.5, 0.5), f + Vector3(0, 0.25, 0), _flat(Color(0.86, 0.85, 0.8), 0.1, 0.5), plant)   # the furnace body
-	_box(Vector3(0.82, 0.08, 0.52), f + Vector3(0, 0.04, 0), _flat(Color(0.2, 0.2, 0.21), 0.2, 0.5), plant)
-	var bore := _flat(Color(0.2, 0.08, 0.05), 0.0, 0.8); bore.emission_enabled = true; bore.emission = Color(0.55, 0.07, 0.02); bore.emission_energy_multiplier = 0.0
-	var tube := _cyl(0.07, 1.3, f + Vector3(0, 0.28, 0), _flat(Color(0.9, 0.9, 0.92, 0.35), 0.0, 0.1), plant, -1.0, 24); tube.rotation_degrees.z = 90
-	(tube.material_override as StandardMaterial3D).transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	for sg in [-1.0, 1.0]: var e := _cyl(0.072, 0.01, f + Vector3(sg * 0.401, 0.28, 0), bore, plant, -1.0, 24); e.rotation_degrees.z = 90
-	_box(Vector3(0.24, 0.16, 0.02), f + Vector3(0.2, 0.18, 0.26), _flat(Color(0.05, 0.06, 0.06), 0.3, 0.3), plant)   # the controller
-	var rd := Label3D.new(); rd.text = "25 °C"; rd.font_size = 40; rd.pixel_size = 0.0012; rd.modulate = Color(1.0, 0.45, 0.2); rd.outline_size = 0; rd.position = f + Vector3(0.2, 0.18, 0.272); plant.add_child(rd)
-	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 1.6; l.position = f + Vector3(0.55, 0.3, 0.2); plant.add_child(l)
-	_bench["furnace"] = bore; _bench["flight"] = l; _bench["fread"] = rd
+## L09's furnace unit (the engine's stack) stands on the bench above (_calorimeter_bench), so its own place in the hall stays empty: a duct there fell through the bench.
+func _lab_furnace(_id: String, _c: Vector3) -> void:
+	pass
 
 func _bench_live(running: bool) -> void:
 	if _bench.is_empty() or app == null or app.b == null: return
@@ -747,7 +788,7 @@ func _bench_live(running: bool) -> void:
 		var t := clampf((T - 900.0) / 1500.0, 0.0, 1.0)
 		var col: Color = (bb[0] as Color).lerp(Color(1.0, 0.85, 0.55), t)   # past orange it goes yellow-white: 2400 K is a white heat
 		(_bench.furnace as StandardMaterial3D).emission = col; (_bench.furnace as StandardMaterial3D).emission_energy_multiplier = float(bb[1]) * (1.0 + t)
-		(_bench.flight as OmniLight3D).light_energy = float(bb[1]) * 1.5
+		(_bench.flight as OmniLight3D).light_energy = float(bb[1]) * 0.5
 		(_bench.fread as Label3D).text = "%d °C" % roundi(T - 273.15)
 	if _bench.has("gauge"): (_bench.gauge as ShaderMaterial).set_shader_parameter("value", 0.75 if running else 0.0)
 
@@ -827,11 +868,11 @@ func _ext(ty: String) -> Array:
 		"gasifier": return [-2.0, 2.0, -2.0, 2.0, 7.3]
 		"heater": return [-1.8, 2.3, -1.5, 2.3, 7.95]
 		"boiler": return [-1.6, 1.6, -1.0, 1.0, 3.4]
-		"stoich_reactor": return [-0.8, 0.8, -0.8, 0.8, 3.1] if _lid != "L09" else [-1.1, 2.3, -0.6, 0.6, 1.9]
+		"stoich_reactor": return [-0.8, 0.8, -0.8, 0.8, 3.1] if _lid != "L09" else [-1.2, 2.4, -0.8, 0.6, 1.8]
 		"splitter": return [-1.0, 1.0, -0.8, 1.3, 1.8]
 		"nh3_sep": return [-0.8, 0.8, -0.8, 0.8, 4.4]
 		"product": return [-1.3, 1.3, -1.3, 1.3, 3.5]
-		"stack": return [-1.5, 2.2, -1.5, 2.0, 9.6] if _lid != "L09" else [-0.6, 0.6, -0.4, 0.5, 1.6]
+		"stack": return [-1.5, 2.2, -1.5, 2.0, 9.6] if _lid != "L09" else [-0.5, 0.5, -0.4, 0.4, 5.5]
 		"packed_bed": return [-0.8, 0.8, -0.8, 0.8, 4.4]
 		"batch": return [-0.7, 0.7, -0.7, 0.7, 2.4]
 	return [-1.3, 1.3, -1.0, 1.0, _height(ty)]
@@ -844,7 +885,10 @@ func _pick_hero() -> Dictionary:
 		(by[_types[id]] as Array).append(id)
 	var ids: Array = []; var yaw := 0.2 * PI; var frac := 0.0; var extra_ids: Array = []; var third := false
 	if _lid == "L09" and by.has("stoich_reactor"): ids = [by.stoich_reactor[0]]; yaw = 0.1 * PI; frac = 0.75   # L09: the calorimeter bench, the furnace kept in frame
-	elif by.has("packed_bed"): ids = [by.packed_bed[0]]; yaw = 0.1 * PI; frac = 0.72   # chapter 4: the bed through its window, near face on
+	elif by.has("packed_bed"):                                                      # chapter 4: the bed through its window; 0.13 (Sigrid): a different view per level
+		ids = [by.packed_bed[0]]; yaw = 0.1 * PI; frac = 0.72                          # L15: near face on
+		if _lid == "L16" and by.has("hx"): yaw = 0.26 * PI; frac = 0.62; extra_ids = [by.hx[0]]          # L16: the bed and the exchanger that preheats its feed
+		elif _lid == "L17" and by.has("heater"): yaw = -0.12 * PI; frac = 0.64; extra_ids = [by.heater[0]]   # L17: the bed and its fired heater
 	elif by.has("batch"): ids = by.batch; yaw = 0.1 * PI; frac = 0.66                 # L18: the glass kettles side by side
 	elif by.has("gasifier"): ids = [by.gasifier[0]]                                   # L07
 	elif by.has("heater") and not by.has("packed_bed"): ids = [by.heater[0]]; frac = 0.78   # L08: the heater fills most of the frame height (0.13, Sigrid: still small)

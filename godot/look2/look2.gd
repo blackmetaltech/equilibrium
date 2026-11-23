@@ -115,6 +115,8 @@ func _gen_sync(lid: String) -> void:
 		gen = GenWorld.new(); gen.app = app; gen.name = "GenWorld"; app.plant_world.get_parent().add_child(gen); gen.set_quality(tier); gen.setup({})
 		_banner = CanvasLayer.new(); _banner.layer = 5; app.add_child(_banner)
 		_banner_lbl = HoloTheme.label("", 16, HoloTheme.INK, 600); _banner_lbl.position = Vector2(400, 10); _banner.add_child(_banner_lbl)
+		var bsb := StyleBoxFlat.new(); bsb.bg_color = Color(0.04, 0.05, 0.06, 0.62); bsb.set_corner_radius_all(4); bsb.content_margin_left = 10; bsb.content_margin_right = 10; bsb.content_margin_top = 4; bsb.content_margin_bottom = 4
+		_banner_lbl.add_theme_stylebox_override("normal", bsb)   # 0.13 (Sigrid): a smoked plate under the hint, so sparks and lamps in the hall do not dot the text
 		print("LOOK2 gen on: %s tier=%s" % [lid, tier])
 	var li = app.b.q("levelInfo")
 	var phase := str(li.get("phase", "design")) if li is Dictionary else "design"
