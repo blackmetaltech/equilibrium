@@ -53,6 +53,8 @@ func _run() -> void:
 	# Begin starts 1x
 	(hud._brief.content.get_node("Begin") as Button).pressed.emit(); await frames(3)
 	check(hud._brief_done and int(app.speed) == 1 and float(app.b.g.clock.speed) == 1.0, "Begin starts 1x (engine clock speed %s)" % str(app.b.g.clock.speed))
+	for i in 30: await process_frame   # phase C sound: the running loop is heard (the plant bed follows the world, it is not silent)
+	check(app.audio_eq != null and app.audio_eq.comp_power > 0.5 and app.audio_eq.furnace_duty > 0.2 and app.audio_eq.flow_level > 0.0, "L00: the running loop drives the plant bed (compressor %.2f, furnace %.2f, flow %.2f)" % [app.audio_eq.comp_power, app.audio_eq.furnace_duty, app.audio_eq.flow_level])
 	# the converter pick advances the coach (step 1 -> 2)
 	hud.refresh()
 	var step0 := int(app.b.q("levelInfo").coach.step)

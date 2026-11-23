@@ -703,6 +703,17 @@ func _outside_detail() -> void:
 	_mm(box, steps, M.steel_dull, detail_out)
 
 # ---- live state ------------------------------------------------------------------------------------------------------------------------------
+## Phase C sound: drive the shell's synthesised plant bed (EqAudio: compressor drone, furnace roar, pipe hiss, flare rumble) from the world's
+## live state. Each 0..1; all zero silences the plant. No human has listened to the mix yet (CRITIQUE-0.11).
+func _sound_bed(comp: float, furn: float, flow: float, flare: float) -> void:
+	if app == null or not ("audio_eq" in app) or app.audio_eq == null: return
+	var on := visible and is_inside_tree()
+	app.audio_eq.set_compressor(comp if on else 0.0); app.audio_eq.set_furnace(furn if on else 0.0)
+	app.audio_eq.set_flow(flow if on else 0.0); app.audio_eq.set_flare(flare if on else 0.0)
+func _sfx(k: String) -> void:
+	if app != null and app.has_method("sfx"): app.sfx(k)
+func _exit_tree() -> void: _sound_bed(0, 0, 0, 0)
+
 func set_snapshot(g: Dictionary) -> void:
 	var st := {}
 	for s in g.get("streams", []): st[str(s.get("id", ""))] = s
@@ -733,6 +744,9 @@ func set_snapshot(g: Dictionary) -> void:
 		nh3_out = x
 		pink_to = clampf(x / 0.11, 0.0, 1.0)
 		run_to = 1.0 if float(co.get("flow", 0.0)) > 1e-6 and not tripped else 0.15
+	if get_script() == LabWorld:   # phase C sound (L00): the loop compressor while it runs, the converter's fire by its heat, the flare roars on a trip; the cooling water hiss stops with the CW pump
+		_sound_bed(0.8 if run_to > 0.5 else 0.1, clampf(0.25 + heat_to * 0.6, 0.0, 1.0), 0.5, 0.9 if tripped else 0.0)
+		if app != null and "audio_eq" in app and app.audio_eq != null: app.audio_eq.set_cooling(0.5 * cw_to if visible else 0.0)
 	var lq = st.get(str(streams.get("liq", "")), null)
 	if lq is Dictionary:
 		var f := float(lq.get("flow", 0.0))

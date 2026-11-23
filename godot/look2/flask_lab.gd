@@ -478,6 +478,7 @@ func _unhandled_input(e: InputEvent) -> void:
 func pad_controls() -> Array: return [["wheel_t", "T wheel"], ["wheel_v", "V wheel"], ["lever", "RUN lever"], ["argon_valve", "Argon valve"], ["clamp", "Piston clamp"], ["call", "Call box"]]
 func pad_cams() -> Array: return ["wide", "flask", "gauge", "wheel", "bench", "dewar"]
 func pad_turn(id: String, dir: int) -> void:
+	_sfx("knob_tick")
 	if id == "wheel_t":
 		flask_T = clampf(snappedf(flask_T + 1.0 * dir, 1.0), 250.0, 520.0); wheel_t.rotation.y += 0.06 * dir   # phase C: 1 K steps; the book flask wins only at 406 or 407 K
 		control_changed.emit("T", flask_T); set_control_value("T", flask_T)
@@ -497,14 +498,14 @@ func pad_value(id: String) -> String:
 ## D-B1: the world's switches. The HUD commits control_changed exactly as its own controls did; RUN commissions.
 func press_control(r: String) -> void:
 	match r:
-		"lever": _lever_t = 0.6; control_changed.emit("run", 1.0)
-		"argon_valve": argon_on = not argon_on; control_changed.emit("argon", 0.15 if argon_on else 0.0)
+		"lever": _lever_t = 0.6; _sfx("key"); control_changed.emit("run", 1.0)
+		"argon_valve": argon_on = not argon_on; _sfx("valve"); control_changed.emit("argon", 0.15 if argon_on else 0.0)
 		"clamp":
 			if flask_Pfix <= 0.0 and not p_own.has(own_key(flask_V, flask_T)):   # playtest: the clamp holds the flask's own reading, so it needs one at these wheels
 				if app != null: app.toast("Run once without argon at %.2f L and %.2f °C first: the released piston holds that reading." % [flask_V * 1000.0, flask_T - 273.15], "warn")
 				return
 			var pf := 0.0 if flask_Pfix > 0.0 else float(p_own.get(own_key(flask_V, flask_T), P_bar)) * 1.0e5   # releasing the clamp holds the flask's own pressure: its last reading without argon (test 3 counts only there)
-			flask_Pfix = pf; control_changed.emit("Pfix", pf)
+			flask_Pfix = pf; _sfx("lock"); control_changed.emit("Pfix", pf)
 
 func pick(p: Vector2) -> String:
 	var r := super(p)

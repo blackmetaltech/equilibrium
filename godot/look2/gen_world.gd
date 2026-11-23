@@ -231,6 +231,13 @@ func set_snapshot(g: Dictionary) -> void:
 		if gw.has("flame"): (gw.flame as GPUParticles3D).emitting = heat > 0.05; (gw.flame as GPUParticles3D).amount_ratio = clampf(heat, 0.2, 1.0)
 	var info := {}
 	for u in g.get("units", []): info[str(u.get("id", ""))] = u.get("info", {}) if u.get("info", {}) is Dictionary else {}
+	var furn := 0.0; var comp := 0.0; var vent := 0.0   # phase C sound: the plant you drew is heard: compressors, the hottest fire, vents
+	for id in _glow: furn = maxf(furn, clampf(float(((_glow[id] as Dictionary).mat as StandardMaterial3D).emission_energy_multiplier) / 2.2, 0.0, 1.0))
+	for id in _types:
+		if str(_types[id]) == "compressor": comp = 0.75
+		if str(_types[id]) in ["vent", "stack", "flare"]: vent = 0.35
+	if running: _sound_bed(comp, furn, 0.5, vent)
+	else: _sound_bed(0, 0, 0, 0)
 	for id in _analyser:   # the flue analyser reads the engine's stack composition
 		var inf: Dictionary = info.get(id, {})
 		var tx := "FLUE ANALYSER"
