@@ -197,7 +197,8 @@ func _pad_draw() -> void:
 	if show and _padl == null:
 		_padl = CanvasLayer.new(); _padl.layer = 6; app.add_child(_padl)
 		_pad_ring = PadRing.new(); _pad_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE; _padl.add_child(_pad_ring)
-		_pad_lbl = HoloTheme.label("", 18, HoloTheme.INK, 600); _pad_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85)); _pad_lbl.add_theme_constant_override("outline_size", 6); _padl.add_child(_pad_lbl)
+		_pad_lbl = HoloTheme.label("", 18, HoloTheme.INK, 600); _pad_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85)); _pad_lbl.add_theme_constant_override("outline_size", 6); var plate := StyleBoxFlat.new(); plate.bg_color = Color(0.02, 0.06, 0.07, 0.82); plate.set_corner_radius_all(6); plate.content_margin_left = 10; plate.content_margin_right = 10; plate.content_margin_top = 4; plate.content_margin_bottom = 4; _pad_lbl.add_theme_stylebox_override("normal", plate);   # playtest: readable on the bright lab floor
+		_padl.add_child(_pad_lbl)
 	if _padl == null: return
 	_padl.visible = show
 	if not show: return
