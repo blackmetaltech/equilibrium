@@ -16,6 +16,7 @@ var _sig := ""
 var _ret := ""                 ## key of the target the hand came from (B returns there)
 var _was_placing := ""
 var _last_in: Control          ## the last control that held the focus inside a dialog
+var _nav_press := false       ## a D-pad / shoulder button was pressed this frame (the player chose to move the focus)
 var _dir := -1                 ## the D-pad direction pressed this frame (to steer a focus that tried to leave a dialog)
 var _modal_seen: Control
 
@@ -52,6 +53,7 @@ func _ready() -> void:
 	layer = Control.new(); layer.name = "PadTargets"; layer.mouse_filter = Control.MOUSE_FILTER_IGNORE; layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	app.root.add_child(layer); app.root.move_child(layer, 0)   # under every panel and dialog
 	get_viewport().gui_focus_changed.connect(_focus_changed)
+	RenderingServer.frame_pre_draw.connect(_place_hint)   # after every _process of the frame, so the shell's own placement of the hint cannot win
 
 ## Godot runs _input from the app's last child back. The shell's pad node is added after the chrome, so this node must stand behind it, but in front of nothing but Look2
 ## (which keeps itself the last child and answers first while a new-look world is up).
@@ -74,6 +76,7 @@ func _plot_ready() -> bool:
 func _input(e: InputEvent) -> void:
 	if not (e is InputEventJoypadButton) or not e.pressed or not CbPad.enabled or app == null or not app.started: return
 	var jb := e as InputEventJoypadButton
+	if jb.button_index in [JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER, JOY_BUTTON_B]: _nav_press = true
 	var m: Control = app.modal()
 	if m != null:
 		match jb.button_index:
@@ -88,6 +91,11 @@ func _input(e: InputEvent) -> void:
 		app.chrome.choose_speed(((app.chrome.keys.speed_pos) + 1) % 4); get_viewport().set_input_as_handled(); return
 	if not _plot_ready(): return
 	var w = app.world
+	if jb.button_index == JOY_BUTTON_A and w.placing == "" and get_viewport().gui_get_focus_owner() == null:   # A with nothing focused: the parts tray takes the focus (the shell's pad node would hand it to the gear, and this same A would open the menu; Start is the menu's button)
+		if not CbKit.pad_mode: app.pad.set_active(true)
+		var rk = app.root.find_child("PartsRack", true, false)
+		if rk != null and rk.has_method("pad_step") and rk.pad_step(0): get_viewport().set_input_as_handled()
+		return
 	var dd := [JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT].find(jb.button_index)
 	if dd >= 0 and w.placing == "":   # focus on a faceplate: the D-pad walks its controls (a knob keeps the arrows for itself and never let go of the focus), and leaves it only where the plate has nothing further
 		var fo := get_viewport().gui_get_focus_owner()
@@ -97,6 +105,10 @@ func _input(e: InputEvent) -> void:
 		var fp: Faceplate = null
 		for k in Faceplate.plates: if is_instance_valid(Faceplate.plates[k]) and fo != null and (Faceplate.plates[k] as Faceplate).is_ancestor_of(fo): fp = Faceplate.plates[k]
 		if fp != null:
+			if fo is Knob and dd >= 2:   # LEFT / RIGHT on a dial turn it (its own handler), unless another dial of a two-column plate lies that way
+				var kn := _nearest(fp, fo, dd, true)
+				if kn != null: kn.grab_focus(); get_viewport().set_input_as_handled()
+				return
 			var nx := _nearest(fp, fo, dd)
 			if nx != null: nx.grab_focus(); get_viewport().set_input_as_handled(); return
 			if fo is Knob: return
@@ -128,6 +140,7 @@ func _refocus() -> void:
 # ---- targets ---------------------------------------------------------------------------------------------------------------------------------
 func _process(_dt: float) -> void:
 	_keep_order()
+	_place_hint.call_deferred()   # after the shell's pad node has placed it this frame (also headless, where no frame is drawn; and in the hall, where the rest of this node stands down)
 	if app == null or not app.started: return
 	_modal_tick()
 	var on: bool = _plot_ready() and CbKit.pad_mode and app.world.placing == ""
@@ -141,6 +154,18 @@ func _process(_dt: float) -> void:
 		for k in targets: (targets[k] as Control).focus_mode = Control.FOCUS_NONE
 		return
 	_sync_targets()
+	_nav_press = false
+
+## The shell parks its one-line button hint at the bottom of the free world, which on this table is the console's own text (the coach, Mara's lines): it stands just above
+## the tray instead (set just before the frame is drawn, after the shell's pad node has placed it).
+func _place_hint() -> void:
+	if app == null or not is_instance_valid(app) or app.pad == null: return
+	var h: Label = app.pad.hint if app.pad != null else null
+	var ch = app.chrome
+	if h == null or not h.visible or ch == null or not ch.visible or CbLayout.phone or ch.panel == null: return
+	var top: float = ch.panel.global_position.y
+	if ch.rack_wrap != null and ch.rack_wrap.is_visible_in_tree(): top = minf(top, ch.rack_wrap.global_position.y)
+	h.position = Vector2(maxf(8.0, app.inset.x + 14.0), top - 30.0)
 
 func _after_place() -> void:   # the part went down (or went back): the focus comes to the unit just placed
 	var w = app.world
@@ -203,6 +228,10 @@ func _focus_plate(id: String) -> void:
 func _inside(m: Control, c: Control) -> bool: return c != null and (m == c or m.is_ancestor_of(c))
 
 func _focus_changed(c: Control) -> void:
+	if c != null and c.name == "Gear" and not _nav_press and CbKit.pad_mode and _plot_ready() and app.world.placing == "":   # the shell's pad node parks a lost focus on the gear (the first button of the screen), and A would open the menu: the tray takes it instead (Start is the menu's button)
+		(func() -> void:
+			var rk = app.root.find_child("PartsRack", true, false)
+			if rk != null and rk.has_method("pad_focus") and get_viewport().gui_get_focus_owner() == c: rk.pad_focus()).call_deferred()
 	var m: Control = app.modal() if app != null else null
 	if m == null or c == null: return
 	if _inside(m, c): _last_in = c; return
@@ -228,12 +257,12 @@ func _check_move(m: Control, pre: Control, d: int) -> void:
 
 func _ok(c: Node) -> bool:
 	var ctl := c as Control
-	return ctl != null and ctl.is_visible_in_tree() and ctl.focus_mode == Control.FOCUS_ALL and not (c is BaseButton and (c as BaseButton).disabled)
+	return ctl != null and ctl.is_visible_in_tree() and ctl.focus_mode == Control.FOCUS_ALL and not (c is BaseButton and (c as BaseButton).disabled) and not (c is Faceplate.TrashButton)   # the bin is never a D-pad stop: one A would delete the unit (X held does it, with the hold as the confirm)
 
-func _nearest(m: Control, from: Control, d: int) -> Control:
+func _nearest(m: Control, from: Control, d: int, knobs_only := false) -> Control:
 	var o := from.get_global_rect().get_center(); var best: Control = null; var bs := INF
 	for c in m.find_children("*", "Control", true, false):
-		if c == from or not _ok(c): continue
+		if c == from or not _ok(c) or (knobs_only and not (c is Knob)): continue
 		var v: Vector2 = (c as Control).get_global_rect().get_center() - o
 		var along: float = [-v.y, v.y, -v.x, v.x][d]; var across: float = absf(v.x) if d < 2 else absf(v.y)
 		if along <= 4.0 or across > along * 2.5 + 40.0: continue

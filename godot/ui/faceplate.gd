@@ -43,6 +43,7 @@ var _carry_lbl: Label
 var _name_lbl: Label                 # the Dymo name under the tag (a bank's follows its species chip)
 var _level_id := ""                  # the level this plate was opened in: a level change closes it
 var _trash: Button
+var _pad_hint: Label
 var _rc_grid: GridContainer          # the result temperatures of the unit (unitCard.resultsC), one cell each
 var _why_card: PanelContainer
 var _cat_box: VBoxContainer
@@ -259,6 +260,8 @@ func _rebuild() -> void:
 		var rb := _btn(PaperStrings.t("ILK_RESET"), func(): _reset_interlock()); rb.name = "ResetInterlock"; rb.tooltip_text = PaperStrings.t("ILK_RESET_TIP"); _knob_box.add_child(rb)
 	if (card.knobs as Array).is_empty() and not _bank and not (card.get("catalyst") is Dictionary):
 		var nl := EqTheme.label("—", 18, EqTheme.INK.lerp(EqTheme.PORCELAIN, 0.5), "mono"); nl.custom_minimum_size = Vector2(90, 40); _knob_box.add_child(nl)
+	_pad_hint = EqTheme.label(PaperStrings.t("FP_PADHINT"), 16, EqTheme.INK, "semi"); _pad_hint.name = "PadHint"; _pad_hint.visible = false; _pad_hint.clip_text = true; _pad_hint.custom_minimum_size = Vector2(0, 22)
+	_body.add_child(_pad_hint)   # one line, only while the pad is in hand: which buttons turn the dial
 	_body.add_child(HSeparator.new())
 	# readouts, two cells per row (kmol/h beside kg/h)
 	var grid := GridContainer.new(); grid.columns = 2; grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 2); _body.add_child(grid)
@@ -773,6 +776,7 @@ func _phone_pos(vr: Vector2, sz: Vector2, bottom: float, sp: Vector2) -> Vector2
 	return best
 
 func _process(_dt: float) -> void:
+	if _pad_hint != null: _pad_hint.visible = CbKit.pad_mode
 	if CbLayout.phone and _scroll != null and app != null:
 		var ch = app.get("chrome")
 		var vh := get_viewport().get_visible_rect().size.y

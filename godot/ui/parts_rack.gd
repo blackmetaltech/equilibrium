@@ -223,6 +223,13 @@ func pad_step(dir: int) -> bool:
 	(func() -> void: if is_instance_valid(tl) and tl.is_visible_in_tree() and tl.focus_mode == Control.FOCUS_ALL: tl.grab_focus()).call_deferred()
 	return true
 
+## The tray tile the pad last stood on takes the focus now (nothing else held it).
+func pad_focus() -> void:
+	if tiles.is_empty() or not is_visible_in_tree(): return
+	_focus = clampi(_focus, 0, tiles.size() - 1); _show_focus()
+	var tl: Tile = tiles[_focus]
+	if tl.is_visible_in_tree() and tl.focus_mode == Control.FOCUS_ALL: tl.grab_focus()
+
 func _show_focus() -> void:
 	for i in tiles.size(): (tiles[i] as Tile).focused = i == _focus; (tiles[i] as Tile).queue_redraw()
 	if _scroll != null: _scroll.ensure_control_visible(tiles[_focus])
