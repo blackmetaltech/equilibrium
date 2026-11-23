@@ -918,7 +918,7 @@ func _unhandled_input(e: InputEvent) -> void:
 	elif e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_R and not (e.ctrl_pressed or e.alt_pressed) and not _focus_typing(): rotate_ghost()
 	elif e is InputEventJoypadButton and e.pressed and CbPad.enabled and placing != "":
 		match e.button_index:
-			JOY_BUTTON_A: place_at(_cursor.x, _cursor.y)
+			JOY_BUTTON_A: pad_place()
 			JOY_BUTTON_X: rotate_ghost()
 			JOY_BUTTON_B: cancel_place()
 
@@ -930,15 +930,30 @@ func _focus_typing() -> bool:
 func pad_move(left: Vector2, right: Vector2, _trigger: float, dt: float) -> void:
 	if placing != "":
 		_pad_t -= dt
-		if left.length() > 0.55 and _pad_t <= 0.0:
-			_pad_t = 0.17
-			var r := Vector3.RIGHT.rotated(Vector3.UP, deg_to_rad(cam_rig._yaw_to)); var f := Vector3.FORWARD.rotated(Vector3.UP, deg_to_rad(cam_rig._yaw_to))
-			var d := r * left.x - f * left.y
-			var step := Vector2i(int(signf(d.x)) if absf(d.x) > absf(d.z) else 0, int(signf(d.z)) if absf(d.z) >= absf(d.x) else 0)
-			_cursor += step; _update_ghost()
+		if left.length() > 0.55 and _pad_t <= 0.0: _pad_t = 0.17; pad_nudge(left)
 		cam_rig.pad_move(Vector2.ZERO, right, dt, false)
 	else:
 		cam_rig.pad_move(left, right, dt)
+
+## Move the placement cursor one tile the way a stick (or the D-pad) points on the screen (the camera's yaw is respected).
+func pad_nudge(dir: Vector2) -> void:
+	if placing == "": return
+	var r := Vector3.RIGHT.rotated(Vector3.UP, deg_to_rad(cam_rig._yaw_to)); var f := Vector3.FORWARD.rotated(Vector3.UP, deg_to_rad(cam_rig._yaw_to))
+	var d := r * dir.x - f * dir.y
+	var on_x: bool = absf(d.x) > absf(d.z)
+	if absf(absf(d.x) - absf(d.z)) < 0.05: on_x = absf(dir.x) > absf(dir.y)   # a camera turned 45 degrees points both sideways and forward between the axes: sideways input moves x, forward input z (it moved z for both, so a stick or the D-pad could never go along x)
+	var step := Vector2i(int(signf(d.x)), 0) if on_x else Vector2i(0, int(signf(d.z)))
+	_cursor += step; _update_ghost()
+
+## Pad A while a part is in hand: the part goes where the cursor is (a refusal says why and keeps the part in hand).
+func pad_place() -> bool: return place_at(_cursor.x, _cursor.y)
+
+## A part just came off the tray by pad: the cursor starts on the nearest free spot to where it was, so the ghost is green, not a red slab on whatever it sat over.
+func pad_seed_cursor() -> void:
+	if placing == "": return
+	var t := nearest_free(placing, _cursor.x, _cursor.y, place_rot, place_ignore)
+	if t.x >= 0: _cursor = t
+	_update_ghost()
 
 ## Frame the plot: the whole fenced plot in view, whatever the pan and zoom were.
 ## F frames the equipment on the sheet (the lone-feed start keeps some plot around it); an empty sheet shows the whole plot.

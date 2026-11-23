@@ -103,6 +103,7 @@ static func build(app) -> Control:
 	Faceplate.attach(app)
 	Notebook.attach(app)
 	BuildChecklist.attach(app)
+	PadPlot.attach(app)
 	return rack
 
 func _init() -> void:
@@ -209,13 +210,17 @@ func _unhandled_key_input(e: InputEvent) -> void:
 			app.toast(PaperStrings.t("RACK_RUNNING"), "info"); get_viewport().set_input_as_handled(); return
 		pick_index(e.keycode - KEY_1); get_viewport().set_input_as_handled()
 
-func _input(e: InputEvent) -> void:
-	if not (e is InputEventJoypadButton) or not e.pressed or not CbPad.enabled or not is_visible_in_tree() or tiles.is_empty(): return
-	if app.modal() != null or app.world == null: return
-	match e.button_index:
-		JOY_BUTTON_LEFT_SHOULDER: _focus = posmod(_focus - 1, tiles.size()); _show_focus()
-		JOY_BUTTON_RIGHT_SHOULDER: _focus = posmod(_focus + 1, tiles.size()); _show_focus()
-		JOY_BUTTON_A: if app.world.placing == "": pick_index(_focus)
+## Pad LB / RB (PadPlot calls this): the next / previous tile takes the focus, so A (ui_accept on the tile) picks it. The tray stays where it is; a folded tray is opened first.
+func pad_step(dir: int) -> bool:
+	if tiles.is_empty() or app == null: return false
+	if not is_visible_in_tree():
+		var c = app.get("chrome")
+		if c != null and (bool(c.rack_tab) or CbLayout.phone) and not bool(c.rack_hold) and not bool(c.rack_open): c.call("toggle_rack")   # a folded tray (pre-built plant) or the phone's drawer opens first
+		else: return false
+	_focus = posmod(_focus + dir, tiles.size()); _show_focus()
+	var tl: Tile = tiles[_focus]   # deferred: the shell's pad node (first press) re-seats the focus after this handler
+	(func() -> void: if is_instance_valid(tl) and tl.is_visible_in_tree() and tl.focus_mode == Control.FOCUS_ALL: tl.grab_focus()).call_deferred()
+	return true
 
 func _show_focus() -> void:
 	for i in tiles.size(): (tiles[i] as Tile).focused = i == _focus; (tiles[i] as Tile).queue_redraw()

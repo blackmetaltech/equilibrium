@@ -3,6 +3,19 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [Unreleased] · "Pad on the drafting table" (the classic build view is playable by gamepad alone)
+### Added
+- **A pad hand for the plot** (`godot/ui/pad_plot.gd`). Every unit and every free port gets a focus target at its place on the screen. The D-pad moves between them, A on a unit opens its faceplate and puts the focus on its first knob (the D-pad then walks the plate's chips and knobs; a knob used to keep the arrows and never let go), A on a port starts or ends a pipe through the same `port_clicked` the mouse uses (so the piping rules and refusals are the only rules), B puts away the pipe, plate or selection. Mouse players never see it.
+- **A part by pad.** LB/RB walk the tray (a folded tray opens first), A takes the part, the D-pad (or the left stick) moves the cursor, A places, X turns, B puts it back. The cursor starts on the nearest free spot, so the ghost is green, not a red slab.
+- **Dialogs keep the focus.** In the notebook, a brief or a keypad the focus cannot leave to the tray behind, a D-pad press with nowhere to go scrolls the page, and the right stick scrolls it.
+- **The key and the speed dial by pad.** A on the focused key turns it, A on the focused dial steps it, Back steps it. Both dials took focus only if they were built after the first pad press.
+- `godot/tests/pad_build_flow.gd`: L01 and L10 played from the notebook to the win with real joypad events only. `godot/tests/pipe_drag_flow.gd`: the mouse pipe-drag regression below.
+### Fixed
+- LB/RB on the build screen opened the Codex behind the tray (the shell's drawer switch); the tray's own LB/RB and A also fought each other.
+- The placement cursor could not move along one axis with the camera at 45 degrees: sideways and forward input both picked the same axis (a stick or D-pad never went along x). Ties now go by the input's direction.
+- Back (speed dial) ran the shell's bare clock change, so the dial and the engine's clock disagreed, and did nothing useful in the hall after commissioning. It goes through the console now.
+- A pipe drag with the mouse that did nothing: with a half-made pipe in hand (a click on an outlet) a press on another outlet was refused ("no legal port on that unit") and the release of the drag was ignored. Same-kind ports stay pickable and arm the drag. `pipe_drag_flow.gd` case 2 failed before, passes now. The playtester's exact L11 case was not seen; this is the cause I could reproduce.
+
 ## [0.10.1] - 2026-11-23 · "The first screen" (owner review: the title and the Works Map in the new look)
 ### Changed
 - **The title is the new look.** The night plant hall sits behind it, with the camera drifting slowly; the menu is on glass. There is no classic geometry on the first screen.

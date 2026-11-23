@@ -53,10 +53,12 @@ class KeyDial extends Control:
 		focus_entered.connect(queue_redraw); focus_exited.connect(queue_redraw)
 	func target_angle() -> float: return (pos - 1) * DEG
 	func _process(dt: float) -> void:
+		if focus_mode != CbKit.focus_mode(): focus_mode = CbKit.focus_mode()   # built before the first pad press: a pad must still reach the key
 		if absf(angle - target_angle()) > 0.003:
 			angle = move_toward(angle, target_angle(), 7.0 * dt) if not CbSettings.reduced_motion else target_angle()
 			queue_redraw()
 	func _gui_input(e: InputEvent) -> void:
+		if e.is_action_pressed("ui_accept") and not (e is InputEventKey): sw.step_requested.emit(); accept_event(); return   # pad A on the focused key: one turn
 		if e is InputEventMouseButton and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]: accept_event(); return   # the wheel over the key never zooms the camera
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT: _click(e.position); accept_event()
 		elif e is InputEventScreenTouch and e.pressed: _click(e.position); accept_event()
@@ -120,6 +122,7 @@ class SpeedDial extends Control:
 		focus_entered.connect(queue_redraw); focus_exited.connect(queue_redraw)
 	func _centre() -> Vector2: return Vector2(size.x * 0.5, size.y - (24.0 if compact else 30.0))
 	func _process(dt: float) -> void:
+		if focus_mode != CbKit.focus_mode(): focus_mode = CbKit.focus_mode()
 		if absf(angle - ANG[pos]) > 0.003:
 			angle = move_toward(angle, ANG[pos], 8.0 * dt) if not CbSettings.reduced_motion else ANG[pos]
 			queue_redraw()
@@ -131,6 +134,7 @@ class SpeedDial extends Control:
 			if absf(a - ANG[i]) < bd: bd = absf(a - ANG[i]); best = i
 		sw.speed_chosen.emit(best)
 	func _gui_input(e: InputEvent) -> void:
+		if e.is_action_pressed("ui_accept") and not (e is InputEventKey): sw.speed_chosen.emit((pos + 1) % 4); accept_event(); return   # pad A on the focused dial: the next speed (the pause bars after 16x)
 		if e is InputEventMouseButton and e.pressed:
 			if e.button_index == MOUSE_BUTTON_LEFT: _pick(e.position); accept_event()
 			elif e.button_index == MOUSE_BUTTON_WHEEL_UP: sw.speed_chosen.emit(mini(pos + 1, 3)); accept_event()
