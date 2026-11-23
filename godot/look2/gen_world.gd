@@ -568,7 +568,7 @@ func _arc(r: float, y0: float, y1: float, a0: float, a1: float, seg: int, mat: M
 		var p00 := Vector3(r * cos(b0), y0, r * sin(b0)); var p01 := Vector3(r * cos(b1), y0, r * sin(b1))
 		var p10 := Vector3(r * cos(b0), y1, r * sin(b0)); var p11 := Vector3(r * cos(b1), y1, r * sin(b1))
 		var u0 := float(s) / seg; var u1 := float(s + 1) / seg
-		if inward:
+		if not inward:   # 0.14: Godot's front faces wind clockwise as seen; the two orders were swapped, so "outward" faced in (and its normals too)
 			st.set_uv(Vector2(u0, 0)); st.add_vertex(p00); st.set_uv(Vector2(u1, 1)); st.add_vertex(p11); st.set_uv(Vector2(u0, 1)); st.add_vertex(p10)
 			st.set_uv(Vector2(u0, 0)); st.add_vertex(p00); st.set_uv(Vector2(u1, 0)); st.add_vertex(p01); st.set_uv(Vector2(u1, 1)); st.add_vertex(p11)
 		else:
