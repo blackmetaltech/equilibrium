@@ -1,16 +1,30 @@
 # ⚗️ EQUILIBRIUM — build a chemical plant, turn the key, read what it makes
 
-**[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.11.md)** · **[Site](https://equilibrium.blackmetal.tech)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
+**[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.12.md)** · **[Site](https://equilibrium.blackmetal.tech)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
 
 **Build a chemical plant and turn the key. Equilibrium, kinetics and heat decide if it works.**
 
 A **Godot 4.7** game with the chemistry engine in TypeScript.
 
-> **Alpha (0.11.0).** Chapters 1 and 3 and the prologue are in the new look; the rest is classic. Played on Linux; Windows untested.
+> **Alpha (0.12.0).** The prologue and chapters 1-3 are in the new look (L09 is still classic). Played on Linux; Windows untested.
 
-![The title: the night plant hall in the new look, the menu on glass](docs/readme/title-new-look.jpg)
+![The title: your private lab, the flask rig on its dais, the tank bay behind the glass](docs/readme/title-lab.jpg)
 
-## What's new in 0.11: chapter 1 in the new look
+## What's new in 0.12: the lab at home
+
+**The lab is the home screen.** The title, the Works map and the briefings live in your private lab. The map and the brief lie on a drafting table.
+
+| Your sulfur burner in the hall: a drum on saddles, its fan and burner front, the peep window lighting the floor | L08: the fired heater and the feed-effluent exchanger |
+|---|---|
+| ![burner in the hall](docs/readme/hall-burner.jpg) | ![fired heater](docs/readme/hall-heater.jpg) |
+
+**Chapter 2 builds in the hall.** L05-L08 get a splitter, a gasifier, a CO burner, a fired heater, an exchanger and a cooler. L09 is still classic.
+
+**Equipment you can read.** Dished heads, nozzles, cages, saddles, an I-beam rack behind the plant, beds that glow red to orange with temperature. Each level has its own camera.
+
+**Plain text.** Short briefs, prompts that name your device, no all-caps chips.
+
+## What was new in 0.11: chapter 1 in the new look
 
 ![L14: the private lab, bright, with the twin flask on the dais](docs/readme/lab-gleam.jpg)
 
@@ -34,11 +48,11 @@ A **Godot 4.7** game with the chemistry engine in TypeScript.
 |---|---|
 | ![L14 lab](docs/readme/two-flasks-lab.jpg) | ![L14 rig](docs/readme/two-flasks-rig.jpg) |
 
-| L10-L13: the player's own commissioned plant in the hall (beds glow by outlet temperature, dark below light-off, white past sintering; boilers steam by duty) | Night Shift: leave the cooler alone (or turn it too late) and the interlock trips the loop |
+| L10-L13: the player's own commissioned plant in the hall (beds glow by outlet temperature; boilers steam by duty) | Night Shift: leave the cooler alone (or turn it too late) and the interlock trips the loop |
 |---|---|
 | ![chapter 3 hall](docs/readme/chapter3-hall.jpg) | ![night trip](docs/readme/night-trip.gif) |
 
-**New and classic.** Chapter 3 and the prologue are new look; every other chapter is classic and labelled so.
+**New and classic.** The Works map labels each chapter New look or classic.
 
 ## What was new in 0.9
 
