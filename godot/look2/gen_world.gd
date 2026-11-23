@@ -114,7 +114,7 @@ func rebuild() -> void:
 		var n := clampi(int(_span / 7.0) + 1, 2, 5)
 		for i in n:
 			var sx := _ctr.x - _span * 0.4 + _span * 0.8 * float(i) / float(maxi(1, n - 1))
-			var sp := SpotLight3D.new(); sp.light_specular = 0.4; sp.light_color = Color(1.0, 0.88, 0.72); sp.light_energy = 14.0; sp.spot_range = 22.0; sp.spot_angle = 24.0
+			var sp := SpotLight3D.new(); sp.light_specular = 0.4; sp.light_color = Color(1.0, 0.88, 0.72); sp.light_energy = (14.0 if tier != "compat" else 1.6); sp.spot_range = 22.0; sp.spot_angle = 24.0
 			sp.light_volumetric_fog_energy = 3.0; sp.shadow_enabled = i % 2 == 0; sp.position = Vector3(sx, 15.5, _ctr.z + 1.0); plant.add_child(sp); sp.rotation_degrees.x = -90
 			_cyl(0.5, 0.25, Vector3(sx, 15.8, _ctr.z + 1.0), M.paint_grey, plant); _cyl(0.42, 0.02, Vector3(sx, 15.67, _ctr.z + 1.0), _flat(Color(1, 1, 1), 0, 0.3, Color(1.0, 0.9, 0.75), 3.0), plant)
 	print("LOOK2 gen: %d units, %d pipes" % [at.size(), k])
