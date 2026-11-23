@@ -74,7 +74,10 @@ func _layout(sz: Vector2i) -> void:
 		var r := (c as Control).get_global_rect()
 		if r.size.x > 1.0 and r.end.x > pr.end.x + 1.5 and (c as Control).is_visible_in_tree(): pb.append("%s %s" % [c.name, str(r)])
 	check(pb.is_empty(), "nor does the pinned area (%s)%s" % [str(pb.slice(0, 3)), tag])
-	check(pin.get_global_rect().size.y <= b.get_global_rect().size.y * 0.6, "the pinned area leaves the page room (%.0f of %.0f)%s" % [pin.get_global_rect().size.y, b.get_global_rect().size.y, tag])
+	var kids := []   # phase C: name what fills the pinned area when it is too tall (the height varied 500-546 px between runs)
+	for c in pin.get_children(): if c is Control and (c as Control).is_visible_in_tree(): kids.append("%s %.0f" % [c.name, (c as Control).size.y])
+	for c in _controls(pin): if c is Label and (c as Label).is_visible_in_tree() and (c as Label).get_line_count() > 1: kids.append("%s:%d lines '%s'" % [c.name, (c as Label).get_line_count(), (c as Label).text.left(40)])
+	check(pin.get_global_rect().size.y <= b.get_global_rect().size.y * 0.6, "the pinned area leaves the page room (%.0f of %.0f)%s %s" % [pin.get_global_rect().size.y, b.get_global_rect().size.y, tag, str(kids)])
 
 func _controls(n: Node) -> Array:
 	var out: Array = []
