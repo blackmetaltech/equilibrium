@@ -38,7 +38,8 @@ const CHAPTERS := [
 const BRIDGES := [4, 9, 14, 18]
 ## Which chapter must be done before this one opens (-1: open from the start).
 ## D-B4 (phase B): chapter 3 is the new-look chapter and opens from the start (the title screen has a strip for it); 00 is the new-look prologue.
-const NEW_LOOK := [0, 1, 3]
+const NEW_LOOK := [0, 1, 2, 3]
+const PART_LOOK := {2: "L09 classic"}   ## 0.12: chapter 2 builds in the hall (L05-L08); the L09 bench is still the classic view
 const PREREQ := {0: -1, 1: -1, 2: 1, 3: -1, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 5, 10: 5, 11: 5}   # Hydraulics and Career open after chapter 5 like chapters 8 and 9
 ## Total stars for each Engineer rank.
 const RANKS := [["Trainee", 0], ["Shift Engineer", 6], ["Senior Engineer", 20], ["Process Engineer", 40], ["Plant Manager", 65], ["Chief Engineer", 90]]
@@ -536,7 +537,7 @@ class SiteCard extends PanelContainer:
 		var sub := str(ch[2])
 		var crit := C.chapter_ids(chapter)
 		if crit.is_empty() and chapter > 0: sub += " · " + WorksMap.T("MAP_SOON")
-		sub += " · " + ("New look" if chapter in WorksMap.NEW_LOOK else "classic")
+		sub += " · " + ("New look" if chapter in WorksMap.NEW_LOOK else "classic") + ((" · " + str(WorksMap.PART_LOOK[chapter])) if WorksMap.PART_LOOK.has(chapter) else "")
 		var sl := EqTheme.label(sub, 14 if compact else 16, EqTheme.TEAL.lightened(0.25) if state != "locked" else EqTheme.DIM, "sans"); sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; sl.custom_minimum_size = Vector2(40, 0); tv.add_child(sl)
 		if not opened:
 			var p: int = int(WorksMap.PREREQ[chapter])
