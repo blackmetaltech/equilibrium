@@ -14,7 +14,7 @@ export interface UnitDisplay { id: string; type: string; x: number; y: number; r
 export interface StreamDisplay { id: string; flow: number; T: number; P: number; w: [number, number][] }
 
 /** Info keys of a unit's solve result the models draw from (DESIGN 8.2); anything else stays in the unit queries. Tray temperatures are `tray_T<i>` (K, top to bottom, at most 20). */
-const INFO_KEYS = new Set(['tray_n', 'level', 'reflux', 'gas', 'spin', 'T_K', 'T_top', 'T_bot', 'Tmax', 'T_out', 'T_in', 'T_sep', 'X', 'eta', 'conv', 'beta', 'Q_reb', 'Q_cond', 'N', 'light_off', 'T_bed', 'mix_pct', 'hot_W', 'steam_kg_s', 'y_O2', 'y_CO2', 'y_SO2', 'y_CO', 'y_H2O']);
+const INFO_KEYS = new Set(['tray_n', 'level', 'reflux', 'gas', 'spin', 'T_K', 'T_top', 'T_bot', 'Tmax', 'T_out', 'T_in', 'T_sep', 'X', 'eta', 'conv', 'beta', 'Q_reb', 'Q_cond', 'N', 'light_off', 'T_bed', 'mix_pct', 'hot_W', 'steam_kg_s', 'y_O2', 'y_CO2', 'y_SO2', 'y_CO', 'y_H2O', 'ppmv_CO']);
 const INFO_RE = /^(tray_T\d{1,2}|b\d_(Tin|Tout|Xout))$/;
 /** The small display record of a unit from its stored solve (finite numbers only, 4 significant digits); undefined when it has none. */
 export function infoDisplay(info: Readonly<Record<string, number>> | undefined): Record<string, number> | undefined {

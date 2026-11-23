@@ -160,7 +160,7 @@ export const L14: LevelSpec = {
   },
   lessonVars: (s, m) => {
     const w = bookWorking(s), real = realFlask(s);
-    return { alpha: f(s, w.alpha), P: f(s, m.v.p_bar!), kp: f(s, w.kp), real: f(s, real.kp), realP: f(s, real.P), tstar: f(s, Math.round(bookT(s) * 10) / 10), tests: m.v.tests!, runs: m.v.runs!, max: L14_RUNS };
+    return { alpha: f(s, w.alpha), P: f(s, m.v.p_bar!), kp: f(s, w.kp), real: f(s, real.kp), realP: f(s, real.P), tstar: f(s, Math.round(bookT(s))) /* Anjali: T* to about a kelvin */, tests: m.v.tests!, runs: m.v.runs!, max: L14_RUNS };
   },
   metrics: (_s, m) => [
     { key: 'kp_bar', unit: 'bar', value: m.v.kp_bar! },

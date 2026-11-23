@@ -245,10 +245,11 @@ func set_snapshot(g: Dictionary) -> void:
 	else: _sound_bed(0, 0, 0, 0)
 	for id in _analyser:   # the flue analyser reads the engine's stack composition
 		var inf: Dictionary = info.get(id, {})
-		var tx := "FLUE ANALYSER"
+		var tx := "FLUE GAS, mol % wet"   # Anjali: the engine's fractions include the water; say so, and show it (L03 identifies its fuel by CO2 : H2O)
 		if running and inf.has("y_O2"):
-			for k in [["O2", "y_O2"], ["CO2", "y_CO2"], ["SO2", "y_SO2"], ["CO", "y_CO"]]:
-				if inf.has(k[1]) and (k[0] == "O2" or float(inf[k[1]]) > 0.0): tx += "\n%s  %.1f %%" % [k[0], float(inf[k[1]]) * 100.0]
+			for k in [["O2", "y_O2"], ["CO2", "y_CO2"], ["H2O", "y_H2O"], ["SO2", "y_SO2"]]:
+				if inf.has(k[1]) and (k[0] == "O2" or float(inf[k[1]]) > 0.0): tx += "\n%s  %.1f" % [k[0], float(inf[k[1]]) * 100.0]
+			if float(inf.get("ppmv_CO", 0.0)) > 0.0: tx += "\nCO  %.0f ppm" % float(inf.ppmv_CO)   # CO in ppm, as real analysers read it
 		else: tx += "\n--"
 		(_analyser[id] as Label3D).text = tx
 	for id in _steam:

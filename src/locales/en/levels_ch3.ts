@@ -154,7 +154,7 @@ export const levelsCh3: Record<string, string> = {
   'lv.L14.verdict.not_found': 'Not the book\'s flask yet.', 'lv.L14.verdict.out_of_runs': 'Out of runs.',
   'lv.L14.cause.not_found': 'Your flask read {P} bar. Keep 1 L, no argon, clamp on, and turn the T wheel: hotter reads higher. Runs left: {left}.',
   'lv.L14.coach.find.text': 'Where does your flask read the book\'s 9.15 bar? Keep 1 L, clamp on, no argon, and turn the T wheel. You have ten runs.',
-  'lv.L14.coach.find.why': 'Why: the gauge rises with temperature because N₂O₄ splits into more NO₂ when hot. Bracket it: one run too cold, one too hot, then split the gap.',
+  'lv.L14.coach.find.why': 'Why: the gauge rises with temperature: hotter gas pushes harder, and more N₂O₄ splits into NO₂. Bracket it: one run too cold, one too hot, then split the gap.',
   'lv.L14.callit': 'Called it: Kp of N₂O₄ ⇌ 2NO₂ at 400 K, bar',
   'lv.L14.callit.given': "What you have: N₂O₄ is 92 g/mol, so 13.8 g is 0.15 mol, and N₂O₄ ⇌ 2 NO₂. With degree of dissociation α the moles are 0.15 (1 + α), and pV = nRT (R = 0.083 L·bar/(mol·K), 1 L, 400 K, 9.15 bar absolute) gives α. Then Kp = p(NO₂)² ÷ p(N₂O₄) from the partial pressures.",
   'lv.L14.hero': 'Gauge (absolute)', 'lv.L14.sec': 'Degree of dissociation, %',
@@ -172,8 +172,7 @@ export const levelsCh3: Record<string, string> = {
   'lv.L14.coach.read_colour.why': 'Why: the colour is the NO₂ concentration, a direct reading of the shift.',
   'lv.L14.coach.why.text': 'Why did the argon matter only once? Ask Why? and read Q against K.',
   'lv.L14.coach.why.why': 'Why: argon at constant volume leaves every partial pressure alone; at constant pressure it thins them.',
-  'lv.L14.verdict.pass': 'You found the book\'s flask: real N₂O₄ reads 9.15 bar only hotter than the book says. Real gas, invented textbook numbers, same method.', 'lv.L14.verdict.off_gauge': 'The flask is not the notebook flask.', 'lv.L14.verdict.not_run': 'Not run yet.',
-  'lv.L14.cause.off_gauge': 'The gauge reads {P} bar against the notebook {want}. The flask is {V} L at {T} K: set it back to 1 L, 400 K (126.85 °C on the T dial), no argon, constant volume.',
+  'lv.L14.verdict.pass': 'You found the book\'s flask: real N₂O₄ reads 9.15 bar only hotter than the book says. Real gas, invented textbook numbers, same method.', 'lv.L14.verdict.not_run': 'Not run yet.',
   'lv.L14.lesson': 'The book\'s flask: N₂O₄ dissociates {alpha} of the way at 9.15 bar, and with R = 0.083, Kp = 4α²P ÷ (1 − α²) = {kp} bar. Your flask is real N₂O₄ (NIST-JANAF): Kp = {real} bar at 400 K, so it reads {realP} bar(a), absolute: counted from vacuum, not from the room. It reaches the book\'s 9.15 bar only near {tstar} K. Textbook numbers are often made up so the sums come out clean. Check a number against measured data before you trust it; the method is the same either way. Tests run: {tests} of 3.',
   'lv.L14.metric.kp_bar': 'Kp from the run', 'lv.L14.metric.alpha': 'Degree of dissociation', 'lv.L14.metric.runs': 'Runs used',
 };
