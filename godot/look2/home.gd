@@ -12,6 +12,9 @@ var view := ""
 var _t := 0.0
 var _parked_here := false
 var card_host: Control
+const PAPER := Color("#EFE9D8")      ## the brief sheet: a little lighter than the drafting paper under it
+const INK := Color("#1D2330")        ## dark ink: 14:1 on the paper
+const INK_BLUE := Color("#124E78")   ## the Call it line: blue ink, 7:1 on the paper
 
 static func enabled() -> bool: return Look2.enabled() and EqSettings.home_lab and DisplayServer.get_name() != "xx"
 static func is_up() -> bool: return up != null and is_instance_valid(up) and up.lab != null
@@ -108,15 +111,20 @@ func _build_card(app, map_host: Control, id: String, li: Dictionary) -> void:
 	var w := minf(vw - 40.0, 760.0)
 	var d: Dictionary = app.dialog("homecard", w, 0.0, EqTheme.ENAMEL_HI, 0.0)
 	card_host = d.host; var vb: VBoxContainer = d.vb
-	(d.panel as PanelContainer).add_theme_stylebox_override("panel", HoloTheme.box(Color(HoloTheme.GLASS, 0.9), Color(HoloTheme.TEAL, 0.55), 1, 14, 22))
+	# a sheet of paper lying on the drafting table: paper colour, a thin edge, a soft drop shadow, dark ink (the lamp over the table lights the sheet behind it)
+	var sheet := StyleBoxFlat.new(); sheet.bg_color = PAPER; sheet.border_color = Color(0.72, 0.68, 0.58); sheet.set_border_width_all(1); sheet.set_corner_radius_all(3)
+	sheet.shadow_color = Color(0.05, 0.03, 0.0, 0.45); sheet.shadow_size = 16; sheet.shadow_offset = Vector2(3, 7)
+	sheet.content_margin_left = 34; sheet.content_margin_right = 34; sheet.content_margin_top = 26; sheet.content_margin_bottom = 26
+	(d.panel as PanelContainer).add_theme_stylebox_override("panel", sheet)
 	vb.add_theme_constant_override("separation", 10)
-	var title := EqTheme.label("%s · %s" % [WorksMap.number(id), str(li.get("title", id))], 30, HoloTheme.INK, "title"); title.name = "CardTitle"; title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(title)
+	var title := EqTheme.label("%s · %s" % [WorksMap.number(id), str(li.get("title", id))], 30, INK, "title"); title.name = "CardTitle"; title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(title)
+	var rule := ColorRect.new(); rule.color = Color(0.3, 0.38, 0.5, 0.35); rule.custom_minimum_size = Vector2(0, 2); rule.mouse_filter = Control.MOUSE_FILTER_IGNORE; vb.add_child(rule)
 	var parts := BriefLines.split(li.get("note", []) if li.get("note") is Array else [], str(li.get("predictNote", "")) if li.get("predictNote") != null else "")
 	for ln in parts.first:
-		var l := EqTheme.label(EqVerb.adapt(str(ln)), 19, HoloTheme.INK, "sans"); l.name = "CardLine"; l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.size_flags_horizontal = Control.SIZE_EXPAND_FILL; vb.add_child(l)
+		var l := EqTheme.label(EqVerb.adapt(str(ln)), 19, INK, "sans"); l.name = "CardLine"; l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.size_flags_horizontal = Control.SIZE_EXPAND_FILL; vb.add_child(l)
 	var ci = li.get("callIt")
 	if ci is Dictionary and str((ci as Dictionary).get("prompt", "")) != "":
-		var cl := EqTheme.label(EqVerb.adapt(str(ci.prompt)), 18, HoloTheme.TEAL_HI, "semi"); cl.name = "CardCallIt"; cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(cl)
+		var cl := EqTheme.label(EqVerb.adapt(str(ci.prompt)), 18, INK_BLUE, "semi"); cl.name = "CardCallIt"; cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(cl)
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 12); vb.add_child(row)
 	var go := EqTheme.key_button(WorksMap.T("CARD_START"), true, 18); go.name = "CardStart"; row.add_child(go)
 	var back := EqTheme.key_button(WorksMap.T("CARD_BACK"), false, 18); back.name = "CardBack"; row.add_child(back)

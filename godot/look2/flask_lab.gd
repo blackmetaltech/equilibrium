@@ -375,20 +375,40 @@ const TABLE_AT := Vector3(2.0, 0.0, 6.0)
 func _build_planning_table() -> void:
 	var t := Node3D.new(); t.name = "PlanningTable"; t.position = TABLE_AT; add_child(t)
 	var top_h := 0.95
-	_box(Vector3(7.4, 0.12, 3.8), Vector3(0, top_h - 0.06, 0), mats.stainless_dull, t)                       # the frame
-	_box(Vector3(7.0, 0.03, 3.4), Vector3(0, top_h + 0.005, 0), _flat(Color(0.02, 0.07, 0.08), 0.0, 0.55, Color(0.1, 0.6, 0.56), 0.22), t)   # the lit plan
-	for ix in range(-4, 5):   # drawn grid lines on the plan
-		_box(Vector3(0.012, 0.004, 3.4), Vector3(ix * 0.85, top_h + 0.022, 0), _flat(Color(0.3, 0.7, 0.66), 0.0, 0.5, Color(0.35, 0.85, 0.8), 0.45), t)
-	for iz in range(-2, 3):
-		_box(Vector3(7.0, 0.004, 0.012), Vector3(0, top_h + 0.022, iz * 0.8), _flat(Color(0.3, 0.7, 0.66), 0.0, 0.5, Color(0.35, 0.85, 0.8), 0.45), t)
+	# a drafting table: a dark wood frame round a pale paper sheet (matte, no emission), a printed blue-grey grid at about 15 % contrast
+	var wood := _flat(Color(0.2, 0.115, 0.065), 0.0, 0.5)
+	var paper := _flat(Color(0.914, 0.894, 0.839), 0.0, 0.9)   # #E9E4D6
+	_box(Vector3(7.4, 0.12, 3.8), Vector3(0, top_h - 0.06, 0), wood, t)
+	_box(Vector3(7.0, 0.03, 3.4), Vector3(0, top_h + 0.005, 0), paper, t).name = "Paper"
+	var ink := _flat(Color(0.74, 0.77, 0.82), 0.0, 0.9)   # ~15 % darker than the sheet, bluish
+	for ix in range(-4, 5): _box(Vector3(0.012, 0.004, 3.4), Vector3(ix * 0.85, top_h + 0.0215, 0), ink, t)
+	for iz in range(-2, 3): _box(Vector3(7.0, 0.004, 0.012), Vector3(0, top_h + 0.0215, iz * 0.8), ink, t)
 	for sx in [-3.4, 3.4]:
 		for sz in [-1.6, 1.6]: _box(Vector3(0.14, top_h - 0.1, 0.14), Vector3(sx, (top_h - 0.1) * 0.5, sz), mats.anod, t)
-	_box(Vector3(0.5, 0.05, 0.35), Vector3(-2.7, top_h + 0.05, 1.25), mats.wood, t)                          # a rolled drawing and a pencil tray
-	_cyl(0.07, 0.9, Vector3(2.6, top_h + 0.07, 1.2), mats.enamel_white, t, -1.0, 16).rotation.z = PI * 0.5
-	var lamp := OmniLight3D.new(); lamp.light_color = Color(0.6, 0.95, 0.9); lamp.light_energy = 0.9; lamp.omni_range = 7.0; lamp.position = Vector3(0, 3.0, 0); t.add_child(lamp)
-	var pend := _box(Vector3(2.6, 0.08, 0.5), Vector3(0, 3.3, 0), mats.anod, t); pend.name = "Pendant"
-	_box(Vector3(2.4, 0.01, 0.3), Vector3(0, 3.25, 0), mats.cool, t)
-	for sx in [-1.0, 1.0]: _seg(Vector3(sx, 3.3, 0), Vector3(sx, 12.0, 0), 0.015, mats.stainless_dull, t)
+	# a scale rule along the front edge (pale wood, black ticks), a pencil, a coffee ring
+	var yTop := top_h + 0.025
+	_box(Vector3(3.0, 0.012, 0.16), Vector3(-1.2, yTop + 0.006, 1.42), _flat(Color(0.82, 0.7, 0.48), 0.0, 0.6), t).name = "ScaleRule"
+	var tick := _flat(Color(0.08, 0.07, 0.06), 0.0, 0.8)
+	for i in 41: _box(Vector3(0.008, 0.002, 0.05 if i % 5 else 0.09), Vector3(-2.7 + i * 0.075, yTop + 0.0125, 1.38 if i % 5 else 1.36), tick, t)
+	var pc := Node3D.new(); pc.name = "Pencil"; pc.position = Vector3(2.0, yTop + 0.03, 0.9); pc.rotation_degrees.y = 24; t.add_child(pc)
+	_cyl(0.028, 0.95, Vector3.ZERO, _flat(Color(0.86, 0.62, 0.1), 0.0, 0.5), pc, -1.0, 6).rotation_degrees.z = 90
+	_cyl(0.028, 0.06, Vector3(-0.5, 0, 0), _flat(Color(0.8, 0.45, 0.5), 0.0, 0.6), pc, -1.0, 6).rotation_degrees.z = 90   # the rubber
+	var pt := _cyl(0.028, 0.12, Vector3(0.53, 0, 0), _flat(Color(0.85, 0.7, 0.5), 0.0, 0.7), pc, 0.004, 6); pt.rotation_degrees.z = -90
+	_cyl(0.011, 0.04, Vector3(0.61, 0, 0), _flat(Color(0.1, 0.1, 0.1), 0.0, 0.6), pc, 0.003, 6).rotation_degrees.z = -90
+	var ring := _torus(0.17, 0.007, Vector3(-2.4, top_h + 0.0275, -0.9), _flat(Color(0.42, 0.27, 0.15), 0.0, 0.8), t); ring.scale = Vector3(1, 0.3, 1); ring.name = "CoffeeRing"
+	# a gooseneck desk lamp at the back left corner: its warm 30 degree cone is the light the sheet and the brief card are read by
+	var lb := Vector3(-3.0, top_h, -1.45)
+	_cyl(0.18, 0.04, lb + Vector3(0, 0.02, 0), mats.anod, t, -1.0, 24)
+	_seg(lb + Vector3(0, 0.02, 0), lb + Vector3(0.0, 1.1, 0.1), 0.02, mats.anod, t)
+	_seg(lb + Vector3(0, 1.1, 0.1), lb + Vector3(0.7, 1.75, 0.45), 0.02, mats.anod, t)
+	var hd := lb + Vector3(0.7, 1.75, 0.45)
+	var shade := _cyl(0.3, 0.3, hd + Vector3(0.12, 0.0, 0.08), _flat(Color(0.12, 0.2, 0.17), 0.3, 0.45), t, 0.07, 24); shade.name = "LampShade"
+	shade.rotation_degrees = Vector3(14, 0, -22)
+	_sph(0.07, hd + Vector3(0.14, -0.1, 0.1), _flat(Color.WHITE, 0.0, 0.4, Color(1.0, 0.85, 0.6), 4.0), t)
+	var sl := SpotLight3D.new(); sl.name = "DeskLamp"; sl.light_color = Color(1.0, 0.82, 0.58); sl.light_energy = 4.5; sl.spot_range = 9.0; sl.spot_angle = 30.0; sl.spot_attenuation = 0.5
+	sl.shadow_enabled = true; sl.light_volumetric_fog_energy = 0.4; sl.position = hd + Vector3(0.14, -0.12, 0.1); t.add_child(sl)
+	sl.look_at(t.to_global(Vector3(0.0, top_h, 0.1)), Vector3.UP)
+	var fill := OmniLight3D.new(); fill.light_color = Color(1.0, 0.9, 0.78); fill.light_energy = 0.5; fill.omni_range = 7.0; fill.position = Vector3(0, 3.0, 0); t.add_child(fill)
 
 # ---- live state ---------------------------------------------------------------------------------------------------------------------------------
 func setup(role_ids: Dictionary) -> void:
@@ -550,8 +570,8 @@ const L14_PRESETS := {
 	"bench": [Vector3(-7.4, 1.3, 6.0), -0.5, -0.3, 2.6],
 	"dewar": [Vector3(3.0, 2.2, -4.1), 0.7, -0.2, 3.2],
 	"xray": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
-	"home": [TABLE_AT + Vector3(0, 0.95, 0.1), 0.0, -0.78, 7.4],        # 0.12: the planning table from above (the Works Map), the lab behind it
-	"home_card": [TABLE_AT + Vector3(0, 0.95, -0.1), 0.0, -0.55, 4.4],   # the briefing card: nearer, the plan under it
+	"home": [TABLE_AT + Vector3(0, 0.95, -0.9), 0.0, -0.87, 7.6],        # 0.12: the planning table from above (the Works Map), the lab behind it
+	"home_card": [TABLE_AT + Vector3(0, 0.95, -1.3), 0.0, -0.87, 5.6],   # the briefing card: nearer, the plan under it
 }
 func set_camera(spec: String) -> void:
 	for part in spec.split(","):
