@@ -5,7 +5,7 @@ extends RefCounted
 ## this class builds into it. Units: the fields speak deg C, litres, bar, mol/s; the engine and the world speak K, m3, Pa, mol/s (set_control_value and
 ## control_changed use the engine's: "T" K, "V" m3, "Pfix" Pa, "argon" mol/s).
 ## Engine actions: setParam [flask, "T" | "V" | "Pfix", value], setFeed [argon, {flow}], callIt [Kp bar] (once, before the first run), commission (RUN).
-const TESTS := [["gauge", "Goal: find the book's flask"], ["halve", "Halve volume"], ["inert_v", "Argon, constant V"], ["inert_p", "Argon, constant P"], ["called", "Kp called"]]   # phase C: the book flask is the goal
+const TESTS := [["gauge", "Goal: 1 L, clamp on, no argon: read 9.15 bar"], ["halve", "Halve volume"], ["inert_v", "Argon, constant V"], ["inert_p", "Argon, constant P"], ["called", "Kp called"]]   # phase C: the book flask is the goal
 var h   ## HoloHud
 var f_T: HoloField
 var f_V: HoloField
@@ -212,7 +212,7 @@ func refresh(li: Dictionary, g: Dictionary) -> void:
 	run_btn.disabled = not live
 	var gl = li.get("goals", [])
 	if _left_lbl != null and gl is Array and gl.size() > 0 and gl[0] is Dictionary:   # phase C: lab time
-		var used := int(gl[0].get("value", 0)); var mx := int(gl[0].get("target", 10))
+		var used := int(li.get("burns", gl[0].get("value", 0))); var mx := int(gl[0].get("target", 10))   # the job's runs, carried across a stop-and-edit
 		_left_lbl.text = "Runs left: %d of %d" % [maxi(0, mx - used), mx]
 		_left_lbl.add_theme_color_override("font_color", HoloTheme.AMBER if mx - used <= 3 else HoloTheme.TEAL_HI)
 	var fr = li.get("firstRun", null)

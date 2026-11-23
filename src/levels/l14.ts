@@ -11,7 +11,7 @@ import { REGIONS } from '../regions';
 import type { EqState } from '../state';
 import { scripted } from './bench';
 import type { Annunciator, CoachStep, LevelSpec, Measures } from './spec';
-import { baseSetup, commissions, link, predictionOf, put, putFeed, relErr, sealSetup, shown, changedSinceRun } from './util';
+import { baseSetup, burns, commissions, link, predictionOf, put, putFeed, relErr, sealSetup, shown, changedSinceRun } from './util';
 
 type S = Readonly<EqState>;
 export const L14_SPECIES = ['N2O4', 'NO2', 'Ar'];
@@ -89,7 +89,8 @@ export function flaskMeasures(s: S): Measures {
   const [a, b, c] = testsDone(s);
   const v: Record<string, number> = {
     v_l: fl && typeof fl.params.V === 'number' ? fl.params.V * 1000 : 0, t_k: fl && typeof fl.params.T === 'number' ? fl.params.T : 0, p_fix_bar: fl && typeof fl.params.Pfix === 'number' ? fl.params.Pfix / 1e5 : 0,
-    p_bar: 0, alpha: 0, kp_bar: 0, no2: 0, book: 0, t_halve: a ? 1 : 0, t_inert_v: b ? 1 : 0, t_inert_p: c ? 1 : 0, tests: Number(a) + Number(b) + Number(c), runs: commissions(s), argon: 0,
+    p_bar: 0, alpha: 0, kp_bar: 0, no2: 0, book: 0, t_halve: a ? 1 : 0, t_inert_v: b ? 1 : 0, t_inert_p: c ? 1 : 0, tests: Number(a) + Number(b) + Number(c), runs: burns(s),   // phase C (playtest): lab time counts across a stop-and-edit restart (carryBurns), so editing never refunds runs
+    argon: 0,
   };
   const ar = argonFeed(s);
   v.argon = ar ? (s.feeds[ar.id]?.flow ?? 0) : 0;
@@ -105,16 +106,16 @@ const f = (s: { region: string }, x: number): string => fmtNumber(x, s.region);
 const has = (s: S, type: string): boolean => s.flowsheet.units.some((u) => u.type === type);
 const COACH: CoachStep[] = [
   { id: 'call_kp', role: 'mentor', done: (s) => s.prediction !== null },
-  { id: 'turn_volume', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[0] || (s.ui.coachStep ?? '') === 'read_colour' || commissions(s) >= 4 },
-  { id: 'read_colour', role: 'mentor', focus: 'lab_flask', done: (s) => ['read_colour', 'argon_v', 'argon_p', 'why'].includes(s.ui.coachStep ?? '') || testsDone(s)[1] || changedSinceRun(s) },
-  { id: 'argon_v', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[1] || ['argon_p', 'why'].includes(s.ui.coachStep ?? '') },
-  { id: 'argon_p', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[2] || (s.ui.coachStep ?? '') === 'why' },
+  { id: 'turn_volume', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[0] || (s.ui.coachStep ?? '') === 'read_colour' || commissions(s) >= 4 || foundBookFlask(s) },
+  { id: 'read_colour', role: 'mentor', focus: 'lab_flask', done: (s) => ['read_colour', 'argon_v', 'argon_p', 'why'].includes(s.ui.coachStep ?? '') || testsDone(s)[1] || changedSinceRun(s) || foundBookFlask(s) },
+  { id: 'argon_v', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[1] || ['argon_p', 'why'].includes(s.ui.coachStep ?? '') || foundBookFlask(s) },
+  { id: 'argon_p', role: 'mentor', focus: 'lab_flask', done: (s) => testsDone(s)[2] || (s.ui.coachStep ?? '') === 'why' || foundBookFlask(s) },
   { id: 'find', role: 'mentor', focus: 'lab_flask', done: (s) => foundBookFlask(s) },   // phase C: the goal
   { id: 'why', role: 'mentor', done: (s) => s.ui.coachStep === 'why' },
 ];
 
 export const L14: LevelSpec = {
-  id: 'L14', firstRun: true, chapter: 3, index: 14, setter: 'mentor', budgetUSD: 0, units: UNITS, notes: 2, shiftLen: 0,
+  carriesBurns: true, id: 'L14', firstRun: true, chapter: 3, index: 14, setter: 'mentor', budgetUSD: 0, units: UNITS, notes: 2, shiftLen: 0,
   setup: (s) => {
     baseSetup(s, L14_SPECIES, ALL, { lab_flask: { V: V_BOOK, T: problem(s).T, Pfix: 0 } });
     const p = problem(s);
@@ -127,7 +128,7 @@ export const L14: LevelSpec = {
   },
   measures: flaskMeasures,
   goals: (s, m) => [{ key: 'book', met: foundBookFlask(s), value: m.v.runs!, target: L14_RUNS }],
-  lost: (s) => (!foundBookFlask(s) && commissions(s) >= L14_RUNS ? 'lv.L14.lost' : null),   // lab time is up
+  lost: (s) => (!foundBookFlask(s) && burns(s) >= L14_RUNS ? 'lv.L14.lost' : null),   // lab time is up
   extraStars: (s, m) => [m.v.tests === 3, predictionOf(s, 'kp_bar') !== null && relErr(predictionOf(s, 'kp_bar')!.value, bookWorking(s).kp) <= L14_KP_TOL],
   callIt: { key: 'kp_bar', unit: 'bar', tol: L14_KP_TOL, truth: (s) => bookWorking(s).kp },
   hero: (s, m) => ({ key: 'gauge', unit: 'bar', value: m.v.p_bar!, lo: problem(s).P * (1 - L14_GAUGE_TOL), hi: problem(s).P * (1 + L14_GAUGE_TOL) }),   // the band is the twin, the book's flask (the client draws its plate and its brown from it)
@@ -149,7 +150,7 @@ export const L14: LevelSpec = {
   verdict: (s, m, g) => {
     if (!m.ok) return { key: 'not_run', cause: null };
     if (g.every((x) => x.met)) return { key: 'pass', cause: null };
-    const left = Math.max(0, L14_RUNS - commissions(s));
+    const left = Math.max(0, L14_RUNS - burns(s));
     return { key: left === 0 ? 'out_of_runs' : 'not_found', cause: t('lv.L14.cause.not_found', { left, P: f(s, m.v.p_bar!) }) };
   },
   equation: (s, m) => {

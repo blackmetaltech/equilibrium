@@ -402,6 +402,14 @@ describe('L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; D-B1: the open
     run(e, [{ name: 'setParam', args: ['U-104', 'T', 380] }, { name: 'commission' }]); roll(e);
     expect(e.state.status).toBe('lost'); expect(card(e).cause).toContain('Runs left: 0');
   });
+  it('phase C (playtest): a stop-and-edit restart does not refund lab time: seven runs carried, three more cold runs lose', () => {
+    const e = start('L14');
+    act(e, 'carryBurns', 7);
+    run(e, [{ name: 'setParam', args: ['U-104', 'T', 370] }, { name: 'commission' }]);
+    expect(info(e).goals[0]).toMatchObject({ value: 8, target: 10 });   // the carried seven plus this one
+    for (let i = 1; i < 3; i++) run(e, [{ name: 'setParam', args: ['U-104', 'T', 370 + i] }, { name: 'commission' }]);
+    roll(e); expect(e.state.status).toBe('lost');
+  });
   it('phase C: the book flask alone wins at once (the tests are a star)', () => {
     const e = start('L14');
     run(e, [{ name: 'setParam', args: ['U-104', 'T', Math.round(bookT({ region: 'global' }) * 100) / 100] }, { name: 'commission' }]); roll(e);
