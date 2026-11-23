@@ -43,12 +43,12 @@ static func build(app: CbApp, root: Control) -> bool:
 	for en in entries:
 		var s := Strip.new(str(en[1]), 20 if compact else int(26 * k)); s.name = "Strip_" + str(en[0]); s.pressed.connect(en[2]); vb.add_child(s); strips.append(s)
 		if first == null: first = s
-	var cute := Strip.new(T("CUTE_ON") if EqSettings.cute else T("CUTE_OFF"), 15 if compact else int(18 * k), true); cute.name = "Strip_cute"; cute.tooltip_text = T("CUTE_HINT")
+	var cute := Strip.new(T("CUTE_ON") if EqSettings.cute else T("CUTE_OFF"), 16 if compact else int(18 * k), true); cute.name = "Strip_cute"; cute.tooltip_text = T("CUTE_HINT")
 	cute.pressed.connect(func():
 		EqSettings.set_cute(app, not EqSettings.cute)
 		cute.set_label(T("CUTE_ON") if EqSettings.cute else T("CUTE_OFF")))
 	vb.add_child(cute)
-	var homes := Strip.new(T("HOME_ON") if EqSettings.home_lab else T("HOME_OFF"), 15 if compact else int(18 * k), true); homes.name = "Strip_home"; homes.tooltip_text = T("HOME_HINT")
+	var homes := Strip.new(T("HOME_ON") if EqSettings.home_lab else T("HOME_OFF"), 16 if compact else int(18 * k), true); homes.name = "Strip_home"; homes.tooltip_text = T("HOME_HINT")
 	homes.pressed.connect(func():
 		EqSettings.home_lab = not EqSettings.home_lab; EqSettings.save_all()
 		homes.set_label(T("HOME_ON") if EqSettings.home_lab else T("HOME_OFF"))
@@ -67,7 +67,7 @@ static func build(app: CbApp, root: Control) -> bool:
 		var place := func() -> void:
 			if is_instance_valid(plate): plate.reset_size(); plate.position = Vector2(vw - plate.size.x - 44.0, maxf(6.0, (vh - plate.size.y) * 0.5))
 		place.call_deferred(); root.get_tree().process_frame.connect(place, CONNECT_ONE_SHOT)
-	var foot := EqTheme.label(T("TITLE_FOOT"), 15, EqTheme.DIM, "sans"); foot.name = "Foot"
+	var foot := EqTheme.label(T("TITLE_FOOT"), 16, EqTheme.DIM, "sans"); foot.name = "Foot"
 	foot.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT); foot.grow_horizontal = Control.GROW_DIRECTION_BEGIN; foot.grow_vertical = Control.GROW_DIRECTION_BEGIN; foot.offset_right = -20.0; foot.offset_bottom = -12.0
 	root.add_child(foot)
 	if first != null: _focus_later.call_deferred(first)

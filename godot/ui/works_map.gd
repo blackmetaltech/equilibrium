@@ -10,7 +10,7 @@ extends RefCounted
 ## Progress lives in `Campaign` (user://eq_campaign.cfg): the engine's own progress record is never written by the shell (see the campaign report).
 
 const S := {
-	"MAP_TITLE": "WORKS MAP", "MAP_RANK": "ENGINEER RANK", "MAP_STARS": "%d of %d stars", "MAP_NEXT": "next: %s at %d", "MAP_TOP": "highest rank",
+	"MAP_TITLE": "Works map", "MAP_RANK": "Engineer rank", "MAP_STARS": "%d of %d stars", "MAP_NEXT": "next: %s at %d", "MAP_TOP": "highest rank",
 	"MAP_START": "START", "MAP_CLOSE": "Close", "MAP_BRIDGE": "Exam bridge (optional)", "MAP_SOON": "Under construction",
 	"MAP_LOCK_CH": "Finish chapter %d, %s, first.", "MAP_LOCK_LV": "Needs a star on %s first.", "MAP_PICK": "Pick a job. Teal lamps are three stars.",
 	"MAP_LEGEND": "dark: locked   white: done   teal: three stars   book: exam bridge",
@@ -297,7 +297,7 @@ class MapView extends RefCounted:
 		start_btn.pressed.connect(func(): if WorksMap.sel_id != "": WorksMap.start(app, host, WorksMap.sel_id))
 		ibh.add_child(start_btn)
 		if not (compact and narrow):
-			var lg := EqTheme.label(WorksMap.T("MAP_LEGEND") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 13, EqTheme.DIM, "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
+			var lg := EqTheme.label(WorksMap.T("MAP_LEGEND") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 16, EqTheme.DIM, "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
 		# first focus: the first open, unstarred node (else the first open one)
 		var pick: NodeBtn = null
 		for id in WorksMap.Campaign.ids:
@@ -356,7 +356,7 @@ class MapView extends RefCounted:
 		if narrow: h1 = HBoxContainer.new(); h1.add_theme_constant_override("separation", 10); h.add_child(h1)
 		var c := WorksMap.Campaign
 		var tag := EqTheme.label(WorksMap.T("MAP_RANK"), 13, EqTheme.DIM, "sans"); h1.add_child(tag)
-		var rn := EqTheme.label(c.rank_name().to_upper(), 20 if compact else 26, EqTheme.TEAL.lightened(0.2), "title"); rn.name = "RankName"; h1.add_child(rn)
+		var rn := EqTheme.label(c.rank_name(), 20 if compact else 26, EqTheme.TEAL.lightened(0.2), "title"); rn.name = "RankName"; h1.add_child(rn)
 		var ri := c.rank_index(); var tot := c.total_stars()
 		var nxt := WorksMap.T("MAP_TOP") if ri >= WorksMap.RANKS.size() - 1 else WorksMap.T("MAP_NEXT") % [str(WorksMap.RANKS[ri + 1][0]), int(WorksMap.RANKS[ri + 1][1])]
 		var sl := EqTheme.label("%s · %s" % [WorksMap.T("MAP_STARS") % [tot, c.max_stars()], nxt], 15 if compact else 17, HoloTheme.INK, "sans"); sl.name = "RankStars"; sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -368,7 +368,7 @@ class MapView extends RefCounted:
 		WorksMap.sel_id = id
 		var lv: Dictionary = levels_by_id.get(id, {})
 		var why := WorksMap.Campaign.lock_reason(id)
-		var head := "%s · %s" % [WorksMap.number(id), str(lv.get("title", id)).to_upper()]
+		var head := "%s · %s" % [WorksMap.number(id), str(lv.get("title", id))]
 		var brief := str(lv.get("brief", ""))
 		info.text = head + "\n" + (why if why != "" else brief)
 		start_btn.disabled = why != ""
@@ -531,7 +531,7 @@ class SiteCard extends PanelContainer:
 		else: top.add_child(glyph)
 		if glyph.get_parent() == null: glyph.free.call_deferred()
 		var tv := VBoxContainer.new(); tv.add_theme_constant_override("separation", 0); tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tv.mouse_filter = Control.MOUSE_FILTER_IGNORE; top.add_child(tv)
-		var head := ("%02d" % chapter if chapter > 0 else "00") + " · " + str(ch[1]).to_upper()
+		var head := ("%02d" % chapter if chapter > 0 else "00") + " · " + str(ch[1])
 		var tl := EqTheme.label(head, 18 if compact else 21, EqTheme.TEXT if state != "locked" else EqTheme.DIM, "title"); tl.name = "SiteTitle"; tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tl.custom_minimum_size = Vector2(40, 0); tv.add_child(tl)
 		var sub := str(ch[2])
 		var crit := C.chapter_ids(chapter)
@@ -553,7 +553,7 @@ class SiteCard extends PanelContainer:
 		var nb := NodeBtn.new(); nb.lid = id; nb.bridge = bridge; nb.name = "Level_" + id
 		nb.state = C.state_of(id); nb.stars = C.eff(id); nb.hard = bool(C.hard.get(id, false))
 		var lv: Dictionary = view.levels_by_id.get(id, {})
-		nb.text = "%s · %s" % [WorksMap.number(id), str(lv.get("title", id)).to_upper()]
+		nb.text = "%s · %s" % [WorksMap.number(id), str(lv.get("title", id))]
 		nb.tooltip_text = nb.text + ("\n" + WorksMap.T("MAP_BRIDGE") if bridge else "") + ("\n" + C.lock_reason(id) if nb.state == "locked" else "")
 		var tap := maxf(CbLayout.tap(), 46.0)
 		nb.custom_minimum_size = Vector2(tap, tap + (13.0 if CbLayout.phone else 16.0))
