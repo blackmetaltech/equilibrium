@@ -99,13 +99,19 @@ func set_quality(t: String) -> void:
 		li.shadow_enabled = bool(li.get_meta("shadow0")) and (ultra or (t == "high" and li is DirectionalLight3D))
 		if li is OmniLight3D and li.global_position.z < -20.0 and li != flare_light: li.visible = ultra
 	for r in find_children("*", "ReflectionProbe", true, false): (r as ReflectionProbe).visible = not compat
+	if compat:   # the low tier has no bounce light, fog or SDFGI: a lifted ambient and one shadowless fill, so it is not a black room with white pools
+		env.ambient_light_energy = 0.9
+		var cf := get_node_or_null("CompatFill") as DirectionalLight3D
+		if cf == null:
+			cf = DirectionalLight3D.new(); cf.name = "CompatFill"; cf.light_color = Color(0.85, 0.9, 1.0); cf.light_energy = 0.6; cf.shadow_enabled = false; cf.light_specular = 0.0
+			cf.rotation_degrees = Vector3(-55, 25, 0); add_child(cf)
 	# 3D render scale: full on ultra, FSR at 77 % on high, 60 % on compat (the HUD stays at full resolution)
 	var vp := get_viewport()
 	# AA (phase B): ultra = native, MSAA 2x for edges plus TAA; high = FSR2 at 77 % (temporal upscale doubles as AA); compat = FSR1 at 60 % with FXAA
 	var rd := RenderingServer.get_rendering_device() != null
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR if (ultra or not rd) else (Viewport.SCALING_3D_MODE_FSR2 if t == "high" else Viewport.SCALING_3D_MODE_FSR)
-	vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.6)
-	vp.msaa_3d = Viewport.MSAA_2X if ultra else Viewport.MSAA_DISABLED
+	vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.8)   # compat 0.6 was the jagged edges (Sigrid)
+	vp.msaa_3d = Viewport.MSAA_2X if (ultra or compat) else Viewport.MSAA_DISABLED
 	vp.use_taa = ultra
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if compat else Viewport.SCREEN_SPACE_AA_DISABLED
 
