@@ -115,7 +115,8 @@ const SQUEEZE_MIN := 0.78
 ## The safety net for text that other code builds (the shell's Settings and dialogs in core, a theme default): any Label / Button / LineEdit / RichTextLabel whose font is under the floor
 ## is raised to it. `PlantWorld`'s owner (main.gd) calls this for every node that joins the tree (deferred, so the creator has set its sizes first).
 static var _lifted := {}
-static func lift(n: Node) -> void:
+# n is untyped on purpose: lift is called deferred, and a node freed in between makes a typed Node parameter fail with "Cannot convert argument 1 from Object to Object" before the validity check can run
+static func lift(n) -> void:
 	if n == null or not is_instance_valid(n): return
 	if n is Label:
 		var l := n as Label

@@ -406,7 +406,8 @@ func _toggle_more(nm: String) -> void:
 	_refresh_keep()
 
 ## The "more" key shows only when the text really runs past two lines (known once the label has been laid out).
-func _show_more_key(l: Label, k: Button, open: bool) -> void:
+# l and k are untyped: called deferred, they may be freed by then (a typed parameter fails before the is_instance_valid check)
+func _show_more_key(l, k, open: bool) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(l) or not is_instance_valid(k): return
 	k.visible = open or l.get_line_count() > 2
