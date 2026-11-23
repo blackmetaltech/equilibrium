@@ -244,6 +244,8 @@ func refresh() -> void:
 		_shift_seen = true
 		choose_speed(_rec_idx())   # the speed dial opens at the level's recommended speed (levelInfo.recommendedSpeed), not at whatever the last level left
 	elif not running: _shift_seen = false
+	var sent: bool = app.look2 != null and (app.look2.on or app.look2.gen != null)   # the new look: sentences for what is lit, not a wall of caps chips
+	if sent != annunciator.sentence: annunciator.sentence = sent; annunciator.queue_redraw()
 	annunciator.set_windows(li.get("annunciators", []) if li.get("annunciators") is Array else [])
 	var tab := bool(li.get("prebuilt", false))
 	if tab != rack_tab: rack_tab = tab; rack_open = false; layout()

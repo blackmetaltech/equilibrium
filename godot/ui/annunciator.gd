@@ -7,6 +7,7 @@ signal acked(key: String)
 var app: CbApp
 var wins: Array = []        ## {key, legend, state, acked, rect}
 var demo := false
+var sentence := false    ## the new look: no row of caps chips. Only the lit conditions (and one goal stamp) are written, in sentence case; the windows stay the same data
 var max_windows := 8     ## phone: 4
 var _t := 0.0
 const FLASH_HZ := 2.0
@@ -95,7 +96,82 @@ func _layout() -> void:
 		var cx := i % cols; var cy := i / cols
 		wins[i]["rect"] = Rect2(cx * (w + gap), cy * (h + gap), w, h)
 
+## KEEP: words that stay as written (formulas with digits stay by the digit rule; single letters stay). MAP: a short caps word that reads better in full.
+const KEEP := ["CO", "IAE", "CW", "LOC", "BEP", "PV", "SP", "GJ", "PID"]
+const MAP := {"HI": "high", "HH": "very high", "LO": "low", "T": "temp", "PCT": "percent", "AR": "Ar", "CU": "Cu", "CS": "Cs", "KP": "Kp", "CONV": "conversion", "CAT": "catalyst", "EXCH": "exchanger", "COMP": "compressor"}
+
+## "NH3 OFF SPEC" -> "NH3 off spec", "BED T HI" -> "Bed temp high": the caps legends read as a sentence.
+static func sentence_case(legend: String) -> String:
+	var out: Array = []
+	for tok in legend.split(" ", false):
+		var t := str(tok)
+		var has_digit := false
+		for i in t.length(): if t[i] >= "0" and t[i] <= "9": has_digit = true
+		if MAP.has(t): out.append(MAP[t])
+		elif has_digit or t.length() == 1 or t in KEEP or t != t.to_upper(): out.append(t)
+		else: out.append(t.to_lower())
+	var s := " ".join(out)
+	if s != "" and (s[0] < "A" or s[0] > "Z") and (s[0] < "0" or s[0] > "9"): s = s[0].to_upper() + s.substr(1)
+	return s
+
+## Conditions lit right now (high or critical), in window order.
+func lit_windows() -> Array:
+	var r: Array = []
+	for w in wins: if w.state == "high" or w.state == "critical": r.append(w)
+	return r
+
+func goal_met() -> bool:
+	for w in wins: if str(w.key) == "goal" and w.state == "normal": return true
+	return false
+
+## Every condition and its state in words, for the tooltip: the dark ones are reachable here, not drawn as dark chips.
+func conditions_text() -> String:
+	var lines: Array = []
+	for w in wins:
+		var st := "lit (alarm)" if w.state == "critical" else ("lit" if w.state == "high" else ("met" if str(w.key) == "goal" and w.state == "normal" else "quiet"))
+		lines.append("%s: %s" % [sentence_case(str(w.legend)), st])
+	return "\n".join(lines)
+
+func _draw_sentence() -> void:
+	var f := EqStrings.font("body"); var fsz := EqTheme.fs(16)
+	var flash := int(floor(_t * FLASH_HZ * 2.0)) % 2 == 0 or CbSettings.reduced_motion
+	var row_h := float(fsz) + 8.0
+	var rows := maxi(1, int(floor(size.y / row_h)))
+	var lit := lit_windows()
+	for w in wins: w["rect"] = Rect2()
+	var alarm_rows := rows - 1   # the last row is the goal stamp
+	var shown := mini(lit.size(), alarm_rows if lit.size() <= alarm_rows else alarm_rows - 1)
+	var y := 0.0
+	for i in shown:
+		var w: Dictionary = lit[i]
+		var crit: bool = w.state == "critical"
+		var on: bool = w.acked or flash
+		var col: Color = EqTheme.RED if crit else EqTheme.AMBER
+		w["rect"] = Rect2(0, y, size.x, row_h)
+		draw_circle(Vector2(10, y + row_h * 0.5), 6.0, col if on else Color(col, 0.3))
+		EqTheme.ds(self, f, Vector2(26, y + row_h * 0.5 + fsz * 0.35), sentence_case(str(w.legend)), HORIZONTAL_ALIGNMENT_LEFT, size.x - 30.0, fsz, EqTheme.TEXT)
+		y += row_h
+	if lit.size() > shown:
+		EqTheme.ds(self, f, Vector2(26, y + row_h * 0.5 + fsz * 0.35), "and %d more lit" % (lit.size() - shown), HORIZONTAL_ALIGNMENT_LEFT, size.x - 30.0, fsz, EqTheme.TEXT)
+		y += row_h
+	if lit.is_empty():
+		EqTheme.ds(self, f, Vector2(26, y + row_h * 0.5 + fsz * 0.35), "Nothing is alarming.", HORIZONTAL_ALIGNMENT_LEFT, size.x - 30.0, fsz, Color("#9DB0AB"))
+		y += row_h
+	var gy := maxf(y, (rows - 1) * row_h)
+	var met := goal_met()
+	var gc: Color = EqTheme.TEAL
+	if met:
+		draw_circle(Vector2(10, gy + row_h * 0.5), 6.0, gc)
+		EqTheme.ds(self, EqStrings.font("cap"), Vector2(26, gy + row_h * 0.5 + fsz * 0.35), "Goal met", HORIZONTAL_ALIGNMENT_LEFT, size.x - 30.0, fsz, gc)
+	else:
+		draw_arc(Vector2(10, gy + row_h * 0.5), 5.0, 0, TAU, 20, Color("#7C8F8A"), 1.5)
+		EqTheme.ds(self, f, Vector2(26, gy + row_h * 0.5 + fsz * 0.35), "Goal not met yet", HORIZONTAL_ALIGNMENT_LEFT, size.x - 30.0, fsz, Color("#9DB0AB"))
+
 func _draw() -> void:
+	if sentence and not demo:
+		tooltip_text = conditions_text()
+		_draw_sentence(); return
+	tooltip_text = ""
 	_layout()
 	var f := EqStrings.font("cap"); var fsz := EqTheme.fs(13)
 	var flash := int(floor(_t * FLASH_HZ * 2.0)) % 2 == 0 or CbSettings.reduced_motion
