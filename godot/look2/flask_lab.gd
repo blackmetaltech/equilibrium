@@ -11,6 +11,7 @@ const V_BOOK := 1.0e-3
 const GAS_H := 1.5           ## m of drawn gas column at V_BOOK
 const CR := 0.42             ## m, cylinder radius
 const DAIS := Vector3(0, 0.6, -2.0)
+var _hood_diffuser: StandardMaterial3D
 var TWIN_NO2 := 251.2         ## mol/m3 of NO2 in the book's flask; set in setup from the engine's book gauge (the hero band) with the book's own constants
 const RIG_S := 1.5          ## the experiment is drawn 1.5x on its dais so it reads from the doorway (the HUD carries the true litres)
 var pivot: Node3D
@@ -68,6 +69,7 @@ func _lab_mats() -> void:
 	mats.concrete = _pbr("concrete_slab_wall", 0.12, Color(0.55, 0.55, 0.56))
 	mats.screen = _flat(Color(0.02, 0.04, 0.05), 0.0, 0.2, Color(0.15, 0.55, 0.6), 0.5)
 	mats.warm = _flat(Color.WHITE, 0, 0.4, Color(1.0, 0.78, 0.5), 3.0)
+	_hood_diffuser = _flat(Color(0.9, 0.85, 0.78), 0, 0.5, Color(1.0, 0.86, 0.66), 0.9)
 	mats.cool = _flat(Color.WHITE, 0, 0.4, Color(0.75, 0.88, 1.0), 2.0)
 
 func _spot(pos: Vector3, at: Vector3, col: Color, e: float, rng: float, ang: float, fog := 1.0, shadow := false) -> SpotLight3D:
@@ -266,7 +268,7 @@ func _build_rig() -> void:
 	var a1 := 1.0 - exp(-1.1); var cc := Color(0.55, 0.36, 0.14).lerp(Color(0.16, 0.06, 0.015), a1); tg.albedo_color = Color(cc.r, cc.g, cc.b, 1.0 - exp(-2.2))
 	_cyl(0.2, 1.5, tw + Vector3(0, 0.97, 0), tg, self, -1.0, 40)
 	_cyl(0.25, 0.08, tw + Vector3(0, 1.84, 0), mats.stainless, self, -1.0, 32)
-	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 40; pl.pixel_size = 0.0022; pl.no_depth_test = true; pl.render_priority = 127; pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; pl.outline_size = 10; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, -0.12, 0.45); add_child(pl)
+	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 34; pl.pixel_size = 0.00056; pl.fixed_size = true; pl.no_depth_test = true; pl.render_priority = 127; pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; pl.outline_size = 10; pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, -0.12, 0.45); add_child(pl)   # 0.12 (Sigrid: 8 px): fixed screen size, like the CLAMP sign
 	anchors["twin"] = tw + Vector3(0, 1.2, 0); radius["twin"] = 0.3
 	# the RUN lever on the console: pull it to run
 	lever = Node3D.new(); lever.position = cp + Vector3(0.45, 0.95, 0.15); add_child(lever)
@@ -322,7 +324,8 @@ func _build_racks() -> void:
 		_box(Vector3(6.9, 0.04, 0.35), bxp + Vector3(0, 1.75, -0.5), mats.stainless_dull)
 		_box(Vector3(6.9, 0.04, 0.35), bxp + Vector3(0, 2.35, -0.5), mats.stainless_dull)
 		for sx in [-3.4, 3.4]: _seg(bxp + Vector3(sx, 0.97, -0.6), bxp + Vector3(sx, 2.4, -0.6), 0.02, mats.stainless_dull)
-		_box(Vector3(6.6, 0.04, 0.1), bxp + Vector3(0, 2.6, -0.3), mats.warm)
+		_box(Vector3(6.7, 0.07, 0.2), bxp + Vector3(0, 2.66, -0.3), mats.stainless_dull)   # 0.12 (Sigrid: blown-out white strips): a fixture housing over a dim diffuser
+		_box(Vector3(6.5, 0.01, 0.12), bxp + Vector3(0, 2.62, -0.3), _hood_diffuser)
 		var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.82, 0.6); l.light_energy = 1.4; l.omni_range = 4.5; l.position = bxp + Vector3(0, 2.4, 0.1); add_child(l)
 		for j in 22:   # shelves of flasks
 			var shelf := 1.77 if j < 11 else 2.37

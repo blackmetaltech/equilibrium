@@ -120,7 +120,7 @@ func audit(tag: String) -> void:
 			checks += 1
 			var l3 := n as Label3D
 			if l3.is_visible_in_tree() and l3.text.strip_edges() != "":
-				var px := Tag3D.screen_px(l3, root)
+				var px := _px3d(l3)
 				if px < FLOOR - 0.01: fail(tag, "Label3D %.1f px '%s' (%s)" % [px, l3.text.left(30), str(l3.get_path()).get_file()])
 			continue
 		if not (n is Control) or not (n as Control).is_visible_in_tree(): continue
@@ -288,3 +288,11 @@ func _initialize() -> void:
 	print("LAYOUT-FLOW OK" if fails == 0 else "LAYOUT-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
 	quit(0 if fails == 0 else 1)
+
+## 0.12: a fixed-size Label3D's height on screen. Godot draws it at font_size x pixel_size x H / (2 tan(fov / 2)) under a perspective camera; Tag3D.screen_px assumes a 90°
+## camera (half the window height), which under-reads the look2 cameras (48-50°) by about 2.2x. Orthographic and non-fixed labels keep the old measure.
+func _px3d(l3: Label3D) -> float:
+	var cam := l3.get_viewport().get_camera_3d() if l3.get_viewport() != null else null
+	if l3.fixed_size and cam != null and cam.projection == Camera3D.PROJECTION_PERSPECTIVE:
+		return float(l3.font_size) * l3.pixel_size * Tag3D.window_h(root) / (2.0 * tan(deg_to_rad(cam.fov) * 0.5))
+	return Tag3D.screen_px(l3, root)
