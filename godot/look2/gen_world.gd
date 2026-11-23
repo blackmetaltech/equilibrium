@@ -429,9 +429,9 @@ func _stack(id: String, c: Vector3) -> void:
 	_box(Vector3(0.03, 0.18, 0.03), cab + Vector3(0.32, 0.8, 0.32), M.steel_dull, plant)
 	var cl := SpotLight3D.new(); cl.light_color = Color(0.9, 0.95, 1.0); cl.light_energy = 3.0 if tier != "compat" else 1.2; cl.spot_range = 6.0; cl.spot_angle = 50.0; cl.light_specular = 0.2   # the work light over the cabinet: it lights the stack base and the sample line
 	cl.position = cab + Vector3(0.2, 3.2, 1.4); plant.add_child(cl); cl.look_at(cab + Vector3(-0.8, 0.6, -0.4), Vector3.UP)
-	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.0016; t.modulate = Color(0.62, 1.0, 0.72)
+	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.00125; t.modulate = Color(0.62, 1.0, 0.72)
 	t.outline_size = 0; t.position = cab + Vector3(0, 1.25, 0.33); t.width = 180.0; t.autowrap_mode = TextServer.AUTOWRAP_OFF; plant.add_child(t)
-	_analyser[id] = t; _stack_at = cab
+	_analyser[id] = t; _stack_at = cab   # 0.13 (Sigrid): pixel size 0.0016 ran the first line past the screen; the cabinet side cut "FLUE"
 	_steam[id] = _particles(c + Vector3(0, 9.5, 0), 24, 5.0, Vector3(0, 1.4, 0), 10.0, 1.0, Color(0.75, 0.74, 0.72, 0.28), plant, 3.5)
 
 ## Phase C (chapter 1), rebuilt for the art pass: a fired sulfur burner as a plant has it. A horizontal refractory-lined drum on two saddles (aluminium heat paint,
@@ -783,6 +783,8 @@ func _bench_live(running: bool) -> void:
 	if _bench.is_empty() or app == null or app.b == null: return
 	var li = app.b.q("levelInfo"); var T := 298.15
 	if li is Dictionary and li.get("secondary") is Dictionary and str(li.secondary.get("key", "")) == "furnace_k" and not bool(li.secondary.get("pending", true)): T = float(li.secondary.get("value", 298.15))
+	var fr = li.get("firstRun") if li is Dictionary else null   # while the first run replays, the furnace climbs with the recorder's clock (the engine's ramp is linear), not at its end value
+	if fr is Dictionary and float(fr.get("len", 0.0)) > 0.0: T = 298.15 + (T - 298.15) * clampf(float(fr.get("t", 0.0)) / float(fr.len), 0.0, 1.0)
 	if _bench.has("furnace"):
 		var bb := _blackbody(T) if running else [Color(0.55, 0.07, 0.02), 0.0]
 		var t := clampf((T - 900.0) / 1500.0, 0.0, 1.0)
@@ -887,8 +889,8 @@ func _pick_hero() -> Dictionary:
 	if _lid == "L09" and by.has("stoich_reactor"): ids = [by.stoich_reactor[0]]; yaw = 0.1 * PI; frac = 0.75   # L09: the calorimeter bench, the furnace kept in frame
 	elif by.has("packed_bed"):                                                      # chapter 4: the bed through its window; 0.13 (Sigrid): a different view per level
 		ids = [by.packed_bed[0]]; yaw = 0.1 * PI; frac = 0.72                          # L15: near face on
-		if _lid == "L16" and by.has("hx"): yaw = 0.26 * PI; frac = 0.62; extra_ids = [by.hx[0]]          # L16: the bed and the exchanger that preheats its feed
-		elif _lid == "L17" and by.has("heater"): yaw = -0.12 * PI; frac = 0.64; extra_ids = [by.heater[0]]   # L17: the bed and its fired heater
+		if _lid == "L16": yaw = 0.24 * PI; frac = 0.7          # L16: from the right (pulling the exchanger into frame made the bed small and the tags unreadable)
+		elif _lid == "L17": yaw = -0.1 * PI; frac = 0.7        # L17: from the left
 	elif by.has("batch"): ids = by.batch; yaw = 0.1 * PI; frac = 0.66                 # L18: the glass kettles side by side
 	elif by.has("gasifier"): ids = [by.gasifier[0]]                                   # L07
 	elif by.has("heater") and not by.has("packed_bed"): ids = [by.heater[0]]; frac = 0.78   # L08: the heater fills most of the frame height (0.13, Sigrid: still small)

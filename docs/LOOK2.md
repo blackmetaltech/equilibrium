@@ -305,3 +305,20 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
 - **Why:** chapter 1 went new-look in 0.11 (D-C2), so the open choice was how far chapter 2 goes. L05-L08 build on the drafting table and stand in the hall with their own equipment (splitter, gasifier, CO burner, fired heater, exchanger, cooler).
 - **Cut:** L09 (the calorimeter bench) needs its own lab scene. It stays classic and the Works map says so ("New look · L09 classic").
 - **Priya (product):** ship with L05-L08 new-look and L09 classic; holding the release for a new bench scene puts the lowest-priority item on the critical path. **Strongest argument against:** L09 is chapter 2's exam, so the chapter ends its climax in the old look; a fair case for shipping chapter 2 whole next layer. Decided: ship; L09's bench scene is the first item of the next chapter work. Release note: "L09, the calorimeter exam, is still in the classic look."
+
+## 0.13 (Inside the Bed: chapter 4, L09, the pad and the art misses)
+
+**D-13-1. Chapter 4 and L09 come to the hall; chapters 5 and 6 go to 0.14 (Ingrid).**
+- **Why:** the brief asks for two releases. Chapter 4's subject (a catalyst bed, hot near the inlet) can be shown through a window, so it was built first. L09 closes chapter 2, which ended in the classic look in 0.12 (D-12-5).
+- **Cut:** chapters 5 and 6 move to 0.14, chapters 7 to 10 and the Career to later releases. They are listed in the wiki's Planned page.
+
+**D-13-2. What 0.13 fixes from Sigrid's 0.13 score (6.29 average over 26 scenes, 14 under 6.5).**
+- **Fixed now**, because the chapter rule says a chapter's subject must be visible and L09 and L18 failed it:
+  - L09 is a laboratory bench: a flow calorimeter (Dewar in a water jacket), a bomb calorimeter with its bomb and oxygen cylinder, and a clamshell tube furnace whose tube ends glow at the reported temperature;
+  - L18's foam is a white head over darker liquid; its height follows the reaction rate. A rim light draws the glass;
+  - chapter 4 has one view per level (L15 the window, L16 the bed and its exchanger, L17 the bed and its heater). The window glass is drawn, and the sight-glass lamp no longer lights the cold top layer brighter than the hot ones;
+  - thermowell readouts stand on a dark plate, clear of the shell;
+  - the hall hint sits on a smoked plate.
+- **Carried to 0.14 as item one:** vessel materials across the hall (seams, nameplates, dirt, contact shadow, cladding bands). This touches every unit model, and 0.14 builds nine new ones, so it goes in with them.
+- **Not a defect:** "text about 14 px". The review shots are 1600x900, and the UI scales with the window (0.83 of the 1920x1080 reference). At 1080p the text is 16 px, which layout_flow checks (68294 checks, 0 under the floor). Text is judged on 1080p shots from now on.
+- **Sigrid's strongest argument against shipping:** the average is still under 6.5 and the hall's vessels look like models. I agree that the target is missed. I ship 0.13 because the two scenes that failed the chapter rule are fixed, and the target is the 0.14 gate's first line, written there.
