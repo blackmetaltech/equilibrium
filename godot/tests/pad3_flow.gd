@@ -54,7 +54,7 @@ func _run() -> void:
 	CbKit.pad_mode = true; await frames(2)
 	check(app.look2._padl != null and app.look2._padl.visible and app.look2._pad_lbl.text.begins_with("T wheel"), "L14: the pad cursor shows on the T wheel")
 	await btn(JOY_BUTTON_DPAD_UP); await btn(JOY_BUTTON_DPAD_UP); await get_tree_timer(0.4)
-	check(absf(_param("lab_flask", "T") - 410.0) < 0.6, "L14: up twice on the T wheel = 410 K (%s)" % _param("lab_flask", "T"))
+	check(absf(_param("lab_flask", "T") - 402.0) < 0.6, "L14: up twice on the T wheel = 402 K, 1 K steps since phase C (the goal wins only at 406 or 407 K) (%s)" % _param("lab_flask", "T"))
 	await btn(JOY_BUTTON_DPAD_DOWN); await btn(JOY_BUTTON_DPAD_DOWN); await get_tree_timer(0.4)
 	await btn(JOY_BUTTON_DPAD_RIGHT)
 	await btn(JOY_BUTTON_DPAD_DOWN); await get_tree_timer(0.4)

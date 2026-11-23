@@ -242,3 +242,7 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
 - **The new binding:** R3 shows the hall. While the hall is up and the table hidden, X also returns to the table.
 - **Tests:** pad3_flow changed on purpose. It now also checks that X on the table does not flip.
 - **Strongest case against:** R3 is hard to discover. The banner names it ("B or pad R3 (right stick press): the hall").
+
+**D-C6. The L14 T wheel steps 1 K by pad and by scroll (it was 5 K).**
+- **Why:** with D-C1 the goal is the book's flask, and only 406 K (-0.28 %) and 407 K (+0.24 %) read 9.15 bar within 0.5 %; 405 K is -0.82 %. At 5 K steps from 400 K a pad player could not win.
+- **Tests:** pad3_flow changed on purpose: two steps up is now 402 K, not 410 K. look2_flow now reaches the goal with six pad turns.
