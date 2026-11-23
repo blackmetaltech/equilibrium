@@ -170,7 +170,7 @@ export const levels: Record<string, string> = {
   'lv.L03.verdict.pass': 'Ten percent excess, a clean flame.',
   'lv.L03.verdict.rich': 'Rich: CO and unburnt fuel are leaving by the stack.', 'lv.L03.verdict.lean': 'Lean: heat is going up the stack.', 'lv.L03.verdict.tight': 'Too tight on air.',
   'lv.L03.verdict.not_run': 'Not run yet.',
-  'lv.L03.cause.rich': 'Air is short: {air} kmol/h of air carries {o2} kmol/h of O₂, not enough to burn all the fuel to CO₂. The flue carries {co} kmol/h of CO and {slip} % of the fuel left unburnt: the CO alarm and a sooty flame of a real boiler. Add air, and when you read the analyser count the carbon in the CO as well as in the CO₂.',
+  'lv.L03.cause.rich': 'Air is short: {air} kmol/h of air carries {o2} kmol/h of O₂, not enough to burn all the fuel to CO₂. The flue carries {co} kmol/h of CO and {slip} % of the fuel left unburnt: the CO alarm and a sooty flame, as in any boiler short of air. Add air, and when you read the analyser count the carbon in the CO as well as in the CO₂.',
   'lv.L03.cause.lean': 'Excess air is {x} %, above 11 %. The extra air only carries heat up the stack: {loss} MW lost at {T} K.',
   'lv.L03.cause.tight': 'Excess air is {x} %, under 9 %. Hold ten percent so a gust of fuel never leaves the flame short of air.',
   'lv.L03.carbon.co2': 'CO₂', 'lv.L03.carbon.co': 'CO (the flame was short of air, so the carbon left as CO)', 'lv.L03.carbon.both': 'CO₂ and CO together',

@@ -84,7 +84,7 @@ func _build_list() -> void:
 		hb.add_child(d); hb.add_child(l); _list.add_child(hb); _checks[t[0]] = {"dot": d, "label": l}
 	var sep := ColorRect.new(); sep.color = Color(1, 1, 1, 0.10); sep.custom_minimum_size = Vector2(0, 1); sep.mouse_filter = Control.MOUSE_FILTER_IGNORE; _list.add_child(sep)
 	_runs_lbl = HoloTheme.label("Last run", 16, HoloTheme.TEAL_HI, 700); _list.add_child(_runs_lbl)
-	for r in [["P", "Gauge", "%.2f", " bar"], ["alpha", "Dissociated", "%.1f", " %"], ["kp", "Kp, real flask", "%.2f", " bar"]]:
+	for r in [["P", "Gauge", "%.2f", " bar"], ["alpha", "Dissociated", "%.1f", " %"], ["kp", "Kp, your flask", "%.2f", " bar"]]:
 		var n := HoloNum.new(17, 600); n.fmt = r[2]; n.suffix = r[3]; n.custom_minimum_size.x = 90
 		var hb2 := HBoxContainer.new(); hb2.add_theme_constant_override("separation", 10); hb2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var l2 := HoloTheme.label(r[1], 16, HoloTheme.MUTED, 500); l2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -205,7 +205,7 @@ func refresh(li: Dictionary, g: Dictionary) -> void:
 	if _answered:
 		call_edit.editable = false; call_btn.disabled = true
 		call_edit.text = ("%s" % snappedf(float(ci.get("value", 0.0)), 0.01)) if ci.get("value") != null else call_edit.text
-		call_note.text = "Called for the book's flask. Your real flask will read its own Kp: that gap is the experiment."
+		call_note.text = "Called for the book's flask. Your flask (NIST-JANAF data) will read its own Kp: that gap is the experiment."
 	else:
 		call_edit.editable = live; call_btn.disabled = not live
 		call_note.text = "Call it before the first run."

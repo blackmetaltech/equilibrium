@@ -42,7 +42,7 @@ func _eta() -> void:
 	var left := 2700.0 - 21.0
 	check(absf(float(out) - left / 3.0) < 5.0, "ETA follows the measured rate: %s vs %.0f" % [str(out), left / 3.0])
 	check(absf(rec.measured_rate() - 3.0) < 0.05, "measured rate is 3.0 (%.2f)" % rec.measured_rate())
-	check(rec.rate_note() == "4× · 3× real", "the speed key says '4× · 3× real' while it lags ('%s')" % rec.rate_note())
+	check(rec.rate_note() == "4× · running 3×", "the speed key says '4× · running 3×' while it lags ('%s') (0.12: owner rule, no 'real')" % rec.rate_note())
 	# on time: no note
 	var ok := ChartRecorder.new()
 	for i in 8:

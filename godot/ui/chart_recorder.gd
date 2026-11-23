@@ -89,7 +89,7 @@ func rate_note() -> String:
 	if not bool(shift_clock.get("running", false)): return ""
 	var sp := float(shift_clock.get("speed", 1.0)); var r := measured_rate()
 	if sp <= 0.0 or r < 0.0 or r >= sp * 0.85: return ""
-	return "%s · %s real" % [EqStrings.T("SPEED_%d" % [[0, 1, 4, 16].find(int(sp))]), ("%.1f" % r).trim_suffix(".0") + "×"]
+	return "%s · running %s" % [EqStrings.T("SPEED_%d" % [[0, 1, 4, 16].find(int(sp))]), ("%.1f" % r).trim_suffix(".0") + "×"]
 ## The shift clock line the recorder prints: plant time of the shift, and the wall time left at the chosen speed.
 func clock_text() -> String:
 	if shift_clock.is_empty(): return ""

@@ -1,8 +1,8 @@
-# ⚗️ EQUILIBRIUM — run a chemical plant where the chemistry is real
+# ⚗️ EQUILIBRIUM — build a chemical plant, turn the key, read what it makes
 
 **[Releases](https://github.com/blackmetaltech/equilibrium/releases)** · **[Changelog](CHANGELOG.md)** · **[Critique](docs/CRITIQUE-0.11.md)** · **[Site](https://equilibrium.blackmetal.tech)** · **[Issues](https://github.com/blackmetaltech/equilibrium/issues)**
 
-**Build a chemical plant and turn the key. Real chemistry decides if it works.**
+**Build a chemical plant and turn the key. Equilibrium, kinetics and heat decide if it works.**
 
 A **Godot 4.7** game with the chemistry engine in TypeScript.
 
@@ -14,7 +14,7 @@ A **Godot 4.7** game with the chemistry engine in TypeScript.
 
 ![L14: the private lab, bright, with the twin flask on the dais](docs/readme/lab-gleam.jpg)
 
-**L14 has a real goal.** Find the temperature where your flask reads the book's 9.15 bar, and show why with one argon test. Six runs.
+**L14 has a goal you can miss.** Find the temperature where your flask reads the book's 9.15 bar, and show why with one argon test. Six runs.
 
 **Chapter 1 joins the hall.** Your bench plant, the sulfur burner and the boiler stand in 3D once they run.
 
@@ -28,7 +28,7 @@ A **Godot 4.7** game with the chemistry engine in TypeScript.
 
 ![Two Flasks: halve the volume and the brown darkens at once, then fades part of the way back as N2O4 re-forms; argon at constant pressure thins it](docs/readme/colour-shift.gif)
 
-**L14 Two Flasks** is your own experiment: real N₂O₄ beside a flask built to the textbook. Turn the wheels, run, and find where they agree.
+**L14 Two Flasks** is your own experiment: N₂O₄ on NIST-JANAF data beside a flask built to the textbook. Turn the wheels, run, and find where they agree.
 
 | The lab | The rig: wheels, lever, argon valve, clamp, gauge |
 |---|---|

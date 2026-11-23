@@ -5,13 +5,13 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
 
 ## [0.11.0] - 2026-11-23 · "The Bench in the new look" (LOOK2 phase C)
 ### Changed
-- **L14 Two Flasks has a real goal.** Find the temperature where your 1 L flask reads the book's 9.15 bar. Run one argon test too, to show what shifts it. You have six runs, the tests included, counted across restarts. All three Le Chatelier tests are a star, and the Kp call is another (D-C1, D-C8, D-C9).
+- **L14 Two Flasks has a goal you can miss.** Find the temperature where your 1 L flask reads the book's 9.15 bar. Run one argon test too, to show what shifts it. You have six runs, the tests included, counted across restarts. All three Le Chatelier tests are a star, and the Kp call is another (D-C1, D-C8, D-C9).
 - **Chapter 1 is new look.** L01-L04 use the drafting table and the hall, like chapter 3. The Works Map marks chapter 1 "New look" (D-C2, D-C4).
 - **The hall flip is R3 on a pad.** X turns a part on the drafting table now; X still returns from the hall (D-C5).
 - **The L14 T wheel steps 1 K by pad and scroll.** At 5 K steps the goal could not be reached by pad (D-C6).
 - **Site and README** cut to one or two short sentences per paragraph. The download button names the version.
 ### Added
-- **Real vessel models in the hall:** dished heads, clad shells with seams, flanged nozzles, manways, skirts and legs, caged ladders and ring platforms, saddled drums, gate valves and a two-level pipe rack. Pipes lie on the rack.
+- **Vessel models in the hall:** dished heads, clad shells with seams, flanged nozzles, manways, skirts and legs, caged ladders and ring platforms, saddled drums, gate valves and a two-level pipe rack. Pipes lie on the rack.
 - **A burner** whose flame follows its outlet temperature, and **a stack with a flue analyser** that reads the engine's O2, CO2, SO2 and CO.
 - **Downlights over your plant** in the hall; the cameras frame the plant you drew, low and close.
 - **The L14 lab gleams:** a pale polished epoxy floor, white upper walls, a light ceiling with LED lines.
@@ -22,7 +22,7 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
 - **A part by pad.** LB/RB walk the tray (a folded tray opens first), A takes the part, the D-pad (or the left stick) moves the cursor, A places, X turns, B puts it back. The cursor starts on the nearest free spot, so the ghost is green, not a red slab.
 - **Dialogs keep the focus.** In the notebook, a brief or a keypad the focus cannot leave to the tray behind, a D-pad press with nowhere to go scrolls the page, and the right stick scrolls it.
 - **The key and the speed dial by pad.** A on the focused key turns it, A on the focused dial steps it, Back steps it. Both dials took focus only if they were built after the first pad press.
-- `godot/tests/pad_build_flow.gd`: L01 and L10 played from the notebook to the win with real joypad events only. `godot/tests/pipe_drag_flow.gd`: the mouse pipe-drag regression below.
+- `godot/tests/pad_build_flow.gd`: L01 and L10 played from the notebook to the win with joypad events only. `godot/tests/pipe_drag_flow.gd`: the mouse pipe-drag regression below.
 - The flue analyser, the downlights and the plant bed sounds are new; no human has listened to the sound (docs/ASSETS.md).
 ### Fixed
 - A drag from the pipe-in-hand's own outlet did nothing (L03: mixer to burner never connected); `pipe_drag_flow` case 6.
@@ -51,7 +51,7 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
 
 ## [0.10.0] - 2026-11-23 · "The Wall, in the new look" (chapter 3 and the prologue in a 3D hall and lab; the other chapters stay classic and say so)
 ### Changed
-- **L14 is Two Flasks, the player's own experiment (D-B1).** Real N₂O₄ (NIST-JANAF) sits in a piston flask on your bench, with a twin flask built to the book's numbers beside it. The controls are in the world: T and V wheels, a RUN lever, an argon valve and a piston clamp. The HUD form is retired. Heat darkens the gas. The book's K is used only for the Kp call. Win: the three Le Chatelier tests (halve V; argon at constant V; argon at constant P). Test 3 counts only at the flask's own pressure, within 0.5 %. Stars: the Kp call, and finding the book's temperature (406.5 K, where the real flask reads the book's 9.15 bar). The lesson says the book's number is invented and explains bar(a). The coach asks for a prediction before each test.
+- **L14 is Two Flasks, the player's own experiment (D-B1).** N₂O₄ on NIST-JANAF data sits in a piston flask on your bench, with a twin flask built to the book's numbers beside it. The controls are in the world: T and V wheels, a RUN lever, an argon valve and a piston clamp. The HUD form is retired. Heat darkens the gas. The book's K is used only for the Kp call. Win: the three Le Chatelier tests (halve V; argon at constant V; argon at constant P). Test 3 counts only at the flask's own pressure, within 0.5 %. Stars: the Kp call, and finding the book's temperature (406.5 K, where your flask reads the book's 9.15 bar). The lesson says the book's number is invented and explains bar(a). The coach asks for a prediction before each test.
 - **L00 Night Shift has a cost (D-B2, D-B5).** The cooler is slow, 13.5 K/s. A late turn trips the interlock, and the night is lost with a retry. The iron catalyst lights off at 643 K (370 °C), and the expert saves the night at 650 K. Stars: no trip; the catalyst kept lit (the lowest set point of the night counts, so turning back does not undo it); a turn within 10 s. The cue is the CW PUMP lamp.
 - **Chapter 3 is the released new-look chapter (D-B4).** In L10-L13 the classic build view is the drafting table. Commission the plant, and your own flowsheet stands in a hall. Beds and converters glow by outlet temperature: dark below light-off, white past the sinter limit. Boiler plumes follow the engine's steam rate. B (or X on a pad) flips between the two views. Chapter 3 opens from the start, with a title-screen strip. The Works Map labels every chapter NEW LOOK or classic.
 - **Round 3 of the look.** The L14 lab is a hall: benches of coloured glassware, glass columns, a reactor bay behind glass, a gantry with a hoist, cable trays, a control dais, and the rig on a railed steel plinth. In L00 each vessel has its own finish: the fired heater has heat-resistant paint, a convection section and a burner row; the cooler is green; the converter has cladding bands; the night is darker.

@@ -138,7 +138,7 @@ export const levelsCh2: Record<string, string> = {
   // ---- L08 Pay Once
   'lv.L08.title': 'Pay Once', 'lv.L08.place': 'Furnace line, synthesis gas preheat',
   'lv.L08.note.1': 'Our furnace line heats 1000 kmol/h of synthesis gas from 40 to 420 °C, and the old furnace throws its flue out at 900 °C. Fix that: buy the heat once.',
-  'lv.L08.note.2': 'Approach no tighter than 20 K, stack no cooler than 120 °C. The exchanger costs by the square metre; the fuel costs by the hour. The shift is 30 plant minutes: turn the speed key to 16x and it takes under two minutes of real time.',
+  'lv.L08.note.2': 'Approach no tighter than 20 K, stack no cooler than 120 °C. The exchanger costs by the square metre; the fuel costs by the hour. The shift is 30 plant minutes: turn the speed key to 16x and it takes under two minutes of your time.',
   'lv.L08.goal.outlet': 'Synthesis gas to the reactor at {target} °C, within 1 °C',
   'lv.L08.goal.recover': 'The exchanger covers at least {target} % of the heating duty',
   'lv.L08.goal.shift.pending': 'Hold the plant through the half-hour shift ({target} min)',

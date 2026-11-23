@@ -724,7 +724,7 @@ func _invest() -> void:
 		var nm := lbl(str(INV_NAME[k]), 12, EqTheme.INK, "mono_bold"); nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(nm)
 		h.add_child(lbl("LEVEL %d/%d" % [lvl, mx], 12, OKGREEN, "mono_bold"))
 		var iarm := _armed.has("invest:" + str(k)) and lvl < mx; var ipr := _m(float(o.get("nextUSD", 0)))
-		var kb := key("MAXED" if lvl >= mx else (("PRESS AGAIN TO BUY " + ipr) if iarm else "BUY " + ipr), func(): _confirm("invest:" + str(k), "invest", [k]), iarm, 12); kb.name = "Invest_" + str(k); kb.disabled = over or lvl >= mx; kb.tooltip_text = "A programme costs real cash and cannot be taken back, so the key asks twice: press it again to pay %s, or CANCEL." % ipr; h.add_child(kb)
+		var kb := key("MAXED" if lvl >= mx else (("PRESS AGAIN TO BUY " + ipr) if iarm else "BUY " + ipr), func(): _confirm("invest:" + str(k), "invest", [k]), iarm, 12); kb.name = "Invest_" + str(k); kb.disabled = over or lvl >= mx; kb.tooltip_text = "A programme costs the plant's cash and cannot be taken back, so the key asks twice: press it again to pay %s, or CANCEL." % ipr; h.add_child(kb)
 		_reserve(kb, ["MAXED", "BUY " + ipr, "PRESS AGAIN TO BUY " + ipr], 12)
 		h.add_child(_cancel_slot(iarm, "InvestCancel_" + str(k), func(): _armed.erase("invest:" + str(k)); _refresh_keep(), 12))
 		var iv := VBoxContainer.new(); iv.add_theme_constant_override("separation", 1); iv.add_child(h)

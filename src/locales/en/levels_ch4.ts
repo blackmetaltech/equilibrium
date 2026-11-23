@@ -4,7 +4,7 @@ export const levelsCh4: Record<string, string> = {
 
   // ---- L15 Rate vs Ceiling
   'lv.L15.title': 'Rate vs Ceiling', 'lv.L15.place': 'Converter hall, the single bed',
-  'lv.L15.note.1': 'Real iron now, real speed. One bed, a fixed load of catalyst. Find the inlet temperature that makes the most ammonia.',
+  'lv.L15.note.1': 'Now the iron catalyst at its measured rate, and the clock at full speed. One bed, a fixed load of catalyst. Find the inlet temperature that makes the most ammonia.',
   'lv.L15.note.2': 'Too cold and the iron sleeps. Too hot and the ceiling drops. The answer is in between.',
   'lv.L15.goal.nh3': 'NH₃ at the bed outlet at least {target} mol %',
   'lv.L15.goal.tmax': 'No catalyst hotter than {target} °C',
