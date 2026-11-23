@@ -28,6 +28,13 @@ const LADDER := {"ladder": true, "ladder_ang": PI * 0.17, "manway_ang": PI * 0.5
 
 func _ready() -> void:
 	_build_env(); _build_hall(); _build_outside()
+	for l in get_children():   # 0.13 (Sigrid: "warm pools on the floor with no visible source"): the roof high-bays' specular glints on the damp floor; their fixtures are out of every build view
+		if l is SpotLight3D and (l as SpotLight3D).position.y > 16.0:   # the shafts' feet glowed on the floor: flatter, wider, a little dimmer, no glint
+			var hb := l as SpotLight3D; hb.light_specular = 0.1; hb.light_volumetric_fog_energy = 1.2; hb.spot_attenuation = 0.25; hb.spot_angle = 55.0; hb.light_energy = 6.0
+		if l is MeshInstance3D and absf((l as MeshInstance3D).position.y - 16.38) < 0.05 and (l as MeshInstance3D).material_override is StandardMaterial3D:   # and their lenses: at 14x they mirrored in the damp floor as orange blobs (SSR)
+			var lm := ((l as MeshInstance3D).material_override as StandardMaterial3D).duplicate() as StandardMaterial3D; lm.emission_energy_multiplier = 3.0; lm.emission = Color(1.0, 0.9, 0.75); (l as MeshInstance3D).material_override = lm
+	if flare_light != null: flare_light.light_energy = 0.35; flare_light.shadow_enabled = false   # 0.13: the outside flare's light came through a window gap as an orange patch on the hall floor (Sigrid's "pool with no source")
+	floor_wet = 0.4   # a drier floor in the build hall: fewer mirror patches (set_quality applies it)
 	cam = Camera3D.new(); cam.fov = 50.0; cam.near = 0.05; cam.far = 3000.0; add_child(cam)
 	plant = Node3D.new(); plant.name = "player_plant"; add_child(plant)
 	_hov = Label3D.new(); _hov.name = "HoverTag"; _hov.font_size = 36; _hov.pixel_size = 0.0009; _hov.fixed_size = true; _hov.no_depth_test = true; _hov.render_priority = 10
@@ -118,15 +125,15 @@ func rebuild() -> void:
 		var n := clampi(int(_span / 7.0) + 1, 2, 5)
 		for i in n:
 			var sx := _ctr.x - _span * 0.4 + _span * 0.8 * float(i) / float(maxi(1, n - 1))
-			var sp := SpotLight3D.new(); sp.light_specular = 0.4; sp.light_color = Color(1.0, 0.88, 0.72); sp.light_energy = (14.0 if tier != "compat" else 1.6); sp.spot_range = 22.0; sp.spot_angle = 24.0
-			sp.light_volumetric_fog_energy = 3.0; sp.shadow_enabled = i % 2 == 0; sp.position = Vector3(sx, 15.5, _ctr.z + 1.0); plant.add_child(sp); sp.rotation_degrees.x = -90
+			var sp := SpotLight3D.new(); sp.light_specular = 0.05; sp.light_color = Color(1.0, 0.94, 0.86); sp.light_energy = (8.0 if tier != "compat" else 1.2); sp.spot_range = 22.0; sp.spot_angle = 40.0   # 0.13 (Sigrid: "warm pools on the floor with no source"): wide, near-white, low specular: hall light, not a fire
+			sp.light_volumetric_fog_energy = 1.0; sp.shadow_enabled = i % 2 == 0; sp.position = Vector3(sx, 15.5, _ctr.z + 1.0); plant.add_child(sp); sp.rotation_degrees.x = -90
 			_cyl(0.5, 0.25, Vector3(sx, 15.8, _ctr.z + 1.0), M.paint_grey, plant); _cyl(0.42, 0.02, Vector3(sx, 15.67, _ctr.z + 1.0), _flat(Color(1, 1, 1), 0, 0.3, Color(1.0, 0.9, 0.75), 3.0), plant)
 	var hb := 0
 	for id5 in at:   # warm high-bay spots over the converters and beds, so the row is lit from above and not only glowing
 		if str(_types[id5]) in ["eq_bed", "eq_reactor"] and hb < 3:
 			var hc: Vector3 = at[id5]; hb += 1
-			var hs := SpotLight3D.new(); hs.light_color = Color(1.0, 0.82, 0.6); hs.light_energy = 20.0 if tier != "compat" else 2.5; hs.spot_range = 17.0; hs.spot_angle = 26.0; hs.light_specular = 0.3
-			hs.position = Vector3(hc.x, 12.5, hc.z + 0.6); plant.add_child(hs); hs.rotation_degrees.x = -90
+			var hs := SpotLight3D.new(); hs.light_color = Color(1.0, 0.82, 0.6); hs.light_energy = 20.0 if tier != "compat" else 2.5; hs.spot_range = 17.0; hs.spot_angle = 26.0; hs.light_specular = 0.0
+			hs.position = Vector3(hc.x + 1.5, 12.5, hc.z + 5.5); plant.add_child(hs); hs.look_at(hc + Vector3(0, 3.5, 0), Vector3.UP); hs.spot_angle = 16.0; hs.light_energy *= 0.6   # 0.13: aimed at the shell from the front, so its pool lands on the vessel and behind it, not on bare floor beside it (Sigrid's L10-L12 "pool with no source")
 			_cyl(0.4, 0.2, Vector3(hc.x, 12.6, hc.z + 0.6), M.paint_grey, plant, 0.3); _cyl(0.34, 0.02, Vector3(hc.x, 12.49, hc.z + 0.6), _flat(Color(1, 1, 1), 0, 0.3, Color(1.0, 0.85, 0.65), 3.0), plant)
 	print("LOOK2 gen: %d units, %d pipes" % [at.size(), k])
 	set_camera(_preset)   # re-frame the new plant
@@ -389,7 +396,7 @@ func _stack(id: String, c: Vector3) -> void:
 	var shell := _pbr("rusty_metal_02", 0.5, Color(0.72, 0.62, 0.55), true)
 	_lathe(PackedVector2Array([Vector2(0.75, 0), Vector2(0.45, 9.0), Vector2(0.5, 9.0), Vector2(0.5, 9.4), Vector2(0.0, 9.4)]), 40, shell, c, plant, true)
 	var r_at := func(y: float) -> float: return 0.75 - y * 0.30 / 9.0
-	_lathe(PackedVector2Array([Vector2(0.765, 0), Vector2(r_at.call(1.1) + 0.012, 1.1), Vector2(r_at.call(1.1), 1.1), Vector2(0.75, 0)]), 40, _flat(Color(0.42, 0.24, 0.15), 0.3, 0.85), c, plant, false)   # rust at the base
+	_lathe(PackedVector2Array([Vector2(0.765, 0), Vector2(r_at.call(1.1) + 0.012, 1.1), Vector2(r_at.call(1.1), 1.1), Vector2(0.75, 0)]), 40, _flat(Color(0.52, 0.33, 0.22), 0.3, 0.8), c, plant, false)   # rust at the base (0.13: lighter, it read as a black hole under the work light)
 	_lathe(PackedVector2Array([Vector2(r_at.call(7.6) + 0.006, 7.6), Vector2(r_at.call(8.6) + 0.006, 8.6), Vector2(r_at.call(8.6), 8.6), Vector2(r_at.call(7.6), 7.6)]), 40, _flat(Color(0.36, 0.33, 0.42), 0.6, 0.5), c, plant, false)   # heat tint
 	_lathe(PackedVector2Array([Vector2(r_at.call(8.6) + 0.008, 8.6), Vector2(0.508, 9.0), Vector2(0.508, 9.42), Vector2(0.5, 9.42), Vector2(0.5, 9.0), Vector2(r_at.call(8.6), 8.6)]), 40, _flat(Color(0.05, 0.05, 0.05), 0.0, 1.0), c, plant, false)   # soot
 	var yy := 1.2
@@ -406,12 +413,12 @@ func _stack(id: String, c: Vector3) -> void:
 	for i in 13: _seg(c + Vector3(-0.8, 0.3 + i * 0.3, 0.95), c + Vector3(-0.4, 0.3 + i * 0.3, 0.95), 0.012, M.yellow, plant)
 	var ss := _flat(Color(0.84, 0.86, 0.88), 1.0, 0.2)   # stainless
 	_flange(c + Vector3(0.65, 4.3, 0), Vector3.RIGHT, 0.04, plant); _seg(c + Vector3(0.55, 4.3, 0), c + Vector3(0.7, 4.3, 0), 0.025, ss, plant)   # the probe flange on the stack wall
-	_pipe([c + Vector3(0.7, 4.3, 0), c + Vector3(1.1, 4.3, 0.5), c + Vector3(1.2, 2.6, 1.0), c + Vector3(1.2, 1.72, 1.0)], 0.01, ss, plant, false)   # the 0.02 m stainless sample line down to the cabinet
+	_pipe([c + Vector3(0.7, 4.3, 0), c + Vector3(1.1, 4.3, 0.5), c + Vector3(1.2, 2.6, 1.0), c + Vector3(1.2, 1.72, 1.0)], 0.018, ss, plant, false)   # 0.13: 0.018 so it reads at the analyser view   # the 0.02 m stainless sample line down to the cabinet
 	var cab := c + Vector3(1.5, 0, 1.1)
 	_box(Vector3(0.9, 1.7, 0.6), cab + Vector3(0, 0.85, 0), _flat(Color(0.62, 0.65, 0.68), 0.15, 0.45), plant)   # grey powder-coat analyser cabinet
 	_box(Vector3(0.82, 0.72, 0.03), cab + Vector3(0, 1.25, 0.3), _flat(Color(0.15, 0.16, 0.17), 0.3, 0.4), plant)   # recessed bezel
 	_seg(cab + Vector3(-0.3, 1.7, 0), cab + Vector3(-0.3, 2.6, 0), 0.03, M.steel_dull, plant)   # conduit up to the sample line
-	var scr := _flat(Color(0.02, 0.05, 0.05), 0.0, 0.2); scr.emission_enabled = true; scr.emission = Color(0.1, 0.5, 0.45); scr.emission_energy_multiplier = 0.5
+	var scr := _flat(Color(0.015, 0.02, 0.02), 0.0, 0.15); scr.emission_enabled = true; scr.emission = Color(0.05, 0.16, 0.12); scr.emission_energy_multiplier = 0.6   # a dark LCD that glows faintly, not a teal slab
 	_box(Vector3(0.74, 0.62, 0.02), cab + Vector3(0, 1.25, 0.31), scr, plant)
 	_box(Vector3(0.86, 0.03, 0.3), cab + Vector3(0, 1.62, 0.43), _flat(Color(0.5, 0.52, 0.54), 0.4, 0.5), plant).rotation_degrees.x = 12.0   # the sun hood over the screen
 	for sx in [-0.42, 0.42]: _box(Vector3(0.025, 0.2, 0.28), cab + Vector3(sx, 1.53, 0.43), _flat(Color(0.5, 0.52, 0.54), 0.4, 0.5), plant)
@@ -419,7 +426,9 @@ func _stack(id: String, c: Vector3) -> void:
 	for sx2 in [-0.4, 0.4]: _box(Vector3(0.012, 1.5, 0.006), cab + Vector3(sx2, 0.85, 0.303), seam, plant)
 	for sy in [0.12, 1.6]: _box(Vector3(0.8, 0.012, 0.006), cab + Vector3(0, sy, 0.303), seam, plant)
 	_box(Vector3(0.03, 0.18, 0.03), cab + Vector3(0.32, 0.8, 0.32), M.steel_dull, plant)
-	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.0016; t.modulate = Color(0.5, 1.0, 0.9)
+	var cl := SpotLight3D.new(); cl.light_color = Color(0.9, 0.95, 1.0); cl.light_energy = 3.0 if tier != "compat" else 1.2; cl.spot_range = 6.0; cl.spot_angle = 50.0; cl.light_specular = 0.2   # the work light over the cabinet: it lights the stack base and the sample line
+	cl.position = cab + Vector3(0.2, 3.2, 1.4); plant.add_child(cl); cl.look_at(cab + Vector3(-0.8, 0.6, -0.4), Vector3.UP)
+	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.0016; t.modulate = Color(0.62, 1.0, 0.72)
 	t.outline_size = 0; t.position = cab + Vector3(0, 1.25, 0.33); t.width = 180.0; t.autowrap_mode = TextServer.AUTOWRAP_OFF; plant.add_child(t)
 	_analyser[id] = t; _stack_at = cab
 	_steam[id] = _particles(c + Vector3(0, 9.5, 0), 24, 5.0, Vector3(0, 1.4, 0), 10.0, 1.0, Color(0.75, 0.74, 0.72, 0.28), plant, 3.5)
@@ -837,7 +846,7 @@ func _pick_hero() -> Dictionary:
 	elif by.has("packed_bed"): ids = [by.packed_bed[0]]; yaw = 0.1 * PI; frac = 0.72   # chapter 4: the bed through its window, near face on
 	elif by.has("batch"): ids = by.batch; yaw = 0.1 * PI; frac = 0.5                 # L18: the glass kettles side by side
 	elif by.has("gasifier"): ids = [by.gasifier[0]]                                   # L07
-	elif by.has("heater"): ids = [by.heater[0]]; frac = 0.6                         # L08: camera in until the heater is ~40 % of the frame
+	elif by.has("heater") and not by.has("packed_bed"): ids = [by.heater[0]]; frac = 0.78   # L08: the heater fills most of the frame height (0.13, Sigrid: still small)
 	elif by.has("eq_bed"): var b: Array = by.eq_bed; ids = [b[b.size() / 2]]; yaw = 0.24 * PI   # L13: the middle bed, its neighbours either side
 	elif by.has("eq_reactor"):                                                      # L10-L12: the converter, from a different side each
 		ids = [by.eq_reactor[0]]; yaw = (0.2 if _lid != "L11" else -0.2) * PI
@@ -950,13 +959,19 @@ func set_camera(spec: String) -> void:
 		if p == "plant" and not _at.is_empty():   # the hero view: the unit that tells the level's story, whole, 45-55 % of the frame high, three-quarter, ~30 degrees down
 			_preset = p; _frame_hero(); continue
 		if p == "stack" and not _analyser.is_empty():   # the flue analyser close up
-			_preset = p; t_focus = _stack_at + Vector3(0, 1.4, 0); t_yaw = -0.5; t_pitch = -0.08; t_dist = 3.6; continue
+			_preset = p; t_focus = _stack_at + Vector3(-0.7, 1.9, -0.5); t_yaw = -0.42; t_pitch = -0.14; t_dist = 5.0; continue   # 0.13 (Sigrid): back far enough to see the probe, the sample line down the stack and the cabinet
 		if not GEN_PRESETS.has(p): continue
 		_preset = p
 		var v: Array = GEN_PRESETS[p]; t_focus = _ctr + Vector3(0, (v[0] as Vector3).y, 0); t_yaw = v[1]; t_pitch = v[2]
 		t_dist = clampf(_span * float(v[3]) / 22.0, 7.0, float(v[3]) * 1.4)   # phase C: distance scales with the plant, not a fixed spot in the hall
 	if OS.has_environment("CB_SHOT"):
 		_snap_cam()
+		if OS.get_environment("CB_LIGHTOFF") != "":   # debug: hide the plant's lights ("plant"), the hall's ("hall") or the particles ("fx")
+			var w := OS.get_environment("CB_LIGHTOFF")
+			for l in find_children("*", "Light3D", true, false): if (w == "plant") == plant.is_ancestor_of(l) and w != "fx": (l as Light3D).visible = false
+			if w == "fx": for q in find_children("*", "GPUParticles3D", true, false): (q as Node3D).visible = false
+		if OS.get_environment("CB_CAMDBG") == "2":
+			for l in find_children("*", "Light3D", true, false): if (l as Light3D).visible and (l as Light3D).light_energy > 0.0: print("LIGHTDBG %s %s e=%.2f c=%s spec=%.2f" % [l.get_class(), str((l as Node3D).global_position), (l as Light3D).light_energy, str((l as Light3D).light_color), (l as Light3D).light_specular])
 		if OS.get_environment("CB_CAMDBG") == "1": print("CAMDBG preset=%s focus=%s cam=%s glow=%s types=%s anchors=%s" % [_preset, str(t_focus), str(cam.position if cam else Vector3.ZERO), str(_glow.keys()), str(_types), str(anchors)])
 func key(e: InputEventKey) -> bool:
 	match e.keycode:

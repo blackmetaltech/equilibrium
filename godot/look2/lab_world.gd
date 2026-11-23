@@ -73,6 +73,8 @@ func setup(role_ids: Dictionary) -> void:
 
 func make_current() -> void: cam.make_current()
 
+var floor_mat: ShaderMaterial   ## the hall floor (set_quality dries it on the low tier)
+var floor_wet := 0.75          ## its wetness on the GPU tiers (the build hall: 0.4)
 func set_quality(t: String) -> void:
 	tier = t
 	if env == null: return
@@ -99,8 +101,13 @@ func set_quality(t: String) -> void:
 		li.shadow_enabled = bool(li.get_meta("shadow0")) and (ultra or (t == "high" and li is DirectionalLight3D))
 		if li is OmniLight3D and li.global_position.z < -20.0 and li != flare_light: li.visible = ultra
 	for r in find_children("*", "ReflectionProbe", true, false): (r as ReflectionProbe).visible = not compat
+	if floor_mat != null:   # 0.13 (Sigrid: "the compat floor is nearly black"): with no reflection probe or SSR the damp patches mirror nothing and read black; the low tier dries the floor and lifts it
+		floor_mat.set_shader_parameter("wet", 0.12 if compat else floor_wet)
+		floor_mat.set_shader_parameter("tint", Color(0.95, 0.96, 0.98) if compat else Color(0.72, 0.74, 0.76))
 	if compat:   # the low tier has no bounce light, fog or SDFGI: a lifted ambient and one shadowless fill, so it is not a black room with white pools
 		env.ambient_light_energy = 0.9
+		if get_script() != LabWorld:   # 0.13: in the hall (GenWorld) the night-sky ambient is near black on GL; a flat warm-grey ambient stands in for the bounce light (L00 and the title keep theirs)
+			env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR; env.ambient_light_color = Color(0.5, 0.5, 0.52); env.ambient_light_energy = 1.0
 		var cf := get_node_or_null("CompatFill") as DirectionalLight3D
 		if cf == null:
 			cf = DirectionalLight3D.new(); cf.name = "CompatFill"; cf.light_color = Color(0.85, 0.9, 1.0); cf.light_energy = 0.6; cf.shadow_enabled = false; cf.light_specular = 0.0
@@ -290,7 +297,8 @@ func _build_env() -> void:
 # ---- the hall --------------------------------------------------------------------------------------------------------------------------------
 func _build_hall() -> void:
 	var fl := PlaneMesh.new(); fl.size = Vector2(60, 30); fl.subdivide_width = 1; fl.subdivide_depth = 1
-	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.75, "contrast": 0.5}))   # 0.12: a little drier (Sigrid: the downlight puddle hot spot)
+	floor_mat = _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.75, "contrast": 0.5})   # 0.12: a little drier (Sigrid: the downlight puddle hot spot)
+	_mi(fl, Vector3.ZERO, floor_mat)
 	# painted walkway lines and a drain channel
 	for x in [-26.0, 26.0]: _box(Vector3(0.12, 0.004, 26), Vector3(x, 0.003, 0), M.yellow)
 	_box(Vector3(52, 0.004, 0.12), Vector3(0, 0.003, 7.2), M.yellow)
