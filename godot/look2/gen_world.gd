@@ -190,8 +190,8 @@ func _stack(id: String, c: Vector3) -> void:
 	var cab := c + Vector3(1.5, 0, 1.1)
 	_box(Vector3(0.9, 1.7, 0.6), cab + Vector3(0, 0.85, 0), _paint(Color(0.82, 0.83, 0.8)), plant)
 	var scr := _flat(Color(0.02, 0.05, 0.05), 0.0, 0.2); scr.emission_enabled = true; scr.emission = Color(0.1, 0.5, 0.45); scr.emission_energy_multiplier = 0.5
-	_box(Vector3(0.7, 0.5, 0.02), cab + Vector3(0, 1.25, 0.31), scr, plant)
-	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.0035; t.modulate = Color(0.5, 1.0, 0.9)
+	_box(Vector3(0.74, 0.62, 0.02), cab + Vector3(0, 1.25, 0.31), scr, plant)
+	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.0016; t.modulate = Color(0.5, 1.0, 0.9)
 	t.outline_size = 0; t.position = cab + Vector3(0, 1.25, 0.33); t.width = 180.0; t.autowrap_mode = TextServer.AUTOWRAP_OFF; plant.add_child(t)
 	_analyser[id] = t; _stack_at = cab
 	_steam[id] = _particles(c + Vector3(0, 9.5, 0), 24, 5.0, Vector3(0, 1.4, 0), 10.0, 1.0, Color(0.75, 0.74, 0.72, 0.28), plant, 3.5)
