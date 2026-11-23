@@ -178,6 +178,13 @@ class Dismiss extends Node:
 ## A goal's unit with its space (" s"), so "now 94 s · target 95 s" never shows two bare numbers.
 static func _gu(g: Dictionary) -> String: return (" " + str(g.unit)) if str(g.get("unit", "")) != "" else ""
 
+## The dymo already says CALL IT: the rule starts at "Predict before...", not "Call it: predict before...".
+static func _rule_text(t: String) -> String:
+	var r := t.trim_prefix("Call it: ")
+	return r if r == t else r.left(1).to_upper() + r.substr(1)
+
+static var _more_open := {}   ## level id -> the "more" lines of its brief are open
+
 static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void:
 	var fvb: VBoxContainer = vb.get_meta("fvb", vb)
 	vb.add_theme_constant_override("separation", 10); vb.custom_minimum_size.x = minf(660.0, app.get_viewport().get_visible_rect().size.x - 140.0)   # wrapped labels need a width to size against
@@ -188,8 +195,20 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	var lines: Array = li.get("note", [])
 	var many := lines.size() > 4   # a recipe in short numbered steps: each its own paragraph with air between, a little smaller so the steps fit the page
 	var note := VBoxContainer.new(); note.name = "Note"; note.add_theme_constant_override("separation", 9 if many else 2); vb.add_child(note)
-	for ln in lines:
+	var shown: Array = lines; var extra: Array = []
+	if not many:   # 0.12: the goal and what to do first (three short lines); the rest behind "more"; the Call-it rule is not said twice
+		var parts := BriefLines.split(lines, str(li.get("predictNote", "")) if li.get("predictNote") != null else "")
+		shown = parts.first; extra = parts.more
+	for ln in shown:
 		var l := EqTheme.label(str(ln), 17 if many else 19, EqTheme.PEN_BLUE, "sans"); l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l.size_flags_horizontal = Control.SIZE_EXPAND_FILL; note.add_child(l)
+	if not extra.is_empty():
+		var lid0 := str(li.get("id", ""))
+		var xv := VBoxContainer.new(); xv.name = "NoteMore"; xv.add_theme_constant_override("separation", 9); xv.visible = bool(_more_open.get(lid0, false))
+		for ln in extra:
+			var l2 := EqTheme.label(str(ln), 17, EqTheme.PEN_BLUE, "sans"); l2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; l2.size_flags_horizontal = Control.SIZE_EXPAND_FILL; xv.add_child(l2)
+		var mb := EqTheme.key_button(PaperStrings.t("NB_LESS") if xv.visible else PaperStrings.t("NB_MORE"), false, 15); mb.name = "NoteMoreBtn"; mb.custom_minimum_size = Vector2(120, 36); mb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		mb.pressed.connect(func(): xv.visible = not xv.visible; _more_open[lid0] = xv.visible; mb.text = PaperStrings.t("NB_LESS") if xv.visible else PaperStrings.t("NB_MORE"))
+		note.add_child(mb); note.add_child(xv)
 	var sg := EqTheme.label("— " + str(li.get("setter", "")), 19, EqTheme.PEN_BLUE, "semi"); sg.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; note.add_child(sg)
 	note.rotation_degrees = -0.4
 	# goals
@@ -257,7 +276,7 @@ static func _fill(app, host: Control, vb: VBoxContainer, li: Dictionary) -> void
 	for ci in cis:
 		if not (ci is Dictionary): continue
 		if ci == cis[0] and li.get("predictNote") != null and str(li.predictNote) != "":
-			var pn := EqTheme.label(str(li.predictNote), 15, EqTheme.PEN_BLUE, "semi"); pn.name = "PredictNote"; pn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cbox.add_child(pn)
+			var pn := EqTheme.label(_rule_text(str(li.predictNote)), 15, EqTheme.PEN_BLUE, "semi"); pn.name = "PredictNote"; pn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; cbox.add_child(pn)
 		var ckey := str(ci.get("key", ""))
 		var cr := HBoxContainer.new(); cr.name = "CallIt" if cis.size() == 1 else "CallIt_" + ckey; cr.add_theme_constant_override("separation", 10); cbox.add_child(cr)
 		cr.add_child(EqTheme.dymo(PaperStrings.t("NB_CALLIT"), 13))

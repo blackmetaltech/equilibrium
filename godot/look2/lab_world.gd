@@ -277,7 +277,7 @@ func _build_env() -> void:
 # ---- the hall --------------------------------------------------------------------------------------------------------------------------------
 func _build_hall() -> void:
 	var fl := PlaneMesh.new(); fl.size = Vector2(60, 30); fl.subdivide_width = 1; fl.subdivide_depth = 1
-	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.9}))
+	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.9, "contrast": 0.5}))
 	# painted walkway lines and a drain channel
 	for x in [-26.0, 26.0]: _box(Vector3(0.12, 0.004, 26), Vector3(x, 0.003, 0), M.yellow)
 	_box(Vector3(52, 0.004, 0.12), Vector3(0, 0.003, 7.2), M.yellow)
@@ -305,8 +305,12 @@ func _build_hall() -> void:
 		for i in 11: _box(Vector3(0.45, 13.0, 0.45), Vector3(-30.0 + i * 6.0, 6.5, z + signf(z) * 0.5), M.paint_grey)
 	_box(Vector3(1.0, 1.1, 27.6), Vector3(-9.0, 13.9, 0), M.yellow)
 	_box(Vector3(1.6, 0.9, 1.4), Vector3(-9.0, 13.2, 3.0), M.paint_grey)
-	_seg(Vector3(-9.0, 12.8, 3.0), Vector3(-9.0, 7.5, 3.0), 0.015, M.black)
-	_box(Vector3(0.5, 0.4, 0.3), Vector3(-9.0, 7.3, 3.0), M.yellow)
+	# 0.12 (Sigrid: "an unexplained orange cube"): a hook block that reads as one, hung high on twin wire ropes that are visible from the floor
+	for dx in [-0.12, 0.12]: _seg(Vector3(-9.0 + dx, 12.8, 3.0), Vector3(-9.0 + dx, 10.45, 3.0), 0.03, M.steel_dull)
+	_box(Vector3(0.62, 0.55, 0.22), Vector3(-9.0, 10.2, 3.0), M.yellow)   # the block's side plates
+	_cyl(0.2, 0.26, Vector3(-9.0, 10.3, 3.0), M.steel_dull).rotation_degrees.x = 90   # sheave
+	_seg(Vector3(-9.0, 9.92, 3.0), Vector3(-9.0, 9.7, 3.0), 0.05, M.steel_dull)   # shank
+	var hk := _torus(0.17, 0.05, Vector3(-9.0, 9.5, 3.0), M.yellow); hk.rotation_degrees.x = 90   # the hook
 	# cool LED strips along the glass wall head and fill lights over the loop (the 0.9 gantry in front of the glass is cut: it hid the view)
 	_box(Vector3(60, 0.06, 0.1), Vector3(0, 14.9, -14.9), _flat(Color.WHITE, 0, 0.5, Color(0.75, 0.88, 1.0), 5.0))
 	for i in 4:

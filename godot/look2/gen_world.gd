@@ -180,9 +180,21 @@ func _vent(id: String, c: Vector3) -> void:
 ## Phase C (chapter 1): the stack with its flue analyser. A tapered brick-red stack with a sampling platform; at the base, the analyser cabinet
 ## whose screen reads the engine's stack composition (y_O2, y_CO2, y_SO2, y_CO, y_H2O) in mol %.
 func _stack(id: String, c: Vector3) -> void:
-	var brick := _flat(Color(0.46, 0.2, 0.14), 0.0, 0.85)
-	_lathe(PackedVector2Array([Vector2(0.75, 0), Vector2(0.45, 9.0), Vector2(0.5, 9.0), Vector2(0.5, 9.4), Vector2(0.0, 9.4)]), 32, brick, c, plant, true)
-	for y in [3.0, 6.0, 8.9]: _torus(0.75 - y * 0.033 + 0.03, 0.04, c + Vector3(0, y, 0), M.black, plant)
+	# 0.12 (Sigrid: "the stack reads as red cloth"): a tapered steel stack. Weathered plate (rust deepest at the base), circumferential weld seams every 1.2 m, staggered
+	# vertical plate seams, a heat-tinted band under the top, soot at the lip, and a base ring with anchor bolts
+	var shell := _pbr("rusty_metal_02", 0.5, Color(0.72, 0.62, 0.55), true)
+	_lathe(PackedVector2Array([Vector2(0.75, 0), Vector2(0.45, 9.0), Vector2(0.5, 9.0), Vector2(0.5, 9.4), Vector2(0.0, 9.4)]), 40, shell, c, plant, true)
+	var r_at := func(y: float) -> float: return 0.75 - y * 0.30 / 9.0
+	_lathe(PackedVector2Array([Vector2(0.765, 0), Vector2(r_at.call(1.1) + 0.012, 1.1), Vector2(r_at.call(1.1), 1.1), Vector2(0.75, 0)]), 40, _flat(Color(0.28, 0.14, 0.08), 0.3, 0.95), c, plant, false)   # rust at the base
+	_lathe(PackedVector2Array([Vector2(r_at.call(7.6) + 0.006, 7.6), Vector2(r_at.call(8.6) + 0.006, 8.6), Vector2(r_at.call(8.6), 8.6), Vector2(r_at.call(7.6), 7.6)]), 40, _flat(Color(0.36, 0.33, 0.42), 0.6, 0.5), c, plant, false)   # heat tint
+	_lathe(PackedVector2Array([Vector2(r_at.call(8.6) + 0.008, 8.6), Vector2(0.508, 9.0), Vector2(0.508, 9.42), Vector2(0.5, 9.42), Vector2(0.5, 9.0), Vector2(r_at.call(8.6), 8.6)]), 40, _flat(Color(0.05, 0.05, 0.05), 0.0, 1.0), c, plant, false)   # soot
+	var yy := 1.2
+	while yy < 8.9: _torus(r_at.call(yy) + 0.005, 0.014, c + Vector3(0, yy, 0), M.steel_dull, plant); yy += 1.2   # weld seams
+	for k in 7:
+		var a0 := float(k % 2) * PI / 3.0 + float(k / 2) * TAU / 3.0; var y0 := float(k) * 1.2
+		_seg(c + Vector3(cos(a0) * (r_at.call(y0) + 0.004), y0, sin(a0) * (r_at.call(y0) + 0.004)), c + Vector3(cos(a0) * (r_at.call(y0 + 1.2) + 0.004), y0 + 1.2, sin(a0) * (r_at.call(y0 + 1.2) + 0.004)), 0.01, M.steel_dull, plant, 6)   # vertical seams, staggered
+	_lathe(PackedVector2Array([Vector2(0.75, 0), Vector2(1.0, 0), Vector2(1.0, 0.06), Vector2(0.75, 0.06)]), 40, M.steel_dull, c, plant, false)   # base ring
+	for i in 12: _cyl(0.03, 0.12, c + Vector3(cos(i * TAU / 12.0) * 0.9, 0.1, sin(i * TAU / 12.0) * 0.9), M.steel_dull, plant)   # anchor bolts
 	_lathe(PackedVector2Array([Vector2(0.62, 0), Vector2(1.5, 0), Vector2(1.5, 0.05), Vector2(0.62, 0.05)]), 32, M.plate, c + Vector3(0, 4.0, 0), plant, false)
 	_torus(1.5, 0.025, c + Vector3(0, 5.05, 0), M.steel_dull, plant); _torus(1.5, 0.02, c + Vector3(0, 4.55, 0), M.steel_dull, plant)
 	for i in 10: _seg(c + Vector3(cos(i * TAU / 10.0) * 1.5, 4.05, sin(i * TAU / 10.0) * 1.5), c + Vector3(cos(i * TAU / 10.0) * 1.5, 5.05, sin(i * TAU / 10.0) * 1.5), 0.018, M.steel_dull, plant)   # Sigrid: handrail stanchions, steel not UI halos
@@ -207,9 +219,22 @@ func _burner(id: String, c: Vector3) -> void:
 	_box(Vector3(2.4, 2.2, 1.8), c + Vector3(0, 1.4, 0), M.heat_paint, plant)
 	for x in [-0.9, 0.0, 0.9]: _box(Vector3(0.08, 2.24, 1.84), c + Vector3(x, 1.4, 0), M.steel_dull, plant)   # stiffeners
 	_box(Vector3(2.6, 0.3, 2.0), c + Vector3(0, 0.15, 0), M.paint_grey, plant)
-	var thr := _cyl(0.35, 0.6, c + Vector3(-1.5, 1.4, 0), M.refractory, plant); thr.rotation_degrees.z = 90
-	var bl := _cyl(0.45, 0.5, c + Vector3(-2.1, 1.0, 0.0), _paint(Color(0.2, 0.32, 0.5)), plant); bl.rotation_degrees.x = 90   # blower volute
-	_cyl(0.3, 0.6, c + Vector3(-2.1, 1.0, 0.55), _paint(Color(0.1, 0.25, 0.2)), plant).rotation_degrees.x = 90                    # motor
+	# 0.12 (Sigrid: "three primary-coloured toy cylinders"): a combustion-air fan set in one machinery paint on its own skid: scroll volute, tangential outlet
+	# duct into a flanged steel burner throat, a finned TEFC motor, a yellow coupling guard, an inlet bell with a screen
+	var mach := _paint(Color(0.30, 0.36, 0.34))
+	var thr := _cyl(0.3, 0.55, c + Vector3(-1.48, 1.4, 0), M.steel_dull, plant); thr.rotation_degrees.z = 90   # throat (refractory inside)
+	for fx in [-1.22, -1.74]: var tf := _cyl(0.4, 0.05, c + Vector3(fx, 1.4, 0), M.steel_dull, plant); tf.rotation_degrees.z = 90   # throat flanges
+	_box(Vector3(1.5, 0.14, 1.4), c + Vector3(-2.35, 0.07, 0.25), M.paint_grey, plant)   # fan skid
+	var vo := _cyl(0.55, 0.42, c + Vector3(-2.35, 0.75, 0.0), mach, plant, -1.0, 40); vo.rotation_degrees.x = 90   # volute
+	_box(Vector3(0.42, 0.42, 0.42), c + Vector3(-2.35, 1.17, 0.0), mach, plant)   # scroll outlet, rising
+	_seg(c + Vector3(-2.35, 1.36, 0.0), c + Vector3(-1.75, 1.4, 0.0), 0.2, mach, plant)   # duct to the throat
+	_box(Vector3(0.95, 0.1, 0.1), c + Vector3(-2.35, 0.32, -0.24), mach, plant)   # volute feet
+	var bell := _cyl(0.32, 0.12, c + Vector3(-2.35, 0.75, -0.27), M.steel_dull, plant, 0.24); bell.rotation_degrees.x = -90   # inlet bell
+	var scr := _cyl(0.31, 0.01, c + Vector3(-2.35, 0.75, -0.34), _flat(Color(0.12, 0.12, 0.12), 0.6, 0.5), plant); scr.rotation_degrees.x = 90   # inlet screen
+	var mo := _cyl(0.26, 0.55, c + Vector3(-2.35, 0.62, 0.68), mach, plant); mo.rotation_degrees.x = 90   # motor
+	for k in 7: var fin := _cyl(0.29, 0.025, c + Vector3(-2.35, 0.62, 0.47 + k * 0.07), mach, plant); fin.rotation_degrees.x = 90   # cooling fins
+	_box(Vector3(0.18, 0.14, 0.22), c + Vector3(-2.35, 0.94, 0.68), mach, plant)   # terminal box
+	_box(Vector3(0.3, 0.24, 0.2), c + Vector3(-2.35, 0.62, 0.3), M.yellow, plant)   # coupling guard
 	var gm := _glowmat(); var pw := _cyl(0.16, 0.05, c + Vector3(0.3, 1.5, 0.92), gm, plant); pw.rotation_degrees.x = 90       # peep window
 	var fl := _particles(c + Vector3(-0.6, 1.4, 0), 60, 0.5, Vector3(2.4, 0.2, 0), 8.0, 0.35, Color(1.0, 0.55, 0.15, 0.7), plant, 2.0)
 	fl.emitting = false
@@ -274,18 +299,29 @@ const GEN_PRESETS := {
 func set_camera(spec: String) -> void:
 	for part in spec.replace(" ", ",").split(",", false):   # CB_CAM hands "nbclose plant": spaces separate too (every 0.11 hall shot had silently been "wide")
 		var p := part.strip_edges()
-		if p == "plant" and not _glow.is_empty():   # Sigrid 0.11: a hero view, low and close on the unit that tells the story (the first reactor, bed or burner), the rest receding
-			var hid: String = _glow.keys()[0]
-			for gid in _glow: if str(_types.get(gid, "")) in ["eq_reactor", "burner"]: hid = gid; break
+		if p == "plant" and not anchors.is_empty():   # Sigrid 0.11: a hero view, low and close on the unit that tells the story (the first reactor, bed or burner), the rest receding
+			var hid := ""
+			for gid in anchors: if str(_types.get(gid, "")) in ["eq_reactor", "burner", "stoich_reactor", "pfr", "cstr"]: hid = gid; break
+			if hid == "": hid = _glow.keys()[0] if not _glow.is_empty() else str(anchors.keys()[anchors.size() / 2])
 			var hp: Vector3 = (anchors.get(hid, _ctr) as Vector3)
-			_preset = p; t_focus = Vector3(hp.x, 2.6, hp.z); t_yaw = (-PI * 0.22 if str(_types.get(hid, "")) == "burner" else PI * 0.78); t_pitch = -0.06; t_dist = 8.5; continue   # vessels from the open side (the rack behind); the burner from its face, with the stack
+			# 0.12 (Sigrid: L03's camera sat inside a rack beam): the camera stands on the hero's own side of the pipe rack (the rack runs at _ctr.z - 1.6; L03's burner
+			# is behind it), eye below the rack's lower level, so nothing stands between the lens and the hero; the rest of the plant recedes beyond it
+			var side := 1.0 if hp.z >= _ctr.z - 1.6 else -1.0
+			var room := (HALL_MAX.z - hp.z) if side > 0.0 else (hp.z - HALL_MIN.z)
+			var sk := -1.0 if str(_types.get(hid, "")) == "burner" else 1.0   # the burner is framed from its sight-glass side
+			_preset = p; t_focus = Vector3(hp.x, 1.7, hp.z); t_pitch = -0.07; t_dist = 8.0
+			if side > 0.0 or room > 7.0: t_yaw = (sk * PI * 0.2) if side > 0.0 else (PI - sk * PI * 0.2); t_dist = clampf((room - 0.4) / cos(PI * 0.2), 5.0, 8.0)
+			else: t_yaw = sk * PI * 0.2; t_pitch = -0.42; t_dist = 10.0   # behind the rack with the wall close: a raised three-quarter view from the open side, the sight line ~0.6 m over the rack's top level
+			continue   # vessels from the open side (the rack behind); the burner from its face, with the stack
 		if p == "stack" and not _analyser.is_empty():   # the flue analyser close up
 			_preset = p; t_focus = _stack_at + Vector3(0, 1.4, 0); t_yaw = -0.5; t_pitch = -0.08; t_dist = 3.6; continue
 		if not GEN_PRESETS.has(p): continue
 		_preset = p
 		var v: Array = GEN_PRESETS[p]; t_focus = _ctr + Vector3(0, (v[0] as Vector3).y, 0); t_yaw = v[1]; t_pitch = v[2]
 		t_dist = clampf(_span * float(v[3]) / 22.0, 7.0, float(v[3]) * 1.4)   # phase C: distance scales with the plant, not a fixed spot in the hall
-	if OS.has_environment("CB_SHOT"): _snap_cam()
+	if OS.has_environment("CB_SHOT"):
+		_snap_cam()
+		if OS.get_environment("CB_CAMDBG") == "1": print("CAMDBG preset=%s focus=%s cam=%s glow=%s types=%s anchors=%s" % [_preset, str(t_focus), str(cam.position if cam else Vector3.ZERO), str(_glow.keys()), str(_types), str(anchors)])
 func key(e: InputEventKey) -> bool:
 	match e.keycode:
 		KEY_1: set_camera("wide"); return true

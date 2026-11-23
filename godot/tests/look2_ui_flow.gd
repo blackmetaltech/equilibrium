@@ -2,6 +2,7 @@ extends SceneTree
 ## Phase 0.12 UI flow (Kofi): the new-look console reads like a game, not a dashboard.
 ## 1. the annunciator in a hall level writes only what is lit, in sentence case, plus one goal stamp; every condition stays reachable (tooltip).
 ## 2. the chart recorder: legends sit above the plot (never over the trace), the printout countdown has its own line under the paper, and the console row fits 1600x900 (the pause pip was cut at the right edge).
+## 3. the notebook brief: at most three short lines first, the rest behind a More button, no Call-it rule said twice, every paragraph one or two sentences, the engine's note untouched.
 ## Prints LOOK2-UI-FLOW OK / LOOK2-UI-FLOW FAILED n.
 var fails := 0
 var checks := 0
@@ -59,6 +60,7 @@ func _run() -> void:
 	check(not app.chrome.annunciator.sentence, "a classic level keeps the caps annunciator")
 
 	await _recorder()
+	await _brief()
 
 func _recorder() -> void:
 	app.start_level("L04", true); await frames(10)
@@ -94,3 +96,40 @@ func _recorder() -> void:
 	for c in row.find_children("*", "Control", true, false):
 		if (c as Control).is_visible_in_tree() and (c as Control).size.x > 0.0: right = maxf(right, (c as Control).get_global_rect().end.x)
 	check(right <= 1600.0 - 8.0, "1600x900: the console row ends inside the window (right edge %.0f)" % right)
+
+func _brief() -> void:
+	check(BriefLines.sentences("Old notebook: 2.00 t of N2 in. Tell me what comes out. (Say 35 %). Ok.").size() == 4, "sentences: a decimal point is not a sentence end")
+	for id in ["L01", "L02", "L03", "L04", "L10", "L11", "L12", "L13"]:
+		app.start_level(id, true); await frames(8)
+		var li = app.b.q("levelInfo")
+		var engine_note := " ".join(PackedStringArray(li.note))
+		check(li.get("predictNote") == null or engine_note.contains(str(li.predictNote)), "%s: the engine's note still carries the Call-it rule (the brief is shaped in the notebook only)" % id)
+		Notebook.open(app); await frames(4)
+		var note: Node = app.root.find_child("Note", true, false)
+		if note == null: check(false, "%s: the notebook has a Note box" % id); continue
+		var vis: Array = []
+		for c in note.get_children():
+			if c is Label and c.visible and not str(c.text).begins_with("—"): vis.append(str(c.text))
+		check(vis.size() >= 1 and vis.size() <= 3, "%s: at most three short lines first (%d)" % [id, vis.size()])
+		var all := " ".join(vis)
+		var more: Node = note.get_node_or_null("NoteMore")
+		var paras: Array = []
+		if more != null: for c in more.get_children(): paras.append(str(c.text))
+		for ptxt in paras: check(BriefLines.sentences(ptxt).size() <= 2, "%s: a paragraph behind More is one or two sentences: %s" % [id, ptxt.left(60)])
+		all += " " + " ".join(paras)
+		check(not all.contains("Call it") and not all.contains("answer box locks"), "%s: the Call-it rule is not repeated in the brief" % id)
+		if li.get("predictNote") != null:
+			var pn: Node = app.root.find_child("PredictNote", true, false)
+			var rt: String = str(pn.text) if pn != null else ""
+			check(rt != "" and not rt.begins_with("Call it"), "%s: the Call-it rule is printed once, on the Call-it row, without a second 'Call it:' ('%s')" % [id, rt.left(30)])
+		var btn: Button = note.get_node_or_null("NoteMoreBtn")
+		check((btn != null) == (more != null), "%s: a More button exactly when there is more" % id)
+		if btn != null:
+			check(not more.visible, "%s: the rest starts folded" % id)
+			btn.pressed.emit(); await frames(2)
+			check(more.visible and btn.text == "Less", "%s: More opens the rest" % id)
+			btn.pressed.emit(); await frames(1)
+		var words := 0
+		for sx in vis: words += str(sx).split(" ").size()
+		check(words <= 75, "%s: the first lines are short (%d words)" % [id, words])
+		Notebook.close(app); await frames(3)

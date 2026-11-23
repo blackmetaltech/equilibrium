@@ -10,6 +10,7 @@ uniform float desat = 0.8;
 uniform float wet = 0.55;          // 0 dry, 1 flooded
 uniform float puddle_scale = 0.11;
 uniform float base_rough = 1.0;
+uniform float contrast = 1.0;      // 0.12 (Sigrid: the hall floor's noise was too contrasty): pulls the texture toward its mean; 1 = as authored
 varying vec3 wp;
 void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 void fragment() {
@@ -21,6 +22,7 @@ void fragment() {
 	vec3 nn = mix(texture(nor, uv1).rgb, texture(nor, uv2).rgb, k);
 	float g = dot(c, vec3(0.3, 0.59, 0.11));
 	c = mix(c, vec3(g), desat) * tint;
+	c = mix(vec3(0.42) * tint, c, contrast);
 	float pm = fbm3(vec3(wp.xz * puddle_scale, 4.0));
 	float pud = smoothstep(0.52 - wet * 0.22, 0.60 - wet * 0.22, pm);
 	float damp = smoothstep(0.30 - wet * 0.2, 0.60 - wet * 0.2, pm);
