@@ -288,10 +288,13 @@ func _decision_card(dc: Dictionary, over: bool) -> Control:
 	var det := true if not pending else (_dec_open == 1 if _dec_open >= 0 else not _compact())
 	var v := VBoxContainer.new(); v.name = "DecisionCard"; v.add_theme_constant_override("separation", 4)
 	var th := HBoxContainer.new(); th.add_theme_constant_override("separation", 8); v.add_child(th)
+	# 0.12 (fix18's cause): the long reading (situation, each option in words, the advice) sits in one box under the keys, capped and scrolled when pinned, so a long
+	# decision (the 18-month contract) cannot push the pinned area past the page. Keys and expected values stay first and always in view.
+	var dv := VBoxContainer.new(); dv.name = "DecisionReading"; dv.add_theme_constant_override("separation", 4); dv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var t := lbl("YEAR %d  ·  %s" % [int(dc.year), str(dc.title)], 14, STAMP_RED if pending else PENCIL, "mono_bold"); t.name = "DecisionTitle"; t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; t.custom_minimum_size = Vector2(220, 0); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; th.add_child(t)
 	if pending:
 		var kd := key("DETAILS ▴" if det else "DETAILS ▾", func(): _dec_open = 0 if det else 1; _refresh_keep(), false, 11); kd.name = "DecisionDetails"; kd.tooltip_text = "The situation, each option in words and the advice."; th.add_child(kd)
-		var b := lbl(str(dc.body), 12, PENCIL, "sans"); b.name = "DecisionBody"; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; b.custom_minimum_size = Vector2(220, 0); b.visible = det; v.add_child(b)
+		var b := lbl(str(dc.body), 12, PENCIL, "sans"); b.name = "DecisionBody"; b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; b.custom_minimum_size = Vector2(220, 0); b.visible = det; dv.add_child(b)
 	for o in dc.get("options", []):   # (an option whose key says what it buys is long: its effect line takes the next row, never squeezed beside the key)
 		var chosen := bool(o.chosen)
 		if not pending and not chosen: continue
@@ -308,11 +311,16 @@ func _decision_card(dc: Dictionary, over: bool) -> Control:
 		else:
 			var tag := lbl("YOU CHOSE %s%s" % [str(o.label), "  (the decision lapsed)" if bool(dc.get("lapsed", false)) else ""], 12, OKGREEN if not bool(dc.get("lapsed", false)) else AMBER_INK, "mono_bold"); tag.name = "DecisionChosen"; h.add_child(tag)
 		var ef := lbl(str(o.effectText), 12, STAMP_RED if float(o.effectUSD) < 0.0 else PENCIL, "mono_bold"); ef.name = "Effect_%s" % str(o.label); ef.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ef.custom_minimum_size = Vector2(420 if str(o.get("commitShort", "")) != "" else 200, 0); ef.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(ef)
-		var ot := lbl(str(o.text), 12, PENCIL, "sans"); ot.name = "OptionText_%s" % str(o.label); ot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ot.custom_minimum_size = Vector2(220, 0); ot.visible = det; v.add_child(ot)
+		var ot := lbl(("%s: " % str(o.label) if pending else "") + str(o.text), 12, PENCIL, "sans"); ot.name = "OptionText_%s" % str(o.label); ot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ot.custom_minimum_size = Vector2(220, 0); ot.visible = det; (dv if pending else v).add_child(ot)
 	if pending:
 		if bool(dc.get("learner", false)):
-			var hi := lbl(str(dc.hint), 12, OKGREEN, "sans"); hi.name = "DecisionHint"; hi.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hi.custom_minimum_size = Vector2(220, 0); hi.visible = det; v.add_child(hi)
-		var bl := lbl(str(dc.blocks), 11, AMBER_INK, "sans"); bl.name = "DecisionBlocks"; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size = Vector2(220, 0); bl.visible = det; v.add_child(bl)
+			var hi := lbl(str(dc.hint), 12, OKGREEN, "sans"); hi.name = "DecisionHint"; hi.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hi.custom_minimum_size = Vector2(220, 0); hi.visible = det; dv.add_child(hi)
+		var bl := lbl(str(dc.blocks), 11, AMBER_INK, "sans"); bl.name = "DecisionBlocks"; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size = Vector2(220, 0); bl.visible = det; dv.add_child(bl)
+		var sc := ScrollContainer.new(); sc.name = "DecisionReadingScroll"; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; sc.visible = det
+		sc.add_child(dv); v.add_child(sc)
+		var cap := maxf(90.0, get_viewport_rect().size.y * 0.18) if is_inside_tree() else 160.0
+		var fit := func(): sc.custom_minimum_size.y = minf(dv.get_combined_minimum_size().y, cap)
+		dv.minimum_size_changed.connect(fit); dv.resized.connect(fit); fit.call_deferred()
 	return _paper(v, Color("#F6E7B8") if pending else Color("#F4EEDC"))
 
 func _choose_press(ix: int, commits: bool, ckey: String) -> void:

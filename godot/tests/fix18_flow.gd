@@ -31,9 +31,14 @@ func _initialize() -> void:
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(8); CbSettings.persist = false
 	await _alias()
+	# 0.12: the cause of this flow's old intermittent failure. The Career seed came from the wall clock, so the first yearly decision changed between runs, and the
+	# long 18-month contract pushed the pinned area to 546 of 858 px. The layout is now checked under one seed per first-decision kind; the rest runs on the contract seed.
 	for sz in [Vector2i(1280, 800), Vector2i(1920, 1080)]:
 		root.size = sz; await frames(4)
-		await _layout(sz); await _cards(sz); await _catalyst_and_book(sz)
+		for sd in [1, 2, 4, 6, 8]:   # debottleneck, hedge, contract, catgrade, turnaround (first decision of each seed)
+			app.pinned_seed = sd; await _layout(sz)
+		app.pinned_seed = 4
+		await _cards(sz); await _catalyst_and_book(sz)
 	root.size = Vector2i(1280, 800); await frames(4)
 	await _continue()
 	print("FIX18-FLOW checks=%d" % checks)
@@ -52,7 +57,7 @@ func _alias() -> void:
 ## The pinned rows stay put while the page scrolls, and no control reaches past the right edge of the board.
 func _layout(sz: Vector2i) -> void:
 	await level("CAREER"); await refresh()
-	var b := board(); var tag := " (%dx%d)" % [sz.x, sz.y]
+	var b := board(); var tag := " (%dx%d seed %d)" % [sz.x, sz.y, int(app.last_seed)]
 	var pin := b.find_child("Pinned", true, false) as Control
 	check(pin != null and pin.find_child("ActionRow", true, false) != null, "the action row sits in the pinned area" + tag)
 	for nm in ["Advance1", "NextDecision", "Advance3"]:
@@ -77,6 +82,7 @@ func _layout(sz: Vector2i) -> void:
 	var kids := []   # phase C: name what fills the pinned area when it is too tall (the height varied 500-546 px between runs)
 	for c in pin.get_children(): if c is Control and (c as Control).is_visible_in_tree(): kids.append("%s %.0f" % [c.name, (c as Control).size.y])
 	for c in _controls(pin): if c is Label and (c as Label).is_visible_in_tree() and (c as Label).get_line_count() > 1: kids.append("%s:%d lines '%s'" % [c.name, (c as Label).get_line_count(), (c as Label).text.left(40)])
+	print("FIX18 pinned h=%.0f of %.0f%s %s" % [pin.get_global_rect().size.y, b.get_global_rect().size.y, tag, str(kids)])   # every run: compare the passing and failing heights
 	check(pin.get_global_rect().size.y <= b.get_global_rect().size.y * 0.6, "the pinned area leaves the page room (%.0f of %.0f)%s %s" % [pin.get_global_rect().size.y, b.get_global_rect().size.y, tag, str(kids)])
 
 func _controls(n: Node) -> Array:
