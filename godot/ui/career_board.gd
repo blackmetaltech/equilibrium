@@ -411,6 +411,8 @@ func _show_more_key(l, k, open: bool) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(l) or not is_instance_valid(k): return
 	k.visible = open or l.get_line_count() > 2
+	# the wrap depends on the width the label gets, which can still change after this frame (the board settles): follow it, so a cut banner always has its key
+	if not open: l.resized.connect(func(): if is_instance_valid(l) and is_instance_valid(k): k.visible = l.get_line_count() > 2)
 
 ## The action row, pinned: ADVANCE 1 MONTH, NEXT DECISION, +3 MONTHS and CONTINUE ANYWAY with what stopped the last run (the banners are about the keys, so they sit under them).
 func _advance_row(d: Dictionary) -> Control:

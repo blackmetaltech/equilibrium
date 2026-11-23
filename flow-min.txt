@@ -1,5 +1,4 @@
 # minimum check count per flow (core/qa/run-flow.sh fails a flow that prints fewer). Raise only: RAISE=1 scripts/flows.sh after a green run.
-# fix24_flow: 74, not 75: its check "more opens it in full" runs only if the more key is still visible one frame after the press, a transient (74 or 75 per run, 74 once the layout settles); see board/equilibrium.md
 build_guide_flow 254
 campaign_flow 107
 console_flow 35
@@ -18,7 +17,7 @@ fix20_flow 31
 fix21_flow 41
 fix22_flow 28
 fix23_flow 34
-fix24_flow 74
+fix24_flow 76
 fix25_flow 28
 fix27_flow 75
 fix28_flow 8
@@ -40,7 +39,7 @@ fix9c_flow 21
 home_mouse_flow 132
 home_pad_flow 159
 instruments_flow 19
-layout_flow 68638
+layout_flow 68753
 levelview_flow 38
 look2_flow 55
 look2_ui_flow 101

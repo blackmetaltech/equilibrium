@@ -111,6 +111,12 @@ func _banners(sz: Vector2i) -> void:
 		var mk := b.find_child("StoppedMore", true, false) as Button
 		check(mk != null, "with a more key" + tag)
 		check(sp.tooltip_text.contains("Open warning"), "and the whole text in its tooltip" + tag)
+		# the key is shown a frame or two after the banner (the board settles): wait for it, at most 120 frames, instead of racing one frame
+		for i in 120:
+			b = board(); mk = b.find_child("StoppedMore", true, false) as Button
+			if mk != null and mk.visible: break
+			await process_frame
+		check(mk != null and mk.visible, "the more key is visible" + tag)
 		if mk != null and mk.visible:
 			mk.pressed.emit(); await frames(4); b = board(); sp = b.find_child("Stopped", true, false) as Label
 			check(sp.max_lines_visible == -1 or sp.max_lines_visible == 0, "more opens it in full" + tag)
