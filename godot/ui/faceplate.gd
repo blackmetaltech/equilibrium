@@ -1026,8 +1026,7 @@ class Hub extends Node:
 				if str(id) == from_unit and str(m.port) == from_port: m.hot = true
 				elif bool(m.inlet) != from_inlet:   # the opposite kind is a candidate; legal ones glow
 					for t in legal: if t.unit == m.unit and t.port == m.port: m.hot = true
-				elif chained: marks.append(m); seen[str(m.unit) + ":" + str(m.port)] = true; continue   # F25: with the chain's pipe in hand every free outlet stays clickable (a click on one restarts the pipe from it, as before the chain)
-				else: continue
+				else: marks.append(m); seen[str(m.unit) + ":" + str(m.port)] = true; continue   # F25: with a pipe in hand (the chain's, or one a click began) every free port of its own kind stays clickable too: a press on one restarts the pipe from it, and a drag from it works (a half-made pipe made that a silent refusal)
 				marks.append(m); seen[str(m.unit) + ":" + str(m.port)] = true
 		app.world.show_ports(marks)
 
