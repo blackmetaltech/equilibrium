@@ -29,7 +29,7 @@ void fragment() {
 	c *= mix(1.0, 0.55, damp) * mix(1.0, 0.7, pud);
 	float rgn = clamp(rr * base_rough, 0.0, 1.0);
 	rgn = mix(rgn, rgn * 0.45, damp);
-	rgn = mix(rgn, 0.08, pud);   // 0.12: not a mirror: a light over a 0.035 puddle shows as a white star (Sigrid)
+	rgn = mix(rgn, 0.15, pud);   // 0.12: not a mirror: a light over a 0.035 puddle shows as a white star (Sigrid)
 	ALBEDO = c;
 	ROUGHNESS = rgn;
 	SPECULAR = 0.55;

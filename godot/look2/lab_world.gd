@@ -154,6 +154,8 @@ func _mats() -> void:
 	M.refractory = _flat(Color(0.42, 0.2, 0.12), 0.0, 0.9)                     # burner tile
 	M.enamel_green = _flat(Color(0.24, 0.42, 0.36), 0.05, 0.32)                # the cooler's glossy machinery green
 	M.enamel_blue = _flat(Color(0.18, 0.3, 0.5), 0.05, 0.35)
+	M.galv = _flat(Color(0.66, 0.68, 0.7), 0.8, 0.5)                          # hot-dip galvanised structural steel (the pipe rack's beams)
+	M.oxide = _flat(Color(0.42, 0.19, 0.14), 0.15, 0.75)                       # red-oxide primer (its columns)
 
 # ---- primitives ------------------------------------------------------------------------------------------------------------------------------
 func _mi(mesh: Mesh, pos: Vector3, mat: Material, parent: Node = self) -> MeshInstance3D:
@@ -1028,13 +1030,13 @@ func _vessel(c: Vector3, r: float, h: float, shell: Material, parent: Node, opts
 		var nh := int((top - 2.2) / 0.9)
 		var cc := lb + ld * 0.2   # the cage's axis, a little out from the ladder
 		for i in nh: _torus(0.4, 0.014, cc + Vector3(0, 2.4 + i * 0.9, 0), M.steel_dull, parent)   # 0.12: galvanised cage hoops (yellow read as halos)
-		# the cage verticals: five flat bars on the OUTER half of the hoops, lowest hoop to top hoop, so the hoops are one cage and not floating rings
+		# the cage verticals: five flat bars (7 cm wide, 2.5 cm thick so they read at hall distances) on the OUTER half of the hoops, lowest hoop to top hoop, so the hoops are one cage and not floating rings
 		# (the old verticals sat on the vessel half of the hoops, behind the ladder, and were 2 cm round wire: they never showed)
 		var cy0 := 2.4; var cy1 := 2.4 + float(maxi(nh - 1, 0)) * 0.9 + 0.3
 		for k in 5:
 			var ak := PI * (0.1 + 0.2 * float(k))   # 18 to 162 degrees round the outer side
 			var radial := ld * sin(ak) + lt * cos(ak)
-			var bar := _box(Vector3(0.012, cy1 - cy0, 0.05), cc + radial * 0.4 + Vector3(0, (cy0 + cy1) * 0.5, 0), M.steel_dull, parent)
+			var bar := _box(Vector3(0.025, cy1 - cy0, 0.07), cc + radial * 0.4 + Vector3(0, (cy0 + cy1) * 0.5, 0), M.steel_dull, parent)
 			bar.rotation.y = atan2(-radial.z, radial.x)   # local x (the thin side) along the radial, so the 5 cm face lies along the hoop
 		_lathe(PackedVector2Array([Vector2(r + 0.05, 0), Vector2(r + 1.0, 0), Vector2(r + 1.0, 0.05), Vector2(r + 0.05, 0.05)]), 40, M.plate, Vector3(c.x, top, c.z), parent, false)
 		_torus(r + 1.0, 0.02, Vector3(c.x, top + 1.05, c.z), M.steel_dull, parent); _torus(r + 1.0, 0.016, Vector3(c.x, top + 0.55, c.z), M.steel_dull, parent)   # galvanised handrail
@@ -1062,17 +1064,29 @@ func _valve(p: Vector3, d: Vector3, r: float, parent: Node, col := Color(0.62, 0
 	_seg(p, p + Vector3(0, r * 4.0, 0), r * 0.35, M.steel_dull, parent, 8)
 	_torus(r * 1.6, r * 0.18, p + Vector3(0, r * 4.0, 0), body, parent)
 
-## A two-level pipe rack (steel H-frames every `bay` metres) from a to b along X at height h.
+## A wide-flange (H) beam from a to b: a web and two flanges as boxes. `up` says which way the beam's depth runs (it must not be along the beam).
+func _ibeam(a: Vector3, b: Vector3, depth: float, fw: float, t: float, mat: Material, parent: Node, up := Vector3.UP) -> void:
+	var L := a.distance_to(b)
+	if L < 1e-3: return
+	var x := (b - a) / L; var y := (up - x * up.dot(x)).normalized(); var z := x.cross(y)
+	var n := Node3D.new(); n.transform = Transform3D(Basis(x, y, z), (a + b) * 0.5); parent.add_child(n)
+	_box(Vector3(L, depth - 2.0 * t, t), Vector3.ZERO, mat, n)   # web
+	for sg in [-1.0, 1.0]: _box(Vector3(L, t, fw), Vector3(0, sg * (depth - t) * 0.5, 0), mat, n)   # flanges
+
+## A two-level pipe rack from a to b along X at height h: red-oxide H columns on base plates (four bolt heads a foot), galvanised H beams across and stringers
+## along (0.12: the navy box beams were the heaviest thing in the foreground). The pipes lie on the cross beams: a beam's top is at level + 0.09.
 func _rack(a: Vector3, b: Vector3, h: float, parent: Node, bay := 4.0) -> void:
 	var n := int(absf(b.x - a.x) / bay) + 1
-	var steel := _paint(Color(0.32, 0.36, 0.4))
+	var dx := signf(b.x - a.x) if absf(b.x - a.x) > 1e-3 else 1.0
 	for i in n:
-		var x := a.x + signf(b.x - a.x) * i * bay
-		for z in [a.z - 0.9, a.z + 0.9]: _box(Vector3(0.2, h + 1.0, 0.2), Vector3(x, (h + 1.0) * 0.5, z), steel, parent)
-		for lv in [h, h + 0.9]: _box(Vector3(0.18, 0.18, 2.0), Vector3(x, lv, a.z), steel, parent)
-		_box(Vector3(0.3, 0.05, 0.3), Vector3(x, 0.025, a.z - 0.9), M.concrete if M.has("concrete") else steel, parent)
+		var x := a.x + dx * i * bay
+		for z in [a.z - 0.9, a.z + 0.9]:
+			_ibeam(Vector3(x, 0.03, z), Vector3(x, h + 1.05, z), 0.2, 0.2, 0.018, M.oxide, parent, Vector3(0, 0, 1))   # the column
+			_box(Vector3(0.4, 0.03, 0.4), Vector3(x, 0.015, z), M.oxide, parent)   # base plate
+			for bx in [-0.15, 0.15]: for bz in [-0.15, 0.15]: _cyl(0.02, 0.025, Vector3(x + bx, 0.043, z + bz), M.black, parent, -1.0, 8)   # four bolt heads
+		for lv in [h, h + 0.9]: _ibeam(Vector3(x, lv, a.z - 0.9), Vector3(x, lv, a.z + 0.9), 0.18, 0.12, 0.014, M.galv, parent)   # the cross beam
 	for lv in [h, h + 0.9]:
-		for z in [a.z - 0.9, a.z + 0.9]: _box(Vector3(absf(b.x - a.x), 0.16, 0.12), Vector3((a.x + b.x) * 0.5, lv, z), steel, parent)
+		for z in [a.z - 0.9, a.z + 0.9]: _ibeam(Vector3(a.x - dx * 0.3, lv, z), Vector3(b.x + dx * 0.3, lv, z), 0.16, 0.1, 0.012, M.galv, parent)   # the stringers
 
 ## Only the world's controls, with a 30 px minimum target (playtest: a wheel rim or the clamp lost to the flask's own anchor).
 func pick_control(p: Vector2) -> String:

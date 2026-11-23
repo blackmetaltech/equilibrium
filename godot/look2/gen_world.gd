@@ -22,6 +22,7 @@ var _tmax := {}               ## unit id -> sinter limit K (beds), 0 if none
 var _tmin := {}               ## unit id -> light-off K, 0 if none
 var _at := {}                 ## unit id -> floor position (m)
 var _lid := ""                ## the level id (the hero camera and the exam props follow it)
+var _hov: Label3D            ## the one screen-space label: only the hovered or selected unit gets it
 var _rack_z := -11.0          ## the pipe rack's z: BEHIND the plant, so the front cameras never look through its beams
 const LADDER := {"ladder": true, "ladder_ang": PI * 0.17, "manway_ang": PI * 0.5 + 0.12}   ## ladders and manways face the front cameras (+z, a little +x)
 
@@ -29,6 +30,8 @@ func _ready() -> void:
 	_build_env(); _build_hall(); _build_outside()
 	cam = Camera3D.new(); cam.fov = 50.0; cam.near = 0.05; cam.far = 3000.0; add_child(cam)
 	plant = Node3D.new(); plant.name = "player_plant"; add_child(plant)
+	_hov = Label3D.new(); _hov.name = "HoverTag"; _hov.font_size = 36; _hov.pixel_size = 0.0009; _hov.fixed_size = true; _hov.no_depth_test = true; _hov.render_priority = 10
+	_hov.billboard = BaseMaterial3D.BILLBOARD_ENABLED; _hov.modulate = Color(0.9, 0.95, 1.0, 0.95); _hov.outline_size = 12; _hov.outline_modulate = Color(0, 0, 0, 0.85); _hov.visible = false; add_child(_hov)
 	set_camera("wide"); _snap_cam()
 	if OS.get_environment("CB_FRAMETIME") == "1": _ft_start()
 
@@ -77,8 +80,7 @@ func rebuild() -> void:
 			"gasifier": _gasifier(id, c)
 			"co_burner": _burner(id, c)
 			_: _box(Vector3(1.0, 1.0, 1.0), c + Vector3(0, 0.5, 0), M.steel_dull, plant)
-		var lab := Label3D.new(); lab.text = id; lab.font_size = 36; lab.pixel_size = 0.0009; lab.fixed_size = true; lab.no_depth_test = true; lab.render_priority = 10; lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lab.modulate = Color(0.9, 0.95, 1.0, 0.95)
-		lab.outline_size = 12; lab.outline_modulate = Color(0, 0, 0, 0.85); lab.position = c + Vector3(0, _height(ty) + 0.6, 0); plant.add_child(lab)
+		_plate(id, c, ty)
 		anchors[id] = c + Vector3(0, _height(ty) * 0.6, 0); radius[id] = 1.0
 	_at = at
 	var minz := 1e9
@@ -118,12 +120,52 @@ func rebuild() -> void:
 	print("LOOK2 gen: %d units, %d pipes" % [at.size(), k])
 	set_camera(_preset)   # re-frame the new plant
 
+## Phase D (art pass): a unit's name is a small stamped plate on its skirt, leg or saddle (a plate and a Label3D that is part of the world, facing front), not a
+## billboard floating over it; the screen-space label is _hov, for the hovered or selected unit only.
+func _plate_at(ty: String) -> Array:   # [x, y, z, half-width of a tie bar between legs (0 = none)] from the unit's floor centre; the unit's front is +z
+	match ty:
+		"eq_reactor": return [0.0, 0.55, 0.985, 0.0]
+		"gasifier": return [0.0, 0.7, 0.835, 0.0]
+		"eq_bed": return [0.0, 0.42, 0.54, 0.54]
+		"stoich_reactor": return [0.0, 0.38, 0.33, 0.33]
+		"product": return [0.0, 0.4, 0.72, 0.72]
+		"nh3_sep": return [0.0, 0.5, 0.59, 0.0]
+		"burner", "co_burner": return [0.5, 0.78, 0.93, 0.0]
+		"heater": return [0.0, 0.5, 0.9, 1.1]
+		"boiler": return [0.0, 0.62, 0.53, 0.0]
+		"compressor": return [-0.8, 0.12, 0.605, 0.0]
+		"mixer", "mixer3": return [0.0, 0.62, 0.29, 0.0]
+		"feed": return [0.0, 0.05, 0.455, 0.0]
+		"stack": return [0.0, 0.4, 0.74, 0.0]
+		"vent", "flare": return [0.0, 0.15, 0.46, 0.0]
+		"hx": return [0.0, 0.94, 0.45, 0.0]
+		"cooler": return [0.0, 0.88, 0.31, 0.0]
+		"splitter": return [0.0, 0.45, 0.0, 0.7]
+	return [0.0, 0.4, 0.5, 0.0]
+
+func _plate(id: String, c: Vector3, ty: String) -> void:
+	var o := _plate_at(ty); var p := c + Vector3(o[0], o[1], o[2])
+	if float(o[3]) > 0.0: _box(Vector3(float(o[3]) * 2.0 + 0.1, 0.05, 0.02), p + Vector3(0, -0.02, -0.004), M.paint_grey, plant)   # a tie bar between the legs carries the plate
+	_box(Vector3(0.34, 0.13, 0.012), p + Vector3(0, 0, 0.006), _flat(Color(0.74, 0.75, 0.76), 0.85, 0.35), plant)   # the stamped plate
+	var l := Label3D.new(); l.text = id; l.font = load("res://ui/fonts/Archivo-Variable.ttf"); l.font_size = 40; l.pixel_size = 0.0016; l.outline_size = 0; l.shaded = true; l.double_sided = false
+	l.modulate = Color(0.08, 0.09, 0.1); l.position = p + Vector3(0, 0, 0.0128); plant.add_child(l)
+
+## The hovered unit's name (or the selected one's) as a screen-space label; nothing else in the hall is a billboard.
+func _hover_id() -> String:
+	if app == null or cam == null or not visible: return ""
+	var pw = app.get("plant_world")
+	if pw != null and str(pw.get("selected_id")) != "" and _at.has(str(pw.get("selected_id"))): return str(pw.get("selected_id"))
+	var vp := get_viewport()
+	if vp == null or vp.gui_get_hovered_control() != null: return ""
+	var hv := pick(vp.get_mouse_position())
+	return hv if _at.has(hv) else ""
+
 func _height(ty: String) -> float:
 	match ty:
 		"splitter": return 1.6
 		"cooler": return 2.0
 		"hx": return 2.6
-		"heater": return 7.5
+		"heater": return 7.9
 		"gasifier": return 6.2
 		"co_burner": return 2.6
 		"eq_reactor": return 7.0
@@ -233,26 +275,49 @@ func _exchanger(c: Vector3, L: float, r: float, paint: Material, cw: bool) -> vo
 		var f := _cyl(0.15, 0.05, cp + Vector3(0, 0, 0.5 + r), M.steel_dull, plant); f.rotation_degrees.x = 90
 	_box(Vector3(0.28, 0.18, 0.01), c + Vector3(0.0, y, r + 0.005), _flat(Color(0.8, 0.72, 0.45), 0.8, 0.35), plant)   # nameplate
 
+## A peep window recessed in a short open tube: the sleeve out from the wall to `len`, a black liner, the glass set back at the wall. `dir` is the wall's outward axis.
+func _peep(p: Vector3, dir: Vector3, r: float, len: float, glass: Material) -> void:
+	var q := Basis(Quaternion(Vector3.UP, dir))
+	var tube := _lathe(PackedVector2Array([Vector2(r + 0.04, 0.0), Vector2(r + 0.04, len), Vector2(r, len), Vector2(r, 0.0)]), 24, M.steel_dull, p, plant, false); tube.basis = q
+	var liner := _lathe(PackedVector2Array([Vector2(r - 0.004, len), Vector2(r - 0.004, 0.0)]), 24, _flat(Color(0.03, 0.03, 0.03), 0.0, 0.9), p, plant, false); liner.basis = q
+	var gl := _cyl(r * 0.99, 0.02, p + dir * 0.02, glass, plant, -1.0, 24); gl.basis = q
+
 ## 0.12 (chapter 2): a box fired heater: a radiant firebox in heat paint on legs with a peep window that glows with the fire, a convection section above it with
 ## a header box, a stack with a damper, a ladder and a platform at the convection level. Its fire follows the outlet temperature, like the burner.
 func _heater(id: String, c: Vector3) -> void:
+	# art pass: a radiant box of grey panels (world-space noise, soot toward the top), L-angle stiffener ribs every 0.8 m, a tapered breeching into the stack, a rain
+	# hood on three struts, peepholes recessed in tubes with a flickering light, and three floor burner throats under the box with faint glowing rings.
+	var panel := _shader("panel", {"soot_y0": 3.2, "soot_y1": 5.8})
 	for lx in [-1.1, 1.1]: for lz in [-0.9, 0.9]: _box(Vector3(0.2, 1.0, 0.2), c + Vector3(lx, 0.5, lz), M.paint_grey, plant)   # legs
-	_box(Vector3(2.6, 3.2, 2.2), c + Vector3(0, 2.6, 0), M.heat_paint, plant)   # radiant box
-	for x in [-1.3, -0.43, 0.43, 1.3]: _box(Vector3(0.06, 3.24, 2.24), c + Vector3(x, 2.6, 0), M.steel_dull, plant)   # buckstays
-	_box(Vector3(2.0, 1.2, 1.6), c + Vector3(0, 4.8, 0), M.heat_paint, plant)   # convection section
+	_box(Vector3(2.6, 3.2, 2.2), c + Vector3(0, 2.6, 0), panel, plant)   # radiant box
+	for k in 4:   # horizontal L-angle ribs every 0.8 m, one leg on the wall and one standing out, on all four faces
+		var ry := 1.4 + 0.8 * float(k)
+		for sz in [-1.0, 1.0]:
+			_box(Vector3(2.62, 0.08, 0.012), c + Vector3(0, ry, sz * 1.106), M.steel_dull, plant); _box(Vector3(2.62, 0.012, 0.07), c + Vector3(0, ry - 0.034, sz * 1.135), M.steel_dull, plant)
+		for sx in [-1.0, 1.0]:
+			_box(Vector3(0.012, 0.08, 2.22), c + Vector3(sx * 1.306, ry, 0), M.steel_dull, plant); _box(Vector3(0.07, 0.012, 2.22), c + Vector3(sx * 1.335, ry - 0.034, 0), M.steel_dull, plant)
+	for x in [-1.3, 1.3]: for z in [-1.1, 1.1]: _box(Vector3(0.07, 3.24, 0.07), c + Vector3(x, 2.6, z), M.steel_dull, plant)   # corner buckstays
+	_box(Vector3(2.0, 1.2, 1.6), c + Vector3(0, 4.8, 0), panel, plant)   # convection section
+	for k in 2:
+		for sz in [-1.0, 1.0]: _box(Vector3(2.02, 0.08, 0.012), c + Vector3(0, 4.4 + 0.8 * float(k), sz * 0.806), M.steel_dull, plant)
 	_box(Vector3(2.1, 0.3, 0.3), c + Vector3(0, 4.8, 0.95), M.steel_dull, plant)   # header box
-	_lathe(PackedVector2Array([Vector2(0.35, 0), Vector2(0.3, 2.4), Vector2(0.0, 2.4)]), 24, M.steel_dull, c + Vector3(0, 5.4, 0), plant, true)   # stack
-	_box(Vector3(0.7, 0.06, 0.7), c + Vector3(0, 6.2, 0), M.black, plant)   # damper
+	_cyl(0.92, 0.9, c + Vector3(0, 5.85, 0), panel, plant, 0.38, 32)   # the breeching: a frustum from the box to the stack
+	_cyl(0.38, 1.1, c + Vector3(0, 6.85, 0), M.steel_dull, plant, 0.33, 32)   # stack
+	_cyl(0.7, 0.34, c + Vector3(0, 7.75, 0), M.steel_dull, plant, 0.0, 24)   # rain hood: a cone ...
+	for k in 3: var a := k * TAU / 3.0 + 0.4; _seg(c + Vector3(cos(a) * 0.33, 7.4, sin(a) * 0.33), c + Vector3(cos(a) * 0.46, 7.62, sin(a) * 0.46), 0.012, M.steel_dull, plant)   # ... on three struts
 	_box(Vector3(2.8, 0.05, 0.8), c + Vector3(0, 4.2, 1.5), M.plate, plant)   # platform
 	for sx in [-1.4, 1.4]: _seg(c + Vector3(sx, 4.2, 1.9), c + Vector3(sx, 5.2, 1.9), 0.02, M.steel_dull, plant)
 	_seg(c + Vector3(-1.4, 5.2, 1.9), c + Vector3(1.4, 5.2, 1.9), 0.02, M.steel_dull, plant)
 	for sx2 in [-0.2, 0.2]: _seg(c + Vector3(1.6 + sx2, 0, 1.4), c + Vector3(1.6 + sx2, 4.2, 1.4), 0.02, M.yellow, plant)   # ladder
 	for i in 13: _seg(c + Vector3(1.4, 0.3 + i * 0.3, 1.4), c + Vector3(1.8, 0.3 + i * 0.3, 1.4), 0.012, M.yellow, plant)
-	var gm := _glowmat()
-	for zz in [1.12, -1.12]: var pw := _cyl(0.14, 0.04, c + Vector3(0.0, 1.6, zz), gm, plant); pw.rotation_degrees.x = 90   # peep windows
-	for bx in [-0.6, 0.6]: _cyl(0.18, 0.4, c + Vector3(bx, 0.85, 0), M.steel_dull, plant)   # floor burners under the box
-	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 4.0; l.position = c + Vector3(0, 1.6, 1.8); plant.add_child(l)
-	_glow[id] = {"mat": gm, "light": l, "kind": "burner"}
+	var gm := _glowmat(true)
+	for sg in [1.0, -1.0]: _peep(c + Vector3(0, 1.6, sg * 1.1), Vector3(0, 0, sg), 0.15, 0.28, gm)   # peepholes, recessed
+	var ring := _flat(Color(0.2, 0.08, 0.04), 0.3, 0.5, Color(1.0, 0.4, 0.1), 0.0)
+	for bx in [-0.7, 0.0, 0.7]:   # floor burner throats under the box
+		_cyl(0.2, 0.4, c + Vector3(bx, 0.2, 0.0), M.steel_dull, plant, 0.17, 20)
+		_torus(0.19, 0.018, c + Vector3(bx, 0.41, 0.0), ring, plant)
+	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 4.0; l.position = c + Vector3(0, 1.4, 1.9); plant.add_child(l)
+	_glow[id] = {"mat": gm, "light": l, "kind": "burner", "window": true, "extra": [ring], "flick": true}
 
 ## 0.12 (chapter 2, L07): a moving-bed coke gasifier: a refractory-lined shell in heat paint on a skirt, a coke hopper and lock on top, a cone bottom to an ash
 ## lock, air tuyeres round the base, a sight glass that glows with the bed, a gas offtake near the top, a caged ladder and a top platform.
@@ -265,9 +330,9 @@ func _gasifier(id: String, c: Vector3) -> void:
 	for i in 8: var a := i * TAU / 8.0; _seg(c + Vector3(cos(a) * 0.86, 1.9, sin(a) * 0.86), c + Vector3(cos(a) * 1.15, 1.75, sin(a) * 1.15), 0.05, M.steel_dull, plant)   # air tuyeres
 	_lathe(PackedVector2Array([Vector2(1.0, 0), Vector2(1.18, 0), Vector2(1.18, 0.18), Vector2(1.0, 0.18)]), 32, M.steel_dull, c + Vector3(0, 1.7, 0), plant, false)   # bustle main
 	_seg(c + Vector3(0.85, 4.6, 0), c + Vector3(1.5, 4.6, 0), 0.16, M.steel_dull, plant)   # gas offtake
-	var gm := _glowmat(); var sg := _cyl(0.12, 0.04, c + Vector3(0, 2.4, 0.87), gm, plant); sg.rotation_degrees.x = 90   # sight glass on the bed
+	var gm := _glowmat(true); _peep(c + Vector3(0, 2.4, 0.84), Vector3(0, 0, 1), 0.12, 0.2, gm)   # sight glass on the bed, recessed in a tube
 	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 3.5; l.position = c + Vector3(0, 2.4, 1.6); plant.add_child(l)
-	_glow[id] = {"mat": gm, "light": l, "kind": "burner"}
+	_glow[id] = {"mat": gm, "light": l, "kind": "burner", "window": true, "flick": true}
 
 ## 0.12 (chapter 2, L06): a flow splitter as it stands in a plant: a header on two stanchions, an equal tee, a block valve on each leg and a flow-control
 ## valve with a diaphragm actuator on the bypass leg (the split fraction is that valve's opening).
@@ -378,16 +443,11 @@ func _burner(id: String, c: Vector3) -> void:
 	_box(Vector3(0.3, 0.24, 0.2), c + fo + Vector3(-2.35, 0.62, 0.3), M.yellow, plant)   # coupling guard
 	# the peep window, recessed in a short tube on each side (the hero view may stand on either); the lamp on the front one lands warm light on the floor
 	var gm := _glowmat(true)
-	for sg in [1.0, -1.0]:
-		var px := XC + 0.1
-		var tube := _cyl(0.21, 0.34, c + Vector3(px, AY, sg * (R + 0.1)), M.steel_dull, plant); tube.rotation_degrees.x = 90
-		var bore := _cyl(0.165, 0.1, c + Vector3(px, AY, sg * (R + 0.2)), _flat(Color(0.03, 0.03, 0.03), 0.0, 0.9), plant); bore.rotation_degrees.x = 90   # the dark bore of the tube
-		var pw := _cyl(0.15, 0.03, c + Vector3(px, AY, sg * (R + 0.06)), gm, plant); pw.rotation_degrees.x = 90   # the glass, set back 0.2 m in the tube
-		var rim := _torus(0.2, 0.025, c + Vector3(px, AY, sg * (R + 0.27)), M.steel_dull, plant); rim.rotation_degrees.x = 90
+	for sg in [1.0, -1.0]: _peep(c + Vector3(XC + 0.1, AY, sg * (R - 0.02)), Vector3(0, 0, sg), 0.16, 0.3, gm)   # glass set back 0.3 m in a short tube
 	var fl := _particles(c + Vector3(x0 + 0.4, AY, 0), 60, 0.5, Vector3(2.4, 0.2, 0), 8.0, 0.35, Color(1.0, 0.55, 0.15, 0.7), plant, 2.0)
 	fl.emitting = false
 	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 5.5; l.position = c + Vector3(XC + 0.1, 1.0, R + 0.8); plant.add_child(l)
-	_glow[id] = {"mat": gm, "light": l, "kind": "burner", "flame": fl, "window": true}
+	_glow[id] = {"mat": gm, "light": l, "kind": "burner", "flame": fl, "window": true, "flick": true}
 
 ## The exam bridge (L04): a clipboard stand for the inspector, an inspection tag wired to the reactor's leg, a sample bomb on a stand with its two needle valves.
 func _exam_props(c: Vector3) -> void:
@@ -423,16 +483,17 @@ func set_snapshot(g: Dictionary) -> void:
 		if _out.has(id) and st.has(_out[id]): T = float(st[_out[id]].get("T", 0.0))
 		var heat := 0.0   # the flame's size (0..1), the old ramp: 620 K to 880 K
 		var bb: Array = _blackbody(T) if running else [Color(0.55, 0.07, 0.02), 0.0]
-		var col: Color = bb[0]; var e: float = bb[1]; var lamp := e * 1.6   # the warm light on the shell scales with the glow
+		var col: Color = bb[0]; var e: float = bb[1]; var lamp := e * 1.2   # the warm light on the shell scales with the glow
 		if running and T > 0.0:
 			heat = clampf((T - 620.0) / 260.0, 0.0, 1.0)
 			if float(_tmin.get(id, 0.0)) > 0.0 and T < float(_tmin[id]): heat = 0.0; e = 0.0; lamp = 0.0   # asleep: below light-off the bed stays dark steel
-			if float(_tmax.get(id, 0.0)) > 0.0 and T > float(_tmax[id]): heat = 1.0; col = Color(1.0, 0.22, 0.04); e = 1.5; lamp = 3.2   # sintering: a hard red-orange at the cap, and the light to match
+			if float(_tmax.get(id, 0.0)) > 0.0 and T > float(_tmax[id]): heat = 1.0; col = Color(1.0, 0.22, 0.04); e = 1.5; lamp = 2.6   # sintering: a hard red-orange at the cap, and the light to match
 		gw["sinter"] = e >= 1.5 and col.g < 0.3
 		(gw.mat as StandardMaterial3D).emission = col
 		if not bool(gw.get("window", false)): (gw.mat as StandardMaterial3D).albedo_color = Color(0.5, 0.52, 0.55).lerp(Color(0.14, 0.12, 0.12), e / 1.5)   # the steel darkens as it glows, so the colour is the blackbody's and not steel lit orange
 		(gw.mat as StandardMaterial3D).emission_energy_multiplier = e
-		(gw.light as OmniLight3D).light_energy = lamp
+		(gw.light as OmniLight3D).light_energy = lamp; gw["lamp"] = lamp
+		for xm in gw.get("extra", []): (xm as StandardMaterial3D).emission = col; (xm as StandardMaterial3D).emission_energy_multiplier = e * 0.5   # the burner throats' rings
 		if gw.has("flame"): (gw.flame as GPUParticles3D).emitting = heat > 0.05; (gw.flame as GPUParticles3D).amount_ratio = clampf(heat, 0.2, 1.0)
 	var info := {}
 	for u in g.get("units", []): info[str(u.get("id", ""))] = u.get("info", {}) if u.get("info", {}) is Dictionary else {}
@@ -464,9 +525,14 @@ func _process(dt: float) -> void:
 	_t += dt
 	if cam != null and not cam.current and visible: cam.make_current()
 	_cam_step(dt)
+	var hid := _hover_id()
+	_hov.visible = hid != ""
+	if hid != "": _hov.text = hid; _hov.position = (_at[hid] as Vector3) + Vector3(0, _height(str(_types.get(hid, ""))) + 0.6, 0)
 	for id in _glow:   # a sintering bed does not glow steadily: a slow throb, never above the cap
 		var gw: Dictionary = _glow[id]
 		if bool(gw.get("sinter", false)): (gw.mat as StandardMaterial3D).emission_energy_multiplier = 1.5 * (0.88 + 0.12 * sin(_t * 5.0))
+		if bool(gw.get("flick", false)) and float(gw.get("lamp", 0.0)) > 0.0:   # a fire's light is never steady
+			(gw.light as OmniLight3D).light_energy = float(gw.lamp) * (0.86 + 0.09 * sin(_t * 11.0 + float(str(id).hash() % 7)) + 0.05 * sin(_t * 23.0))
 	_ft_tick(dt)
 
 ## Half-extents round a unit's floor position, for framing: [x0, x1, z0, z1, height] (m), the whole unit with its platform, fan set or stack.
@@ -476,9 +542,9 @@ func _ext(ty: String) -> Array:
 		"eq_reactor": return [-2.1, 2.1, -2.1, 2.1, 8.0]
 		"eq_bed": return [-1.1, 1.1, -1.1, 1.1, 3.6]
 		"gasifier": return [-2.0, 2.0, -2.0, 2.0, 7.3]
-		"heater": return [-1.8, 2.3, -1.5, 2.3, 7.6]
+		"heater": return [-1.8, 2.3, -1.5, 2.3, 7.95]
 		"boiler": return [-1.6, 1.6, -1.0, 1.0, 3.4]
-		"stoich_reactor": return [-1.0, 1.0, -1.0, 1.0, 3.1]
+		"stoich_reactor": return [-0.8, 0.8, -0.8, 0.8, 3.1]
 		"splitter": return [-1.0, 1.0, -0.8, 1.3, 1.8]
 		"nh3_sep": return [-0.8, 0.8, -0.8, 0.8, 4.4]
 		"product": return [-1.3, 1.3, -1.3, 1.3, 3.5]
@@ -508,11 +574,11 @@ func _pick_hero() -> Dictionary:
 	elif by.has("stoich_reactor"):                                                  # L01 the bench reactor; L04 (exam) from the other side with its props
 		ids = [by.stoich_reactor[0]]; yaw = (0.2 if _lid != "L04" else -0.32) * PI
 	else: ids = [str(_types.keys()[_types.size() / 2])]
-	return {"ids": ids, "yaw": yaw}
+	return {"ids": ids, "yaw": yaw, "front": by.has("burner") and ids.has(by.burner[0])}
 
 ## The distance at which the footprint-and-height box fills `frac` of the frame height (and at most `hfrac` of its width at a 16:10 window, the narrowest we ship): a pinhole fit.
-## The box overstates a round unit's silhouette (its far-corner depth), so frac 0.6 of the box is the 45-55 % of the frame the unit itself fills.
-func _fit(target: Vector3, corners: Array, yaw: float, pitch: float, frac := 0.6, hfrac := 0.86, aspect := 1.6) -> float:
+## Round units are fitted as footprint circles (a box overstates their silhouette), so 0.5 is the 45-55 % of the frame height the unit itself fills.
+func _fit(target: Vector3, corners: Array, yaw: float, pitch: float, frac := 0.5, hfrac := 0.86, aspect := 1.6, extra := []) -> float:
 	var t := tan(deg_to_rad((cam.fov if cam != null else 50.0) * 0.5))
 	var lo := 3.0; var hi := 45.0
 	var dir := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, pitch) * Vector3(0, 0, 1)
@@ -525,9 +591,33 @@ func _fit(target: Vector3, corners: Array, yaw: float, pitch: float, frac := 0.6
 			var v: Vector3 = (q as Vector3) - eye; var z := maxf(v.dot(f), 0.1)
 			var ny := v.dot(u) / (z * t); var nx := v.dot(r) / (z * t * aspect)
 			y0 = minf(y0, ny); y1 = maxf(y1, ny); x0 = minf(x0, nx); x1 = maxf(x1, nx)
-		if maxf((y1 - y0) * 0.5 / frac, (x1 - x0) * 0.5 / hfrac) > 1.0: lo = d
+		var big := maxf((y1 - y0) * 0.5 / frac, (x1 - x0) * 0.5 / hfrac) > 1.0
+		if not big and not extra.is_empty():   # props beside the hero (L04's clipboard stand and sample bomb) must stay in the frame, but do not make the hero small
+			for q in extra:
+				var v2: Vector3 = (q as Vector3) - eye; var z2 := maxf(v2.dot(f), 0.1)
+				var ny2 := v2.dot(u) / (z2 * t); var nx2 := v2.dot(r) / (z2 * t * aspect)
+				if minf(y0, ny2) < -0.9 or maxf(y1, ny2) > 0.9 or minf(x0, nx2) < -hfrac or maxf(x1, nx2) > hfrac: big = true
+		if big: lo = d
 		else: hi = d
 	return hi
+
+## How much the other units spoil a view from `eye` at `target`: a tall unit nearer than the hero and inside the frame (the L08 stack stood in front of the heater from the
+## +z side) is a heavy penalty, one near the edge a light one, and a unit the hero hides is free.
+func _spoil(eye: Vector3, target: Vector3, hero_ids: Array) -> float:
+	var t := tan(deg_to_rad(cam.fov * 0.5 if cam != null else 25.0))
+	var f := (target - eye).normalized(); var r := f.cross(Vector3.UP).normalized()
+	var zt := (target - eye).dot(f); var pen := 0.0
+	for id in _at:
+		if hero_ids.has(id): continue
+		var e := _ext(str(_types[id])); var c: Vector3 = _at[id]
+		if eye.x > c.x + float(e[0]) - 1.8 and eye.x < c.x + float(e[1]) + 1.8 and eye.z > c.z + float(e[2]) - 1.8 and eye.z < c.z + float(e[3]) + 1.8 and eye.y < float(e[4]) + 1.5: pen += 100.0   # the lens must not stand in a unit (L03's stack)
+		var q := c + Vector3((e[0] + e[1]) * 0.5, e[4] * 0.5, (e[2] + e[3]) * 0.5)
+		var v := q - eye; var z := v.dot(f)
+		if z < 0.5 or z > zt: continue
+		var nx := v.dot(r) / (z * t * 1.6); var hf := minf(maxf(float(e[4]), (float(e[1]) - float(e[0])) * 0.5) / (z * t * 2.0), 1.5)
+		if absf(nx) < 0.6: pen += 3.0 * hf + 0.5
+		elif absf(nx) < 1.15: pen += 1.2 * hf
+	return pen
 
 func _frame_hero() -> void:
 	var h := _pick_hero()
@@ -536,16 +626,35 @@ func _frame_hero() -> void:
 		var c: Vector3 = _at[id]; var e := _ext(str(_types[id]))
 		if _lid == "L04" and str(_types[id]) == "stoich_reactor": e = [-2.3, 2.0, -1.0, 1.8, 3.1]   # the clipboard stand and the sample bomb are in the frame
 		lo = Vector3(minf(lo.x, c.x + e[0]), 0, minf(lo.z, c.z + e[2])); hi = Vector3(maxf(hi.x, c.x + e[1]), 0, maxf(hi.z, c.z + e[3])); top = maxf(top, e[4])
-	var corners: Array = []
-	for x in [lo.x, hi.x]: for y in [0.0, top]: for z in [lo.z, hi.z]: corners.append(Vector3(x, y, z))
+	var corners: Array = []; var extra: Array = []
+	for id in h.ids:
+		var c: Vector3 = _at[id]; var ty := str(_types[id]); var e := _ext(ty)
+		if ty in ["eq_reactor", "eq_bed", "gasifier", "stoich_reactor", "nh3_sep", "product", "stack"]:   # round: twelve points on the footprint circle, at the foot and at the top
+			var rr := maxf(float(e[1]), float(e[3])) if ty != "stack" else 1.5
+			for k in 12: for y in [0.0, float(e[4])]: corners.append(c + Vector3(cos(k * TAU / 12.0) * rr, y, sin(k * TAU / 12.0) * rr))
+		else:
+			for x in [c.x + float(e[0]), c.x + float(e[1])]: for y in [0.0, float(e[4])]: for z in [c.z + float(e[2]), c.z + float(e[3])]: corners.append(Vector3(x, y, z))
+		if _lid == "L04" and ty == "stoich_reactor":   # the clipboard stand, the inspection tag and the sample bomb stay in the frame
+			for p in [Vector3(-1.9, 0.0, 0.9), Vector3(-1.9, 1.7, 0.9), Vector3(1.2, 0.0, 0.8), Vector3(1.2, 1.7, 0.8)]: extra.append(c + p)
 	var target := Vector3((lo.x + hi.x) * 0.5, top * 0.5, (lo.z + hi.z) * 0.5)
 	var pitch := -0.52   # 30 degrees down
-	var d := _fit(target, corners, h.yaw, pitch)
-	t_yaw = h.yaw; t_pitch = pitch; t_dist = d
-	t_focus = target - Vector3(0, 0.06 * d, 0)   # the unit sits a little above the middle: the instrument bar takes the bottom of the frame
+	var sg := signf(float(h.yaw)); var best := 1e9; var by := float(h.yaw); var bd := 10.0
+	var cands: Array = []   # the level's own side first, then the others; the burner keeps its front-plate side unless nothing else is clear
+	for k in [1.0, 1.5, 0.5, 2.0, 2.5]: cands.append([float(h.yaw) * k / 1.0 if absf(float(h.yaw) * k) < PI * 0.55 else sg * PI * 0.5, 0.0])
+	for k in [1.0, 1.5, 0.5, 2.0]: cands.append([-float(h.yaw) * k, 3.0 if bool(h.get("front", false)) else 0.6])
+	for i in cands.size():
+		var yw: float = cands[i][0]
+		var d := _fit(target, corners, yw, pitch, 0.62 if bool(h.get("front", false)) else 0.5, 0.86, 1.6, extra)   # a long burner is fitted a little looser: its box overstates it most
+		var dir := Basis(Vector3.UP, yw) * Basis(Vector3.RIGHT, pitch) * Vector3(0, 0, 1)
+		var foc := target - Vector3(0, 0.06 * d, 0); var eye := foc + dir * d
+		var pen := float(cands[i][1]) + 0.05 * float(i) + _spoil(eye, foc, h.ids) + maxf(0.0, absf(yw) / PI - 0.3) * 20.0   # from the side the runs to the rack cross the whole frame
+		if eye.x < HALL_MIN.x or eye.x > HALL_MAX.x or eye.z > HALL_MAX.z or eye.y > HALL_MAX.y - 0.3: pen += 50.0   # the hall's walls and roof clamp the camera
+		if pen < best: best = pen; by = yw; bd = d
+	t_yaw = by; t_pitch = pitch; t_dist = bd
+	t_focus = target - Vector3(0, 0.06 * bd, 0)   # the unit sits a little above the middle: the instrument bar takes the bottom of the frame
 	if OS.get_environment("CB_CAMDBG") == "1":
-		var dir := Basis(Vector3.UP, t_yaw) * Basis(Vector3.RIGHT, t_pitch) * Vector3(0, 0, 1)
-		print("CAMDBG hero=%s lid=%s focus=%s dist=%.2f eye=%s room_z=%.1f" % [str(h.ids), _lid, str(t_focus), d, str(t_focus + dir * d), HALL_MAX.z - (t_focus + dir * d).z])
+		var dir2 := Basis(Vector3.UP, t_yaw) * Basis(Vector3.RIGHT, t_pitch) * Vector3(0, 0, 1)
+		print("CAMDBG hero=%s lid=%s yaw=%.2f pen=%.2f focus=%s dist=%.2f eye=%s" % [str(h.ids), _lid, by / PI, best, str(t_focus), bd, str(t_focus + dir2 * bd)])
 
 const GEN_PRESETS := {
 	"wide": [Vector3(0.0, 2.5, -4.0), PI * 0.12, -0.26, 24.0],
