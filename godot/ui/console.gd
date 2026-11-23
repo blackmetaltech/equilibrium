@@ -31,6 +31,7 @@ var _rack_float: PanelContainer
 var _rack_n := 0                  ## F32: tiles the rack holds, and whether any of them can still be placed (no tile to pick = no tray at all)
 var _rack_any := true
 var rack_hold := false            ## F33: a board level (L39's pump house, the Career) has no parts to place: no tray and no tab, whatever layout() runs
+var hall_hold := false            ## 0.12: the new look shows the hall: the parts rack is a drafting-table tool, hidden whatever the level view bay restores
 var extra_cover := 0.0            ## F33: px a level's own panel stands above the console (L39's local panel of selectors): the camera frames above it
 var rack_tab := false             ## F33: the plant stood ready when the level opened (levelInfo.prebuilt): the tray folds to a small PARTS tab
 var phase := "design"
@@ -124,8 +125,8 @@ func layout() -> void:
 		rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 		rack_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_rack_flow(true)
-		parts_btn.visible = _on and _rack_any and not rack_hold; parts_btn.custom_minimum_size = Vector2(150.0, btn_h)   # 0.12: a held rack (board levels, the hall) has no tab on a phone either
-		_rack_float.visible = rack_open and _on and _rack_any and not rack_hold
+		parts_btn.visible = _on and _rack_any and not (rack_hold or hall_hold); parts_btn.custom_minimum_size = Vector2(150.0, btn_h)   # 0.12: a held rack (board levels, the hall) has no tab on a phone either
+		_rack_float.visible = rack_open and _on and _rack_any and not (rack_hold or hall_hold)
 		for a in ["anchor_left", "anchor_right", "anchor_top", "anchor_bottom"]: _rack_float.set(a, 0.0 if a.begins_with("anchor_l") or a.begins_with("anchor_r") else 1.0)
 		var bt := -(row_h + 22.0 + btn_h + 6.0)
 		_rack_float.offset_left = 12.0; _rack_float.offset_right = 12.0 + dw; _rack_float.offset_bottom = bt; _rack_float.offset_top = bt - dh
@@ -141,7 +142,7 @@ func layout() -> void:
 		rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		_rack_flow(false)
 		_rack_float.visible = false
-		var tab_on := rack_tab and _on and _rack_any and _rack_n > 0 and not rack_hold   # F33: a pre-built plant: the tray is a small PARTS tab that opens it
+		var tab_on := rack_tab and _on and _rack_any and _rack_n > 0 and not (rack_hold or hall_hold)   # F33: a pre-built plant: the tray is a small PARTS tab that opens it
 		parts_btn.visible = tab_on
 		if tab_on:
 			var bh := maxf(tap, 40.0)
@@ -177,7 +178,7 @@ func _place_dock() -> void:
 	var vw := app.vw() if app != null else 1920.0
 	var w := minf(vw - 24.0, float(_rack_n) * (PartsRack.TILE.x + 6.0) + 18.0)
 	var h := PartsRack.TILE.y + 22.0
-	rack_wrap.visible = _on and _rack_any and _rack_n > 0 and not rack_hold and (not rack_tab or rack_open)
+	rack_wrap.visible = _on and _rack_any and _rack_n > 0 and not (rack_hold or hall_hold) and (not rack_tab or rack_open)
 	rack_wrap.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	rack_wrap.custom_minimum_size = Vector2(w, h)
 	rack_wrap.grow_vertical = Control.GROW_DIRECTION_BEGIN

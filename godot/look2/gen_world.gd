@@ -65,6 +65,7 @@ func rebuild() -> void:
 			"stack": _stack(id, c)
 			"stoich_reactor": _vessel(c, 0.55, 1.5, _shader("steel", {"rough_base": 0.28, "metallic": 0.85, "blotch": 0.1}), plant, {"legs": true, "base": 0.6})   # the bench reactor (L01, L04)
 			"burner": _burner(id, c)
+			"splitter": _splitter(id, c)
 			_: _box(Vector3(1.0, 1.0, 1.0), c + Vector3(0, 0.5, 0), M.steel_dull, plant)
 		var lab := Label3D.new(); lab.text = id; lab.font_size = 36; lab.pixel_size = 0.0009; lab.fixed_size = true; lab.no_depth_test = true; lab.render_priority = 10; lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lab.modulate = Color(0.9, 0.95, 1.0, 0.95)
 		lab.outline_size = 12; lab.outline_modulate = Color(0, 0, 0, 0.85); lab.position = c + Vector3(0, _height(ty) + 0.6, 0); plant.add_child(lab)
@@ -103,6 +104,7 @@ func rebuild() -> void:
 
 func _height(ty: String) -> float:
 	match ty:
+		"splitter": return 1.6
 		"eq_reactor": return 7.0
 		"eq_bed": return 3.4
 		"compressor": return 1.6
@@ -179,6 +181,22 @@ func _vent(id: String, c: Vector3) -> void:
 
 ## Phase C (chapter 1): the stack with its flue analyser. A tapered brick-red stack with a sampling platform; at the base, the analyser cabinet
 ## whose screen reads the engine's stack composition (y_O2, y_CO2, y_SO2, y_CO, y_H2O) in mol %.
+## 0.12 (chapter 2, L06): a flow splitter as it stands in a plant: a header on two stanchions, an equal tee, a block valve on each leg and a flow-control
+## valve with a diaphragm actuator on the bypass leg (the split fraction is that valve's opening).
+func _splitter(id: String, c: Vector3) -> void:
+	var y := 1.0
+	_seg(c + Vector3(-0.9, y, 0), c + Vector3(0.9, y, 0), 0.11, M.steel_dull, plant)   # header
+	_seg(c + Vector3(0.0, y, 0), c + Vector3(0.0, y, 0.9), 0.11, M.steel_dull, plant)  # tee leg
+	_sphere_or_box(c + Vector3(0, y, 0))
+	_valve(c + Vector3(0.55, y, 0), Vector3(1, 0, 0), 0.11, plant)
+	_valve(c + Vector3(0.0, y, 0.55), Vector3(0, 0, 1), 0.11, plant, Color(0.2, 0.35, 0.6))   # control valve body (blue)
+	_seg(c + Vector3(0.0, y + 0.2, 0.55), c + Vector3(0.0, y + 0.5, 0.55), 0.025, M.steel_dull, plant)   # yoke
+	var dome := _cyl(0.2, 0.16, c + Vector3(0.0, y + 0.6, 0.55), M.yellow, plant, 0.06); dome.name = "Actuator"   # diaphragm actuator
+	for sx in [-0.7, 0.7]:
+		_box(Vector3(0.08, y - 0.1, 0.08), c + Vector3(sx, (y - 0.1) * 0.5, 0), M.paint_grey, plant)   # stanchion
+		_box(Vector3(0.3, 0.02, 0.3), c + Vector3(sx, 0.01, 0), M.steel_dull, plant)   # base plate
+func _sphere_or_box(p: Vector3) -> void: _cyl(0.15, 0.3, p, M.steel_dull, plant)   # the tee's body
+
 func _stack(id: String, c: Vector3) -> void:
 	# 0.12 (Sigrid: "the stack reads as red cloth"): a tapered steel stack. Weathered plate (rust deepest at the base), circumferential weld seams every 1.2 m, staggered
 	# vertical plate seams, a heat-tinted band under the top, soot at the lip, and a base ring with anchor bolts
