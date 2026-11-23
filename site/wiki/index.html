@@ -1,25 +1,48 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Wiki · EQUILIBRIUM wiki</title><meta name="description" content="The EQUILIBRIUM player wiki: every chapter and level, the controls and the codex, from the game's own text.">
+<title>Wiki · EQUILIBRIUM wiki</title><meta name="description" content="The EQUILIBRIUM player wiki: what is in the game now, every chapter and job, the controls and the codex.">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap">
 <link rel="stylesheet" href="../base.css"><link rel="stylesheet" href="wiki.css"></head>
-<body><header class="nav"><a class="logo" href="../">EQUILIBRIUM</a><nav aria-label="Primary"><a href="./">Wiki</a><a href="controls.html">Controls</a><a href="codex.html">Codex</a><a href="../#download" class="btn mini go">Download</a></nav></header>
-<main class="wrap"><h1>Player wiki</h1><p class="lede">Every job in the game, in the words the game uses. Chapter 3 and the prologue are in the <b>new look</b> (a 3D hall and lab); the rest are in the <b>classic</b> control-room look.</p>
+<body class="wiki"><header class="nav"><a class="logo" href="../">EQUILIBRIUM</a><nav aria-label="Primary"><a href="./">Wiki</a><a href="how.html">How a job goes</a><a href="controls.html">Controls</a><a href="codex.html">Codex</a><a href="../#download" class="btn mini go">Download</a></nav></header>
+<main class="wrap"><p class="crumbs">Wiki</p>
+<h1>Player wiki</h1>
+<p class="lede">What each chapter teaches, every job with its goals and what a miss looks like, the controls, the Career and the Codex.</p>
+<section class="now card" id="now" aria-labelledby="now-h">
+<h2 id="now-h">What is in the game now</h2>
+<dl class="facts">
+<dt>Version</dt><dd>0.12.0, "The Lab at Home". Alpha. This wiki is built from that release.</dd>
+<dt>Campaign</dt><dd>40 levels (L00 to L39) on 12 stops of the Works Map: the prologue, ten chapters and the Career. All of them can be played.</dd>
+<dt>Career</dt><dd>Five seeded years running the Works.</dd>
+<dt>In the new look</dt><dd>The title and the lab, the prologue (L00), chapter 1 (L01 to L04), chapter 2 (L05 to L08), chapter 3 (L10 to L14).</dd>
+<dt>Still classic</dt><dd>Chapter 2 (L09), chapter 4 (L15 to L18), chapter 5 (L19 to L23), chapter 6 (L24 to L27), chapter 7 (L28), chapter 8 (L29 to L33), chapter 9 (L34 to L38), chapter 10 (L39), and the Career. The Works Map marks each chapter.</dd>
+<dt>Platforms</dt><dd>Linux and Windows. No macOS build.</dd>
+</dl>
+<h3>The campaign is complete. What is not built yet</h3>
+<p>Every level and the Career exist. What is left is mostly the look:</p>
+<ul><li>The next release (0.13) goes to the art first: the Works Map as a 3D site plan, a sketch of the plant on the brief, the flue analyser close-up, the L08 heater framing, the floor light in L10 to L12, the wide view in L13, and a brighter floor on low-end graphics.</li><li>Pad fixes in the same release: a stray A press that opens the Codex, LB landing on the last tray tile, the calculator hint, and the hint row in the hall.</li><li>L09, the chapter 2 exam, in the new look. It is the one job in the first four chapters that is still classic.</li><li>Chapters 4 to 10 and the Career in the new look. No date is set.</li></ul>
+<p>Ideas from the design doc that are not built or scheduled: a daily shift, Hindi strings, more plants (urea, chlor-alkali), stage-by-stage distillation, a teacher mode.</p>
+<h3>What nobody has checked yet</h3>
+<ul><li>The art review of 0.12 scored the new look 6.3 of 10 against a target of 6.5 or more. Six scenes are under 6.5 and the lab is 7.5 against 8.</li><li>Nobody has listened to the sound.</li><li>The Windows build has not been played by a person.</li><li>The phone layout was not re-checked by hand in 0.12.</li></ul>
+</section>
+<h2>Start here</h2>
+<ul class="start"><li><a href="how.html"><b>How a job goes</b></a><span>The steps, with shots.</span></li><li><a href="controls.html"><b>Controls</b></a><span>Mouse, keyboard and gamepad.</span></li><li><a href="codex.html"><b>Codex</b></a><span>The ideas behind the rules.</span></li></ul>
+<h2>The campaign</h2>
 <ul class="chapters">
-<li class="card"><a href="chapter-0.html"><b>Prologue · Night Shift</b></a> <span class="look new">New look</span><p>The prologue. A running ammonia loop at 02:40, one pump trip and one dial. The cooler is slow: turn it late and the interlock trips the plant.</p><p class="ids">L00</p></li>
-<li class="card"><a href="chapter-1.html"><b>Chapter 1 · The Bench</b></a> <span class="look">Classic look</span><p>Mass balances, extent of reaction and the first equilibrium on a lab bench.</p><p class="ids">L01 · L02 · L03 · L04</p></li>
-<li class="card"><a href="chapter-2.html"><b>Chapter 2 · Fire</b></a> <span class="look">Classic look</span><p>Combustion: air-fuel ratio, flame temperature, heat recovery.</p><p class="ids">L05 · L06 · L07 · L08 · L09</p></li>
-<li class="card"><a href="chapter-3.html"><b>Chapter 3 · The Wall</b></a> <span class="look new">New look</span><p>Pressure, temperature and inerts against the equilibrium wall of ammonia and SO₃, then Le Chatelier on your own bench. Build on the drafting table; commission, and your plant stands in the hall.</p><p class="ids">L10 · L11 · L12 · L13 · L14</p></li>
-<li class="card"><a href="chapter-4.html"><b>Chapter 4 · Speed</b></a> <span class="look">Classic look</span><p>Kinetics: rate laws, Arrhenius, catalyst and reactor volume.</p><p class="ids">L15 · L16 · L17 · L18</p></li>
-<li class="card"><a href="chapter-5.html"><b>Chapter 5 · The Loop</b></a> <span class="look">Classic look</span><p>Recycle, purge and the inerts that build up in a loop.</p><p class="ids">L19 · L20 · L21 · L22 · L23</p></li>
-<li class="card"><a href="chapter-6.html"><b>Chapter 6 · Containment</b></a> <span class="look">Classic look</span><p>Relief, interlocks, runaway and the safety case.</p><p class="ids">L24 · L25 · L26 · L27</p></li>
-<li class="card"><a href="chapter-7.html"><b>Chapter 7 · The Works</b></a> <span class="look">Classic look</span><p>The whole works on one flowsheet.</p><p class="ids">L28</p></li>
-<li class="card"><a href="chapter-8.html"><b>Chapter 8 · The Control Room</b></a> <span class="look">Classic look</span><p>Control loops, tuning and alarms.</p><p class="ids">L29 · L30 · L31 · L32 · L33</p></li>
-<li class="card"><a href="chapter-9.html"><b>Chapter 9 · Turnaround</b></a> <span class="look">Classic look</span><p>Maintenance, reconciliation and HAZOP.</p><p class="ids">L34 · L35 · L36 · L37 · L38</p></li>
-<li class="card"><a href="chapter-10.html"><b>Chapter 10 · Hydraulics</b></a> <span class="look">Classic look</span><p>Pumps, pipe sizes, NPSH and cavitation.</p><p class="ids">L39</p></li>
+<li class="card-row"><a href="chapter-0.html"><b>Prologue · Night Shift</b></a> <span class="look new">New look</span><span>A running ammonia loop at 02:40, one pump trip and one dial.</span><span class="ids">L00</span></li>
+<li class="card-row"><a href="chapter-1.html"><b>Chapter 1 · The Bench</b></a> <span class="look new">New look</span><span>Mass balances, moles against kilograms, and the first equilibrium on a lab bench.</span><span class="ids">L01 · L02 · L03 · L04</span></li>
+<li class="card-row"><a href="chapter-2.html"><b>Chapter 2 · Fire</b></a> <span class="look new">New look</span> <span class="look classic">Classic look</span><span>Combustion: air-fuel ratio, flame temperature and heat recovery.</span><span class="ids">L05 · L06 · L07 · L08 · L09</span></li>
+<li class="card-row"><a href="chapter-3.html"><b>Chapter 3 · The Wall</b></a> <span class="look new">New look</span><span>Pressure, temperature and inerts against the equilibrium wall of ammonia and SO₃, then Le Chatelier on your own bench.</span><span class="ids">L10 · L11 · L12 · L13 · L14</span></li>
+<li class="card-row"><a href="chapter-4.html"><b>Chapter 4 · Speed</b></a> <span class="look classic">Classic look</span><span>Kinetics: rate laws, Arrhenius, catalyst and reactor volume.</span><span class="ids">L15 · L16 · L17 · L18</span></li>
+<li class="card-row"><a href="chapter-5.html"><b>Chapter 5 · The Loop</b></a> <span class="look classic">Classic look</span><span>Recycle, purge and the inerts that build up in a loop.</span><span class="ids">L19 · L20 · L21 · L22 · L23</span></li>
+<li class="card-row"><a href="chapter-6.html"><b>Chapter 6 · Containment</b></a> <span class="look classic">Classic look</span><span>Relief, interlocks, runaway and the safety case.</span><span class="ids">L24 · L25 · L26 · L27</span></li>
+<li class="card-row"><a href="chapter-7.html"><b>Chapter 7 · The Works</b></a> <span class="look classic">Classic look</span><span>The whole works on one flowsheet: several plants sharing steam, power and feed.</span><span class="ids">L28</span></li>
+<li class="card-row"><a href="chapter-8.html"><b>Chapter 8 · The Control Room</b></a> <span class="look classic">Classic look</span><span>Control loops, tuning and alarms.</span><span class="ids">L29 · L30 · L31 · L32 · L33</span></li>
+<li class="card-row"><a href="chapter-9.html"><b>Chapter 9 · Turnaround</b></a> <span class="look classic">Classic look</span><span>Maintenance, reconciliation and HAZOP.</span><span class="ids">L34 · L35 · L36 · L37 · L38</span></li>
+<li class="card-row"><a href="chapter-10.html"><b>Chapter 10 · Hydraulics</b></a> <span class="look classic">Classic look</span><span>Pumps, pipe sizes, NPSH and cavitation.</span><span class="ids">L39</span></li>
+<li class="card-row"><a href="career.html"><b>Career · five years</b></a> <span class="look classic">Classic look</span><span>Run the whole Works for sixty months.</span></li>
 </ul>
-<p><a href="controls.html">Controls: keyboard, mouse and pad</a> · <a href="codex.html">Codex: the ideas behind the rules</a></p></main>
-<footer class="foot"><p>Generated from the game's own text (scripts/wiki.ts). Places, people and companies are fictional.</p><p><a href="https://github.com/blackmetaltech/equilibrium">Source</a> · <a href="https://github.com/blackmetaltech/equilibrium/issues">Issues</a></p></footer>
+</main>
+<footer class="foot"><p>Generated from the game's own text and data (scripts/wiki.ts). Places, people and companies are fictional.</p><p><a href="https://github.com/blackmetaltech/equilibrium">Source</a> · <a href="https://github.com/blackmetaltech/equilibrium/issues">Issues</a></p></footer>
 </body></html>
