@@ -6,7 +6,7 @@
 
 A **Godot 4.7** game with the chemistry engine in TypeScript.
 
-> **Alpha (0.12.0).** The prologue and chapters 1-3 are in the new look (L09 is still classic). Played on Linux; Windows and macOS untested.
+> **Alpha (0.13.0).** The prologue and chapters 1-4 are in the new look. Played on Linux; Windows and macOS untested.
 
 ![The title: your private lab, the flask rig on its dais, the tank bay behind the glass](docs/readme/title-lab.jpg)
 

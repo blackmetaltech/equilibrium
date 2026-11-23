@@ -57,7 +57,7 @@ func _run() -> void:
 	t = await _drawn_texts(an)
 	check(t.has("Goal not met yet") and t.has("Nothing is alarming."), "no alarms and no goal: two quiet lines: %s" % str(t))
 	# a classic level keeps the caps windows
-	app.start_level("L24", true); await frames(8)
+	app.start_level("L28", true); await frames(8)   # 0.14: L24 moved to the hall; L28 (chapter 7) is still classic
 	check(not app.chrome.annunciator.sentence, "a classic level keeps the caps annunciator")
 
 	await _recorder()
