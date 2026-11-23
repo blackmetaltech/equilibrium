@@ -32,6 +32,7 @@ func _initialize() -> void:
 	root.size = Vector2i(1280, 800); await frames(4)
 	check(CbLayout.kind == "handheld", "the layout is handheld (%s)" % CbLayout.kind)
 	await _case()
+	await _wire_case()
 	print("PAD-HANDHELD-FLOW checks=%d presses=%d" % [checks, presses])
 	print("PAD-HANDHELD-FLOW OK" if fails == 0 else "PAD-HANDHELD-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
@@ -297,3 +298,82 @@ func _case() -> void:
 	await btn(JOY_BUTTON_START); await frames(4)
 	check(app.modal() != null, "Start opens the menu")
 
+
+# ---- focus ownership and the wire, L01 piped completely by D-pad on the handheld layout ------------------------------------------------------
+func in_rack(c: Control) -> bool: return c != null and rack() != null and rack().is_ancestor_of(c)
+func fname() -> String: return str(focus().name) if focus() != null else "none"
+
+func _wire_case() -> void:
+	if app.modal() != null: app.back(); await frames(3)
+	app.start_level("L01", true); await frames(30)
+	if app.modal() != null and app.modal().name == "notebook": await call_it_and_start("30.24")   # the second visit to a level does not reopen the notebook by itself
+	check(app.modal() == null, "L01 (second start): the sheet is free (modal %s)" % str(app.modal()))
+	var f1 := await place("feed", 0, 0)
+	var f2 := await place("feed", 0, 4)
+	var mx := await place("mixer", 4, 2)
+	var rx := await place("stoich_reactor", 8, 0)
+	var sp := await place("nh3_sep", 14, 0)
+	var pr := await place("product", 18, 0)
+	var vt := await place("vent", 18, 4)
+	check([f1, f2, mx, rx, sp, pr, vt] == ["F-101", "F-102", "M-103", "R-104", "D-105", "T-106", "Y-107"], "L01 handheld: ids %s" % str([f1, f2, mx, rx, sp, pr, vt]))
+	check(focus() != null and str(focus().name) == "Pad_u_Y-107", "after the last part is placed the focus is on it, ringed (%s)" % fname())
+	# a part cannot be stacked on another: the reactor taken over the banks is refused, nothing is placed
+	var n0 := units().size()
+	check(app.world.place_problem_hint("stoich_reactor", 0, 0, 0, "") != "", "the engine refuses a reactor on the banks")
+	# the hint names the plot / tray switch
+	var hint: Label = app.pad.hint
+	await frames(3)
+	check(hint.text.contains("LB/RB") and hint.text.to_lower().contains("tray"), "the hint says LB/RB goes to the tray ('%s')" % hint.text)
+	# D-pad on the sheet never slips to the tray, in any direction, from any unit
+	var u1: Control = app.root.find_child("Pad_u_F-101", true, false)
+	check(await to(u1), "the pad is on F-101")
+	for b in [JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_RIGHT]:
+		await btn(b)
+		check(focus() != null and not in_rack(focus()), "D-pad %d on the sheet keeps the focus on the sheet, not the tray (%s)" % [b, fname()])
+	# LB goes to the tray, B comes back to the sheet
+	await btn(JOY_BUTTON_LEFT_SHOULDER)
+	check(in_rack(focus()), "LB brings the focus to the tray (%s)" % fname())
+	await btn(JOY_BUTTON_B); await frames(3)
+	check(focus() != null and str(focus().name).begins_with("Pad_u_"), "B from the tray puts the focus back on a unit of the sheet (%s)" % fname())
+	# B from a plate: the focus returns to that unit
+	var fp := await open_plate("F-101")
+	if fp != null:
+		await close_plate(); await frames(3)
+		check(focus() != null and str(focus().name) == "Pad_u_F-101", "B from the plate returns the focus to F-101 on the sheet (%s)" % fname())
+		# the chip row walks N2, H2 in order, each ringed
+		fp = await open_plate("F-101")
+		var c2: Control = fp._chips["N2"]; var h2: Control = fp._chips["H2"]
+		check(await to(c2), "the pad reaches the N2 chip")
+		await btn(JOY_BUTTON_DPAD_RIGHT)
+		check(focus() == h2, "RIGHT from N2 lands on H2, not 'close all' (%s)" % fname())
+		check(h2.get_theme_stylebox("focus") is StyleBoxFlat and (h2.get_theme_stylebox("focus") as StyleBoxFlat).border_width_left >= 3 and not (h2.get_theme_stylebox("focus") as StyleBoxFlat).draw_center, "the focused chip has a ringed focus style")
+		await btn(JOY_BUTTON_DPAD_LEFT)
+		check(focus() == c2, "LEFT from H2 lands on N2 (%s)" % fname())
+		await close_plate()
+	# a wire in hand: the D-pad cycles only free inlets the piping rules take, never unit bodies
+	var hub = app.root.get_node("PaperHub")
+	var o1: Control = app.root.find_child("Pad_p_F-101_out_false", true, false)
+	check(await to(o1), "the pad is on F-101's outlet")
+	await btn(JOY_BUTTON_A)
+	check(hub.from_unit == "F-101", "A on the outlet takes the wire")
+	var seen := {}
+	for b in [JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT]:
+		await btn(b)
+		var t = focus()
+		var legal := false
+		if t != null and "kind" in t and str(t.kind) == "port" and bool(t.inlet):
+			for l in hub.legal: if str(l.unit) == str(t.unit) and str(l.port) == str(t.port): legal = true
+		check(legal or (t != null and t == o1), "wire in hand: D-pad %d lands only on a legal inlet (focus %s)" % [b, fname()])
+		seen[fname()] = true
+	check(seen.size() >= 2, "the wire cycle visits more than one inlet (%s)" % str(seen.keys()))
+	await btn(JOY_BUTTON_B); await frames(3)
+	check(hub.from_unit == "", "B puts the wire back")
+	check(focus() != null and not in_rack(focus()), "after B the focus is on the sheet (%s)" % fname())
+	# the whole of L01 piped by D-pad; after every wire the focus is on the unit just wired to
+	var legs := [["F-101", "out", "M-103", "in1"], ["F-102", "out", "M-103", "in2"], ["M-103", "out", "R-104", "in"], ["R-104", "out", "D-105", "in"], ["D-105", "liq", "T-106", "in"], ["D-105", "vap", "Y-107", "in"]]
+	for lg in legs:
+		await pipe(lg[0], lg[1], lg[2], lg[3])
+		check(focus() != null and focus().is_visible_in_tree() and not in_rack(focus()), "after wiring %s to %s a ringed focus is on the sheet (%s)" % [lg[0], lg[2], fname()])
+		check(fname().begins_with("Pad_u_%s" % lg[2]) or fname().begins_with("Pad_p_%s" % lg[2]) or fname().begins_with("Pad_p_%s" % lg[0]), "the focus stays on the unit just wired (%s)" % fname())
+		if hub.from_unit != "": await btn(JOY_BUTTON_B); await frames(2)   # the chain re-armed the next outlet: put it back
+	check((plant().streams as Array).size() == 6, "L01 is piped completely by D-pad on the handheld layout (%d streams)" % (plant().streams as Array).size())

@@ -100,11 +100,21 @@ func _input(e: InputEvent) -> void:
 	if dd >= 0 and w.placing == "":   # focus on a faceplate: the D-pad walks its controls (a knob keeps the arrows for itself and never let go of the focus), and leaves it only where the plate has nothing further
 		var fo := get_viewport().gui_get_focus_owner()
 		if fo is Target:   # on the sheet: the nearest target the D-pad points at (ports sit inside their unit's footprint, so the rects alone would not tell them apart)
-			var tn := _nearest(layer, fo, dd)
+			var hub = _hub()
+			var wiring: bool = hub != null and hub.from_unit != "" and not hub.chained   # a wire the player took (a chain-armed outlet is the hub's offer, not a wire in hand: the cursor stays free)
+			var tn := _nearest(layer, fo, dd, false, wiring)
+			if tn == null and wiring: tn = _nearest_any(fo)   # a wire in hand: a press never goes to waste, it lands on the closest port that takes the wire
 			if tn != null: tn.grab_focus(); get_viewport().set_input_as_handled(); return
+			var nb: Control = fo.find_valid_focus_neighbor([SIDE_TOP, SIDE_BOTTOM, SIDE_LEFT, SIDE_RIGHT][dd])
+			var rk0 = app.root.find_child("PartsRack", true, false)
+			if wiring or (nb != null and rk0 != null and rk0.is_ancestor_of(nb)): get_viewport().set_input_as_handled(); return   # nothing that way and the search would drop into the tray: the focus stays on the sheet (LB / RB goes to the tray); the console's key and dial stay reachable
 		var fp: Faceplate = null
 		for k in Faceplate.plates: if is_instance_valid(Faceplate.plates[k]) and fo != null and (Faceplate.plates[k] as Faceplate).is_ancestor_of(fo): fp = Faceplate.plates[k]
 		if fp != null:
+			if dd >= 2 and fo is Button and str(fo.name).begins_with("Chip_"):   # the species chips: LEFT / RIGHT walk the row in order, each ringed; past either end the usual search goes on
+				var row := fo.get_parent().get_children().filter(func(n): return n is Button and _ok(n))
+				var ci := row.find(fo) + (1 if dd == 3 else -1)
+				if ci >= 0 and ci < row.size(): (row[ci] as Control).grab_focus(); get_viewport().set_input_as_handled(); return
 			if fo is Knob and dd >= 2:   # LEFT / RIGHT on a dial turn it (its own handler), unless another dial of a two-column plate lies that way
 				var kn := _nearest(fp, fo, dd, true)
 				if kn != null: kn.grab_focus(); get_viewport().set_input_as_handled()
@@ -131,10 +141,15 @@ func _input(e: InputEvent) -> void:
 			var hub = _hub()
 			if hub != null and (hub.from_unit != "" or not Faceplate.plates.is_empty() or w.selected_id != "" or (w.pipes != null and w.pipes.selected != "")) and hub.close_one():
 				_refocus(); get_viewport().set_input_as_handled()
+			else:   # B from the tray: back to the sheet (LB / RB came here)
+				var fo2 := get_viewport().gui_get_focus_owner(); var rk2 = app.root.find_child("PartsRack", true, false)
+				if fo2 != null and rk2 != null and rk2.is_ancestor_of(fo2): _refocus(); get_viewport().set_input_as_handled()
 
 ## After a plate or a pipe is put away: the focus goes back to the target the hand came from.
 func _refocus() -> void:
 	(func() -> void:
+		if not targets.has(_ret):
+			for k in targets: if str(k).begins_with("u:"): _ret = str(k); break
 		if targets.has(_ret) and is_instance_valid(targets[_ret]) and (targets[_ret] as Control).focus_mode == Control.FOCUS_ALL: (targets[_ret] as Control).grab_focus()).call_deferred()
 
 # ---- targets ---------------------------------------------------------------------------------------------------------------------------------
@@ -166,6 +181,8 @@ func _place_hint() -> void:
 	var top: float = ch.panel.global_position.y
 	if ch.rack_wrap != null and ch.rack_wrap.is_visible_in_tree(): top = minf(top, ch.rack_wrap.global_position.y)
 	h.position = Vector2(maxf(8.0, app.inset.x + 14.0), top - 30.0)
+	var want := "A select    B back    LB/RB tray    Y key    Start menu" if _plot_ready() else ""
+	if want != "" and h.text != want: h.text = want
 
 func _after_place() -> void:   # the part went down (or went back): the focus comes to the unit just placed
 	var w = app.world
@@ -183,11 +200,14 @@ func _sync_targets() -> void:
 		if design and hub != null:
 			for m in hub._free_ports(str(id)): want["p:%s:%s:%s" % [id, m.port, m.inlet]] = {"kind": "port", "unit": str(id), "port": str(m.port), "inlet": bool(m.inlet)}
 	var sig := ",".join(PackedStringArray(want.keys()))
+	var orphan := ""   # the focused target goes (a wired port is no longer free): the focus stays on the unit it belonged to, ringed
 	if sig != _sig:
 		_sig = sig
 		for k in targets.keys():
 			if not want.has(k):
-				if is_instance_valid(targets[k]): (targets[k] as Control).queue_free()
+				if is_instance_valid(targets[k]):
+					if (targets[k] as Control).has_focus(): orphan = str((targets[k] as Target).unit)
+					(targets[k] as Control).queue_free()
 				targets.erase(k)
 		for k in want:
 			if targets.has(k): continue
@@ -202,6 +222,8 @@ func _sync_targets() -> void:
 		var ok: bool = p.x > -9000.0
 		t.visible = ok; t.focus_mode = Control.FOCUS_ALL if ok else Control.FOCUS_NONE
 		if ok: t.position = p - t.size * 0.5
+	if orphan != "" and targets.has("u:" + orphan) and (targets["u:" + orphan] as Control).focus_mode == Control.FOCUS_ALL:
+		(targets["u:" + orphan] as Control).grab_focus(); _ret = "u:" + orphan
 
 func _activate(t: Target) -> void:
 	var w = app.world
@@ -259,10 +281,27 @@ func _ok(c: Node) -> bool:
 	var ctl := c as Control
 	return ctl != null and ctl.is_visible_in_tree() and ctl.focus_mode == Control.FOCUS_ALL and not (c is BaseButton and (c as BaseButton).disabled) and not (c is Faceplate.TrashButton)   # the bin is never a D-pad stop: one A would delete the unit (X held does it, with the hold as the confirm)
 
-func _nearest(m: Control, from: Control, d: int, knobs_only := false) -> Control:
+## While a wire is in hand: only a free port of the opposite kind that the engine's legalPorts accepts (never a unit body, never the outlet itself).
+func _takes_wire(c: Control) -> bool:
+	var hub = _hub()
+	if hub == null or hub.from_unit == "" or hub.chained or not (c is Target): return true
+	var t := c as Target
+	if t.kind != "port" or t.inlet == bool(hub.from_inlet) or t.unit == hub.from_unit: return false
+	for l in hub.legal: if str(l.unit) == t.unit and str(l.port) == t.port: return true
+	return false
+
+func _nearest_any(from: Control) -> Control:
+	var o := from.get_global_rect().get_center(); var best: Control = null; var bs := INF
+	for c in layer.get_children():
+		if c == from or not _ok(c) or not _takes_wire(c as Control): continue
+		var dd2 := (c as Control).get_global_rect().get_center().distance_to(o)
+		if dd2 < bs: bs = dd2; best = c
+	return best
+
+func _nearest(m: Control, from: Control, d: int, knobs_only := false, wire_only := false) -> Control:
 	var o := from.get_global_rect().get_center(); var best: Control = null; var bs := INF
 	for c in m.find_children("*", "Control", true, false):
-		if c == from or not _ok(c) or (knobs_only and not (c is Knob)): continue
+		if c == from or not _ok(c) or (knobs_only and not (c is Knob)) or (wire_only and not _takes_wire(c)): continue
 		var v: Vector2 = (c as Control).get_global_rect().get_center() - o
 		var along: float = [-v.y, v.y, -v.x, v.x][d]; var across: float = absf(v.x) if d < 2 else absf(v.y)
 		if along <= 4.0 or across > along * 2.5 + 40.0: continue

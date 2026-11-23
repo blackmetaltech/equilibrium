@@ -242,7 +242,7 @@ func _rebuild() -> void:
 		for sp in _bank_sp:
 			var ch := Button.new(); ch.name = "Chip_" + str(sp); ch.text = EqStrings.formula(str(sp)); ch.toggle_mode = true; ch.focus_mode = Control.FOCUS_ALL; ch.custom_minimum_size = Vector2(64, 46)
 			ch.add_theme_font_override("font", EqStrings.font("cap")); ch.add_theme_font_size_override("font_size", EqTheme.fs(24))
-			ch.add_theme_stylebox_override("normal", _chip_sb(false)); ch.add_theme_stylebox_override("hover", _chip_sb(false, true)); ch.add_theme_stylebox_override("pressed", _chip_sb(true)); ch.add_theme_stylebox_override("hover_pressed", _chip_sb(true)); ch.add_theme_stylebox_override("focus", _chip_sb(false, true))
+			ch.add_theme_stylebox_override("normal", _chip_sb(false)); ch.add_theme_stylebox_override("hover", _chip_sb(false, true)); ch.add_theme_stylebox_override("pressed", _chip_sb(true)); ch.add_theme_stylebox_override("hover_pressed", _chip_sb(true)); ch.add_theme_stylebox_override("focus", _ring_sb())
 			for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]: ch.add_theme_color_override(c, EqTheme.INK if c != "font_pressed_color" and c != "font_hover_pressed_color" else Color("#0B1F1C"))
 			var spc := str(sp); ch.pressed.connect(func(): _pick_species(spc)); chips.add_child(ch); _chips[spc] = ch
 		_bank_kg = Knob.new(); _bank_kg.app = app
@@ -280,6 +280,12 @@ func _rebuild() -> void:
 	var bt := HBoxContainer.new(); bt.add_theme_constant_override("separation", 4); (_outer if _outer != null else _body).add_child(bt); _foot = bt   # phone: Why? / Lens / Window stay pinned under the scrolling body
 	_why = _btn(PaperStrings.t("FP_WHY"), _on_why); _lens = _btn(PaperStrings.t("FP_LENS"), func(): _open_extra("open_lens")); _win = _btn(PaperStrings.t("FP_WINDOW"), func(): _open_extra("open_window"))
 	for b in [_why, _lens, _win]: bt.add_child(b)
+
+## The pad's focus ring on a chip: a bright border over whatever the chip looks like (the old focus style was the hover tint, which no one could see).
+func _ring_sb() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new(); s.draw_center = false; s.border_color = Color(1, 0.9, 0.25); s.set_border_width_all(4); s.set_corner_radius_all(4)
+	s.expand_margin_left = 2; s.expand_margin_right = 2; s.expand_margin_top = 2; s.expand_margin_bottom = 2
+	return s
 
 func _chip_sb(on: bool, hover := false) -> StyleBoxFlat:
 	var s := EqTheme.key_sb(on)
@@ -368,7 +374,7 @@ func _add_picker(k: Dictionary) -> void:
 		var bt := Button.new(); bt.name = "Opt_" + (str(o) if str(o) != "" else "none"); bt.toggle_mode = true; bt.focus_mode = Control.FOCUS_ALL
 		bt.text = _opt_text(k, key, str(o)); bt.custom_minimum_size = Vector2(0, 30)
 		bt.add_theme_font_override("font", EqStrings.font("cap")); bt.add_theme_font_size_override("font_size", EqTheme.fs(14))
-		bt.add_theme_stylebox_override("normal", _chip_sb(false)); bt.add_theme_stylebox_override("hover", _chip_sb(false, true)); bt.add_theme_stylebox_override("pressed", _chip_sb(true)); bt.add_theme_stylebox_override("hover_pressed", _chip_sb(true)); bt.add_theme_stylebox_override("focus", _chip_sb(false, true))
+		bt.add_theme_stylebox_override("normal", _chip_sb(false)); bt.add_theme_stylebox_override("hover", _chip_sb(false, true)); bt.add_theme_stylebox_override("pressed", _chip_sb(true)); bt.add_theme_stylebox_override("hover_pressed", _chip_sb(true)); bt.add_theme_stylebox_override("focus", _ring_sb())
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]: bt.add_theme_color_override(c, EqTheme.INK if c != "font_pressed_color" and c != "font_hover_pressed_color" else Color("#0B1F1C"))
 		var ov := str(o); bt.pressed.connect(func(): _commit(k, float((k.options as Array).find(ov)))); fl.add_child(bt); m[ov] = bt
 	pickers[key] = m
@@ -393,7 +399,8 @@ func _add_catalyst(cat: Dictionary) -> void:
 		var bt := Button.new(); bt.name = "Opt_" + oid; bt.toggle_mode = true; bt.focus_mode = Control.FOCUS_ALL; bt.text = str(o.name).to_upper(); bt.custom_minimum_size = Vector2(0, 30)
 		bt.tooltip_text = _cat_line(o)
 		bt.add_theme_font_override("font", EqStrings.font("cap")); bt.add_theme_font_size_override("font_size", EqTheme.fs(14))
-		for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]: bt.add_theme_stylebox_override(st, _chip_sb(st.contains("pressed"), st == "hover"))
+		for st in ["normal", "hover", "pressed", "hover_pressed"]: bt.add_theme_stylebox_override(st, _chip_sb(st.contains("pressed"), st == "hover"))
+		bt.add_theme_stylebox_override("focus", _ring_sb())
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]: bt.add_theme_color_override(c, EqTheme.INK if c != "font_pressed_color" and c != "font_hover_pressed_color" else Color("#0B1F1C"))
 		bt.pressed.connect(func(): _commit_catalyst(oid)); fl.add_child(bt); m[oid] = bt
 	pickers["catalyst"] = m
