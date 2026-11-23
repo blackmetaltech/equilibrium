@@ -278,3 +278,16 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
   - The coach's argon steps are not skipped until the job is done, and the "why" step is skipped when fewer than two tests ran.
   - The lesson now states the three Le Chatelier outcomes. The dead goal strings are removed.
 - **Tests:** ch3.test.ts adds "the find alone does not win" and "a T-only bisection loses at run six". f25_truth.test.ts changed on purpose.
+
+## 0.12 (art, text, flaky flows)
+
+**D-12-1. The hall's hero camera stands on the hero's side of the pipe rack (Sigrid's re-score: L03 2.5, "the camera sits inside a stack rail").**
+- **Cause:** the 0.11 hero view always looked from the rack side, with the eye at about 3.1 m, between the rack's two levels. L03's burner stands behind the rack, so a beam filled the frame.
+- **Now:** in front of the rack, the camera is low and on the open side. Behind the rack, with the wall close, it takes a raised three-quarter view from the open side; the sight line passes about 0.6 m over the rack.
+- **Hero choice:** levels with no glowing unit (L04) frame their reactor.
+- **Other art changes in the same pass, worst first from Sigrid's list:**
+  - the burner's fan set is one machine on a skid: volute, outlet duct, flanged throat, finned motor, coupling guard;
+  - the stack is weathered steel with weld seams, plate seams, a heat tint, soot and anchor bolts;
+  - the hall floor's noise contrast is halved;
+  - the crane's "orange cube" is a hook block on visible twin ropes.
+- **Commit note:** these changes went into commit 7b20d75 under the helper's notebook message: it staged the whole tree. Helpers now stage by path.
