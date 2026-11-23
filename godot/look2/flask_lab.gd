@@ -44,7 +44,7 @@ func _demo_step() -> void:
 func _ready() -> void:
 	_build_env()
 	env.volumetric_fog_density = 0.008; env.volumetric_fog_albedo = Color(0.85, 0.85, 0.88); env.volumetric_fog_anisotropy = 0.7
-	env.ambient_light_energy = 1.05; env.tonemap_exposure = 1.45   # owner review: the glassware, tanks and the bay must read
+	env.ambient_light_energy = 1.4; env.tonemap_exposure = 1.55   # owner review: the glassware, tanks and the bay must read
 	_build_room(); _build_rig(); _build_racks()
 	cam = Camera3D.new(); cam.fov = 48.0; cam.near = 0.03; cam.far = 600.0; add_child(cam)
 	set_camera("wide"); _snap_cam()
@@ -86,7 +86,10 @@ func _build_room() -> void:
 	_wallwhite = _flat(Color(0.84, 0.86, 0.88), 0.0, 0.38)
 	var x0 := -32.0; var x1 := 32.0; var z0 := -24.0; var z1 := 20.0; var H := 24.0
 	var fl := PlaneMesh.new(); fl.size = Vector2(x1 - x0, z1 - z0)
-	_mi(fl, Vector3(0, 0, (z0 + z1) * 0.5), _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.45, "tint": Color(0.66, 0.67, 0.68), "base_rough": 0.55}))   # phase C (owner: the lab should gleam): pale polished floor
+	var ep := StandardMaterial3D.new(); ep.albedo_color = Color(0.7, 0.72, 0.74); ep.roughness = 0.16; ep.metallic = 0.0   # phase C (owner: the lab should gleam): light poured epoxy, polished
+	ep.normal_enabled = true; ep.normal_texture = _tex("concrete_floor_02_nor"); ep.normal_scale = 0.12; ep.uv1_scale = Vector3(16, 12, 1)
+	_mi(fl, Vector3(0, 0, (z0 + z1) * 0.5), ep)
+	for gx in range(int(x0) + 4, int(x1), 4): _box(Vector3(0.02, 0.003, z1 - z0), Vector3(gx, 0.002, (z0 + z1) * 0.5), _flat(Color(0.5, 0.52, 0.54), 0.0, 0.4))   # epoxy joint lines
 	# walls: dark wood wainscot to 3.5 m with a warm cove light, concrete above, steel pilasters; the ceiling is a dark coffer with skylights
 	for w in [[Vector3(0, 0, z1), Vector3(x1 - x0, 0, 0.4)], [Vector3(x0, 0, 0), Vector3(0.4, 0, z1 - z0)], [Vector3(x1, 0, 0), Vector3(0.4, 0, z1 - z0)]]:
 		var c: Vector3 = w[0]; var sz: Vector3 = w[1]
