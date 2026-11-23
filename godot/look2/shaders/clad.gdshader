@@ -25,7 +25,7 @@ void fragment() {
 	float f = fbm3(wp * 2.5);
 	a *= 0.9 + 0.2 * f;
 	a = mix(a, a * 0.55, max(seam, lap) * 0.8);
-	a = mix(a, vec3(0.42, 0.43, 0.45), strap);
+	a = mix(a, vec3(0.5, 0.51, 0.53), strap);
 	// dirt toward the floor
 	float g = (1.0 - smoothstep(0.0, 0.7, wp.y)) * (0.5 + 0.5 * f);
 	a = mix(a, a * vec3(0.4, 0.37, 0.34), clamp(g, 0.0, 0.8));

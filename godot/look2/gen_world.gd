@@ -447,7 +447,7 @@ func _stack(id: String, c: Vector3) -> void:
 	_flange(c + Vector3(0.65, 4.3, 0), Vector3.RIGHT, 0.04, plant); _seg(c + Vector3(0.55, 4.3, 0), c + Vector3(0.7, 4.3, 0), 0.025, ss, plant)   # the probe flange on the stack wall
 	_pipe([c + Vector3(0.7, 4.3, 0), c + Vector3(1.1, 4.3, 0.5), c + Vector3(1.2, 2.6, 1.0), c + Vector3(1.2, 1.72, 1.0)], 0.018, ss, plant, false)   # 0.13: 0.018 so it reads at the analyser view   # the 0.02 m stainless sample line down to the cabinet
 	var cab := c + Vector3(1.5, 0, 1.1)
-	_box(Vector3(0.9, 1.7, 0.6), cab + Vector3(0, 0.85, 0), _enamel(Color(0.5, 0.53, 0.56)), plant)   # grey matte instrument enamel analyser cabinet
+	_box(Vector3(0.9, 1.7, 0.6), cab + Vector3(0, 0.85, 0), _enamel(Color(0.36, 0.38, 0.4)), plant)   # grey matte instrument enamel analyser cabinet
 	_box(Vector3(0.82, 0.72, 0.03), cab + Vector3(0, 1.25, 0.3), _flat(Color(0.15, 0.16, 0.17), 0.3, 0.4), plant)   # recessed bezel
 	_seg(cab + Vector3(-0.3, 1.7, 0), cab + Vector3(-0.3, 2.6, 0), 0.03, M.steel_dull, plant)   # conduit up to the sample line
 	var scr := _flat(Color(0.015, 0.02, 0.02), 0.0, 0.15); scr.emission_enabled = true; scr.emission = Color(0.05, 0.16, 0.12); scr.emission_energy_multiplier = 0.6   # a dark LCD that glows faintly, not a teal slab
@@ -791,7 +791,7 @@ func _calorimeter_bench(id: String, c: Vector3) -> void:
 	_pipe([dw + Vector3(0.0, 0.62, 0.0), dw + Vector3(0.0, 0.7, 0.0), dw + Vector3(-0.5, 0.7, 0.3), dw + Vector3(-0.75, 0.0, 0.3)], 0.006, M.brass, plant, false)
 	# 2. the bomb calorimeter: the cabinet, its lid and screen, the bomb in its stand, the O2 cylinder and regulator
 	var bc := c + Vector3(0.6, top + 0.025, 0.0)
-	_box(Vector3(0.55, 0.34, 0.45), bc + Vector3(0, 0.17, 0), _enamel(Color(0.56, 0.58, 0.58)), plant)
+	_box(Vector3(0.55, 0.34, 0.45), bc + Vector3(0, 0.17, 0), _enamel(Color(0.36, 0.42, 0.46)), plant)
 	_cyl(0.13, 0.04, bc + Vector3(-0.1, 0.36, 0.0), M.steel, plant, -1.0, 28)   # the bucket lid
 	var scr := _box(Vector3(0.2, 0.13, 0.015), bc + Vector3(0.15, 0.3, 0.2), _flat(Color(0.03, 0.05, 0.06), 0.2, 0.2, Color(0.15, 0.45, 0.6), 0.6), plant); scr.rotation_degrees.x = -25.0
 	var bomb := c + Vector3(1.0, top + 0.025, 0.15)
@@ -803,7 +803,7 @@ func _calorimeter_bench(id: String, c: Vector3) -> void:
 	_pipe([oc + Vector3(0, 1.47, 0), oc + Vector3(0.0, 1.47, 0.4), bomb + Vector3(0.025, 0.32, 0)], 0.005, M.steel, plant, false)
 	# 3. the tube furnace: a clamshell body on feet, the split line and hinges, the quartz work tube through it, the controller
 	var tf := c + Vector3(1.85, top + 0.025, 0.0)
-	var body: Material = _enamel(Color(0.6, 0.6, 0.57))
+	var body: Material = _enamel(Color(0.4, 0.4, 0.37))
 	for sgx in [-0.18, 0.18]: _box(Vector3(0.06, 0.12, 0.3), tf + Vector3(sgx, 0.06, 0), M.black, plant)
 	var sh1 := _cyl(0.2, 0.5, tf + Vector3(0, 0.3, 0), body, plant, -1.0, 32); sh1.rotation_degrees.z = 90
 	_box(Vector3(0.5, 0.012, 0.42), tf + Vector3(0, 0.3, 0), M.black, plant)   # the split line
@@ -1022,7 +1022,7 @@ func _relief(id: String, c: Vector3) -> void:
 
 ## 0.14 (L24): the interlock: a trip cabinet with its lamp, and the shut-off valve it closes.
 func _interlock(id: String, c: Vector3) -> void:
-	_box(Vector3(0.8, 1.6, 0.4), c + Vector3(0, 0.8, 0), _enamel(Color(0.55, 0.55, 0.52)), plant)
+	_box(Vector3(0.8, 1.6, 0.4), c + Vector3(0, 0.8, 0), _enamel(Color(0.4, 0.4, 0.36)), plant)
 	_box(Vector3(0.7, 0.4, 0.02), c + Vector3(0, 1.25, 0.21), _flat(Color(0.12, 0.12, 0.13), 0.2, 0.4), plant)
 	var lamp := _flat(Color(0.4, 0.05, 0.03), 0.0, 0.3, Color(1.0, 0.08, 0.04), 0.0); lamp.resource_name = "trip_lamp"
 	_cyl(0.06, 0.05, c + Vector3(-0.2, 1.25, 0.23), lamp, plant).rotation_degrees.x = 90

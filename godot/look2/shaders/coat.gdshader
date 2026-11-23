@@ -9,6 +9,7 @@ uniform float metallic = 0.1;
 uniform float wear = 0.5;      // 0 = enamel, no chips; 1 = heavily chipped
 uniform float grime = 0.6;     // 0..1 darkening toward the floor
 uniform float grime_h = 0.8;   // metres above the floor over which the grime fades out
+uniform float seams = 0.0;     // >0: panel seams every `seams` metres (cabinets, furnace body)
 uniform float peel = 0.03;     // orange-peel roughness noise (enamel)
 varying vec3 lp;
 varying vec3 wp;
@@ -33,6 +34,13 @@ void fragment() {
 	g += grime * 0.12 * smoothstep(0.4, 0.8, streak) * (1.0 - smoothstep(0.0, 3.0, wp.y));
 	a = mix(a, a * vec3(0.38, 0.34, 0.3), clamp(g, 0.0, 0.85));
 	r = mix(r, 0.85, clamp(g, 0.0, 1.0));
+	if (seams > 0.0) {
+		float sy = abs(fract(wp.y / seams) - 0.5);
+		float sx = abs(fract((wp.x + wp.z) / (seams * 1.6)) - 0.5);
+		float line = max(1.0 - smoothstep(0.488, 0.5, sy), 1.0 - smoothstep(0.492, 0.5, sx));
+		a *= 1.0 - 0.45 * line;
+		r = mix(r, 0.8, line);
+	}
 	ALBEDO = min(a, vec3(0.8));
 	METALLIC = m; ROUGHNESS = clamp(r, 0.05, 1.0);
 }

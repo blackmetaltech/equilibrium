@@ -145,7 +145,7 @@ func _flat(c: Color, metal := 0.0, rough := 0.6, emit := Color.BLACK, e := 0.0) 
 func _coat(c: Color, wear := 0.5, grime := 0.6, rough := 0.55, metal := 0.1) -> ShaderMaterial:   ## painted carbon steel: chipped edges, drips, contact grime at the base
 	return _shader("coat", {"paint": c, "wear": wear, "grime": grime, "rough": rough, "metallic": metal})
 func _enamel(c: Color) -> ShaderMaterial:   ## matte instrument enamel for cabinets and furnace bodies: no chips, a little grime, orange-peel finish
-	return _shader("coat", {"paint": c, "wear": 0.0, "grime": 0.35, "grime_h": 0.35, "rough": 0.62, "metallic": 0.0, "peel": 0.06})
+	return _shader("coat", {"paint": c, "wear": 0.0, "grime": 0.35, "grime_h": 0.35, "rough": 0.62, "metallic": 0.0, "peel": 0.06, "seams": 0.28})
 func _shader(path: String, params := {}) -> ShaderMaterial:
 	var m := ShaderMaterial.new(); m.shader = load("res://look2/shaders/" + path + ".gdshader")
 	for k in params: m.set_shader_parameter(k, params[k])
@@ -153,7 +153,7 @@ func _shader(path: String, params := {}) -> ShaderMaterial:
 var M := {}
 func _mats() -> void:
 	M.steel = _shader("steel", {"rough_base": 0.34, "metallic": 0.8, "blotch": 0.4})
-	M.steel_dull = _shader("steel", {"rough_base": 0.45, "albedo": Color(0.62, 0.64, 0.66)})
+	M.steel_dull = _coat(Color(0.5, 0.52, 0.54), 0.4, 0.55, 0.45, 0.5)   # 0.14: painted carbon steel, edge wear, grime toward the floor (was the flat blotchy steel)
 	M.clad = _shader("clad")                                                 # aluminium jacketing on insulated lines: seams every metre, band straps
 	M.ss = _shader("steel", {"rough_base": 0.3, "metallic": 0.9, "blotch": 0.12, "albedo": Color(0.7, 0.72, 0.74), "streak": Vector3(160.0, 5.0, 160.0)})   # brushed stainless: long streaks along the axis
 	M.paint_green = _coat(Color(0.36, 0.5, 0.42))
