@@ -96,7 +96,7 @@ static func open(app) -> Control:
 	_fill(app, host, vb, li)
 	_dismiss(app, host, sc)
 	app.focus_dialog()
-	var tw := host.create_tween(); pn.modulate.a = 0.0
+	var tw := host.create_tween(); pn.modulate.a = 0.0; pn.set_meta("nb_settled", false)   # true once the page has been sized and has finished sliding in (tests wait on it)
 	tw.tween_property(pn, "modulate:a", 1.0, 0.18)
 	_settle.call_deferred(app, pn, 780.0)
 	return host
@@ -124,7 +124,8 @@ static func _settle(app, pn: Control, w: float) -> void:
 		sc.scroll_vertical = 0   # a pad's first focus (the More key) made the page follow it while the panel was still being sized: the page opens at its top, the title whole
 		_scroll_hint(pn, sc)
 	var y := pn.position.y; pn.position.y = y + 70.0
-	pn.create_tween().tween_property(pn, "position:y", y, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var st := pn.create_tween(); st.tween_property(pn, "position:y", y, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	st.finished.connect(func(): if is_instance_valid(pn): pn.set_meta("nb_settled", true))
 
 ## A page taller than the screen scrolls under the pinned footer: a row cut by the scroll edge looks clipped, so a "more below" tag sits on the edge while there is more to read.
 static func _scroll_hint(pn: Control, sc: ScrollContainer) -> void:

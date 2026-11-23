@@ -184,10 +184,25 @@ func close_all() -> void:
 	Faceplate.close_all()
 	await frames(2)
 
+## The notebook slides in 70 px over 0.22 s of wall time after it is sized, so a fixed frame count samples it mid-slide (headless frames are ~3 ms): wait for the page's own "settled" mark, at most 600 frames.
+func nb_settle(tag: String) -> void:
+	for i in 600:
+		var pn := app.root.get_node_or_null("notebook")
+		if pn == null: return   # no notebook open (or it closed): nothing to wait for
+		var p := pn.find_child("Page", true, false)
+		var panel: Node = p.get_parent() if p != null else null
+		if panel != null and bool(panel.get_meta("nb_settled", false)):
+			var sb := pn.find_child("Start", true, false) as Control; checks += 1; var gap := app.get_viewport().get_visible_rect().end.y - sb.get_global_rect().end.y
+			if gap < 12.0: fail(tag, "'Start work' ends %.1f px above the window bottom once the page has settled (need 12)" % gap)
+			return
+		await process_frame
+	fail(tag, "the notebook did not finish opening in 600 frames")
+
 func level(id: String) -> void:
 	app.start_level(id, true); await frames(6)
 	if app.lvbay != null: app.lvbay.refresh(true)
 	await frames(4)
+	await nb_settle("level " + id)   # a level can open with its briefing notebook, which slides in
 
 func scale_note(res: Vector2i) -> void:
 	if not verbose: return
@@ -227,7 +242,7 @@ func run_screens(res: Vector2i, kind: String) -> void:
 	if want("menu"): await level("L07"); await frames(2); await close_all(); app.menus.menu(); await frames(5); await audit("pause menu " + at); await close_all()
 	if want("notebook"):
 		for id in ["L01", "L39", FIX]:
-			await level(id); await frames(3); await close_all(); Notebook.open(app); await frames(6); await audit("notebook %s %s" % [id, at]); await close_all()
+			await level(id); await frames(3); await close_all(); Notebook.open(app); await frames(6); await nb_settle("notebook " + id + " " + at); await audit("notebook %s %s" % [id, at]); await close_all()
 	if want("printout"):
 		for won in [true, false]:
 			await level("L07"); await frames(3); await close_all()
