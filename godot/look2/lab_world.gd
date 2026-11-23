@@ -277,7 +277,7 @@ func _build_env() -> void:
 # ---- the hall --------------------------------------------------------------------------------------------------------------------------------
 func _build_hall() -> void:
 	var fl := PlaneMesh.new(); fl.size = Vector2(60, 30); fl.subdivide_width = 1; fl.subdivide_depth = 1
-	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.9, "contrast": 0.5}))
+	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.75, "contrast": 0.5}))   # 0.12: a little drier (Sigrid: the downlight puddle hot spot)
 	# painted walkway lines and a drain channel
 	for x in [-26.0, 26.0]: _box(Vector3(0.12, 0.004, 26), Vector3(x, 0.003, 0), M.yellow)
 	_box(Vector3(52, 0.004, 0.12), Vector3(0, 0.003, 7.2), M.yellow)
@@ -287,6 +287,7 @@ func _build_hall() -> void:
 	_box(Vector3(60, 18, 0.6), Vector3(0, 9, 15.3), M.wall)
 	_box(Vector3(0.6, 18, 31), Vector3(-30.3, 9, 0), M.wall)
 	_box(Vector3(0.6, 18, 31), Vector3(30.3, 9, 0), M.wall)
+	_hall_walls()   # 0.12: the solid walls get a plinth, cladding, doors, a cabinet row and cool wall-wash light (Sigrid: "flat ochre walls")
 	_box(Vector3(60, 1.2, 0.6), Vector3(0, 0.6, -15.3), M.wall)            # upstand
 	_box(Vector3(60, 3.0, 0.6), Vector3(0, 16.5, -15.3), M.wall)           # head beam
 	var glass := BoxMesh.new(); glass.size = Vector3(60, 13.8, 0.03); _mi(glass, Vector3(0, 8.1, -15.2), M.glass)
@@ -343,6 +344,39 @@ func _truss(x: float) -> void:
 		_seg(Vector3(x, y0, z1), Vector3(x, y1, z1), 0.05, M.paint_grey, self, 6)
 
 # ---- the loop --------------------------------------------------------------------------------------------------------------------------------
+## 0.12 (Sigrid, L00 and L13: "the walls are flat ochre: add structure and texture, and a second, cooler light"). Front wall (z = 15) and the two end walls:
+## a 4 m concrete plinth, insulated profiled cladding above on steel girts, a roller-shutter door and a personnel door with a lit exit sign on the east end,
+## a row of motor-control cabinets with pilot lights along the front, and cool wall-wash lights that rim the plant against the warm sodium hall.
+func _hall_walls() -> void:
+	var clad := _pbr("corrugated_iron", 0.35, Color(0.62, 0.66, 0.68), true)
+	var girt := _paint(Color(0.24, 0.27, 0.3))
+	_box(Vector3(59.4, 11.0, 0.05), Vector3(0, 9.6, 14.97), clad)   # front cladding
+	for xe in [-29.97, 29.97]: _box(Vector3(0.05, 11.0, 29.4), Vector3(xe, 9.6, 0), clad)   # end cladding
+	for y in [4.05, 6.6, 9.2, 11.8, 14.4]:
+		_box(Vector3(59.4, 0.16, 0.12), Vector3(0, y, 14.9), girt)
+		for xe in [-29.9, 29.9]: _box(Vector3(0.12, 0.16, 29.4), Vector3(xe, y, 0), girt)
+	_box(Vector3(59.4, 0.08, 0.1), Vector3(0, 4.0, 14.95), M.steel_dull)   # flashing over the plinth
+	# east end: roller shutter (6 x 6 m) in a steel frame, bollards, and a personnel door with a lit exit sign
+	var sh := _pbr("painted_metal_shutter", 0.5, Color(0.7, 0.72, 0.74))
+	_box(Vector3(0.06, 6.0, 6.0), Vector3(29.95, 3.0, 6.0), sh)
+	_box(Vector3(0.3, 0.6, 6.6), Vector3(29.85, 6.3, 6.0), girt)   # shutter box
+	for dz in [-3.15, 3.15]: _box(Vector3(0.25, 6.3, 0.3), Vector3(29.85, 3.15, 6.0 + dz), M.yellow)   # guides, painted
+	for dz in [-3.6, 3.6]: _cyl(0.11, 1.0, Vector3(29.2, 0.5, 6.0 + dz), M.yellow)   # bollards
+	_box(Vector3(0.06, 2.2, 1.0), Vector3(29.95, 1.1, 0.5), _paint(Color(0.35, 0.42, 0.48)))   # personnel door
+	_box(Vector3(0.08, 0.22, 0.5), Vector3(29.9, 2.55, 0.5), _flat(Color(0.1, 0.6, 0.25), 0.0, 0.4, Color(0.15, 0.95, 0.4), 3.0))   # exit sign, lit
+	# front wall: a motor-control cabinet row with pilot lights, conduit rising to a cable tray
+	for i in 10:
+		var x := -10.0 + i * 0.85
+		_box(Vector3(0.8, 2.2, 0.6), Vector3(x, 1.1, 14.6), _flat(Color(0.55, 0.58, 0.6), 0.2, 0.45))
+		_box(Vector3(0.02, 2.1, 0.02), Vector3(x + 0.41, 1.1, 14.29), M.black)   # door gap
+		_cyl(0.025, 0.02, Vector3(x - 0.2, 1.8, 14.29), _flat(Color.WHITE, 0, 0.4, Color(0.2, 1.0, 0.3) if i % 3 != 1 else Color(1.0, 0.6, 0.1), 2.5)).rotation_degrees.x = 90
+		_seg(Vector3(x, 2.2, 14.75), Vector3(x, 4.6, 14.75), 0.03, M.steel_dull)   # conduit
+	_box(Vector3(9.0, 0.1, 0.5), Vector3(-6.2, 4.7, 14.65), M.steel_dull)   # cable tray
+	# cool wall-wash: rims the plant's silhouettes against the warm hall (a second colour of light)
+	for x in [-20.0, 0.0, 20.0]:
+		var w := SpotLight3D.new(); w.light_color = Color(0.62, 0.78, 1.0); w.light_energy = 4.0; w.spot_range = 18.0; w.spot_angle = 50.0
+		w.position = Vector3(x, 12.0, 11.0); w.rotation_degrees = Vector3(-35, 180, 0); w.light_volumetric_fog_energy = 0.4; add_child(w)
+
 func _build_loop() -> void:
 	# plinth slab under the equipment
 	_box(Vector3(46, 0.18, 9), Vector3(0, 0.09, -3.0), _pbr("concrete_floor_worn_02", 0.2, Color(0.6, 0.6, 0.6)))

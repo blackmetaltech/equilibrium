@@ -4,6 +4,7 @@ extends Node
 ## LabWorld (look2/lab_world.gd: the process hall, the loop, the plant outside) and HoloHud (look2/holo_hud.gd: anchored readouts, the equilibrium
 ## diagram, the cooler dial, the coach line, the clock, the end card). The engine, the level and its actions are unchanged: this file only routes the
 ## snapshot to the new layers. CB_LOOK2=0 turns the slice off (the 0.9 look comes back). Quality tier: CB_QUALITY=ultra|high|compat, else auto.
+var _rack_off := false   ## 0.12: the parts rack is hidden while the hall shows
 const GEN_LEVELS := ["L01", "L02", "L03", "L04", "L10", "L11", "L12", "L13"]   ## D-B4 + D-C2 (chapter 1): build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
 const LEVELS := ["L00", "L14"]   ## L00 Night Shift (the process hall), L14 The Brown Gas (the private lab, look2/flask_lab.gd)
 var app
@@ -120,6 +121,8 @@ func _gen_sync(lid: String) -> void:
 	var show := (phase != "design") != gen_flip
 	var g: Dictionary = app.b.g.duplicate(); g["phase"] = phase
 	gen.set_snapshot(g)
+	if show != _rack_off and app.get("lvbay") != null and app.lvbay.has_method("_hide_rack"):   # 0.12 (Sigrid): the parts rack is a drafting-table tool; it covered the plant in the hall
+		_rack_off = show; app.lvbay._hide_rack(show)
 	if show:
 		gen.visible = true; app.plant_world.visible = false; app.plant_world.set_blocked(true)
 		if _parked.is_empty(): _park_env(true)
@@ -134,6 +137,7 @@ func _gen_sync(lid: String) -> void:
 	_banner_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8)); _banner_lbl.add_theme_constant_override("outline_size", 6)
 
 func _gen_off() -> void:
+	if _rack_off and app.get("lvbay") != null and app.lvbay.has_method("_hide_rack"): _rack_off = false; app.lvbay._hide_rack(false)   # leaving the hall gives the rack back
 	if gen != null: gen.queue_free(); gen = null
 	if _banner != null: _banner.queue_free(); _banner = null
 	gen_level = ""

@@ -124,8 +124,8 @@ func layout() -> void:
 		rack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; rack_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 		rack_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_rack_flow(true)
-		parts_btn.visible = _on and _rack_any; parts_btn.custom_minimum_size = Vector2(150.0, btn_h)
-		_rack_float.visible = rack_open and _on and _rack_any
+		parts_btn.visible = _on and _rack_any and not rack_hold; parts_btn.custom_minimum_size = Vector2(150.0, btn_h)   # 0.12: a held rack (board levels, the hall) has no tab on a phone either
+		_rack_float.visible = rack_open and _on and _rack_any and not rack_hold
 		for a in ["anchor_left", "anchor_right", "anchor_top", "anchor_bottom"]: _rack_float.set(a, 0.0 if a.begins_with("anchor_l") or a.begins_with("anchor_r") else 1.0)
 		var bt := -(row_h + 22.0 + btn_h + 6.0)
 		_rack_float.offset_left = 12.0; _rack_float.offset_right = 12.0 + dw; _rack_float.offset_bottom = bt; _rack_float.offset_top = bt - dh

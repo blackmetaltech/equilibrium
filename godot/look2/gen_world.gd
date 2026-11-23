@@ -236,6 +236,8 @@ func _burner(id: String, c: Vector3) -> void:
 	_box(Vector3(0.18, 0.14, 0.22), c + Vector3(-2.35, 0.94, 0.68), mach, plant)   # terminal box
 	_box(Vector3(0.3, 0.24, 0.2), c + Vector3(-2.35, 0.62, 0.3), M.yellow, plant)   # coupling guard
 	var gm := _glowmat(); var pw := _cyl(0.16, 0.05, c + Vector3(0.3, 1.5, 0.92), gm, plant); pw.rotation_degrees.x = 90       # peep window
+	var pw2 := _cyl(0.16, 0.05, c + Vector3(0.3, 1.5, -0.92), gm, plant); pw2.rotation_degrees.x = 90   # 0.12: a peep window on each side (the hero view may stand on either)
+	for zz in [0.94, -0.94]: var rim := _torus(0.17, 0.025, c + Vector3(0.3, 1.5, zz), M.steel_dull, plant); rim.rotation_degrees.x = 90
 	var fl := _particles(c + Vector3(-0.6, 1.4, 0), 60, 0.5, Vector3(2.4, 0.2, 0), 8.0, 0.35, Color(1.0, 0.55, 0.15, 0.7), plant, 2.0)
 	fl.emitting = false
 	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.omni_range = 5.0; l.position = c + Vector3(0.3, 1.5, 1.6); plant.add_child(l)
@@ -311,7 +313,7 @@ func set_camera(spec: String) -> void:
 			var sk := -1.0 if str(_types.get(hid, "")) == "burner" else 1.0   # the burner is framed from its sight-glass side
 			_preset = p; t_focus = Vector3(hp.x, 1.7, hp.z); t_pitch = -0.07; t_dist = 8.0
 			if side > 0.0 or room > 7.0: t_yaw = (sk * PI * 0.2) if side > 0.0 else (PI - sk * PI * 0.2); t_dist = clampf((room - 0.4) / cos(PI * 0.2), 5.0, 8.0)
-			else: t_yaw = sk * PI * 0.2; t_pitch = -0.42; t_dist = 10.0   # behind the rack with the wall close: a raised three-quarter view from the open side, the sight line ~0.6 m over the rack's top level
+			else: t_yaw = PI - sk * PI * 0.25; t_pitch = -0.5; t_dist = clampf((room - 0.3) / (cos(0.5) * cos(PI * 0.25)), 4.5, 8.0)   # behind the rack with the glass wall close: raised, from the glass side, the rack behind the units
 			continue   # vessels from the open side (the rack behind); the burner from its face, with the stack
 		if p == "stack" and not _analyser.is_empty():   # the flue analyser close up
 			_preset = p; t_focus = _stack_at + Vector3(0, 1.4, 0); t_yaw = -0.5; t_pitch = -0.08; t_dist = 3.6; continue
