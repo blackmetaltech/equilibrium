@@ -829,9 +829,11 @@ func _tubular(id: String, c: Vector3) -> void:
 ## 0.14 (L23): the fermenter. A tall stainless tank with a cone bottom on legs, a manway, an agitator drive on the roof, a CO2 vent, and a wide sight glass with
 ## the beer inside at the engine's level, frothing with CO2 (gas) and turning (spin).
 func _fermenter(id: String, c: Vector3) -> void:
-	var ss := _flat(Color(0.8, 0.82, 0.84), 0.9, 0.22)
+	var ss := _flat(Color(0.8, 0.82, 0.84), 0.9, 0.22); ss.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var r := 1.3; var y0 := 1.4; var h := 4.2
-	_cyl(r, h, c + Vector3(0, y0 + h * 0.5, 0), ss, plant, -1.0, 48)
+	var wa0 := 0.35; var wb0 := y0 + 0.4; var wb1 := y0 + h - 0.4   # the shell leaves the sight window open (the glass and the beer fill it)
+	_arc(r, y0, y0 + h, PI * 0.5 + wa0, PI * 2.5 - wa0, 44, ss, c, plant)
+	_arc(r, y0, wb0, PI * 0.5 - wa0, PI * 0.5 + wa0, 8, ss, c, plant); _arc(r, wb1, y0 + h, PI * 0.5 - wa0, PI * 0.5 + wa0, 8, ss, c, plant)
 	_cyl(0.15, 1.1, c + Vector3(0, y0 - 0.55, 0), ss, plant, r, 48).position = c + Vector3(0, y0 - 0.55, 0)   # the cone
 	_dished(r, c + Vector3(0, y0 + h, 0), ss, plant, true)
 	for a in 4: var ang := TAU * a / 4.0 + PI / 4.0; _seg(c + Vector3(cos(ang) * r * 0.95, 0, sin(ang) * r * 0.95), c + Vector3(cos(ang) * r * 0.95, y0 + 0.4, sin(ang) * r * 0.95), 0.06, ss, plant)
@@ -839,7 +841,7 @@ func _fermenter(id: String, c: Vector3) -> void:
 	_cyl(0.22, 0.5, c + Vector3(0, y0 + h + r * 0.4 + 0.25, 0), M.enamel_blue, plant)   # agitator drive
 	var glass := _flat(Color(0.85, 0.92, 0.95, 0.15), 0.0, 0.05); glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var wa := 0.35; var wy0 := y0 + 0.4; var wy1 := y0 + h - 0.4
-	var beer := _flat(Color(0.62, 0.42, 0.12, 0.9), 0.0, 0.25); beer.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var beer := _flat(Color(0.7, 0.48, 0.14, 0.92), 0.0, 0.25); beer.emission_enabled = true; beer.emission = Color(0.5, 0.32, 0.08); beer.emission_energy_multiplier = 0.35; beer.cull_mode = BaseMaterial3D.CULL_DISABLED; beer.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var liq := _arc(r - 0.03, 0.0, 1.0, PI * 0.5 - wa, PI * 0.5 + wa, 10, beer, c + Vector3(0, wy0, 0), plant)
 	_arc(r + 0.005, wy0, wy1, PI * 0.5 - wa, PI * 0.5 + wa, 10, glass, c, plant)
 	for yy in [wy0, wy1]: _arc(r + 0.03, yy - 0.04, yy + 0.04, PI * 0.5 - wa - 0.04, PI * 0.5 + wa + 0.04, 10, M.steel_dull, c, plant)
@@ -1140,7 +1142,7 @@ func _pick_hero() -> Dictionary:
 	if by.has("cstr"): ids = [by.cstr[0]]; extra_ids = by.get("relief", []); yaw = 0.15 * PI; frac = 0.62   # L24: the reactor in its bund, the relief and catch tank in frame
 	elif by.has("gauze_burner"): ids = [by.gauze_burner[0]]; yaw = 0.15 * PI; frac = 0.6                 # L26: the ammonia burner and its glowing gauze
 	elif by.has("tubular"): ids = [by.tubular[0]]; yaw = 0.18 * PI; frac = 0.7                             # L22: the steam-raising converter under its drum
-	elif by.has("fermenter"): ids = [by.fermenter[0]]; extra_ids = by.get("column", []); yaw = 0.12 * PI; frac = 0.55   # L23: the fermenter, the still behind it
+	elif by.has("fermenter"): ids = [by.fermenter[0]]; yaw = 0.12 * PI; frac = 0.62   # L23: the fermenter close (its beer in the sight glass); the still shows in the wide view
 	elif _lid == "L27" and by.has("relief"): ids = [by.flash[0]] if by.has("flash") else [by.relief[0]]; extra_ids = by.relief; yaw = 0.15 * PI; frac = 0.55   # L27: the drum and its relief
 	elif by.has("compressor") and by.has("eq_reactor") and (by.has("flash") or by.has("nh3_sep")) and by.has("mixer3"): ids = [by.compressor[0]]; extra_ids = [by.eq_reactor[0]]; yaw = 0.2 * PI; frac = 0.45   # chapter 5: the recycle compressor in front, the converter it feeds behind
 	elif _lid == "L09" and by.has("stoich_reactor"): ids = [by.stoich_reactor[0]]; yaw = 0.1 * PI; frac = 0.75   # L09: the calorimeter bench, the furnace kept in frame
