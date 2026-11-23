@@ -238,7 +238,8 @@ func _speed() -> void:
 	check(keys.speed.note == "", "no PAUSED note over a 16x shift: '%s'" % keys.speed.note)
 	app.chrome.choose_speed(0); await frames(4)
 	# moved on purpose (0.12 speed-label fix): the note now follows the clock every frame, so a paused run says "PAUSED: press 1x" (what the old refresh-only code said at its next engine event); what must never show is the DESIGN note
-	check((keys.speed.note == "" or keys.speed.note == PaperStrings.t("CLOCK_PAUSED_RUN")) and keys.speed_pos == 0, "pausing a running shift shows the pause bars, no stale 1x note ('%s')" % keys.speed.note)
+	check(keys.speed.note == PaperStrings.t("CLOCK_PAUSED_RUN") and keys.speed_pos == 0, "pausing a running shift shows the pause bars and says PAUSED: press 1x ('%s')" % keys.speed.note)
+	check(not keys.speed.note.begins_with(PaperStrings.t("CLOCK_PAUSED").left(8) + " ") or keys.speed.note != PaperStrings.t("CLOCK_PAUSED"), "the DESIGN note never shows over a paused shift ('%s')" % keys.speed.note)
 
 # ---- 7. retry keeps the design; the predict question is asked once --------------------------------------------------------
 func _predict_retry() -> void:
