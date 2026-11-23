@@ -63,6 +63,7 @@ func rebuild() -> void:
 			"product": _tank(c)
 			"vent", "flare": _vent(id, c)
 			"stack": _stack(id, c)
+			"stoich_reactor": _vessel(c, 0.55, 1.5, _shader("steel", {"rough_base": 0.28, "metallic": 0.85, "blotch": 0.1}), plant, {"legs": true, "base": 0.6})   # the bench reactor (L01, L04)
 			"burner": _burner(id, c)
 			_: _box(Vector3(1.0, 1.0, 1.0), c + Vector3(0, 0.5, 0), M.steel_dull, plant)
 		var lab := Label3D.new(); lab.text = id; lab.font_size = 36; lab.pixel_size = 0.0009; lab.fixed_size = true; lab.no_depth_test = true; lab.render_priority = 10; lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lab.modulate = Color(0.9, 0.95, 1.0, 0.95)
@@ -111,6 +112,7 @@ func _height(ty: String) -> float:
 		"vent", "flare": return 6.0
 		"stack": return 9.4
 		"burner": return 2.5
+		"stoich_reactor": return 2.9
 		"feed": return 1.8
 	return 1.2
 
