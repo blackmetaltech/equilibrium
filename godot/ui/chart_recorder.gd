@@ -133,6 +133,10 @@ func feed(li: Dictionary, run_list: Array, tick: int) -> void:
 		var fresh := _phase_prev == "design" or (runs.is_empty() and samples.is_empty()) or (phase == "commissioned" and sig != _sig)
 		if fresh and _has(hero, "value") and not bool(hero.get("pending", false)):   # a pending hero (the plant has not been read yet) is no point on the paper
 			_sig = sig; record_run(hv, sv, tv)
+		elif (phase == "firstrun" or _phase_prev == "firstrun") and not runs.is_empty():   # and the step out of it, when the engine reports the end value
+			# 0.13 (Lena, L09): a pen that only moves while the first run plays (the furnace's temperature) stayed at its value at commission (298 K) while
+			# the printout said 2400 K; during the first run the latest point follows the engine's secondary and third pens. The hero point is unchanged.
+			var lr: Dictionary = runs.back(); lr["s"] = sv; lr["t"] = tv
 	_phase_prev = phase
 	queue_redraw()
 

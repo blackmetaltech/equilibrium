@@ -75,6 +75,7 @@ func _run() -> void:
 			check(float(k.act) >= 0.0 and float(k.act) <= 1.0, "L18 %s: catalyst activity in range" % kid)
 			check((k.bub as GPUParticles3D).emitting == (float(k.act) > 0.05), "L18 %s: bubbles follow the catalyst (act %.2f, emitting %s)" % [kid, float(k.act), str((k.bub as GPUParticles3D).emitting)])
 		check(float(GenWorld.KETTLE_ACT.catalase) > float(GenWorld.KETTLE_ACT.iodide) and float(GenWorld.KETTLE_ACT.iodide) > float(GenWorld.KETTLE_ACT.none), "L18: catalase foams more than iodide, iodide more than no catalyst")
+	await _l09_by_hand()
 	var g09 := await _play("L09")
 	if g09 != null:
 		check(g09._bench.has("furnace") and g09._bench.has("dw"), "L09: the calorimeter bench and the lab furnace are built (%s)" % str(g09._bench.keys()))
@@ -85,3 +86,17 @@ func _run() -> void:
 			check(fk > 900.0 and e > 0.5 or fk <= 723.0 and e == 0.0, "L09: the furnace bore glows with the furnace temperature (%.0f K, emission %.2f)" % [fk, e])
 			check(str((g09._bench.fread as Label3D).text) == "%d °C" % roundi(fk - 273.15), "L09: the furnace controller reads the level's furnace temperature (%s)" % str((g09._bench.fread as Label3D).text))
 		check(g09._pick_hero().ids.size() == 1 and str(g09._types[g09._pick_hero().ids[0]]) == "stoich_reactor", "L09: the hero view frames the calorimeter bench")
+
+## Lena's L09 (0.13): the player's own path, answers then commission, then the 30 s first run in which the furnace climbs. The recorder's point for the run was
+## taken at commission (298 K) and never moved, while the printout said 2400 K. After the first run the furnace pen must agree with the level.
+func _l09_by_hand() -> void:
+	app.start_level("L09", true); await frames(4)
+	for a in [["callIt", [885.3530859408867]], ["predict", ["heat_co2", 314.8]], ["predict", ["du_vap", 37.688878]], ["predict", ["tmin_k", 2000]], ["commission", []]]:
+		app.b.act(a[0], a[1]); app._on_changed(); await frames(2)
+	var rec = app.chrome.recorder if app.chrome != null else null
+	check(rec != null and str(app.b.q("levelInfo").get("phase", "")) == "firstrun", "L09 by hand: the first run is playing (%s)" % str(app.b.q("levelInfo").get("phase", "")))
+	for k in 34:
+		app.b.act("tick", [1]); app._on_changed(); await frames(1)
+	var li = app.b.q("levelInfo"); var fk := float(li.secondary.value) if li is Dictionary and li.get("secondary") is Dictionary else 0.0
+	check(fk > 2000.0, "L09 by hand: after the first run the level reports the furnace hot (%.1f K)" % fk)
+	check(rec != null and not rec.runs.is_empty() and absf(float(rec.runs.back().s) - fk) < 0.5, "L09 by hand: the recorder's furnace pen agrees with the level after the first run (%s against %.1f K)" % [str(rec.runs.back() if rec != null and not rec.runs.is_empty() else "none"), fk])
