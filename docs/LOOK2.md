@@ -246,3 +246,17 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
 **D-C6. The L14 T wheel steps 1 K by pad and by scroll (it was 5 K).**
 - **Why:** with D-C1 the goal is the book's flask, and only 406 K (-0.28 %) and 407 K (+0.24 %) read 9.15 bar within 0.5 %; 405 K is -0.82 %. At 5 K steps from 400 K a pad player could not win.
 - **Tests:** pad3_flow changed on purpose: two steps up is now 402 K, not 410 K. look2_flow now reaches the goal with six pad turns.
+
+**D-C7. Root causes of the load-sensitive tests (order item 6). The tests are made robust, and no assertion is loosened.**
+- **engine.test "commission time p95 < 25 ms":**
+  - **Cause:** it timed the wall clock. Under a parallel suite the worker is descheduled, and the wait was counted (57 to 936 ms seen).
+  - **Fix:** it now times this thread's CPU (`process.threadCpuUsage`). The bound is still 25 ms.
+  - **Evidence:** in the same full-suite run, wall p95 was 51.6 ms and CPU p95 was 6.0 ms.
+- **pad_build_flow (new this layer):**
+  - **Cause:** in a full flow run it failed 71 checks. It passed alone, under a 30 % CPU quota, and beside copies of itself, so the cause is not slowness. Another game's session was serving a machine-global virtual Xbox pad (core/qa/pad.py, uinput, "Microsoft X-Box 360 pad"). Every Godot process sees it, so with pad input on, the other session's presses landed in the flow.
+  - **Fix:** `scripts/flows.sh` sets the SDL ignore list for the pad's ids. pad_build_flow and pad3_flow check that no joypad is connected, and fail loudly naming it if one is.
+  - **Evidence:** without the list, pad3 fails on that check with ["Xbox 360 Controller"]. With it, both pass.
+- **build_guide_flow:** not explained yet.
+  - **What is known:** it failed only in full flow runs (L26: the Call it tap did not open the keypad, then a cascade). It passed alone, under a 25 % CPU quota, and three copies in parallel. It passed in today's full run.
+  - **Ruled out:** the virtual pad, because pad input is off in that flow and the core drops joypad events then.
+  - **Next:** the check message now names the control under the cursor when the tap misses, so the next failure says what took the click.

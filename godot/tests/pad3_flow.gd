@@ -22,6 +22,7 @@ func btn(b: int) -> void:
 func _initialize() -> void:
 	OS.set_environment("CB_NOAUTOSAVE", "1"); OS.set_environment("CB_LOOK2", "")
 	CbPad.enabled = true
+	check(Input.get_connected_joypads().is_empty(), "no machine joypad reaches this test (another session's virtual pad would press buttons here; run via scripts/flows.sh, which sets the SDL ignore list): %s" % str(Input.get_connected_joypads().map(func(d): return Input.get_joy_name(d))))
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(6)
 	await _run()
