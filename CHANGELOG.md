@@ -21,6 +21,8 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
 - A glare halo over the rod on the title.
 - The bed window had no glass: it was drawn facing away.
 - The analyser screen cut off "FLUE".
+- The recorder kept a pen at its value from the moment you commissioned. In L09 the furnace read 298 K while the printout said 2400 K. During a first run the pen now follows the plant.
+- The bed's last thermowell now sits at the outlet and reads what the recorder reads.
 - The speed dial marks, the title foot line and the Works map legend were under 16 px.
 ### Added
 - A test that the version agrees in every file that carries it.
