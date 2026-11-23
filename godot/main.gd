@@ -79,6 +79,7 @@ func game_on_changed() -> void:
 	if p is Dictionary: plant_world.set_state(p)
 	plant_world.set_snapshot(b.g)   # live looks: stream colours/flow, unit heat and alarms, Cute critters
 	_level_mood()
+	LabHome.sync(self)   # 0.12: the lab behind the title goes when a level starts
 	if look2 != null: look2.sync()
 
 ## Per-level mood: L00 is the 02:40 night shift (dark, lamps on), the bench levels are daytime; alarms drive the tones, the music stress
@@ -283,6 +284,7 @@ const LEVEL_ALIAS := {"C": "CAREER", "CAREER": "CAREER"}
 var _from_env := false   ## true while _run_env starts CB_LEVEL: a launch resumes the saved Career by itself (CB_NEW=1 starts a new one)
 func _run_env() -> void:
 	_from_env = true; super(); _from_env = false
+	if OS.get_environment("CB_HOME") in ["title", "map", "brief"] and started: to_title()   # 0.12 captures: the harness always starts a level; CB_HOME brings the lab home views up instead
 
 func start_level(id: String, force := false) -> void:
 	var rid: String = LEVEL_ALIAS.get(id.strip_edges().to_upper(), id)

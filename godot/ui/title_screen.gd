@@ -13,7 +13,7 @@ static func build(app: CbApp, root: Control) -> bool:
 	var k := clampf(vh / 1080.0, 0.6, 1.0)
 	var compact := CbLayout.compact and vh < 700.0
 	root.theme = CbKit.make_theme()
-	if app.get("look2") != null: app.look2.title_backdrop(true)   # owner review: the first screen is the new look (the night plant hall, drifting)
+	if not LabHome.show(app, "title") and app.get("look2") != null: app.look2.title_backdrop(true)   # 0.12: the private lab behind the title (look2/home.gd); owner review: the first screen is the new look (the night plant hall, drifting)
 	root.add_child(_dusk(vw, vh, app))
 	var box := VBoxContainer.new(); box.name = "EqTitleMenu"; box.add_theme_constant_override("separation", int(6 * k))
 	box.set_anchors_preset(Control.PRESET_TOP_LEFT); box.offset_left = (56.0 if compact else 80.0 * k); box.offset_top = (14.0 if compact else 52.0 * k)
@@ -43,15 +43,25 @@ static func build(app: CbApp, root: Control) -> bool:
 	for en in entries:
 		var s := Strip.new(str(en[1]), 20 if compact else int(26 * k)); s.name = "Strip_" + str(en[0]); s.pressed.connect(en[2]); vb.add_child(s); strips.append(s)
 		if first == null: first = s
-	for i in strips.size():
-		var s2: Strip = strips[i]
-		s2.focus_neighbor_top = strips[(i - 1 + strips.size()) % strips.size()].get_path() if strips.size() > 1 else NodePath()
-		s2.focus_neighbor_bottom = strips[(i + 1) % strips.size()].get_path() if strips.size() > 1 else NodePath()
 	var cute := Strip.new(T("CUTE_ON") if EqSettings.cute else T("CUTE_OFF"), 15 if compact else int(18 * k), true); cute.name = "Strip_cute"; cute.tooltip_text = T("CUTE_HINT")
 	cute.pressed.connect(func():
 		EqSettings.set_cute(app, not EqSettings.cute)
 		cute.set_label(T("CUTE_ON") if EqSettings.cute else T("CUTE_OFF")))
 	vb.add_child(cute)
+	var homes := Strip.new(T("HOME_ON") if EqSettings.home_lab else T("HOME_OFF"), 15 if compact else int(18 * k), true); homes.name = "Strip_home"; homes.tooltip_text = T("HOME_HINT")
+	homes.pressed.connect(func():
+		EqSettings.home_lab = not EqSettings.home_lab; EqSettings.save_all()
+		homes.set_label(T("HOME_ON") if EqSettings.home_lab else T("HOME_OFF"))
+		if EqSettings.home_lab: LabHome.show(app, "title")
+		else:
+			if LabHome.is_up(): LabHome.up.hide_home()
+			if app.get("look2") != null: app.look2.title_backdrop(true))
+	vb.add_child(homes)
+	strips.append(cute); strips.append(homes)   # 0.12: the pad walks every strip, the two small toggles too (they were outside the ring)
+	for i in strips.size():
+		var s2: Strip = strips[i]
+		s2.focus_neighbor_top = strips[(i - 1 + strips.size()) % strips.size()].get_path() if strips.size() > 1 else NodePath()
+		s2.focus_neighbor_bottom = strips[(i + 1) % strips.size()].get_path() if strips.size() > 1 else NodePath()
 	if CbLayout.phone:   # 62 px strips do not stack under the logo in 540 px: the plate takes the right-hand side, the logo keeps the left
 		box.remove_child(plate); root.add_child(plate)
 		var place := func() -> void:
@@ -61,6 +71,7 @@ static func build(app: CbApp, root: Control) -> bool:
 	foot.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT); foot.grow_horizontal = Control.GROW_DIRECTION_BEGIN; foot.grow_vertical = Control.GROW_DIRECTION_BEGIN; foot.offset_right = -20.0; foot.offset_bottom = -12.0
 	root.add_child(foot)
 	if first != null: _focus_later.call_deferred(first)
+	LabHome.env_views.call_deferred(app)
 	return true
 
 static func _focus_later(b: Control) -> void:

@@ -46,7 +46,7 @@ func _ready() -> void:
 	_build_env()
 	env.volumetric_fog_density = 0.008; env.volumetric_fog_albedo = Color(0.85, 0.85, 0.88); env.volumetric_fog_anisotropy = 0.7
 	env.ambient_light_energy = 1.4; env.tonemap_exposure = 1.55   # owner review: the glassware, tanks and the bay must read
-	_build_room(); _build_rig(); _build_racks()
+	_build_room(); _build_rig(); _build_racks(); _build_planning_table()
 	cam = Camera3D.new(); cam.fov = 48.0; cam.near = 0.03; cam.far = 600.0; add_child(cam)
 	set_camera("wide"); _snap_cam()
 	print("LOOK2 lab: %d mesh instances, %d lights" % [find_children("*", "MeshInstance3D", true, false).size(), find_children("*", "Light3D", true, false).size()])
@@ -369,6 +369,27 @@ func _build_racks() -> void:
 	var dl := OmniLight3D.new(); dl.light_color = Color(0.5, 0.85, 0.9); dl.light_energy = 0.8; dl.omni_range = 4.0; dl.position = cd + Vector3(0, 1.8, -1.6); add_child(dl)
 	anchors["dais"] = cd + Vector3(0, 1.5, 0)
 
+## 0.12 home: the planning table, where the Works Map is laid out as a lit plan (look2/home.gd puts the UI over it). It stands at x 2, z 6: no L14 camera frames it
+## (they look toward -z from x -11..3; the home preset looks down at it from +z).
+const TABLE_AT := Vector3(2.0, 0.0, 6.0)
+func _build_planning_table() -> void:
+	var t := Node3D.new(); t.name = "PlanningTable"; t.position = TABLE_AT; add_child(t)
+	var top_h := 0.95
+	_box(Vector3(7.4, 0.12, 3.8), Vector3(0, top_h - 0.06, 0), mats.stainless_dull, t)                       # the frame
+	_box(Vector3(7.0, 0.03, 3.4), Vector3(0, top_h + 0.005, 0), _flat(Color(0.02, 0.07, 0.08), 0.0, 0.55, Color(0.1, 0.6, 0.56), 0.22), t)   # the lit plan
+	for ix in range(-4, 5):   # drawn grid lines on the plan
+		_box(Vector3(0.012, 0.004, 3.4), Vector3(ix * 0.85, top_h + 0.022, 0), _flat(Color(0.3, 0.7, 0.66), 0.0, 0.5, Color(0.35, 0.85, 0.8), 0.45), t)
+	for iz in range(-2, 3):
+		_box(Vector3(7.0, 0.004, 0.012), Vector3(0, top_h + 0.022, iz * 0.8), _flat(Color(0.3, 0.7, 0.66), 0.0, 0.5, Color(0.35, 0.85, 0.8), 0.45), t)
+	for sx in [-3.4, 3.4]:
+		for sz in [-1.6, 1.6]: _box(Vector3(0.14, top_h - 0.1, 0.14), Vector3(sx, (top_h - 0.1) * 0.5, sz), mats.anod, t)
+	_box(Vector3(0.5, 0.05, 0.35), Vector3(-2.7, top_h + 0.05, 1.25), mats.wood, t)                          # a rolled drawing and a pencil tray
+	_cyl(0.07, 0.9, Vector3(2.6, top_h + 0.07, 1.2), mats.enamel_white, t, -1.0, 16).rotation.z = PI * 0.5
+	var lamp := OmniLight3D.new(); lamp.light_color = Color(0.6, 0.95, 0.9); lamp.light_energy = 0.9; lamp.omni_range = 7.0; lamp.position = Vector3(0, 3.0, 0); t.add_child(lamp)
+	var pend := _box(Vector3(2.6, 0.08, 0.5), Vector3(0, 3.3, 0), mats.anod, t); pend.name = "Pendant"
+	_box(Vector3(2.4, 0.01, 0.3), Vector3(0, 3.25, 0), mats.cool, t)
+	for sx in [-1.0, 1.0]: _seg(Vector3(sx, 3.3, 0), Vector3(sx, 12.0, 0), 0.015, mats.stainless_dull, t)
+
 # ---- live state ---------------------------------------------------------------------------------------------------------------------------------
 func setup(role_ids: Dictionary) -> void:
 	ids = role_ids
@@ -529,6 +550,8 @@ const L14_PRESETS := {
 	"bench": [Vector3(-7.4, 1.3, 6.0), -0.5, -0.3, 2.6],
 	"dewar": [Vector3(3.0, 2.2, -4.1), 0.7, -0.2, 3.2],
 	"xray": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
+	"home": [TABLE_AT + Vector3(0, 0.95, 0.1), 0.0, -0.78, 7.4],        # 0.12: the planning table from above (the Works Map), the lab behind it
+	"home_card": [TABLE_AT + Vector3(0, 0.95, -0.1), 0.0, -0.55, 4.4],   # the briefing card: nearer, the plan under it
 }
 func set_camera(spec: String) -> void:
 	for part in spec.split(","):

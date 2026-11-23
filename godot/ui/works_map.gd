@@ -15,7 +15,7 @@ const S := {
 	"MAP_LOCK_CH": "Finish chapter %d, %s, first.", "MAP_LOCK_LV": "Needs a star on %s first.", "MAP_PICK": "Pick a job. Teal lamps are three stars.",
 	"MAP_LEGEND": "dark: locked   white: done   teal: three stars   book: exam bridge",
 	"MAP_NEW_ASK": "Start the works over? The map goes dark again and your stars are cleared.", "MAP_NEW_YES": "New works",
-	"MAP_LEARNER": "Stars won in Learner mode are hollow gold; Engineer mode makes them solid.",
+	"CARD_START": "Start work", "CARD_BACK": "Back", "MAP_LEARNER": "Stars won in Learner mode are hollow gold; Engineer mode makes them solid.",
 }
 static func T(k: String) -> String: return S.get(k, k)
 
@@ -244,9 +244,11 @@ static func open(app: CbApp) -> void:
 	var compact := CbLayout.compact
 	var vw := app.vw(); var vh := app.vs_h()
 	var narrow := vw < 1000.0 or vh > vw * 1.1
-	var d: Dictionary = app.dialog("levels", minf(vw - (16.0 if compact else 40.0), 1860.0), vh - (16.0 if compact else 40.0), EqTheme.ENAMEL_HI, 0.55)
+	var home: bool = LabHome.is_up() and not app.started and not compact   # 0.12: opened from the title in the lab: the map is the lit plan on the planning table, the lab shows round it
+	var d: Dictionary = app.dialog("levels", minf(vw - (16.0 if compact else 40.0), 1860.0) * (0.66 if home else 1.0), (vh - (16.0 if compact else 40.0)) * (0.74 if home else 1.0), EqTheme.ENAMEL_HI, 0.0 if home else 0.55)
 	var host: Control = d.host; var vb: VBoxContainer = d.vb
-	(d.panel as PanelContainer).add_theme_stylebox_override("panel", HoloTheme.box(Color(HoloTheme.GLASS, 0.94), Color(HoloTheme.TEAL, 0.4), 1, 14, int(10.0 if compact else 18.0)))   # owner review: the glass language
+	(d.panel as PanelContainer).add_theme_stylebox_override("panel", HoloTheme.box(Color(HoloTheme.GLASS, 0.76 if home else 0.94), Color(HoloTheme.TEAL, 0.4), 1, 14, int(10.0 if compact else 18.0)))   # owner review: the glass language
+	if home: LabHome.map_opened(app, host)
 	vb.add_theme_constant_override("separation", 6 if compact else 10)
 	var view := MapView.new(); view.app = app; view.host = host; view.narrow = narrow
 	view.build(vb)
@@ -254,6 +256,7 @@ static func open(app: CbApp) -> void:
 
 ## Start a level from the map (or the title): closes the map first.
 static func start(app: CbApp, host: Control, id: String) -> void:
+	if LabHome.brief(app, host, id): return   # 0.12: in the lab the job opens as a briefing card on the table first
 	if host != null and is_instance_valid(host): host.queue_free()
 	sel_id = ""
 	BuildKeeper.predict_done.erase(id)
@@ -306,6 +309,45 @@ class MapView extends RefCounted:
 				if nb2 != null and nb2.state != "locked": pick = nb2; break
 		if pick != null and CbKit.pad_mode: pick.call_deferred("grab_focus")  # (guarded below)
 		if pick != null: select(pick.lid, false)
+		_wire_focus(pick, x)
+
+	## 0.12: the d-pad and the left stick walk the job nodes by where they are on the plan (Godot's own neighbour search jumped from Close to Start and never entered the grid).
+	## Wired once the layout has settled; positions are taken inside the bay, so a scrolled list does not change them. The top row goes up to Close, the bottom row down to Start.
+	func _wire_focus(pick: NodeBtn, close_btn: Button) -> void:
+		var sig := ""; var same := 0
+		for i in 60:   # wait for the layout to settle: the same node positions on three frames running
+			await app.get_tree().process_frame
+			if bay == null or not is_instance_valid(bay): return
+			var s2 := ""
+			for k in nodes: if is_instance_valid(nodes[k]): s2 += str((nodes[k] as Control).get_global_rect().position) + ";"
+			same = same + 1 if s2 == sig else 0; sig = s2
+			if same >= 3: break
+		if bay == null or not is_instance_valid(bay): return
+		var inv := bay.get_global_transform().affine_inverse()
+		var list: Array = []
+		for k in nodes: if is_instance_valid(nodes[k]): list.append(nodes[k])
+		if list.is_empty(): return
+		var ctr := func(n: Control) -> Vector2: return inv * n.get_global_rect().get_center()
+		var dirs := {"left": Vector2.LEFT, "right": Vector2.RIGHT, "top": Vector2.UP, "bottom": Vector2.DOWN}
+		for n in list:
+			var c: Vector2 = ctr.call(n)
+			for dn in dirs:
+				var d: Vector2 = dirs[dn]; var best: Control = null; var bs := INF
+				for pass_i in 2:   # first the nodes in a cone ahead, then (so nothing is unreachable) any node ahead
+					for m in list:
+						if m == n: continue
+						var del: Vector2 = (ctr.call(m) as Vector2) - c
+						var along := del.dot(d); var perp := absf(del.dot(Vector2(-d.y, d.x)))
+						if along <= 4.0 or (pass_i == 0 and perp > along * 2.0 + 20.0): continue
+						var sc := along + perp * 2.0
+						if sc < bs: bs = sc; best = m
+					if best != null: break
+				if best != null: n.set("focus_neighbor_" + dn, n.get_path_to(best))
+				elif dn == "top": n.focus_neighbor_top = n.get_path_to(close_btn)
+				elif dn == "bottom": n.focus_neighbor_bottom = n.get_path_to(start_btn)
+		close_btn.focus_neighbor_bottom = close_btn.get_path_to(pick if pick != null else list[0])
+		start_btn.focus_neighbor_top = start_btn.get_path_to(pick if pick != null else list[0])
+		if CbKit.pad_mode and pick != null and is_instance_valid(pick) and pick.is_inside_tree(): pick.grab_focus()
 
 	func _rank_plate(compact: bool) -> Control:
 		var pn := PanelContainer.new(); pn.name = "Rank"; pn.add_theme_stylebox_override("panel", HoloTheme.box(Color(1, 1, 1, 0.05), Color(HoloTheme.TEAL, 0.3), 1, 10, 8))
