@@ -246,9 +246,9 @@ func _process(dt: float) -> void:
 	_ft_tick(dt)
 
 const GEN_PRESETS := {
-	"wide": [Vector3(0.0, 2.5, -4.0), PI * 0.12, -0.32, 30.0],
-	"plant": [Vector3(0.0, 2.0, -4.0), -PI * 0.2, -0.45, 22.0],
-	"close": [Vector3(0.0, 2.0, -6.0), PI * 0.05, -0.2, 12.0],
+	"wide": [Vector3(0.0, 2.5, -4.0), PI * 0.12, -0.26, 24.0],
+	"plant": [Vector3(0.0, 2.2, -4.0), -PI * 0.2, -0.22, 15.0],   # phase C: low and close, so the vessels loom
+	"close": [Vector3(0.0, 2.0, -6.0), PI * 0.05, -0.12, 9.0],
 }
 func set_camera(spec: String) -> void:
 	for part in spec.split(","):
