@@ -34,7 +34,7 @@ export function releasePlatforms(src = read('.github/workflows/release.yml')): s
   return m ? m[1]!.trim().split(/\s+/) : null;
 }
 /** What the wiki home says about builds. src/wiki.test.ts fails when release.yml exports another list. */
-export const PLATFORMS = ['Linux', 'Windows'];
+export const PLATFORMS = ['Linux', 'Windows', 'macOS'];
 
 type Look = 'new' | 'classic' | 'none';
 interface Shot { file: string; alt: string; look: Look; /** in site/assets/shots (shared with the site home); otherwise in site/wiki/img */ shared?: boolean }
@@ -293,7 +293,7 @@ function nowSection(): string {
 <dt>Career</dt><dd>Five seeded years running the Works.</dd>
 <dt>In the new look</dt><dd>The title and the lab, ${chaptersOf(newJobs)}.</dd>
 <dt>Still classic</dt><dd>${chaptersOf(classicJobs).replace(/^./, (c) => c.toUpperCase())}, and the Career. The Works Map marks each chapter.</dd>
-<dt>Platforms</dt><dd>${PLATFORMS.join(' and ')}. No macOS build.</dd>
+<dt>Platforms</dt><dd>${PLATFORMS.join(' and ')}. The macOS build is untested: no one has opened it on a Mac.</dd>
 </dl>
 <h3>The campaign is complete. What is not built yet</h3>
 <p>Every level and the Career exist. What is left is mostly the look:</p>
