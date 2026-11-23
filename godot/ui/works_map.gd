@@ -272,7 +272,7 @@ static func open(app: CbApp) -> void:
 		for sd in ["top", "bottom"]: sheet.set("content_margin_" + sd, 18)
 		(d.panel as PanelContainer).add_theme_stylebox_override("panel", sheet)
 	else: (d.panel as PanelContainer).add_theme_stylebox_override("panel", HoloTheme.box(Color(HoloTheme.GLASS, 0.94), Color(HoloTheme.TEAL, 0.4), 1, 14, int(10.0 if compact else 18.0)))   # owner review: the glass language
-	if home: LabHome.map_opened(app, host)
+	if LabHome.is_up() and not app.started: LabHome.map_opened(app, host)   # every layout: the title UI steps aside while the map and its briefing card are up (on a handheld the card used to be drawn over the menu)
 	vb.add_theme_constant_override("separation", 6 if compact else 10)
 	var view := MapView.new(); view.app = app; view.host = host; view.narrow = narrow
 	view.build(vb)
@@ -372,6 +372,16 @@ class MapView extends RefCounted:
 		close_btn.focus_neighbor_bottom = close_btn.get_path_to(pick if pick != null else list[0])
 		start_btn.focus_neighbor_top = start_btn.get_path_to(pick if pick != null else list[0])
 		if CbKit.pad_mode and pick != null and is_instance_valid(pick) and pick.is_inside_tree(): pick.grab_focus()
+		await app.get_tree().process_frame
+		_open_view(pick)
+
+	## The map opens at its top, or (when the first job is further down) with that job's chapter card at the top: the focus grab during the first layout used to leave it scrolled to the middle.
+	func _open_view(pick: NodeBtn) -> void:
+		if scroll == null or not is_instance_valid(scroll) or bay == null or not is_instance_valid(bay): return
+		scroll.scroll_vertical = 0
+		if pick == null or not is_instance_valid(pick): return
+		var pr: Rect2 = Rect2(bay.get_global_transform().affine_inverse() * pick.get_global_rect().position, pick.get_global_rect().size)
+		if pr.end.y + 24.0 > scroll.size.y: scroll.scroll_vertical = maxi(0, int(pr.position.y) - 90)
 
 	func _rank_plate(compact: bool) -> Control:
 		var pn := PanelContainer.new(); pn.name = "Rank"; pn.add_theme_stylebox_override("panel", WorksMap.plate_box())

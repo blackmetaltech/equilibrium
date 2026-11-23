@@ -120,7 +120,9 @@ static func _settle(app, pn: Control, w: float) -> void:
 	pn.reset_size(); app.center(pn, w, 0.0)
 	await pn.get_tree().process_frame
 	if not is_instance_valid(pn): return
-	if sc != null: _scroll_hint(pn, sc)
+	if sc != null:
+		sc.scroll_vertical = 0   # a pad's first focus (the More key) made the page follow it while the panel was still being sized: the page opens at its top, the title whole
+		_scroll_hint(pn, sc)
 	var y := pn.position.y; pn.position.y = y + 70.0
 	pn.create_tween().tween_property(pn, "position:y", y, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
