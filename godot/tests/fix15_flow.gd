@@ -70,7 +70,7 @@ func _l00() -> void:
 		if str(u.type) == "cooler": cid = str(u.id)
 	check(rid != "" and cid != "", "L00 has a converter and a cooler (%s, %s)" % [rid, cid])
 	check(int(li().coach.step) == 1 and str(li().coach.text).contains("Tap the converter"), "the coach starts at 'Tap the converter'")
-	check(lines_text().contains("Tap the converter"), "and says it on the intercom")
+	check(lines_text().contains(EqVerb.adapt("Tap the converter")), "and says it on the intercom")
 	var hub = Faceplate.attach(app)
 	hub._on_unit(cid); await frames(4)
 	check(int(li().coach.step) == 1, "opening the cooler's card does not tick the converter step")
