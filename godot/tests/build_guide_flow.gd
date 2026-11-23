@@ -14,6 +14,17 @@ func check(c: bool, msg: String) -> void:
 func frames(n := 3) -> void:
 	for i in n: await process_frame
 var emit: Array = []   ## CB_BG_EMIT=<file>: the clicks and keys as desk.sh commands, for replaying a run with xdotool
+## 0.12 (build_guide's intermittent failure): panels re-lay themselves out a frame or more after they open (the faceplate re-places itself deferred, the notebook sizes
+## its Call scroll a frame late), so a rect read at once can be stale by the time the click lands. Click a control only once its rect has held for two frames.
+func click_ctrl(c: Control, gap := 2, tag := "") -> void:
+	var r0 := c.get_global_rect(); var still := 0; var waited := 0
+	while still < 2 and waited < 60:
+		await frames(1); waited += 1
+		var r1 := c.get_global_rect()
+		if r1.is_equal_approx(r0): still += 1
+		else: still = 0; r0 = r1
+	if waited > 2: print("BGSETTLE %s moved, settled after %d frames at %s" % [tag, waited, str(r0)])
+	await click_at(r0.get_center(), gap)
 func click_at(p: Vector2, gap := 2) -> void:
 	emit.append("click %d %d" % [int(p.x), int(p.y)])
 	var m := InputEventMouseMotion.new(); m.position = p; m.global_position = p; Input.parse_input_event(m); await frames(1)
@@ -63,6 +74,7 @@ func _initialize() -> void:
 func play(id: String) -> void:
 	print("== ", id)
 	app.start_level(id, true); await frames(8)
+	print("BGSEED %s %d" % [id, int(app.last_seed)])
 	var w = app.world
 	var steps: Array = li().get("buildGuide", [])
 	check(steps.size() >= 8, "%s: the notebook carries a build checklist (%d lines)" % [id, steps.size()])
@@ -97,7 +109,7 @@ func play(id: String) -> void:
 	await snap(id + "_built")
 	# commission with the key (Space) and let the plant run its first run
 	var ks: Control = app.chrome.keys
-	await click_at(ks.get_global_rect().get_center(), 4)
+	await click_ctrl(ks, 4, "key switch")
 	if str(q("levelInfo").phase) == "design": await key(KEY_SPACE); await frames(4)
 	var g: Dictionary = app.b.g
 	check(str(q("levelInfo").phase) != "design", "%s: the key commissioned the plant (phase %s)" % [id, str(q("levelInfo").phase)])
@@ -118,14 +130,19 @@ func call_it(id: String) -> void:
 	ans = nb.find_child("Answer", true, false)
 	if ans == null: return
 	var v := {"L23": "94.8", "L25": "1.97", "L26": "860"}[id] as String
-	var at := ans.get_global_rect().get_center()
-	await click_at(at, 3)
+	var r_before := ans.get_global_rect()
+	await click_ctrl(ans, 3, id + " answer")
 	var top := root.gui_get_hovered_control()
+	if app.modal() == null or app.modal().name != "keypad":   # 0.12 diagnostic: what covers the answer, and did the layout move between reading the rect and clicking
+		var csc := nb.find_child("CallScroll", true, false) as ScrollContainer; var cb := nb.find_child("CallBox", true, false) as Control
+		var kids := []
+		if top != null: for k in top.get_children(): if k is Control: kids.append("%s %s %s" % [k.name, k.get_class(), str((k as Control).get_global_rect())])
+		print("BGDIAG answer before %s after %s | scroll %s v=%d min=%.0f | callbox size %.0f min %.0f | hovered %s %s filter=%d kids %s" % [str(r_before), str(ans.get_global_rect()), str(csc.get_global_rect()) if csc else "-", csc.scroll_vertical if csc else -1, csc.custom_minimum_size.y if csc else -1.0, cb.size.y if cb else -1.0, cb.get_combined_minimum_size().y if cb else -1.0, top.get_class() if top else "-", str(top.get_global_rect()) if top else "-", top.mouse_filter if top else -1, str(kids)])
 	check(app.modal() != null and app.modal().name == "keypad", "%s: tapping the Call it line opens the keypad (modal %s, hovered %s, answer rect %s visible %s, root %s)" % [id, str(app.modal().name if app.modal() != null else null), str(top.get_path() if top != null else null), str(ans.get_global_rect()), str(ans.is_visible_in_tree()), str(root.size)])
 	await type_number(v)
 	check(bool(li().callIt.answered), "%s: the Call it answer is locked in from the notebook" % id)
 	var go: Control = nb.find_child("Start", true, false)
-	if go != null: await click_at(go.get_global_rect().get_center(), 3)
+	if go != null: await click_ctrl(go, 3, "start work")
 
 # ---- steps ----------------------------------------------------------------------------------------------------------------------
 func row_of(sid: String) -> Control:
@@ -136,7 +153,7 @@ func row_of(sid: String) -> Control:
 func click_row(sid: String) -> void:
 	var r := row_of(sid); await frames(2)
 	check(r != null and r.is_visible_in_tree(), "row %s is on screen" % sid)
-	if r != null: await click_at(r.get_global_rect().get_center(), 3)
+	if r != null: await click_ctrl(r, 3, "row")
 
 func do_place(id: String, l: Dictionary) -> void:
 	var w = app.world; var sid := str(l.id); var ty := str(l.type)
@@ -203,6 +220,13 @@ func set_knob(fp: Faceplate, key_: String, value: String) -> void:
 	var kn: Knob = fp.knobs.get(key_)
 	check(kn != null, "%s has a %s knob" % [fp.unit_id, key_])
 	if kn == null: return
+	var kr0 := kn.get_global_rect(); var still := 0; var waited := 0   # the plate re-places itself a frame late (faceplate _settle_place): click once it holds still
+	while still < 2 and waited < 60:
+		await frames(1); waited += 1
+		var kr1 := kn.get_global_rect()
+		if kr1.is_equal_approx(kr0): still += 1
+		else: still = 0; kr0 = kr1
+	if waited > 2: print("BGSETTLE knob %s moved, settled after %d frames" % [kn.name, waited])
 	await click_at(kn.get_global_rect().position + kn._num_rect().get_center(), 3)
 	if app.modal() == null or app.modal().name != "keypad": check(false, "%s %s: the keypad opened" % [fp.unit_id, key_]); return
 	await type_number(value)
@@ -225,7 +249,7 @@ func do_set(id: String, l: Dictionary) -> void:
 		if str(job[0]) == "packed_bed":
 			var bt: Button = fp.find_child("Opt_v2o5", true, false) as Button
 			check(bt != null, "%s: %s offers the V2O5 catalyst" % [id, uid])
-			if bt != null: await click_at(bt.get_global_rect().get_center(), 3)
+			if bt != null: await click_ctrl(bt, 3, uid + " V2O5")
 		await set_knob(fp, str(job[2]), str(job[3]))
 	Faceplate.close_all(); await frames(2)
 	check(done(sid), "%s: the setting line %s is ticked (%s)" % [id, sid, str(line(sid))])

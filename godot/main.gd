@@ -16,7 +16,8 @@ func chrome_shown() -> bool: return _chrome_on
 var last_seed := 0
 var pinned_seed := -1
 func _seed() -> int:
-	last_seed = pinned_seed if pinned_seed >= 0 else super._seed()
+	var env_seed := OS.get_environment("CB_SEED")   # 0.12: tests pin the level seed (the wall-clock seed made layouts vary run to run: fix18, build_guide)
+	last_seed = pinned_seed if pinned_seed >= 0 else (int(env_seed) if env_seed.is_valid_int() else super._seed())
 	return last_seed
 
 func game_config() -> Dictionary:
