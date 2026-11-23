@@ -472,7 +472,8 @@ func _build_planning_table() -> void:
 	var shade := _cyl(0.3, 0.3, hd + Vector3(0.12, 0.0, 0.08), _flat(Color(0.12, 0.2, 0.17), 0.3, 0.45), t, 0.07, 24); shade.name = "LampShade"
 	shade.rotation_degrees = Vector3(14, 0, -22)
 	_sph(0.07, hd + Vector3(0.14, -0.1, 0.1), _flat(Color.WHITE, 0.0, 0.4, Color(1.0, 0.85, 0.6), 4.0), t)
-	var sl := SpotLight3D.new(); sl.name = "DeskLamp"; sl.light_color = Color(1.0, 0.82, 0.58); sl.light_energy = 4.5; sl.spot_range = 9.0; sl.spot_angle = 30.0; sl.spot_attenuation = 0.5
+	var sl := SpotLight3D.new(); sl.name = "DeskLamp"; sl.light_color = Color(1.0, 0.82, 0.58); sl.light_energy = 2.2; sl.spot_range = 9.0; sl.spot_angle = 40.0;   # 0.12 (Sigrid round 2): half the energy, a wider cone: the paper was blown out
+	sl.spot_attenuation = 0.5
 	sl.shadow_enabled = true; sl.light_volumetric_fog_energy = 0.4; sl.position = hd + Vector3(0.14, -0.12, 0.1); t.add_child(sl)
 	sl.look_at(t.to_global(Vector3(0.0, top_h, 0.1)), Vector3.UP)
 	var fill := OmniLight3D.new(); fill.light_color = Color(1.0, 0.9, 0.78); fill.light_energy = 0.5; fill.omni_range = 7.0; fill.position = Vector3(0, 3.0, 0); t.add_child(fill)
@@ -638,6 +639,7 @@ const L14_PRESETS := {
 	"bench": [Vector3(-7.4, 1.3, 6.0), -0.5, -0.3, 2.6],
 	"dewar": [Vector3(3.0, 2.2, -4.1), 0.7, -0.2, 3.2],
 	"xray": [Vector3(0, 2.9, -2.0), 0.38, -0.03, 6.6],
+	"title": [Vector3(-1.0, 3.6, -6.5), -0.22, -0.15, 13.5],   # 0.12 (Sigrid round 2): the title frames the rig and the autoclave down the bay as a pair, right of the menu
 	"home": [TABLE_AT + Vector3(0, 0.95, -0.9), 0.0, -0.87, 7.6],        # 0.12: the planning table from above (the Works Map), the lab behind it
 	"home_card": [TABLE_AT + Vector3(0, 0.95, -1.3), 0.0, -0.87, 5.6],   # the briefing card: nearer, the plan under it
 }

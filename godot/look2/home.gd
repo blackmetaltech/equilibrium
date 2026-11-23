@@ -4,7 +4,7 @@ extends Node
 ## Three fixed camera shots, no walking: "title" (the wide shot, a slow sway), "table" (the planning table from above; the Works Map is laid over it as a lit plan) and "card"
 ## (nearer; one briefing card). The screens are the existing ones (title_screen.gd, works_map.gd); this file owns the lab behind them and the card.
 ## A setting (EqSettings.home_lab, default on; CB_HOME=0 for one run) switches all of it off: the classic screens stay. CB_HOME=title|map|brief opens a view at launch (captures).
-const SHOTS := {"title": "wide", "table": "home", "card": "home_card"}
+const SHOTS := {"title": "title", "table": "home", "card": "home_card"}
 static var up: LabHome
 var app
 var lab: FlaskLab
