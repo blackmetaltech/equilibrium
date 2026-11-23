@@ -50,7 +50,7 @@ func _init() -> void:
 func say_action(who: String, text: String, kind: String, label: String, action: Callable) -> void:
 	say(who, text, kind)
 	var l := last()
-	if l.is_empty() or str(l.get("text", "")) != text: return
+	if l.is_empty() or str(l.get("text", "")) != EqVerb.adapt(text): return
 	l["action_label"] = label; l["action"] = action
 	_show_last()
 
@@ -84,6 +84,7 @@ func _color(kind: String) -> Color:
 ## Add a line. Identical repeats of the newest line are ignored.
 func say(who: String, text: String, kind := "info", step := "", why := "") -> void:
 	if text == "": return
+	text = EqVerb.adapt(text)
 	who = who.to_upper()
 	if not lines.is_empty() and lines.back().text == text and lines.back().speaker == who: return
 	lines.append({"time": _clock(), "speaker": who, "text": text, "kind": kind, "step": step, "why": why, "why_said": false})

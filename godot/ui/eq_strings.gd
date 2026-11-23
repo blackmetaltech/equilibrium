@@ -18,7 +18,7 @@ const S := {
 	"TITLE_SETTINGS": "Settings", "TITLE_QUIT": "Quit", "TITLE_FOOT": "Kestrel Bay Works",
 	"PAUSE_TITLE": "Paused", "PAUSE_RESUME": "Resume", "PAUSE_RESTART": "Restart job", "PAUSE_NOTEBOOK": "Notebook", "PAUSE_SETTINGS": "Settings",
 	"PAUSE_MAP": "Works map", "PAUSE_TITLE_BTN": "Title",
-	"CUTE_ON": "Cute mode: on", "CUTE_OFF": "Cute mode: off", "CUTE_HINT": "Molecules become little critters. The count, size and speed still follow the physics.",
+	"HOME_ON": "Lab home: on", "HOME_OFF": "Lab home: off", "HOME_HINT": "The title, the chapter map and the briefings are in the private lab. Off: the plain screens.", "CUTE_ON": "Cute mode: on", "CUTE_OFF": "Cute mode: off", "CUTE_HINT": "Molecules become little critters. The count, size and speed still follow the physics.",
 	"GEAR_TIP": "Menu (Esc)", "PARTS_TAB": "Parts", "PARTS_TIP": "Show or hide the parts rack",
 	# --- keys of other workers below this line ---
 }

@@ -4,6 +4,7 @@ extends RefCounted
 ## toggle lives in the pause menu and on the title. `EqSettings.cute` is read by the world and the critters. Smoke runs never touch the file
 ## (CbSettings.persist is false there). CB_CUTE=0|1 overrides it for one run without saving.
 static var cute := true
+static var home_lab := true    ## 0.12: the title, the chapter map and the briefing live in the private lab (look2/home.gd). Off: the classic screens. CB_HOME=0 forces off for one run.
 static var path := "user://eq_settings.cfg"
 static var _loaded := false
 
@@ -12,14 +13,16 @@ static func load_all() -> void:
 	_loaded = true
 	if CbSettings.persist:
 		var c := ConfigFile.new()
-		if c.load(path) == OK: cute = bool(c.get_value("a", "cute", true))
+		if c.load(path) == OK: cute = bool(c.get_value("a", "cute", true)); home_lab = bool(c.get_value("a", "home_lab", true))
 	var env := OS.get_environment("CB_CUTE")
 	if env != "": cute = env != "0"
+	if OS.get_environment("CB_HOME") == "0": home_lab = false
 
 static func save_all() -> void:
 	if not CbSettings.persist: return
 	var c := ConfigFile.new()
 	c.set_value("a", "cute", cute)
+	c.set_value("a", "home_lab", home_lab)
 	c.save(path)
 
 ## Flip Cute mode, persist it and tell the world (duck-typed: any world node with `cute` or `set_cute`).

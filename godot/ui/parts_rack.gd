@@ -200,7 +200,8 @@ func _folded() -> bool:
 	return c != null and c.visible and bool(c.rack_tab) and not bool(c.rack_hold)
 
 func _unhandled_key_input(e: InputEvent) -> void:
-	if not (e is InputEventKey) or not e.pressed or e.echo or not (is_visible_in_tree() or _folded()): return
+	var hall: bool = app != null and app.chrome != null and bool(app.chrome.get("hall_hold"))   # 0.12: hidden by the hall, the rack still answers a digit (parts go down in DESIGN)
+	if not (e is InputEventKey) or not e.pressed or e.echo or not (is_visible_in_tree() or _folded() or hall): return
 	if app == null or app.modal() != null or not app.started: return
 	var f := get_viewport().gui_get_focus_owner()
 	if f is LineEdit or f is TextEdit or f is SpinBox or f is OptionButton: return   # digits belong to a field that has focus (a Knob takes focus on a click but never reads a digit: a number key after a knob tweak must still pick the tile)
@@ -221,6 +222,13 @@ func pad_step(dir: int) -> bool:
 	var tl: Tile = tiles[_focus]   # deferred: the shell's pad node (first press) re-seats the focus after this handler
 	(func() -> void: if is_instance_valid(tl) and tl.is_visible_in_tree() and tl.focus_mode == Control.FOCUS_ALL: tl.grab_focus()).call_deferred()
 	return true
+
+## The tray tile the pad last stood on takes the focus now (nothing else held it).
+func pad_focus() -> void:
+	if tiles.is_empty() or not is_visible_in_tree(): return
+	_focus = clampi(_focus, 0, tiles.size() - 1); _show_focus()
+	var tl: Tile = tiles[_focus]
+	if tl.is_visible_in_tree() and tl.focus_mode == Control.FOCUS_ALL: tl.grab_focus()
 
 func _show_focus() -> void:
 	for i in tiles.size(): (tiles[i] as Tile).focused = i == _focus; (tiles[i] as Tile).queue_redraw()

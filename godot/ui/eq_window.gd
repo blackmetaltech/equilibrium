@@ -71,7 +71,12 @@ func _draw_body() -> void:
 	var refsp := str(data.get("ref", "")) if data.get("ref") != null else ""
 	var cap := (T_("INS_EQ") + " " + (T_("INS_X_OF") % refsp if refsp != "" else T_("INS_X"))) if pl.size.x >= 190.0 else "ceiling %"
 	if data.has("pBar") and pl.size.x >= 190.0: cap += "  @ %s bar" % PaperStrings.num(num(data.pBar))
-	var cap_bottom := tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), cap, EqTheme.TEAL, pl.size.x - 8.0)
+	# 0.12 (Sigrid: the operating point sat on the narrow tape, "CEILIN%"): the tape moves to the right end when the point would land on it
+	var capx := pl.position.x + 4.0
+	if pt.has("T") and pt.has("X"):
+		var cw := _tape_w(cap, 12); var ox0: float = px.call(num(pt.T)); var oy0: float = py.call(num(pt.X))
+		if cw < pl.size.x - 8.0 and oy0 < pl.position.y + 34.0 and ox0 > capx - 10.0 and ox0 < capx + cw + 10.0: capx = maxf(pl.end.x - cw - 4.0, capx)
+	var cap_bottom := tape(Vector2(capx, pl.position.y + 2.0), cap, EqTheme.TEAL, pl.size.x - 8.0)
 	# the operating point
 	if pt.has("T") and pt.has("X"):
 		var ox: float = px.call(num(pt.T)); var oy: float = py.call(num(pt.X))
@@ -85,13 +90,17 @@ func _draw_body() -> void:
 		var ly := oy + 12.0 if oy < pl.position.y + 40.0 else oy - 28.0
 		if ly < cap_bottom and lx < pl.position.x + 4.0 + 230.0: ly = maxf(ly, minf(cap_bottom + 1.0, pl.end.y - 22.0))   # never on top of the ceiling tape
 		tape(Vector2(lx, ly), label, EqTheme.PEN_RED, pl.size.x)
-	if lo != null and px.call(num(lo)) > pl.position.x + 60.0: tape(Vector2(pl.position.x + 4.0, pl.end.y - 20.0), T_("INS_ASLEEP"), Color("#6B7C76"), px.call(num(lo)) - pl.position.x - 6.0, 11)
+	if lo != null and px.call(num(lo)) > pl.position.x + 60.0:   # 0.12: one line only (a wrapped tape ran over the axis numbers); "asleep" when the band is narrow
+		var aw: float = px.call(num(lo)) - pl.position.x - 6.0
+		var at := T_("INS_ASLEEP") if _tape_w(T_("INS_ASLEEP"), 11) <= aw else "asleep"
+		if _tape_w(at, 11) <= aw: tape(Vector2(pl.position.x + 4.0, pl.end.y - 20.0), at, Color("#6B7C76"), aw, 11)
 	# the balance beam
 	if beam_w > 0.0:
 		_draw_beam(Rect2(size.x - beam_w, 0.0, beam_w, size.y))
 	frame()
 
 static func T_(k: String) -> String: return InstrPaper.T(k)
+func _tape_w(t: String, sz: int) -> float: return EqStrings.font("cap").get_string_size(t.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(sz)).x + 12.0   ## the width tape() draws
 
 func _draw_beam(r: Rect2) -> void:
 	draw_rect(r, EqTheme.PORCELAIN.darkened(0.04))

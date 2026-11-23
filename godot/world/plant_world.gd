@@ -231,7 +231,7 @@ func show_ports(list: Array) -> void:
 		if f.is_empty(): continue
 		var mi := MeshInstance3D.new(); var hot: bool = bool(it.get("hot", false))
 		var sub: bool = bool(it.get("subtle", false))   # a resting pip of an unselected unit in DESIGN: smaller, dimmer, no caption
-		var r := 0.42 if hot else (0.2 if sub else 0.3)
+		var r := (0.42 if hot else (0.2 if sub else 0.3)) * PIP_SCALE   # 0.12: a playtester could not hit them; 1.6x larger
 		if bool(it.inlet): var bm := BoxMesh.new(); bm.size = Vector3(r, r, r) * 1.7; mi.mesh = bm
 		else: var sm := SphereMesh.new(); sm.radius = r; sm.height = r * 2.0; mi.mesh = sm
 		var col := Color("#FFB703") if bool(it.inlet) else TEAL
@@ -261,14 +261,16 @@ func _hover_caps() -> void:
 		var n: Node3D = c[1]
 		(c[0] as Label3D).visible = not cam.is_position_behind(n.global_position) and cam.unproject_position(n.global_position).distance_to(mp) < 60.0
 
-const PIPE_START_PX := 14.0       ## a pipe starts only from a press this close to a resting pip: a click on a unit body selects it
+const PIP_SCALE := 1.6           ## the drawn size of a port pip (was 1.0 before 0.12)
+const PIPE_PICK_PX := 24.0        ## a press this near a pip (screen px, a 48 px target) picks it with the mouse; touch is wider
+const PIPE_START_PX := 20.0       ## a pipe starts only from a press this close to a resting pip: a click on a unit body selects it
 const PIPE_START_TOUCH := 24.0
 var _hot_port := -1
 static var port_hint_shown := false
 ## The port under the pointer swells and the cursor turns to a hand: a press there starts a pipe and never selects a unit. The first time, a hint says how piping works.
 func _hover_port(p: Vector2) -> void:
 	if pipe_ghost_active(): return   # a pipe in hand: the snap target (nearest legal port) is the one that swells
-	var best := -1; var bd := (30.0 if CbLayout.touch else 20.0)
+	var best := -1; var bd := (30.0 if CbLayout.touch else PIPE_PICK_PX)
 	for i in range(_mark_nodes.size()):
 		var n: Node3D = _mark_nodes[i]
 		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue
@@ -300,7 +302,7 @@ func _probe_ports(p: Vector2) -> void:
 	if hit != "": _hover_unit = hit; unit_hover.emit(hit)
 
 func _pick_port(p: Vector2) -> Dictionary:
-	var best := {}; var bd := (30.0 if CbLayout.touch else 20.0)
+	var best := {}; var bd := (30.0 if CbLayout.touch else PIPE_PICK_PX)
 	for i in range(mini(_mark_nodes.size(), _marks.size())):
 		var n: Node3D = _mark_nodes[i]
 		if not is_instance_valid(n) or cam.is_position_behind(n.global_position): continue

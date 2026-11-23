@@ -30,6 +30,7 @@ func build() -> void:
 	h._add_role("flask", "Flask", [["gauge", "Gauge, last run", "%.2f", " bar"], ["alpha", "Dissociated, last run", "%.0f", " %"], ["T", "Temperature set", "%.2f", " °C"],
 		["V", "Volume set", "%.2f", " L"], ["Pfix", "Fixed pressure set", "%.1f", " bar"]], "gauge", "", true)
 	h._add_role("argon", "Argon", [["flow", "Flow", "%.2f", " mol/s"]], "flow", "", true)
+	h.quiet = ["vent"]   # 0.12: the vent's pressure is the gauge's; its card only on focus
 	h._add_role("vent", "Vent", [["flow", "Flow out", "%.2f", " mol/s"], ["bar", "Pressure", "%.2f", " bar"]], "flow")
 	h._put_txt("flask", "not run"); h._put_txt("argon", "off"); h._put_state("flask", "off"); h._put_state("argon", "off"); h._put_state("vent", "off")
 	_build_cmd(); _build_list()

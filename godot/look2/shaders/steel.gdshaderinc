@@ -27,6 +27,7 @@ void steel_surface(inout vec3 alb, inout float met, inout float rgh, inout vec3 
 		float f = fbm3(wp * 13.0);
 		float cover = frost * (0.62 + 0.7 * (1.0 - smoothstep(0.0, frost_h, wp.y)));
 		float m = smoothstep(0.40, 0.62, f + cover - 0.5);
+		m *= 0.3;   // 0.12: the frost read as snow speckle on the vessels (Sigrid): 70 % less of it
 		vec3 e = vec3(0.012, 0.0, 0.0);
 		vec3 g = vec3(fbm3(wp * 13.0 + e.xyy) - fbm3(wp * 13.0 - e.xyy), fbm3(wp * 13.0 + e.yxy) - fbm3(wp * 13.0 - e.yxy), fbm3(wp * 13.0 + e.yyx) - fbm3(wp * 13.0 - e.yyx));
 		nrm = normalize(nrm + m * 0.9 * (vm * vec4(g, 0.0)).xyz * 8.0);

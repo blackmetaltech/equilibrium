@@ -82,12 +82,17 @@ func _run() -> void:
 	app.start_level("L10", true); await frames(8)
 	Notebook.close(app); await frames(3)
 	check(app.look2.gen != null and not app.look2.gen.visible, "L10: the drafting table first")
+	var rack0 := [app.chrome.rack_wrap.is_visible_in_tree(), app.chrome.rack_hold, app.chrome.parts_btn.visible if app.chrome.parts_btn != null else false]   # the table's rack state before the flip
 	await btn(JOY_BUTTON_X); await frames(3)
 	check(not app.look2.gen.visible, "L10 (D-C5): X on the drafting table belongs to the table (turn a part), not the hall flip")
 	await btn(JOY_BUTTON_RIGHT_STICK); await frames(3)
 	check(app.look2.gen.visible, "L10: R3 shows the hall")
+	app.lvbay.refresh(true); await frames(3)   # 0.12: the bay's own refresh once restored the rack over the hall (seen on L05/L06)
+	check(not app.chrome.rack_wrap.is_visible_in_tree() and app.chrome.hall_hold and (app.chrome.parts_btn == null or not app.chrome.parts_btn.visible), "0.12 (Sigrid): the parts rack and its tab are hidden in the hall")
 	await btn(JOY_BUTTON_X); await frames(3)
 	check(not app.look2.gen.visible, "L10: X in the hall, back to the drafting table")
+	var rack1 := [app.chrome.rack_wrap.is_visible_in_tree(), app.chrome.rack_hold, app.chrome.parts_btn.visible if app.chrome.parts_btn != null else false]
+	check(rack1 == rack0 and not bool(rack1[1]), "and the drafting table's parts rack is as it was (%s, before %s)" % [str(rack1), str(rack0)])
 
 func get_tree_timer(s: float) -> void:
 	await create_timer(s).timeout

@@ -25,6 +25,7 @@ func _extra_lines() -> Array:
 
 func _draw_body() -> void:
 	if not has_reading(): empty_note(); return
+	var H := _vis_h()   # 0.12: lay out in the height that shows
 	var items := arr(data.items).duplicate()
 	items.sort_custom(func(a, b): return num(a.MW) > num(b.MW))
 	var mono := EqTheme.font("mono"); var fsz := EqTheme.fs(12 if not big else 14)
@@ -35,17 +36,17 @@ func _draw_body() -> void:
 	var extra_h := 0.0
 	var extra_n: Array = []   # wrapped line count of each extra line: a long line wraps, it never clips mid-word
 	for ln in extra:
-		var n := maxi(int(ceil(mono.get_string_size(str(ln), HORIZONTAL_ALIGNMENT_LEFT, -1, lfs).x / maxf(wrap_w, 1.0))), 1)
+		var n := maxi(int(round(mono.get_multiline_string_size(str(ln), HORIZONTAL_ALIGNMENT_LEFT, wrap_w, lfs, -1, TextServer.BREAK_WORD_BOUND | TextServer.BREAK_MANDATORY).y / mono.get_height(lfs))), 1)   # 0.12: the real word-wrapped count (width / wrap_w under-counted: the last line was cut)
 		extra_n.append(n); extra_h += lh * float(n) + 2.0
 	var foot_h := row_h + 34.0 + extra_h
-	var rows_fit := maxi(int((size.y - foot_h - 6.0) / row_h), 1)
+	var rows_fit := maxi(int((H - foot_h - 6.0) / row_h), 1)
 	var shown := mini(items.size(), rows_fit)
 	var more := items.size() - shown
 	if more > 0: shown = maxi(shown - 1, 1); more = items.size() - shown
 	var mx := 0.0
 	for it in items: mx = maxf(mx, num(it.MW))
 	mx = maxf(mx, 1e-9)
-	draw_rect(Rect2(Vector2.ZERO, size), EqTheme.GREENBAR_LIGHT)
+	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, H)), EqTheme.GREENBAR_LIGHT)
 	var tag_w := 58.0; var val_w := 70.0
 	var bx := tag_w + 6.0; var bw := maxf(size.x - bx - val_w - 8.0, 20.0)
 	var y := 3.0
@@ -62,7 +63,7 @@ func _draw_body() -> void:
 	if more > 0:
 		EqTheme.ds(self, mono, Vector2(5, y + row_h - 6.0), InstrPaper.T("INS_MORE") % more, HORIZONTAL_ALIGNMENT_LEFT, size.x - 10.0, fsz, Color("#6B7C76")); y += row_h
 	# footer: stacked ribbon of the releases and the total
-	var fy := size.y - foot_h
+	var fy := H - foot_h
 	draw_line(Vector2(0, fy), Vector2(size.x, fy), Color("#6B7C76"), 1.0)
 	var tot := num(data.get("totalMW", 0.0))
 	var rx := bx + 3.0
@@ -78,6 +79,7 @@ func _draw_body() -> void:
 	tape(Vector2(5.0, fy + row_h + 5.0), "%s  %s %s" % [_lab("total", InstrPaper.T("INS_RELEASED")), _fmt(tot), InstrPaper.T("INS_MW")], EqTheme.PEN_RED, size.x - 10.0, 12)
 	var ly := fy + row_h + 30.0 + float(lfs)
 	for i in extra.size():
+		if ly - float(lfs) + lh * float(extra_n[i]) > H + 2.0: break   # 0.12: a line that does not fit is left out whole, never cut through
 		draw_multiline_string(mono, Vector2(5, ly), str(extra[i]), HORIZONTAL_ALIGNMENT_LEFT, wrap_w, lfs, int(extra_n[i]) + 1, EqTheme.INK, TextServer.BREAK_WORD_BOUND | TextServer.BREAK_MANDATORY)
 		ly += lh * float(extra_n[i]) + 2.0
 	frame()
@@ -85,3 +87,11 @@ func _draw_body() -> void:
 func _prev_mw(unit_id: String) -> float:
 	for it in arr(prev.get("items", [])): if str(it.get("unitId", "")) == unit_id: return num(it.get("MW", 0.0))
 	return 0.0
+
+## 0.12 (Sigrid round 2: still cut): the height that shows. The sheet can be taller than the bay that clips it, so the bound is the nearest ancestor's rect.
+func _vis_h() -> float:
+	var h := size.y; var top := get_global_rect().position.y; var p := get_parent_control()
+	while p != null:
+		if p.clip_contents or p is InstrumentBay: h = minf(h, p.get_global_rect().end.y - top)
+		p = p.get_parent_control()
+	return h - 8.0   # 0.12 (Sigrid round 3): 8 px of bottom padding, so the last line's descenders clear the bay's edge

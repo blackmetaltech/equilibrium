@@ -83,6 +83,7 @@ func to(target: Control, cap := 90) -> bool:
 		for k in order:
 			var modal_before: bool = app.modal() != null
 			await btn(DPAD[k]); used += 1
+			if OS.get_environment("CB_VERBOSE") == "2": print("   to(%s): press %d -> focus %s" % [target.name, DPAD[k], str(focus().name) if focus() != null else "none"])
 			if modal_before and app.modal() != null and not in_modal(focus()): check(false, "focus left the dialog (%s)" % str(focus().get_path()))
 			var nf := focus()
 			if nf == f: continue

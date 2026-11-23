@@ -21,8 +21,8 @@ func shift() -> bool:
 	for a in BUILD:
 		var r: Dictionary = app.b.act(a[0], a[1])
 		if not r.get("ok", false): print("build step failed: ", a, r); return false
-	app.game_on_changed(); await frames(3)
 	app.set_speed(0); app.chrome.keys.set_speed_pos(0)   # the shift opens at its recommended speed: park the clock, the test steps by hand to an absolute tick
+	app.game_on_changed(); await frames(3)   # 0.12: parked BEFORE the frames (under load a stalled frame let the 16x clock run ticks through _process first: 1 failure in 6)
 	return true
 func snap() -> String: return JSON.stringify(app.b.g)
 func _initialize() -> void:

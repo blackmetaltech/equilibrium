@@ -50,6 +50,7 @@ class Lines extends Control:
 			draw_circle(a, 4.5, Color(HoloTheme.TEAL, 0.35 * al)); draw_circle(a, 2.6, Color(1, 1, 1, al))
 			draw_circle(b, 2.2, Color(HoloTheme.TEAL_HI, al))
 
+var quiet: Array = []   ## 0.12: roles whose tag and card show only when focused
 var app
 var lab   ## LabWorld or FlaskLab
 var ids := {}
@@ -443,7 +444,7 @@ func _sync_coach() -> void:
 	var sig := name_t + "|" + text
 	if sig != _coach_sig:
 		var first := _coach_sig == ""
-		_coach_sig = sig; _coach_name.text = name_t; _coach_text.text = text; _coach_why.text = why; _coach_whybtn.visible = why != ""
+		_coach_sig = sig; _coach_name.text = name_t; _coach_text.text = EqVerb.adapt(text); _coach_why.text = why; _coach_whybtn.visible = why != ""
 		if not first: _coach.pulse()
 		_coach.fit()
 	if text != "" and not _coach.shown and not _brief.shown: _coach.appear(0.1)
@@ -549,6 +550,9 @@ func _place(dt: float) -> void:
 			for o in [Vector2(gap, -h - 20), Vector2(gap, 20), Vector2(-gap - w, -h - 20), Vector2(-gap - w, 20), Vector2(-w * 0.5, -h - gap), Vector2(-w * 0.5, gap), Vector2(gap, -h * 0.5), Vector2(-gap - w, -h * 0.5), Vector2(gap * 2.0, -h * 2.0), Vector2(-gap * 2.0 - w, -h * 2.0), Vector2(-w * 0.5, -h - gap * 2.0), Vector2(gap * 2.5, gap), Vector2(-gap * 2.5 - w, gap)]:
 				cands.append(a + o)
 			_settle(cp, cands, safe, obst, placed, anchors, dt, c)
+		elif role in quiet:   # 0.12 (Sigrid: the Vent card floated over the cabinet): a quiet role shows nothing until it is focused (hover, pad pick, coach)
+			if cp.shown: cp.vanish()
+			if tp.shown: tp.vanish()
 		else:
 			if cp.shown: cp.vanish()
 			tp.fit()

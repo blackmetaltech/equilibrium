@@ -7,6 +7,8 @@ extends SceneTree
 ##   - text clipped by its container (a line wider than its rect, a wrapped label cut off vertically),
 ##   - two visible text controls of one (non-stacking) container overlapping, and any text outside the window,
 ##   - hand-drawn text (EqTheme.ds: floored, measured, and checked against its width), and any raw draw_string left in the sources.
+##   - (0.12 handheld gate) the pad's one-line hint over any other text, the Works map opening scrolled away from its top, the briefing card drawn over the title menu
+##     (the title UI must be hidden while the card shows, and no visible text outside the card may sit under it), and a notebook opened by pad with its title scrolled off.
 ## Run: godot --headless --path godot --script res://tests/layout_flow.gd     Prints LAYOUT-FLOW OK / LAYOUT-FLOW FAILED n.
 ## CB_VERBOSE=1 prints each screen's counts; CB_LAYOUT_ONLY=L39,career,title limits the screens.
 const FLOOR := 16.0
@@ -120,7 +122,7 @@ func audit(tag: String) -> void:
 			checks += 1
 			var l3 := n as Label3D
 			if l3.is_visible_in_tree() and l3.text.strip_edges() != "":
-				var px := Tag3D.screen_px(l3, root)
+				var px := _px3d(l3)
 				if px < FLOOR - 0.01: fail(tag, "Label3D %.1f px '%s' (%s)" % [px, l3.text.left(30), str(l3.get_path()).get_file()])
 			continue
 		if not (n is Control) or not (n as Control).is_visible_in_tree(): continue
@@ -245,12 +247,89 @@ func run_screens(res: Vector2i, kind: String) -> void:
 				Faceplate.close_all(); Faceplate.open(app, str(u.id)); await frames(4)
 				await audit("faceplate %s %s %s" % [id, str(u.id), at])
 			Faceplate.close_all(); await frames(2)
+	if want("collisions"): await collisions(at)
 	if want("career"): await career_screens("@%dx%d" % [res.x, res.y]); await close_all()
 	for id in ids:
 		if not want(id) and not want("levels"): continue
 		await level(id)
 		await audit("%s opening view %s" % [id, at])
 		if app.modal() != null: await close_all(); await audit("%s plant view %s" % [id, at])
+
+# ---- collisions (the release gate's pad hand play, 1280x800 handheld) -----------------------------------------------------------------------------
+func visible_texts(skip: Node = null) -> Array:
+	var all: Array = []; walk(root, all)
+	var out: Array = []
+	for n in all:
+		if not (n is Control) or not is_text(n) or n == skip or not (n as Control).is_visible_in_tree(): continue
+		var c := n as Control
+		if text_of(c).strip_edges() == "" or c.modulate.a < 0.05 or c.get_global_rect().size.x < 1.0: continue
+		if clipped_away(c) and in_scroll(c): continue
+		out.append(c)
+	return out
+
+func collisions(at: String) -> void:
+	# 1. the pad hint ("A select  B back ...") never sits on another text
+	await level("L01"); await frames(3); await close_all()
+	app.pad.set_active(true); await frames(6)
+	var h: Label = app.pad.hint
+	checks += 1
+	if not h.visible: fail("pad hint " + at, "the hint is not shown in pad mode on the drafting table")
+	else:
+		var hr := h.get_global_rect().grow(-1.0)
+		for c in visible_texts(h):
+			checks += 1
+			var x := hr.intersection((c as Control).get_global_rect().grow(-1.0))
+			if x.size.x > 3.0 and x.size.y > 3.0: fail("pad hint " + at, "the pad hint overlaps '%s' (%s)" % [text_of(c).left(30).replace("\n", " "), str(c.get_path()).right(60)])
+	# 2. the notebook, opened with the pad in hand, shows its title whole at the top of its page
+	Notebook.open(app); await frames(14)
+	var nb = app.modal()
+	var psc = nb.find_child("PageScroll", true, false) if nb != null else null
+	checks += 1
+	if psc == null: fail("notebook pad " + at, "no notebook page")
+	else:
+		var tl: Control = nb.find_child("Title", true, false)
+		if (psc as ScrollContainer).scroll_vertical != 0: fail("notebook pad " + at, "the page opened scrolled by %d px (title cut)" % (psc as ScrollContainer).scroll_vertical)
+		if tl != null and tl.get_global_rect().position.y < (psc as ScrollContainer).get_global_rect().position.y - 1.0: fail("notebook pad " + at, "the title starts above the page (%s < %s)" % [str(tl.get_global_rect().position.y), str((psc as ScrollContainer).get_global_rect().position.y)])
+	await close_all()
+	app.pad.set_active(false)
+	# 3. the Works map opens at its top, and a job's briefing card hides the title menu instead of lying over it
+	app.to_title(); await frames(8)
+	checks += 1
+	if not LabHome.is_up(): fail("home " + at, "the lab home is not up on the title: the card-over-menu audit has nothing to look at")
+	WorksMap.open(app); await frames(40)
+	var lv = app.root.get_node_or_null("levels")
+	var list = lv.find_child("List", true, false) if lv != null else null
+	checks += 1
+	if list == null: fail("Works map " + at, "no map list")
+	elif (list as ScrollContainer).scroll_vertical != 0:
+		var sel: Control = lv.find_child("Level_" + WorksMap.sel_id, true, false) if WorksMap.sel_id != "" else null
+		var ok := false   # or: the picked job's whole chapter row in view
+		if sel != null:
+			var lr := (list as ScrollContainer).get_global_rect(); var sr := sel.get_global_rect()
+			ok = lr.encloses(sr)
+		if not ok: fail("Works map " + at, "the map opened scrolled by %d px with the picked job out of view" % (list as ScrollContainer).scroll_vertical)
+	if lv != null:
+		WorksMap.start(app, lv, "L01"); await frames(12)
+		var card = app.root.get_node_or_null("homecard")
+		checks += 1
+		if card == null: fail("brief card " + at, "no briefing card")
+		else:
+			var tu = LabHome.title_ui(app)
+			checks += 1
+			if tu != null and tu.is_visible_in_tree(): fail("brief card " + at, "the title menu is still visible under the briefing card")
+			var panel := (card.find_child("CardStart", true, false) as Control)
+			var cr := Rect2()
+			var pn: Node = panel
+			while pn != null and pn != card:
+				if pn is PanelContainer: cr = (pn as Control).get_global_rect()
+				pn = pn.get_parent()
+			for c in visible_texts():
+				if card.is_ancestor_of(c): continue
+				checks += 1
+				var x := cr.intersection((c as Control).get_global_rect())
+				if x.size.x > 3.0 and x.size.y > 3.0: fail("brief card " + at, "'%s' (%s) shows through the briefing card" % [text_of(c).left(30).replace("\n", " "), str(c.get_path()).right(60)])
+	await close_all()
+	app.to_title(); await frames(4)
 
 ## Hand-drawn text goes through EqTheme.ds (floored at 16 px, measured above): no raw draw_string may be left in the game's sources.
 func source_scan() -> void:
@@ -288,3 +367,11 @@ func _initialize() -> void:
 	print("LAYOUT-FLOW OK" if fails == 0 else "LAYOUT-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
 	quit(0 if fails == 0 else 1)
+
+## 0.12: a fixed-size Label3D's height on screen. Godot draws it at font_size x pixel_size x H / (2 tan(fov / 2)) under a perspective camera; Tag3D.screen_px assumes a 90°
+## camera (half the window height), which under-reads the look2 cameras (48-50°) by about 2.2x. Orthographic and non-fixed labels keep the old measure.
+func _px3d(l3: Label3D) -> float:
+	var cam := l3.get_viewport().get_camera_3d() if l3.get_viewport() != null else null
+	if l3.fixed_size and cam != null and cam.projection == Camera3D.PROJECTION_PERSPECTIVE:
+		return float(l3.font_size) * l3.pixel_size * Tag3D.window_h(root) / (2.0 * tan(deg_to_rad(cam.fov) * 0.5))
+	return Tag3D.screen_px(l3, root)

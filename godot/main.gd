@@ -16,7 +16,8 @@ func chrome_shown() -> bool: return _chrome_on
 var last_seed := 0
 var pinned_seed := -1
 func _seed() -> int:
-	last_seed = pinned_seed if pinned_seed >= 0 else super._seed()
+	var env_seed := OS.get_environment("CB_SEED")   # 0.12: tests pin the level seed (the wall-clock seed made layouts vary run to run: fix18, build_guide)
+	last_seed = pinned_seed if pinned_seed >= 0 else (int(env_seed) if env_seed.is_valid_int() else super._seed())
 	return last_seed
 
 func game_config() -> Dictionary:
@@ -78,6 +79,7 @@ func game_on_changed() -> void:
 	if p is Dictionary: plant_world.set_state(p)
 	plant_world.set_snapshot(b.g)   # live looks: stream colours/flow, unit heat and alarms, Cute critters
 	_level_mood()
+	LabHome.sync(self)   # 0.12: the lab behind the title goes when a level starts
 	if look2 != null: look2.sync()
 
 ## Per-level mood: L00 is the 02:40 night shift (dark, lamps on), the bench levels are daytime; alarms drive the tones, the music stress
@@ -282,6 +284,7 @@ const LEVEL_ALIAS := {"C": "CAREER", "CAREER": "CAREER"}
 var _from_env := false   ## true while _run_env starts CB_LEVEL: a launch resumes the saved Career by itself (CB_NEW=1 starts a new one)
 func _run_env() -> void:
 	_from_env = true; super(); _from_env = false
+	if OS.get_environment("CB_HOME") in ["title", "map", "brief"] and started: to_title()   # 0.12 captures: the harness always starts a level; CB_HOME brings the lab home views up instead
 
 func start_level(id: String, force := false) -> void:
 	var rid: String = LEVEL_ALIAS.get(id.strip_edges().to_upper(), id)
@@ -319,6 +322,7 @@ func next_tick() -> void:
 
 ## Pad A acknowledges the annunciator when something is flashing and nothing else wants the button.
 func _input(e: InputEvent) -> void:
+	EqVerb.note(e)
 	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_ESCAPE:
 		_from_esc = true; super(e); _from_esc = false; return
 	if e is InputEventJoypadButton and e.pressed and e.button_index == JOY_BUTTON_A and CbPad.enabled and started and chrome != null and modal() == null \

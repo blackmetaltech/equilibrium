@@ -93,16 +93,25 @@ func set_quality(t: String) -> void:
 	for l in find_children("*", "Light3D", true, false):
 		var li := l as Light3D
 		if not li.has_meta("shadow0"): li.set_meta("shadow0", li.shadow_enabled)
+		if li.has_meta("fill"):   # the cool fill lights over the plant: on the low tier (no ambient bounce, no fog) each is a blue-white pool on the floor, so they run at 40 %
+			if not li.has_meta("e0"): li.set_meta("e0", li.light_energy)
+			li.light_energy = float(li.get_meta("e0")) * (0.4 if compat else 1.0)
 		li.shadow_enabled = bool(li.get_meta("shadow0")) and (ultra or (t == "high" and li is DirectionalLight3D))
 		if li is OmniLight3D and li.global_position.z < -20.0 and li != flare_light: li.visible = ultra
 	for r in find_children("*", "ReflectionProbe", true, false): (r as ReflectionProbe).visible = not compat
+	if compat:   # the low tier has no bounce light, fog or SDFGI: a lifted ambient and one shadowless fill, so it is not a black room with white pools
+		env.ambient_light_energy = 0.9
+		var cf := get_node_or_null("CompatFill") as DirectionalLight3D
+		if cf == null:
+			cf = DirectionalLight3D.new(); cf.name = "CompatFill"; cf.light_color = Color(0.85, 0.9, 1.0); cf.light_energy = 0.6; cf.shadow_enabled = false; cf.light_specular = 0.0
+			cf.rotation_degrees = Vector3(-55, 25, 0); add_child(cf)
 	# 3D render scale: full on ultra, FSR at 77 % on high, 60 % on compat (the HUD stays at full resolution)
 	var vp := get_viewport()
 	# AA (phase B): ultra = native, MSAA 2x for edges plus TAA; high = FSR2 at 77 % (temporal upscale doubles as AA); compat = FSR1 at 60 % with FXAA
 	var rd := RenderingServer.get_rendering_device() != null
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR if (ultra or not rd) else (Viewport.SCALING_3D_MODE_FSR2 if t == "high" else Viewport.SCALING_3D_MODE_FSR)
-	vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.6)
-	vp.msaa_3d = Viewport.MSAA_2X if ultra else Viewport.MSAA_DISABLED
+	vp.scaling_3d_scale = 1.0 if ultra else (0.77 if t == "high" else 0.8)   # compat 0.6 was the jagged edges (Sigrid)
+	vp.msaa_3d = Viewport.MSAA_2X if (ultra or compat) else Viewport.MSAA_DISABLED
 	vp.use_taa = ultra
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if compat else Viewport.SCREEN_SPACE_AA_DISABLED
 
@@ -114,7 +123,9 @@ func _pbr(n: String, uv := 0.25, tint := Color.WHITE, metal := false, tri := tru
 	m.albedo_texture = _tex(n + "_diff"); m.albedo_color = tint
 	m.normal_enabled = true; m.normal_texture = _tex(n + "_nor")
 	m.roughness_texture = _tex(n + "_rough"); m.roughness = 1.0
-	if metal: m.metallic_texture = _tex(n + "_metal"); m.metallic = 1.0
+	if metal:   # 0.12: a set without a metal map (rusty_metal_02) gets a scalar metallic; the missing file logged an error on every hall build
+		if ResourceLoader.exists(TEX + n + "_metal.jpg"): m.metallic_texture = _tex(n + "_metal"); m.metallic = 1.0
+		else: m.metallic = 0.6
 	m.uv1_triplanar = tri; m.uv1_scale = Vector3.ONE * uv; m.uv1_world_triplanar = tri
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	return m
@@ -152,6 +163,8 @@ func _mats() -> void:
 	M.refractory = _flat(Color(0.42, 0.2, 0.12), 0.0, 0.9)                     # burner tile
 	M.enamel_green = _flat(Color(0.24, 0.42, 0.36), 0.05, 0.32)                # the cooler's glossy machinery green
 	M.enamel_blue = _flat(Color(0.18, 0.3, 0.5), 0.05, 0.35)
+	M.galv = _flat(Color(0.66, 0.68, 0.7), 0.8, 0.5)                          # hot-dip galvanised structural steel (the pipe rack's beams)
+	M.oxide = _flat(Color(0.42, 0.19, 0.14), 0.15, 0.75)                       # red-oxide primer (its columns)
 
 # ---- primitives ------------------------------------------------------------------------------------------------------------------------------
 func _mi(mesh: Mesh, pos: Vector3, mat: Material, parent: Node = self) -> MeshInstance3D:
@@ -272,12 +285,12 @@ func _build_env() -> void:
 	if OS.get_environment("CB_L2DBG") == "1": env.tonemap_exposure = 6.0; env.volumetric_fog_enabled = false; env.glow_enabled = false; env.ssao_enabled = false; env.sdfgi_enabled = false; env.ssr_enabled = false
 	var we := WorldEnvironment.new(); we.environment = env; add_child(we)
 	var moon := DirectionalLight3D.new(); moon.light_color = Color(0.55, 0.65, 0.9); moon.light_energy = 0.35; moon.shadow_enabled = true; moon.rotation_degrees = Vector3(-38, 200, 0)
-	moon.directional_shadow_max_distance = 120.0; moon.light_volumetric_fog_energy = 0.6; add_child(moon)
+	moon.light_specular = 0.0; moon.directional_shadow_max_distance = 120.0; moon.light_volumetric_fog_energy = 0.6; add_child(moon)
 
 # ---- the hall --------------------------------------------------------------------------------------------------------------------------------
 func _build_hall() -> void:
 	var fl := PlaneMesh.new(); fl.size = Vector2(60, 30); fl.subdivide_width = 1; fl.subdivide_depth = 1
-	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.9}))
+	_mi(fl, Vector3.ZERO, _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.75, "contrast": 0.5}))   # 0.12: a little drier (Sigrid: the downlight puddle hot spot)
 	# painted walkway lines and a drain channel
 	for x in [-26.0, 26.0]: _box(Vector3(0.12, 0.004, 26), Vector3(x, 0.003, 0), M.yellow)
 	_box(Vector3(52, 0.004, 0.12), Vector3(0, 0.003, 7.2), M.yellow)
@@ -287,6 +300,7 @@ func _build_hall() -> void:
 	_box(Vector3(60, 18, 0.6), Vector3(0, 9, 15.3), M.wall)
 	_box(Vector3(0.6, 18, 31), Vector3(-30.3, 9, 0), M.wall)
 	_box(Vector3(0.6, 18, 31), Vector3(30.3, 9, 0), M.wall)
+	_hall_walls()   # 0.12: the solid walls get a plinth, cladding, doors, a cabinet row and cool wall-wash light (Sigrid: "flat ochre walls")
 	_box(Vector3(60, 1.2, 0.6), Vector3(0, 0.6, -15.3), M.wall)            # upstand
 	_box(Vector3(60, 3.0, 0.6), Vector3(0, 16.5, -15.3), M.wall)           # head beam
 	var glass := BoxMesh.new(); glass.size = Vector3(60, 13.8, 0.03); _mi(glass, Vector3(0, 8.1, -15.2), M.glass)
@@ -305,12 +319,16 @@ func _build_hall() -> void:
 		for i in 11: _box(Vector3(0.45, 13.0, 0.45), Vector3(-30.0 + i * 6.0, 6.5, z + signf(z) * 0.5), M.paint_grey)
 	_box(Vector3(1.0, 1.1, 27.6), Vector3(-9.0, 13.9, 0), M.yellow)
 	_box(Vector3(1.6, 0.9, 1.4), Vector3(-9.0, 13.2, 3.0), M.paint_grey)
-	_seg(Vector3(-9.0, 12.8, 3.0), Vector3(-9.0, 7.5, 3.0), 0.015, M.black)
-	_box(Vector3(0.5, 0.4, 0.3), Vector3(-9.0, 7.3, 3.0), M.yellow)
+	# 0.12 (Sigrid: "an unexplained orange cube"): a hook block that reads as one, hung high on twin wire ropes that are visible from the floor
+	for dx in [-0.12, 0.12]: _seg(Vector3(-9.0 + dx, 12.8, 3.0), Vector3(-9.0 + dx, 10.45, 3.0), 0.03, M.steel_dull)
+	_box(Vector3(0.62, 0.55, 0.22), Vector3(-9.0, 10.2, 3.0), M.yellow)   # the block's side plates
+	_cyl(0.2, 0.26, Vector3(-9.0, 10.3, 3.0), M.steel_dull).rotation_degrees.x = 90   # sheave
+	_seg(Vector3(-9.0, 9.92, 3.0), Vector3(-9.0, 9.7, 3.0), 0.05, M.steel_dull)   # shank
+	var hk := _torus(0.17, 0.05, Vector3(-9.0, 9.5, 3.0), M.yellow); hk.rotation_degrees.x = 90   # the hook
 	# cool LED strips along the glass wall head and fill lights over the loop (the 0.9 gantry in front of the glass is cut: it hid the view)
 	_box(Vector3(60, 0.06, 0.1), Vector3(0, 14.9, -14.9), _flat(Color.WHITE, 0, 0.5, Color(0.75, 0.88, 1.0), 5.0))
 	for i in 4:
-		var l := OmniLight3D.new(); l.light_color = Color(0.7, 0.85, 1.0); l.light_energy = 3.5; l.omni_range = 14.0; l.light_volumetric_fog_energy = 0.3; l.position = Vector3(-12 + i * 9, 7.5, -7.0); add_child(l)
+		var l := OmniLight3D.new(); l.light_color = Color(0.7, 0.85, 1.0); l.light_energy = 3.5; l.omni_range = 14.0; l.light_volumetric_fog_energy = 0.3; l.light_specular = 0.0; l.set_meta("fill", true); l.position = Vector3(-12 + i * 9, 7.5, -7.0); add_child(l)   # a point light mirrored in a puddle is a white star (Sigrid): a sized light, a softer highlight
 	# sodium high-bays
 	var k := 0
 	for x in [-24.0, -12.0, 0.0, 12.0, 24.0]:
@@ -318,7 +336,7 @@ func _build_hall() -> void:
 			_cyl(0.35, 0.4, Vector3(x, 16.6, z), M.black, self, 0.12)
 			_cyl(0.33, 0.02, Vector3(x, 16.38, z), _flat(Color(1, 0.7, 0.4), 0, 0.5, Color(1.0, 0.62, 0.28), 14.0))
 			var s := SpotLight3D.new(); s.light_color = Color(1.0, 0.84, 0.66); s.light_energy = 9.0; s.spot_range = 26.0; s.spot_angle = 40.0; s.spot_attenuation = 0.8
-			s.position = Vector3(x, 16.3, z); s.rotation_degrees.x = -90; s.shadow_enabled = k % 3 == 0; s.light_volumetric_fog_energy = 6.0; add_child(s)
+			s.light_specular = 0.4; s.position = Vector3(x, 16.3, z); s.rotation_degrees.x = -90; s.shadow_enabled = k % 3 == 0; s.light_volumetric_fog_energy = 6.0; add_child(s)
 			k += 1
 	var rp := ReflectionProbe.new(); rp.size = Vector3(60, 18, 30); rp.position = Vector3(0, 9, 0); rp.box_projection = true; rp.interior = true
 	rp.update_mode = ReflectionProbe.UPDATE_ONCE; rp.ambient_mode = ReflectionProbe.AMBIENT_ENVIRONMENT; add_child(rp)
@@ -339,6 +357,39 @@ func _truss(x: float) -> void:
 		_seg(Vector3(x, y0, z1), Vector3(x, y1, z1), 0.05, M.paint_grey, self, 6)
 
 # ---- the loop --------------------------------------------------------------------------------------------------------------------------------
+## 0.12 (Sigrid, L00 and L13: "the walls are flat ochre: add structure and texture, and a second, cooler light"). Front wall (z = 15) and the two end walls:
+## a 4 m concrete plinth, insulated profiled cladding above on steel girts, a roller-shutter door and a personnel door with a lit exit sign on the east end,
+## a row of motor-control cabinets with pilot lights along the front, and cool wall-wash lights that rim the plant against the warm sodium hall.
+func _hall_walls() -> void:
+	var clad := _pbr("corrugated_iron", 0.35, Color(0.62, 0.66, 0.68), true)
+	var girt := _paint(Color(0.24, 0.27, 0.3))
+	_box(Vector3(59.4, 11.0, 0.05), Vector3(0, 9.6, 14.97), clad)   # front cladding
+	for xe in [-29.97, 29.97]: _box(Vector3(0.05, 11.0, 29.4), Vector3(xe, 9.6, 0), clad)   # end cladding
+	for y in [4.05, 6.6, 9.2, 11.8, 14.4]:
+		_box(Vector3(59.4, 0.16, 0.12), Vector3(0, y, 14.9), girt)
+		for xe in [-29.9, 29.9]: _box(Vector3(0.12, 0.16, 29.4), Vector3(xe, y, 0), girt)
+	_box(Vector3(59.4, 0.08, 0.1), Vector3(0, 4.0, 14.95), M.steel_dull)   # flashing over the plinth
+	# east end: roller shutter (6 x 6 m) in a steel frame, bollards, and a personnel door with a lit exit sign
+	var sh := _pbr("painted_metal_shutter", 0.5, Color(0.7, 0.72, 0.74))
+	_box(Vector3(0.06, 6.0, 6.0), Vector3(29.95, 3.0, 6.0), sh)
+	_box(Vector3(0.3, 0.6, 6.6), Vector3(29.85, 6.3, 6.0), girt)   # shutter box
+	for dz in [-3.15, 3.15]: _box(Vector3(0.25, 6.3, 0.3), Vector3(29.85, 3.15, 6.0 + dz), M.yellow)   # guides, painted
+	for dz in [-3.6, 3.6]: _cyl(0.11, 1.0, Vector3(29.2, 0.5, 6.0 + dz), M.yellow)   # bollards
+	_box(Vector3(0.06, 2.2, 1.0), Vector3(29.95, 1.1, 0.5), _paint(Color(0.35, 0.42, 0.48)))   # personnel door
+	_box(Vector3(0.08, 0.22, 0.5), Vector3(29.9, 2.55, 0.5), _flat(Color(0.1, 0.6, 0.25), 0.0, 0.4, Color(0.15, 0.95, 0.4), 3.0))   # exit sign, lit
+	# front wall: a motor-control cabinet row with pilot lights, conduit rising to a cable tray
+	for i in 10:
+		var x := -10.0 + i * 0.85
+		_box(Vector3(0.8, 2.2, 0.6), Vector3(x, 1.1, 14.6), _flat(Color(0.55, 0.58, 0.6), 0.2, 0.45))
+		_box(Vector3(0.02, 2.1, 0.02), Vector3(x + 0.41, 1.1, 14.29), M.black)   # door gap
+		_cyl(0.025, 0.02, Vector3(x - 0.2, 1.8, 14.29), _flat(Color.WHITE, 0, 0.4, Color(0.2, 1.0, 0.3) if i % 3 != 1 else Color(1.0, 0.6, 0.1), 2.5)).rotation_degrees.x = 90
+		_seg(Vector3(x, 2.2, 14.75), Vector3(x, 4.6, 14.75), 0.03, M.steel_dull)   # conduit
+	_box(Vector3(9.0, 0.1, 0.5), Vector3(-6.2, 4.7, 14.65), M.steel_dull)   # cable tray
+	# cool wall-wash: rims the plant's silhouettes against the warm hall (a second colour of light)
+	for x in [-20.0, 0.0, 20.0]:
+		var w := SpotLight3D.new(); w.light_color = Color(0.62, 0.78, 1.0); w.light_energy = 4.0; w.spot_range = 18.0; w.spot_angle = 50.0
+		w.position = Vector3(x, 12.0, 11.0); w.rotation_degrees = Vector3(-35, 180, 0); w.light_volumetric_fog_energy = 0.4; w.light_specular = 0.3; w.set_meta("fill", true); add_child(w)   # its pool on the floor is the blue-white blob of the low tier: see set_quality
+
 func _build_loop() -> void:
 	# plinth slab under the equipment
 	_box(Vector3(46, 0.18, 9), Vector3(0, 0.09, -3.0), _pbr("concrete_floor_worn_02", 0.2, Color(0.6, 0.6, 0.6)))
@@ -972,21 +1023,35 @@ func _vessel(c: Vector3, r: float, h: float, shell: Material, parent: Node, opts
 		var a0 := Vector3(c.x, float(nz[0]), c.z) + d * r
 		_seg(a0, a0 + d * 0.35, r * 0.11, M.steel_dull, parent); _flange(a0 + d * 0.35, d, r * 0.11, parent)
 	# manway: a round cover with a bolt ring and a davit arm
-	var md := Vector3(cos(PI * 0.5), 0, sin(PI * 0.5)); var mp := Vector3(c.x, y0 + 1.0, c.z) + md * r
+	var ma := float(opts.get("manway_ang", PI * 0.5))
+	var md := Vector3(cos(ma), 0, sin(ma)); var mp := Vector3(c.x, y0 + 1.0, c.z) + md * r
+	var dv := Vector3(-md.z, 0, md.x) * float(opts.get("davit_side", 1.0)) * 0.32   # the davit swings sideways, away from the ladder
 	_seg(mp, mp + md * 0.22, 0.28, sm if not clad else M.steel_dull, parent); _flange(mp + md * 0.22, md, 0.2, parent)
-	_seg(mp + md * 0.3 + Vector3(0.32, 0, 0), mp + md * 0.3 + Vector3(0.32, 0.55, 0), 0.025, M.steel_dull, parent)
-	_seg(mp + md * 0.3 + Vector3(0.32, 0.55, 0), mp + md * 0.3 + Vector3(0.0, 0.55, 0), 0.02, M.steel_dull, parent)
+	_seg(mp + md * 0.3 + dv, mp + md * 0.3 + dv + Vector3(0, 0.55, 0), 0.025, M.steel_dull, parent)
+	_seg(mp + md * 0.3 + dv + Vector3(0, 0.55, 0), mp + md * 0.3 + Vector3(0.0, 0.55, 0), 0.02, M.steel_dull, parent)
 	if bool(opts.get("ladder", false)):   # caged ladder up the side and a ring platform under the top head
-		var ld := Vector3(cos(-PI * 0.5), 0, sin(-PI * 0.5)); var lb := Vector3(c.x, 0, c.z) + ld * (r + 0.35)
+		var la := float(opts.get("ladder_ang", -PI * 0.5))
+		var ld := Vector3(cos(la), 0, sin(la)); var lb := Vector3(c.x, 0, c.z) + ld * (r + 0.35)
+		var lt := Vector3(-ld.z, 0, ld.x)   # across the ladder (the stiles and the hoops' width)
 		var top := y0 + h + 0.1
-		for sx in [-0.22, 0.22]: _seg(lb + Vector3(sx, 0, 0), lb + Vector3(sx, top + 1.0, 0), 0.022, M.yellow, parent)
-		for i in int(top / 0.3): _seg(lb + Vector3(-0.22, 0.3 + i * 0.3, 0), lb + Vector3(0.22, 0.3 + i * 0.3, 0), 0.012, M.yellow, parent)
-		for i in int((top - 2.2) / 0.9): _torus(0.4, 0.012, lb + ld * 0.2 + Vector3(0, 2.4 + i * 0.9, 0), M.yellow, parent)
+		for sx in [-0.22, 0.22]: _seg(lb + lt * sx, lb + lt * sx + Vector3(0, top + 1.0, 0), 0.022, M.yellow, parent)
+		for i in int(top / 0.3): _seg(lb + lt * -0.22 + Vector3(0, 0.3 + i * 0.3, 0), lb + lt * 0.22 + Vector3(0, 0.3 + i * 0.3, 0), 0.012, M.yellow, parent)
+		var nh := int((top - 2.4) / 0.9) + 1   # hoops from 2.4 m up to just under the platform
+		var cc := lb + ld * 0.2   # the cage's axis, a little out from the ladder
+		for i in nh: _torus(0.4, 0.014, cc + Vector3(0, 2.4 + i * 0.9, 0), M.steel_dull, parent)   # 0.12: galvanised cage hoops (yellow read as halos)
+		# the cage verticals: five flat bars (7 cm wide, 2.5 cm thick so they read at hall distances) on the OUTER half of the hoops, lowest hoop to top hoop, so the hoops are one cage and not floating rings
+		# (the old verticals sat on the vessel half of the hoops, behind the ladder, and were 2 cm round wire: they never showed)
+		var cy0 := 2.4; var cy1 := 2.4 + float(maxi(nh - 1, 0)) * 0.9 + 0.3
+		for k in 5:
+			var ak := PI * (0.1 + 0.2 * float(k))   # 18 to 162 degrees round the outer side
+			var radial := ld * sin(ak) + lt * cos(ak)
+			var bar := _box(Vector3(0.025, cy1 - cy0, 0.07), cc + radial * 0.4 + Vector3(0, (cy0 + cy1) * 0.5, 0), M.steel_dull, parent)
+			bar.rotation.y = atan2(-radial.z, radial.x)   # local x (the thin side) along the radial, so the 5 cm face lies along the hoop
 		_lathe(PackedVector2Array([Vector2(r + 0.05, 0), Vector2(r + 1.0, 0), Vector2(r + 1.0, 0.05), Vector2(r + 0.05, 0.05)]), 40, M.plate, Vector3(c.x, top, c.z), parent, false)
-		_torus(r + 1.0, 0.02, Vector3(c.x, top + 1.05, c.z), M.yellow, parent); _torus(r + 1.0, 0.016, Vector3(c.x, top + 0.55, c.z), M.yellow, parent)
+		_torus(r + 1.0, 0.02, Vector3(c.x, top + 1.05, c.z), M.steel_dull, parent); _torus(r + 1.0, 0.016, Vector3(c.x, top + 0.55, c.z), M.steel_dull, parent)   # galvanised handrail
 		for i in 12:
 			var a := TAU * i / 12.0
-			_seg(Vector3(c.x + cos(a) * (r + 1.0), top, c.z + sin(a) * (r + 1.0)), Vector3(c.x + cos(a) * (r + 1.0), top + 1.05, c.z + sin(a) * (r + 1.0)), 0.016, M.yellow, parent)
+			_seg(Vector3(c.x + cos(a) * (r + 1.0), top, c.z + sin(a) * (r + 1.0)), Vector3(c.x + cos(a) * (r + 1.0), top + 1.05, c.z + sin(a) * (r + 1.0)), 0.016, M.steel_dull, parent)
 	return y0 + h
 
 ## A horizontal drum on two saddles with dished ends (boilers, separators, exchangers lying down).
@@ -1008,17 +1073,29 @@ func _valve(p: Vector3, d: Vector3, r: float, parent: Node, col := Color(0.62, 0
 	_seg(p, p + Vector3(0, r * 4.0, 0), r * 0.35, M.steel_dull, parent, 8)
 	_torus(r * 1.6, r * 0.18, p + Vector3(0, r * 4.0, 0), body, parent)
 
-## A two-level pipe rack (steel H-frames every `bay` metres) from a to b along X at height h.
+## A wide-flange (H) beam from a to b: a web and two flanges as boxes. `up` says which way the beam's depth runs (it must not be along the beam).
+func _ibeam(a: Vector3, b: Vector3, depth: float, fw: float, t: float, mat: Material, parent: Node, up := Vector3.UP) -> void:
+	var L := a.distance_to(b)
+	if L < 1e-3: return
+	var x := (b - a) / L; var y := (up - x * up.dot(x)).normalized(); var z := x.cross(y)
+	var n := Node3D.new(); n.transform = Transform3D(Basis(x, y, z), (a + b) * 0.5); parent.add_child(n)
+	_box(Vector3(L, depth - 2.0 * t, t), Vector3.ZERO, mat, n)   # web
+	for sg in [-1.0, 1.0]: _box(Vector3(L, t, fw), Vector3(0, sg * (depth - t) * 0.5, 0), mat, n)   # flanges
+
+## A two-level pipe rack from a to b along X at height h: red-oxide H columns on base plates (four bolt heads a foot), galvanised H beams across and stringers
+## along (0.12: the navy box beams were the heaviest thing in the foreground). The pipes lie on the cross beams: a beam's top is at level + 0.09.
 func _rack(a: Vector3, b: Vector3, h: float, parent: Node, bay := 4.0) -> void:
 	var n := int(absf(b.x - a.x) / bay) + 1
-	var steel := _paint(Color(0.32, 0.36, 0.4))
+	var dx := signf(b.x - a.x) if absf(b.x - a.x) > 1e-3 else 1.0
 	for i in n:
-		var x := a.x + signf(b.x - a.x) * i * bay
-		for z in [a.z - 0.9, a.z + 0.9]: _box(Vector3(0.2, h + 1.0, 0.2), Vector3(x, (h + 1.0) * 0.5, z), steel, parent)
-		for lv in [h, h + 0.9]: _box(Vector3(0.18, 0.18, 2.0), Vector3(x, lv, a.z), steel, parent)
-		_box(Vector3(0.3, 0.05, 0.3), Vector3(x, 0.025, a.z - 0.9), M.concrete if M.has("concrete") else steel, parent)
+		var x := a.x + dx * i * bay
+		for z in [a.z - 0.9, a.z + 0.9]:
+			_ibeam(Vector3(x, 0.03, z), Vector3(x, h + 1.05, z), 0.2, 0.2, 0.018, M.oxide, parent, Vector3(0, 0, 1))   # the column
+			_box(Vector3(0.4, 0.03, 0.4), Vector3(x, 0.015, z), M.oxide, parent)   # base plate
+			for bx in [-0.15, 0.15]: for bz in [-0.15, 0.15]: _cyl(0.02, 0.025, Vector3(x + bx, 0.043, z + bz), M.black, parent, -1.0, 8)   # four bolt heads
+		for lv in [h, h + 0.9]: _ibeam(Vector3(x, lv, a.z - 0.9), Vector3(x, lv, a.z + 0.9), 0.18, 0.12, 0.014, M.galv, parent)   # the cross beam
 	for lv in [h, h + 0.9]:
-		for z in [a.z - 0.9, a.z + 0.9]: _box(Vector3(absf(b.x - a.x), 0.16, 0.12), Vector3((a.x + b.x) * 0.5, lv, z), steel, parent)
+		for z in [a.z - 0.9, a.z + 0.9]: _ibeam(Vector3(a.x - dx * 0.3, lv, z), Vector3(b.x + dx * 0.3, lv, z), 0.16, 0.1, 0.012, M.galv, parent)   # the stringers
 
 ## Only the world's controls, with a 30 px minimum target (playtest: a wheel rim or the clamp lost to the flask's own anchor).
 func pick_control(p: Vector2) -> String:

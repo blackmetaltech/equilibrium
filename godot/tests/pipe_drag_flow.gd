@@ -80,6 +80,17 @@ func _initialize() -> void:
 	check(hub.from_unit == "M-103" and hub.chained, "6: the feed -> mixer pipe arms the chain at the mixer's outlet (in hand '%s')" % hub.from_unit)
 	await drag(pip("M-103", "out", false), pip("R-105", "in", true))
 	check(nstreams() == n0 + 2, "6: a drag from the chain's own outlet to the burner connects (%d -> %d streams, in hand '%s')" % [n0, nstreams(), hub.from_unit])
+	# 7. (0.12) the port pips are 1.6x larger and a press 18 px off one still starts a pipe (a playtester could not hit them): a 24 px radius target
+	await fresh()
+	n0 = nstreams()
+	var pr := pip("F-101", "out", false)
+	var smallest := 99.0
+	for mn in w._mark_nodes:
+		if is_instance_valid(mn) and (mn as MeshInstance3D).mesh is SphereMesh: smallest = minf(smallest, ((mn as MeshInstance3D).mesh as SphereMesh).radius)
+	check(smallest >= 0.19 * 1.6 and smallest < 99.0, "7: the smallest outlet pip is 1.6x its old size (radius %.2f)" % smallest)
+	check(PlantWorld.PIP_SCALE >= 1.6 and PlantWorld.PIPE_PICK_PX >= 24.0 and PlantWorld.PIPE_START_PX >= 18.0, "7: the pick radius is at least 24 px and a resting pip's start radius at least 18")
+	await drag(pr + Vector2(18, 0), pip("M-103", "in1", true))
+	check(nstreams() == n0 + 1, "7: a press 18 px beside F-101's outlet still starts the pipe (%d -> %d streams)" % [n0, nstreams()])
 	print("PIPE-DRAG-FLOW checks=%d" % checks)
 	print("PIPE-DRAG-FLOW OK" if fails == 0 else "PIPE-DRAG-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()

@@ -186,7 +186,10 @@ func _draw() -> void:
 	var a := deg_to_rad(-SWEEP * 0.5 + SWEEP * _f); var pd := Vector2(sin(a), -cos(a))
 	draw_line(c + pd * (R * 0.18), c + pd * (R - 2.0), Color("#F4EEE2"), 3.5, true)
 	draw_circle(c, 3.0, EqTheme.BAKELITE.darkened(0.2))
-	if has_focus(): draw_arc(c, R + 2.0, 0.0, TAU, 48, EqTheme.TEAL, 3.0, true)
+	if has_focus():   # a pad ring that reads on the dark dial and the light plate alike: dark under, bright over, and the whole control boxed
+		draw_arc(c, R + 4.0, 0.0, TAU, 48, Color(0, 0, 0, 0.75), 6.0, true)
+		draw_arc(c, R + 4.0, 0.0, TAU, 48, Color(1, 0.9, 0.25), 3.5, true)
+		draw_rect(Rect2(Vector2(1, 1), size - Vector2(2, 2)), Color(1, 0.9, 0.25, 0.9), false, 2.0)
 	if is_off: draw_arc(c, R + 2.0, 0.0, TAU, 48, EqTheme.RED, 2.0, true)
 	if _drag: draw_arc(c, R + 12.0, deg_to_rad(-SWEEP * 0.5 - 90.0), deg_to_rad(-SWEEP * 0.5 - 90.0 + SWEEP * _f), 40, EqTheme.TEAL, 3.0, true)
 	if nudge and choices.is_empty() and editable:

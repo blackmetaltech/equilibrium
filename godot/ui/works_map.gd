@@ -10,14 +10,24 @@ extends RefCounted
 ## Progress lives in `Campaign` (user://eq_campaign.cfg): the engine's own progress record is never written by the shell (see the campaign report).
 
 const S := {
-	"MAP_TITLE": "WORKS MAP", "MAP_RANK": "ENGINEER RANK", "MAP_STARS": "%d of %d stars", "MAP_NEXT": "next: %s at %d", "MAP_TOP": "highest rank",
+	"MAP_TITLE": "Works map", "MAP_RANK": "Engineer rank", "MAP_STARS": "%d of %d stars", "MAP_NEXT": "next: %s at %d", "MAP_TOP": "highest rank",
 	"MAP_START": "START", "MAP_CLOSE": "Close", "MAP_BRIDGE": "Exam bridge (optional)", "MAP_SOON": "Under construction",
 	"MAP_LOCK_CH": "Finish chapter %d, %s, first.", "MAP_LOCK_LV": "Needs a star on %s first.", "MAP_PICK": "Pick a job. Teal lamps are three stars.",
 	"MAP_LEGEND": "dark: locked   white: done   teal: three stars   book: exam bridge",
 	"MAP_NEW_ASK": "Start the works over? The map goes dark again and your stars are cleared.", "MAP_NEW_YES": "New works",
-	"MAP_LEARNER": "Stars won in Learner mode are hollow gold; Engineer mode makes them solid.",
+	"CARD_START": "Start work", "CARD_BACK": "Back", "MAP_LEARNER": "Stars won in Learner mode are hollow gold; Engineer mode makes them solid.",
 }
 static func T(k: String) -> String: return S.get(k, k)
+
+## 0.12 lab home: the map is a plan inked on paper lying on the drafting table (set by open() when the lab is up); everywhere else it keeps the glass look.
+static var paper := false
+const P_PAPER := Color("#EFE9D8")
+const P_INK := Color("#1D2330")
+const P_DIM := Color("#555C6A")   ## 5.6:1 on the paper
+const P_BLUE := Color("#124E78")
+const P_GRID := Color(0.36, 0.45, 0.58, 0.16)
+## `p` on paper, `g` on glass.
+static func pk(g: Color, p: Color) -> Color: return p if paper else g
 
 ## [chapter, title, site, kind, first level number, last level number]. Level ids are matched by number against the engine's list, so a level the engine
 ## does not have yet (L23, L26, L28) simply has no node.
@@ -38,12 +48,19 @@ const CHAPTERS := [
 const BRIDGES := [4, 9, 14, 18]
 ## Which chapter must be done before this one opens (-1: open from the start).
 ## D-B4 (phase B): chapter 3 is the new-look chapter and opens from the start (the title screen has a strip for it); 00 is the new-look prologue.
-const NEW_LOOK := [0, 1, 3]
+const NEW_LOOK := [0, 1, 2, 3]
+const PART_LOOK := {2: "L09 classic"}   ## 0.12: chapter 2 builds in the hall (L05-L08); the L09 bench is still the classic view
 const PREREQ := {0: -1, 1: -1, 2: 1, 3: -1, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 5, 10: 5, 11: 5}   # Hydraulics and Career open after chapter 5 like chapters 8 and 9
 ## Total stars for each Engineer rank.
 const RANKS := [["Trainee", 0], ["Shift Engineer", 6], ["Senior Engineer", 20], ["Process Engineer", 40], ["Plant Manager", 65], ["Chief Engineer", 90]]
 ## Grid order of the chapters (landscape): row 1 left to right, row 2 right to left, so the pipe snakes along the coast.
 const GRID := [0, 1, 2, 3, 4, 9, 8, 7, 6, 5, 10, 11]
+
+static func plate_box() -> StyleBoxFlat:
+	if paper:
+		var b := StyleBoxFlat.new(); b.bg_color = Color(0.36, 0.45, 0.58, 0.07); b.border_color = Color(0.36, 0.45, 0.58, 0.45); b.set_border_width_all(1); b.set_corner_radius_all(2)
+		b.content_margin_left = 16; b.content_margin_right = 16; b.content_margin_top = 4; b.content_margin_bottom = 4; return b
+	return HoloTheme.box(Color(1, 1, 1, 0.05), Color(HoloTheme.TEAL, 0.3), 1, 10, 8)
 
 static func number(id: String) -> String: return "C" if id == "CAREER" else id.trim_prefix("L").trim_prefix("l")
 
@@ -244,9 +261,18 @@ static func open(app: CbApp) -> void:
 	var compact := CbLayout.compact
 	var vw := app.vw(); var vh := app.vs_h()
 	var narrow := vw < 1000.0 or vh > vw * 1.1
-	var d: Dictionary = app.dialog("levels", minf(vw - (16.0 if compact else 40.0), 1860.0), vh - (16.0 if compact else 40.0), EqTheme.ENAMEL_HI, 0.55)
+	var home: bool = LabHome.is_up() and not app.started and not compact
+	paper = home   # 0.12: opened from the title in the lab: the map is the lit plan on the planning table, the lab shows round it
+	var d: Dictionary = app.dialog("levels", minf(vw - (16.0 if compact else 40.0), 1860.0) * (0.66 if home else 1.0), (vh - (16.0 if compact else 40.0)) * (0.74 if home else 1.0), EqTheme.ENAMEL_HI, 0.0 if home else 0.55)
 	var host: Control = d.host; var vb: VBoxContainer = d.vb
-	(d.panel as PanelContainer).add_theme_stylebox_override("panel", HoloTheme.box(Color(HoloTheme.GLASS, 0.94), Color(HoloTheme.TEAL, 0.4), 1, 14, int(10.0 if compact else 18.0)))   # owner review: the glass language
+	if home:   # paper on the table: opaque sheet, thin edge, soft shadow (no glass wall)
+		var sheet := StyleBoxFlat.new(); sheet.bg_color = P_PAPER; sheet.border_color = Color(0.72, 0.68, 0.58); sheet.set_border_width_all(1); sheet.set_corner_radius_all(3)
+		sheet.shadow_color = Color(0.05, 0.03, 0.0, 0.45); sheet.shadow_size = 16; sheet.shadow_offset = Vector2(3, 7)
+		for sd in ["left", "right"]: sheet.set("content_margin_" + sd, 26)
+		for sd in ["top", "bottom"]: sheet.set("content_margin_" + sd, 18)
+		(d.panel as PanelContainer).add_theme_stylebox_override("panel", sheet)
+	else: (d.panel as PanelContainer).add_theme_stylebox_override("panel", HoloTheme.box(Color(HoloTheme.GLASS, 0.94), Color(HoloTheme.TEAL, 0.4), 1, 14, int(10.0 if compact else 18.0)))   # owner review: the glass language
+	if LabHome.is_up() and not app.started: LabHome.map_opened(app, host)   # every layout: the title UI steps aside while the map and its briefing card are up (on a handheld the card used to be drawn over the menu)
 	vb.add_theme_constant_override("separation", 6 if compact else 10)
 	var view := MapView.new(); view.app = app; view.host = host; view.narrow = narrow
 	view.build(vb)
@@ -254,6 +280,7 @@ static func open(app: CbApp) -> void:
 
 ## Start a level from the map (or the title): closes the map first.
 static func start(app: CbApp, host: Control, id: String) -> void:
+	if LabHome.brief(app, host, id): return   # 0.12: in the lab the job opens as a briefing card on the table first
 	if host != null and is_instance_valid(host): host.queue_free()
 	sel_id = ""
 	BuildKeeper.predict_done.erase(id)
@@ -278,7 +305,7 @@ class MapView extends RefCounted:
 		for l in app.b.levels(): levels_by_id[str((l as Dictionary).id)] = l
 		# header: title, rank plate, close
 		var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 14); vb.add_child(hb)
-		var t := EqTheme.label(WorksMap.T("MAP_TITLE"), 26 if compact else 32, EqTheme.TEXT, "title"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.name = "Title"; hb.add_child(t)
+		var t := EqTheme.label(WorksMap.T("MAP_TITLE"), 26 if compact else 32, WorksMap.pk(EqTheme.TEXT, WorksMap.P_INK), "title"); t.size_flags_horizontal = Control.SIZE_EXPAND_FILL; t.name = "Title"; hb.add_child(t)
 		var x := EqTheme.key_button(WorksMap.T("MAP_CLOSE"), false, 16); x.name = "Close"; x.pressed.connect(func(): host.queue_free()); hb.add_child(x)
 		vb.add_child(_rank_plate(narrow or compact))
 		scroll = ScrollContainer.new(); scroll.name = "List"; scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL; scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -286,15 +313,15 @@ class MapView extends RefCounted:
 		bay = Bay.new(); bay.name = "Bay"; bay.view = self; bay.narrow = narrow; bay.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bay.size_flags_vertical = Control.SIZE_EXPAND_FILL; scroll.add_child(bay)
 		bay.build()
 		# info bar: the focused or tapped job and its lock rule
-		var ib := PanelContainer.new(); ib.name = "InfoBar"; ib.add_theme_stylebox_override("panel", HoloTheme.box(Color(1, 1, 1, 0.05), Color(HoloTheme.TEAL, 0.3), 1, 10, 8)); vb.add_child(ib)
+		var ib := PanelContainer.new(); ib.name = "InfoBar"; ib.add_theme_stylebox_override("panel", WorksMap.plate_box()); vb.add_child(ib)
 		var ibh := HBoxContainer.new(); ibh.add_theme_constant_override("separation", 12); ib.add_child(ibh)
-		info = EqTheme.label(WorksMap.T("MAP_PICK"), 15 if compact else 17, HoloTheme.INK, "sans"); info.name = "Info"; info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info = EqTheme.label(WorksMap.T("MAP_PICK"), 15 if compact else 17, WorksMap.pk(HoloTheme.INK, WorksMap.P_INK), "sans"); info.name = "Info"; info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; info.custom_minimum_size = Vector2(0, 46 if compact else 50); info.vertical_alignment = VERTICAL_ALIGNMENT_CENTER; ibh.add_child(info)
 		start_btn = EqTheme.key_button(WorksMap.T("MAP_START"), true, 17); start_btn.name = "Start"; start_btn.disabled = true
 		start_btn.pressed.connect(func(): if WorksMap.sel_id != "": WorksMap.start(app, host, WorksMap.sel_id))
 		ibh.add_child(start_btn)
 		if not (compact and narrow):
-			var lg := EqTheme.label(WorksMap.T("MAP_LEGEND") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 13, EqTheme.DIM, "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
+			var lg := EqTheme.label((WorksMap.T("MAP_LEGEND") if not WorksMap.paper else "grey: locked   white: done   blue: three stars   book: exam bridge") + ("   ·   swipe up for chapters 5-10 and Career" if CbLayout.phone else ""), 16, WorksMap.pk(EqTheme.DIM, WorksMap.P_DIM), "sans"); lg.name = "Legend"; lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(lg)
 		# first focus: the first open, unstarred node (else the first open one)
 		var pick: NodeBtn = null
 		for id in WorksMap.Campaign.ids:
@@ -306,18 +333,67 @@ class MapView extends RefCounted:
 				if nb2 != null and nb2.state != "locked": pick = nb2; break
 		if pick != null and CbKit.pad_mode: pick.call_deferred("grab_focus")  # (guarded below)
 		if pick != null: select(pick.lid, false)
+		_wire_focus(pick, x)
+
+	## 0.12: the d-pad and the left stick walk the job nodes by where they are on the plan (Godot's own neighbour search jumped from Close to Start and never entered the grid).
+	## Wired once the layout has settled; positions are taken inside the bay, so a scrolled list does not change them. The top row goes up to Close, the bottom row down to Start.
+	func _wire_focus(pick: NodeBtn, close_btn: Button) -> void:
+		var sig := ""; var same := 0
+		for i in 60:   # wait for the layout to settle: the same node positions on three frames running
+			await app.get_tree().process_frame
+			if bay == null or not is_instance_valid(bay): return
+			var s2 := ""
+			for k in nodes: if is_instance_valid(nodes[k]): s2 += str((nodes[k] as Control).get_global_rect().position) + ";"
+			same = same + 1 if s2 == sig else 0; sig = s2
+			if same >= 3: break
+		if bay == null or not is_instance_valid(bay): return
+		var inv := bay.get_global_transform().affine_inverse()
+		var list: Array = []
+		for k in nodes: if is_instance_valid(nodes[k]): list.append(nodes[k])
+		if list.is_empty(): return
+		var ctr := func(n: Control) -> Vector2: return inv * n.get_global_rect().get_center()
+		var dirs := {"left": Vector2.LEFT, "right": Vector2.RIGHT, "top": Vector2.UP, "bottom": Vector2.DOWN}
+		for n in list:
+			var c: Vector2 = ctr.call(n)
+			for dn in dirs:
+				var d: Vector2 = dirs[dn]; var best: Control = null; var bs := INF
+				for pass_i in 2:   # first the nodes in a cone ahead, then (so nothing is unreachable) any node ahead
+					for m in list:
+						if m == n: continue
+						var del: Vector2 = (ctr.call(m) as Vector2) - c
+						var along := del.dot(d); var perp := absf(del.dot(Vector2(-d.y, d.x)))
+						if along <= 4.0 or (pass_i == 0 and perp > along * 2.0 + 20.0): continue
+						var sc := along + perp * 2.0
+						if sc < bs: bs = sc; best = m
+					if best != null: break
+				if best != null: n.set("focus_neighbor_" + dn, n.get_path_to(best))
+				elif dn == "top": n.focus_neighbor_top = n.get_path_to(close_btn)
+				elif dn == "bottom": n.focus_neighbor_bottom = n.get_path_to(start_btn)
+		close_btn.focus_neighbor_bottom = close_btn.get_path_to(pick if pick != null else list[0])
+		start_btn.focus_neighbor_top = start_btn.get_path_to(pick if pick != null else list[0])
+		if CbKit.pad_mode and pick != null and is_instance_valid(pick) and pick.is_inside_tree(): pick.grab_focus()
+		await app.get_tree().process_frame
+		_open_view(pick)
+
+	## The map opens at its top, or (when the first job is further down) with that job's chapter card at the top: the focus grab during the first layout used to leave it scrolled to the middle.
+	func _open_view(pick: NodeBtn) -> void:
+		if scroll == null or not is_instance_valid(scroll) or bay == null or not is_instance_valid(bay): return
+		scroll.scroll_vertical = 0
+		if pick == null or not is_instance_valid(pick): return
+		var pr: Rect2 = Rect2(bay.get_global_transform().affine_inverse() * pick.get_global_rect().position, pick.get_global_rect().size)
+		if pr.end.y + 24.0 > scroll.size.y: scroll.scroll_vertical = maxi(0, int(pr.position.y) - 90)
 
 	func _rank_plate(compact: bool) -> Control:
-		var pn := PanelContainer.new(); pn.name = "Rank"; pn.add_theme_stylebox_override("panel", HoloTheme.box(Color(1, 1, 1, 0.05), Color(HoloTheme.TEAL, 0.3), 1, 10, 8))
+		var pn := PanelContainer.new(); pn.name = "Rank"; pn.add_theme_stylebox_override("panel", WorksMap.plate_box())
 		var h: BoxContainer = HBoxContainer.new() if not narrow else VBoxContainer.new(); h.add_theme_constant_override("separation", 14 if not narrow else 0); pn.add_child(h)
 		var h1: BoxContainer = h
 		if narrow: h1 = HBoxContainer.new(); h1.add_theme_constant_override("separation", 10); h.add_child(h1)
 		var c := WorksMap.Campaign
-		var tag := EqTheme.label(WorksMap.T("MAP_RANK"), 13, EqTheme.DIM, "sans"); h1.add_child(tag)
-		var rn := EqTheme.label(c.rank_name().to_upper(), 20 if compact else 26, EqTheme.TEAL.lightened(0.2), "title"); rn.name = "RankName"; h1.add_child(rn)
+		var tag := EqTheme.label(WorksMap.T("MAP_RANK"), 13, WorksMap.pk(EqTheme.DIM, WorksMap.P_DIM), "sans"); h1.add_child(tag)
+		var rn := EqTheme.label(c.rank_name(), 20 if compact else 26, WorksMap.pk(EqTheme.TEAL.lightened(0.2), WorksMap.P_BLUE), "title"); rn.name = "RankName"; h1.add_child(rn)
 		var ri := c.rank_index(); var tot := c.total_stars()
 		var nxt := WorksMap.T("MAP_TOP") if ri >= WorksMap.RANKS.size() - 1 else WorksMap.T("MAP_NEXT") % [str(WorksMap.RANKS[ri + 1][0]), int(WorksMap.RANKS[ri + 1][1])]
-		var sl := EqTheme.label("%s · %s" % [WorksMap.T("MAP_STARS") % [tot, c.max_stars()], nxt], 15 if compact else 17, HoloTheme.INK, "sans"); sl.name = "RankStars"; sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var sl := EqTheme.label("%s · %s" % [WorksMap.T("MAP_STARS") % [tot, c.max_stars()], nxt], 15 if compact else 17, WorksMap.pk(HoloTheme.INK, WorksMap.P_INK), "sans"); sl.name = "RankStars"; sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; h.add_child(sl)
 		return pn
 
@@ -326,7 +402,7 @@ class MapView extends RefCounted:
 		WorksMap.sel_id = id
 		var lv: Dictionary = levels_by_id.get(id, {})
 		var why := WorksMap.Campaign.lock_reason(id)
-		var head := "%s · %s" % [WorksMap.number(id), str(lv.get("title", id)).to_upper()]
+		var head := "%s · %s" % [WorksMap.number(id), str(lv.get("title", id))]
 		var brief := str(lv.get("brief", ""))
 		info.text = head + "\n" + (why if why != "" else brief)
 		start_btn.disabled = why != ""
@@ -395,7 +471,7 @@ class Bay extends VBoxContainer:
 	func _draw() -> void:
 		var C := WorksMap.Campaign
 		# mimic-panel backdrop: faint grid and a salt-flat band
-		var gcol := Color(EqTheme.ENAMEL_LO, 0.5)
+		var gcol := WorksMap.pk(Color(EqTheme.ENAMEL_LO, 0.5), WorksMap.P_GRID)
 		var gx := 60.0
 		var x := 0.0
 		while x < size.x: draw_line(Vector2(x, 0), Vector2(x, size.y), gcol, 1.0); x += gx
@@ -412,7 +488,7 @@ class Bay extends VBoxContainer:
 				_pipe([Vector2(gx0, p0.y), Vector2(gx0, p1.y)], C.ch_done(src) if src > 0 else C.starred("L00"), b >= 8, flow)
 			for n in range(WorksMap.CHAPTERS.size()):   # valves in the gutter
 				var pc := _anchor(n, "c"); var done := C.ch_done(n) if n > 0 else C.starred("L00")
-				draw_circle(Vector2(gx0, pc.y), 9.0, Color("#0B1413")); draw_circle(Vector2(gx0, pc.y), 6.0, EqTheme.TEAL if done else EqTheme.LAMP_OFF)
+				draw_circle(Vector2(gx0, pc.y), 9.0, WorksMap.pk(Color("#0B1413"), WorksMap.P_INK)); draw_circle(Vector2(gx0, pc.y), 6.0, WorksMap.pk(EqTheme.TEAL if done else EqTheme.LAMP_OFF, WorksMap.P_BLUE if done else WorksMap.P_PAPER))
 			return
 		for e in EDGES:
 			var a: int = e[0]; var b: int = e[1]
@@ -428,7 +504,7 @@ class Bay extends VBoxContainer:
 
 	## A pipe along `pts`: a dark outline, a rust or teal body (teal once laid) and chevrons that run along it when it carries product. Dashed = signal line.
 	func _pipe(pts: Array, laid: bool, dashed: bool, flow: float) -> void:
-		var col := EqTheme.TEAL if laid else Color("#5B4A3E")
+		var col := (WorksMap.P_BLUE if laid else Color("#8A7A62")) if WorksMap.paper else (EqTheme.TEAL if laid else Color("#5B4A3E"))
 		var w := 6.0 if not dashed else 3.0
 		for i in range(pts.size() - 1):
 			var a: Vector2 = pts[i]; var b: Vector2 = pts[i + 1]
@@ -440,8 +516,8 @@ class Bay extends VBoxContainer:
 					draw_line(a + dir * d, a + dir * e, col if laid else col.darkened(0.15), w)
 					d += 18.0
 			else:
-				draw_line(a, b, Color("#0B1413"), w + 4.0)
-				draw_line(a, b, col.darkened(0.25) if laid else col, w)
+				if not WorksMap.paper: draw_line(a, b, Color("#0B1413"), w + 4.0)
+				draw_line(a, b, col.darkened(0.25) if laid else col, w if not WorksMap.paper else w * 0.6)
 		if laid and not dashed and not CbSettings.reduced_motion:
 			for i in range(pts.size() - 1):
 				var a: Vector2 = pts[i]; var b: Vector2 = pts[i + 1]
@@ -473,6 +549,9 @@ class SiteCard extends PanelContainer:
 		if chapter in WorksMap.NEW_LOOK: sb.border_color = Color(HoloTheme.TEAL, 0.75)
 		if state == "locked": sb.bg_color = Color(0.05, 0.09, 0.11, 0.8)
 		elif state == "done": sb.border_color = EqTheme.TEAL.darkened(0.2)
+		if WorksMap.paper:   # a plot on the sheet: a slightly lighter patch with an ink outline; a locked plot is shaded grey; new-look plots have a heavier line
+			sb.bg_color = Color(1, 1, 1, 0.45) if state != "locked" else Color(0.45, 0.47, 0.52, 0.16)
+			sb.border_color = Color(0.11, 0.14, 0.19, 0.8 if chapter in WorksMap.NEW_LOOK else 0.4); sb.set_border_width_all(2 if chapter in WorksMap.NEW_LOOK else 1); sb.set_corner_radius_all(2)
 		add_theme_stylebox_override("panel", sb)
 		mouse_filter = Control.MOUSE_FILTER_PASS
 		var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 3 if CbLayout.phone else 6); add_child(v)
@@ -489,16 +568,16 @@ class SiteCard extends PanelContainer:
 		else: top.add_child(glyph)
 		if glyph.get_parent() == null: glyph.free.call_deferred()
 		var tv := VBoxContainer.new(); tv.add_theme_constant_override("separation", 0); tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tv.mouse_filter = Control.MOUSE_FILTER_IGNORE; top.add_child(tv)
-		var head := ("%02d" % chapter if chapter > 0 else "00") + " · " + str(ch[1]).to_upper()
-		var tl := EqTheme.label(head, 18 if compact else 21, EqTheme.TEXT if state != "locked" else EqTheme.DIM, "title"); tl.name = "SiteTitle"; tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tl.custom_minimum_size = Vector2(40, 0); tv.add_child(tl)
+		var head := ("%02d" % chapter if chapter > 0 else "00") + " · " + str(ch[1])
+		var tl := EqTheme.label(head, 18 if compact else 21, WorksMap.pk(EqTheme.TEXT if state != "locked" else EqTheme.DIM, WorksMap.P_INK if state != "locked" else WorksMap.P_DIM), "title"); tl.name = "SiteTitle"; tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tl.custom_minimum_size = Vector2(40, 0); tv.add_child(tl)
 		var sub := str(ch[2])
 		var crit := C.chapter_ids(chapter)
 		if crit.is_empty() and chapter > 0: sub += " · " + WorksMap.T("MAP_SOON")
-		sub += " · " + ("New look" if chapter in WorksMap.NEW_LOOK else "classic")
-		var sl := EqTheme.label(sub, 14 if compact else 16, EqTheme.TEAL.lightened(0.25) if state != "locked" else EqTheme.DIM, "sans"); sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; sl.custom_minimum_size = Vector2(40, 0); tv.add_child(sl)
+		sub += " · " + ("New look" if chapter in WorksMap.NEW_LOOK else "classic") + ((" · " + str(WorksMap.PART_LOOK[chapter])) if WorksMap.PART_LOOK.has(chapter) else "")
+		var sl := EqTheme.label(sub, 14 if compact else 16, WorksMap.pk(EqTheme.TEAL.lightened(0.25) if state != "locked" else EqTheme.DIM, WorksMap.P_BLUE if state != "locked" else WorksMap.P_DIM), "sans"); sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; sl.custom_minimum_size = Vector2(40, 0); tv.add_child(sl)
 		if not opened:
 			var p: int = int(WorksMap.PREREQ[chapter])
-			var rl := EqTheme.label(WorksMap.T("MAP_LOCK_CH") % [p, C.chapter_name(p)], 13, EqTheme.DIM, "sans"); rl.name = "Rule"; rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.custom_minimum_size = Vector2(40, 0); tv.add_child(rl)
+			var rl := EqTheme.label(WorksMap.T("MAP_LOCK_CH") % [p, C.chapter_name(p)], 13, WorksMap.pk(EqTheme.DIM, WorksMap.P_DIM), "sans"); rl.name = "Rule"; rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; rl.custom_minimum_size = Vector2(40, 0); tv.add_child(rl)
 		var fl := HFlowContainer.new(); fl.name = "Nodes"; fl.add_theme_constant_override("h_separation", 6); fl.add_theme_constant_override("v_separation", 2 if CbLayout.phone else 4); fl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; v.add_child(fl)
 		for id in crit: fl.add_child(_node(id, false))
 		var brs := C.chapter_ids(chapter, true)
@@ -511,7 +590,7 @@ class SiteCard extends PanelContainer:
 		var nb := NodeBtn.new(); nb.lid = id; nb.bridge = bridge; nb.name = "Level_" + id
 		nb.state = C.state_of(id); nb.stars = C.eff(id); nb.hard = bool(C.hard.get(id, false))
 		var lv: Dictionary = view.levels_by_id.get(id, {})
-		nb.text = "%s · %s" % [WorksMap.number(id), str(lv.get("title", id)).to_upper()]
+		nb.text = "%s · %s" % [WorksMap.number(id), str(lv.get("title", id))]
 		nb.tooltip_text = nb.text + ("\n" + WorksMap.T("MAP_BRIDGE") if bridge else "") + ("\n" + C.lock_reason(id) if nb.state == "locked" else "")
 		var tap := maxf(CbLayout.tap(), 46.0)
 		nb.custom_minimum_size = Vector2(tap, tap + (13.0 if CbLayout.phone else 16.0))
@@ -547,13 +626,20 @@ class NodeBtn extends Button:
 		match state:
 			"done": fill = EqTheme.TEAL if stars >= 3 else EqTheme.LAMP_WHITE; ink = EqTheme.INK
 			"open": fill = EqTheme.ENAMEL_HI; ink = EqTheme.TEXT; ring = EqTheme.LAMP_WHITE.darkened(0.2)
-		if lit and state != "locked": draw_circle(c, r + 8.0, Color(EqTheme.TEAL, 0.25))
+		var dim := EqTheme.DIM
+		if WorksMap.paper:   # a pin on the plan: ink ring, white head; three stars in blue ink; locked = grey pin
+			dim = WorksMap.P_DIM
+			match state:
+				"done": fill = WorksMap.P_BLUE if stars >= 3 else Color.WHITE; ink = Color.WHITE if stars >= 3 else WorksMap.P_INK; ring = WorksMap.P_BLUE
+				"open": fill = Color.WHITE; ink = WorksMap.P_INK; ring = WorksMap.P_INK
+				_: fill = Color(0.78, 0.78, 0.76); ring = WorksMap.P_DIM
+		if lit and state != "locked": draw_circle(c, r + 8.0, Color(EqTheme.TEAL, 0.25) if not WorksMap.paper else Color(0.95, 0.62, 0.15, 0.35))
 		if bridge:
 			var rect := Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0)
-			var sbx := StyleBoxFlat.new(); sbx.bg_color = fill; sbx.border_color = EqTheme.TEAL if lit else ring; sbx.set_border_width_all(3 if lit else 2); sbx.set_corner_radius_all(int(r * 0.35))
+			var sbx := StyleBoxFlat.new(); sbx.bg_color = fill; sbx.border_color = (EqTheme.TEAL if not WorksMap.paper else Color(0.95, 0.62, 0.15)) if lit else ring; sbx.set_border_width_all(3 if lit else 2); sbx.set_corner_radius_all(int(r * 0.35))
 			draw_style_box(sbx, rect)
 		else:
-			draw_circle(c, r + 3.0, EqTheme.TEAL if lit else ring); draw_circle(c, r, ring if state != "open" else ring)
+			draw_circle(c, r + 3.0, (EqTheme.TEAL if not WorksMap.paper else Color(0.95, 0.62, 0.15)) if lit else ring); draw_circle(c, r, ring)
 			draw_circle(c, r - 3.0, fill)
 			if state == "done": draw_circle(c + Vector2(-r * 0.3, -r * 0.35), r * 0.16, Color(1, 1, 1, 0.55))
 		var num := WorksMap.number(lid); var sz := EqTheme.fs(15 if r < 20.0 else 17)
@@ -561,12 +647,12 @@ class NodeBtn extends Button:
 		if state == "locked":
 			# padlock: a body and a shackle, the number small under it is the tooltip's job
 			var bd := Rect2(c + Vector2(-r * 0.32, -r * 0.05), Vector2(r * 0.64, r * 0.5))
-			draw_rect(bd, Color(EqTheme.DIM, 0.8)); draw_arc(c + Vector2(0, -r * 0.05), r * 0.24, PI, TAU, 10, Color(EqTheme.DIM, 0.8), 2.5)
+			draw_rect(bd, Color(dim, 0.8)); draw_arc(c + Vector2(0, -r * 0.05), r * 0.24, PI, TAU, 10, Color(dim, 0.8), 2.5)
 		else:
 			EqTheme.ds(self, f, Vector2(c.x - tw * 0.5, c.y + sz * 0.34), num, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, ink)
 		if bridge:   # the book: two pages on a spine, at the top-right corner
 			var bp := c + Vector2(r * 0.62, -r * 0.78)
-			draw_circle(bp, 9.0, Color("#0B1413"))
+			draw_circle(bp, 9.0, WorksMap.pk(Color("#0B1413"), WorksMap.P_INK))
 			draw_colored_polygon(PackedVector2Array([bp + Vector2(-6, -4), bp + Vector2(0, -2), bp + Vector2(0, 5), bp + Vector2(-6, 3)]), EqTheme.AMBER)
 			draw_colored_polygon(PackedVector2Array([bp + Vector2(6, -4), bp + Vector2(0, -2), bp + Vector2(0, 5), bp + Vector2(6, 3)]), EqTheme.AMBER.lightened(0.3))
 		# the stars: solid gold for Engineer wins, hollow gold for Learner wins, a grey dot when not earned
@@ -578,7 +664,7 @@ class NodeBtn extends Button:
 				if hard: draw_colored_polygon(pts, EqTheme.AMBER)
 				else:
 					draw_colored_polygon(pts, Color(EqTheme.AMBER, 0.18)); var cl := PackedVector2Array(pts); cl.append(pts[0]); draw_polyline(cl, EqTheme.AMBER, 1.6)
-			else: draw_circle(p, 2.2, Color(EqTheme.DIM, 0.45 if state != "locked" else 0.2))
+			else: draw_circle(p, 2.2, Color(dim, 0.45 if state != "locked" else 0.2))
 	static func _star(c: Vector2, r: float) -> PackedVector2Array:
 		var a := PackedVector2Array()
 		for i in 10:
@@ -697,11 +783,11 @@ class ShipBand extends Control:
 	func _draw() -> void:
 		var C := WorksMap.Campaign
 		var w := size.x; var h := size.y
-		draw_rect(Rect2(0, 40.0, w, h - 40.0), Color("#2B5F78", 0.9))
+		draw_rect(Rect2(0, 40.0, w, h - 40.0), WorksMap.pk(Color("#2B5F78", 0.9), Color("#7FA3B8", 0.55)))
 		for k in 3:
 			var y := 52.0 + k * (h - 52.0) * 0.3; var pts := PackedVector2Array()
 			for i in range(0, int(w) + 12, 12): pts.append(Vector2(i, y + sin(t * 1.4 + i * 0.05 + k) * 2.0))
-			draw_polyline(pts, Color(1, 1, 1, 0.12), 1.5)
+			draw_polyline(pts, WorksMap.pk(Color(1, 1, 1, 0.12), Color(0.1, 0.3, 0.45, 0.3)), 1.5)
 		var jy := maxf(52.0, h * 0.3) - 4.0
 		draw_rect(Rect2(w - 150.0, jy, 150.0, 8.0), Color("#8C7A62"))   # the jetty
 		for i in 6: draw_rect(Rect2(w - 140.0 + i * 24.0, jy, 5.0, h * 0.5), Color("#6E5A44"))
