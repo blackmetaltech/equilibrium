@@ -297,6 +297,7 @@ var _gl := ""
 ## A level change that did not come with an engine `changed` signal still wipes the intercom (no stale coach line from the last job).
 var _dock_h := -1.0
 func _process(_dt: float) -> void:
+	if _on and app != null and app.started: _sync_speed()
 	if panel != null and absf(panel.size.y - _dock_h) > 0.5: _dock_h = panel.size.y; _place_dock(); _notify_height()   # the console's height moved (a legend wrapped, a layout class changed): the dock and the camera follow
 	if _on and app != null and app.started and app.b != null and str(app.b.g.get("level", "")) != _gl: refresh()
 	elif _transient_at > 0 and _on and app != null and app.started and app.b != null and Time.get_ticks_msec() - _transient_at > 2500: settle_intercom()
@@ -411,8 +412,22 @@ func _sync_key() -> void:
 	keys.set_speed_enabled(phase == "shift" or phase == "firstrun")
 	if phase != "shift" and phase != "firstrun" and app.speed != 0 and str(app.b.g.get("status", "playing")) == "playing" and app.started: app.set_speed(0); keys.set_speed_pos(0)
 	# the note follows the real clock: "PAUSED" only while nothing runs (dial at the pause bars), never over a 4x / 16x shift
-	keys.set_speed_note(PaperStrings.t("CLOCK_PAUSED") if (phase == "design" or phase == "commissioned") and key_available() and app.speed == 0 and keys.speed_pos == 0 else (PaperStrings.t("CLOCK_PAUSED_RUN") if (phase == "shift" or phase == "firstrun") and app.speed == 0 and app.started else (recorder.rate_note() if phase == "shift" else "")))
-	if (phase == "shift" or phase == "firstrun") and keys.speed_pos != app.speed: keys.set_speed_pos(app.speed)
+	_sync_speed()
+
+## The dial and the note under it follow the clock the app really runs (app.speed), every frame: the clock also stops and starts away from the console (a window that lost
+## its focus, the pad's Back, the menu), and a note computed only when the engine changes went stale until the next tick, saying PAUSED over a running plant or nothing over a stopped one.
+func _sync_speed() -> void:
+	if keys == null or app == null: return
+	var running := phase == "shift" or phase == "firstrun"
+	keys.set_speed_note(speed_note(phase, key_available(), app.speed, keys.speed_pos, app.started, recorder.rate_note() if running and phase == "shift" else ""))
+	if running and keys.speed_pos != app.speed: keys.set_speed_pos(app.speed)
+
+## What the line under the speed dial says, from the phase and the clock: "PAUSED" only while nothing runs (dial at the pause bars), the press-1x hint when a run is
+## stopped, never anything over a running shift (its rate note aside).
+static func speed_note(ph: String, key_ok: bool, clock: int, dial: int, started: bool, rate: String) -> String:
+	if (ph == "design" or ph == "commissioned") and key_ok and clock == 0 and dial == 0: return PaperStrings.t("CLOCK_PAUSED")
+	if (ph == "shift" or ph == "firstrun") and clock == 0 and started: return PaperStrings.t("CLOCK_PAUSED_RUN")
+	return rate
 
 ## A line that is only true while the plant is in a state ("the plant is making product" while the first run rolls): it goes the moment the state is over.
 func _say_bound(who: String, text: String, bound: String) -> void:
