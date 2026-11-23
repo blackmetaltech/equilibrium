@@ -335,7 +335,7 @@ func _build_rig() -> void:
 	_cyl(0.2, 1.5, tw + Vector3(0, 0.97, 0), tg, self, -1.0, 40)
 	_cyl(0.25, 0.08, tw + Vector3(0, 1.84, 0), mats.stainless, self, -1.0, 32)
 	_box(Vector3(0.5, 0.14, 0.02), tw + Vector3(0, 0.1, 0.262), M.brass).name = "BrassPlate"   # a small brass plate on the stand; the lettering shows on the near cameras only
-	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 34; pl.pixel_size = 0.00056; pl.fixed_size = true; pl.render_priority = 127; pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; pl.outline_size = 0; pl.modulate = Color(0.12, 0.07, 0.02); pl.position = tw + Vector3(0, 0.1, 0.285); add_child(pl)   # fixed screen size (>= 16 px for layout_flow), depth-tested so only the plate's face shows it
+	var pl := Label3D.new(); twin_plate = pl; pl.text = "The book's flask"; pl.font_size = 34; pl.pixel_size = 0.00056; pl.fixed_size = true; pl.no_depth_test = true; pl.render_priority = 127; pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y; pl.outline_size = 8; pl.outline_modulate = Color(0.08, 0.05, 0.02, 0.9); pl.modulate = Color(0.95, 0.85, 0.6); pl.position = tw + Vector3(0, 2.12, 0.0); add_child(pl)   # fixed screen size (>= 16 px for layout_flow); 0.12: dark depth-tested ink read as a big half-hidden smear in the flask view (GIF check): light brass lettering over the plate
 	anchors["twin"] = tw + Vector3(0, 1.2, 0); radius["twin"] = 0.3
 	# the RUN lever on the console: pull it to run
 	lever = Node3D.new(); lever.position = cp + Vector3(0.45, 0.95, 0.15); add_child(lever)
