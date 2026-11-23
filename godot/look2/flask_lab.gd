@@ -309,7 +309,7 @@ func _build_racks() -> void:
 	var gx := []; var lx := []; var lc := []; var bx := []
 	var k := 0
 	# three rows of benches on the left, two on the right front; each a black epoxy top on a steel frame, a reagent shelf, a hood light
-	var rows := [[-14.0, 1.0], [-14.0, 6.5], [-14.0, 12.0], [-24.0, 3.0], [-24.0, 9.0], [-24.0, 15.0], [18.0, 13.0], [18.0, 17.5]]
+	var rows := [[-14.0, 1.0], [-14.0, 6.5], [-14.0, 12.0], [-24.0, 3.0], [-24.0, 9.0], [-24.0, 15.0], [18.0, 13.0], [18.0, 17.5], [9.5, -5.0], [-10.5, -7.0]]   # phase C: two rows in the wide view (Sigrid: sparse)
 	for r in rows:
 		var bxp := Vector3(r[0], 0, r[1])
 		_box(Vector3(7.0, 0.05, 1.4), bxp + Vector3(0, 0.95, 0), _flat(Color(0.05, 0.05, 0.055), 0.0, 0.18))
