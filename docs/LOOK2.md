@@ -221,3 +221,24 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
   3. The burner flame follows duty, and the analyser reads O2 and CO2 in the world. Sigrid scores the chapter 1 hall at least 6.
   4. Sounds for commission, flame, trip and win. No human has listened; this is said plainly instead of naming a listener.
   5. The printout appears within 3 s of GOAL MET, or shows progress.
+
+**D-C3. L00's light-off rule and a save at or above 650 K (Anjali's model note) are verified, not rebuilt.**
+- **Where it was built:** D-B5 (0.10.0) built both. The converter's light-off is `L00_LIGHTOFF = 643` K.
+- **Star 2 (`catalystLit`):** the current T and the lowest set point both stay at or above 643 K.
+- **The save:** dialling 650 K saves the plant in Learner up to about 58 s, and in Engineer up to about 38 s.
+- **Tests that hold it:** `l00_lowset.test.ts` and the 650 K calibration in `levels.test.ts`. Both pass in 0.11.0.
+- **This layer:** nothing new to build.
+
+**D-C4. Chapter 1 shares the process hall; there is no separate QC-lab room in 0.11.0.**
+- **What ships:** L01-L04 join the drafting table and the generated hall (`GEN_LEVELS`), and the Works Map marks chapter 1 as new look.
+- **New models (`gen_world.gd`):**
+  - The burner box, with the forced-draft blower folded in and a flame that follows the outlet temperature.
+  - The stack, with a sampling platform and the flue analyser cabinet. Its screen reads the engine's own stack composition: `y_O2`, `y_CO2`, `y_SO2` and `y_CO` in mol %, newly exposed in `INFO_KEYS`.
+- **Why one room:** the burner house and the boiler house (L02, L03) are hall jobs. A bench QC lab for L01 and L04 would be a second room, built and lit from nothing.
+- **Cut, written here:** the QC-lab room, for a later layer.
+
+**D-C5. The hall flip moves from pad X to R3 (right stick press).**
+- **Why:** the drafting table by pad uses X to turn a part. On a gen level, Look2 took X first, so the table could not be played by pad there.
+- **The new binding:** R3 shows the hall. While the hall is up and the table hidden, X also returns to the table.
+- **Tests:** pad3_flow changed on purpose. It now also checks that X on the table does not flip.
+- **Strongest case against:** R3 is hard to discover. The banner names it ("B or pad R3 (right stick press): the hall").

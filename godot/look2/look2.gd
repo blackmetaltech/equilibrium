@@ -4,7 +4,7 @@ extends Node
 ## LabWorld (look2/lab_world.gd: the process hall, the loop, the plant outside) and HoloHud (look2/holo_hud.gd: anchored readouts, the equilibrium
 ## diagram, the cooler dial, the coach line, the clock, the end card). The engine, the level and its actions are unchanged: this file only routes the
 ## snapshot to the new layers. CB_LOOK2=0 turns the slice off (the 0.9 look comes back). Quality tier: CB_QUALITY=ultra|high|compat, else auto.
-const GEN_LEVELS := ["L10", "L11", "L12", "L13"]   ## D-B4: chapter 3 build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
+const GEN_LEVELS := ["L01", "L02", "L03", "L04", "L10", "L11", "L12", "L13"]   ## D-B4 + D-C2 (chapter 1): build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
 const LEVELS := ["L00", "L14"]   ## L00 Night Shift (the process hall), L14 The Brown Gas (the private lab, look2/flask_lab.gd)
 var app
 var lab   ## LabWorld (L00) or FlaskLab (L14): the same contract (setup, set_snapshot, anchor_screen, anchor_size, set_camera, key, cam, picked, control_changed)
@@ -129,7 +129,7 @@ func _gen_sync(lid: String) -> void:
 		gen.visible = false; app.plant_world.visible = true; app.plant_world.set_blocked(false)
 		if not _parked.is_empty(): _park_env(false)
 		if app.plant_world.cam != null: app.plant_world.cam.make_current()
-		_banner_lbl.text = "Drafting table (classic view). Commission and your plant stands in the hall.  B or pad X: the hall"
+		_banner_lbl.text = "Drafting table (classic view). Commission and your plant stands in the hall.  B or pad R3 (right stick press): the hall"
 	_banner_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8)); _banner_lbl.add_theme_constant_override("outline_size", 6)
 
 func _gen_off() -> void:
@@ -152,7 +152,8 @@ func pad(e: InputEventJoypadButton) -> bool:
 	var w = null
 	if gen != null: w = gen if gen.visible else null
 	elif on: w = lab
-	if gen != null and e.button_index == JOY_BUTTON_X: gen_flip = not gen_flip; sync(); return true
+	# D-C2: the drafting table uses X (turn a part), so the hall flip is R3; X also flips back while the hall hides the table
+	if gen != null and (e.button_index == JOY_BUTTON_RIGHT_STICK or (e.button_index == JOY_BUTTON_X and gen.visible)): gen_flip = not gen_flip; sync(); return true
 	if w == null: return false
 	var cams: Array = w.pad_cams()
 	match e.button_index:

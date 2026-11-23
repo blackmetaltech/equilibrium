@@ -916,6 +916,96 @@ func key(e: InputEventKey) -> bool:
 		KEY_E: t_yaw += PI / 8.0; return true
 	return false
 
+
+# ---- vessel kit (phase C, owner: "real vessel models") ------------------------------------------------------------------------------------------
+## A 2:1 ellipsoidal dished head (the standard pressure-vessel end) as a lathe profile: radius r, depth r/2, facing +Y (up=true) or -Y.
+func _dished(r: float, pos: Vector3, mat: Material, parent: Node, up := true) -> void:
+	var prof := PackedVector2Array()
+	for i in 13:
+		var a := PI * 0.5 * float(i) / 12.0
+		prof.append(Vector2(r * cos(a), (r * 0.5) * sin(a) * (1.0 if up else -1.0)))
+	prof.append(Vector2(0.0, (r * 0.5) * (1.0 if up else -1.0)))
+	_lathe(prof, 40, mat, pos, parent, true)
+
+## A vertical pressure vessel: shell, two dished heads, insulation cladding with seams, nozzles with flanges, a manway with its davit,
+## a skirt (or four legs), and optionally a caged ladder with a top platform. Returns the shell top Y.
+func _vessel(c: Vector3, r: float, h: float, shell: Material, parent: Node, opts := {}) -> float:
+	var base := float(opts.get("base", 0.9))
+	var y0 := c.y + base
+	var clad: bool = opts.get("clad", false)
+	var sm: Material = M.clad if clad else shell
+	_cyl(r, h, Vector3(c.x, y0 + h * 0.5, c.z), sm, parent, -1.0, 40)
+	_dished(r, Vector3(c.x, y0 + h, c.z), sm, parent, true)
+	_dished(r, Vector3(c.x, y0, c.z), sm, parent, false)
+	if clad:   # jacketing seams: circumferential bands every 0.9 m and one vertical seam line
+		var n := int(h / 0.9)
+		for i in n: _cyl(r + 0.012, 0.03, Vector3(c.x, y0 + 0.45 + i * 0.9, c.z), M.steel_dull, parent, -1.0, 40)
+		_box(Vector3(0.02, h, 0.02), Vector3(c.x + r * 0.71, y0 + h * 0.5, c.z + r * 0.71), M.steel_dull, parent)
+	if bool(opts.get("legs", false)):
+		for a in 4:
+			var ang := TAU * a / 4.0 + PI / 4.0
+			var lp := Vector3(c.x + cos(ang) * r * 0.85, 0.0, c.z + sin(ang) * r * 0.85)
+			_box(Vector3(0.14, y0 + 0.2, 0.14), lp + Vector3(0, (y0 + 0.2) * 0.5, 0), M.paint_grey, parent)
+			_box(Vector3(0.3, 0.03, 0.3), lp + Vector3(0, 0.015, 0), M.paint_grey, parent)
+	else:   # skirt with an access opening and an anchor ring
+		_cyl(r * 0.98, base - r * 0.25, Vector3(c.x, (base - r * 0.25) * 0.5, c.z), M.paint_grey, parent, -1.0, 40)
+		_cyl(r * 1.12, 0.08, Vector3(c.x, 0.04, c.z), M.paint_grey, parent, -1.0, 40)
+	# nozzles: top centre, one on the side near the top, one near the bottom; each with a flange pair
+	_seg(Vector3(c.x, y0 + h + r * 0.45, c.z), Vector3(c.x, y0 + h + r * 0.75, c.z), r * 0.14, M.steel_dull, parent)
+	_flange(Vector3(c.x, y0 + h + r * 0.75, c.z), Vector3.UP, r * 0.14, parent)
+	for nz in [[y0 + h - 0.4, 0.0], [y0 + 0.5, PI]]:
+		var d := Vector3(cos(float(nz[1])), 0, sin(float(nz[1])))
+		var a0 := Vector3(c.x, float(nz[0]), c.z) + d * r
+		_seg(a0, a0 + d * 0.35, r * 0.11, M.steel_dull, parent); _flange(a0 + d * 0.35, d, r * 0.11, parent)
+	# manway: a round cover with a bolt ring and a davit arm
+	var md := Vector3(cos(PI * 0.5), 0, sin(PI * 0.5)); var mp := Vector3(c.x, y0 + 1.0, c.z) + md * r
+	_seg(mp, mp + md * 0.22, 0.28, sm if not clad else M.steel_dull, parent); _flange(mp + md * 0.22, md, 0.2, parent)
+	_seg(mp + md * 0.3 + Vector3(0.32, 0, 0), mp + md * 0.3 + Vector3(0.32, 0.55, 0), 0.025, M.steel_dull, parent)
+	_seg(mp + md * 0.3 + Vector3(0.32, 0.55, 0), mp + md * 0.3 + Vector3(0.0, 0.55, 0), 0.02, M.steel_dull, parent)
+	if bool(opts.get("ladder", false)):   # caged ladder up the side and a ring platform under the top head
+		var ld := Vector3(cos(-PI * 0.5), 0, sin(-PI * 0.5)); var lb := Vector3(c.x, 0, c.z) + ld * (r + 0.35)
+		var top := y0 + h + 0.1
+		for sx in [-0.22, 0.22]: _seg(lb + Vector3(sx, 0, 0), lb + Vector3(sx, top + 1.0, 0), 0.022, M.yellow, parent)
+		for i in int(top / 0.3): _seg(lb + Vector3(-0.22, 0.3 + i * 0.3, 0), lb + Vector3(0.22, 0.3 + i * 0.3, 0), 0.012, M.yellow, parent)
+		for i in int((top - 2.2) / 0.9): _torus(0.4, 0.012, lb + ld * 0.2 + Vector3(0, 2.4 + i * 0.9, 0), M.yellow, parent)
+		_lathe(PackedVector2Array([Vector2(r + 0.05, 0), Vector2(r + 1.0, 0), Vector2(r + 1.0, 0.05), Vector2(r + 0.05, 0.05)]), 40, M.plate, Vector3(c.x, top, c.z), parent, false)
+		_torus(r + 1.0, 0.02, Vector3(c.x, top + 1.05, c.z), M.yellow, parent); _torus(r + 1.0, 0.016, Vector3(c.x, top + 0.55, c.z), M.yellow, parent)
+		for i in 12:
+			var a := TAU * i / 12.0
+			_seg(Vector3(c.x + cos(a) * (r + 1.0), top, c.z + sin(a) * (r + 1.0)), Vector3(c.x + cos(a) * (r + 1.0), top + 1.05, c.z + sin(a) * (r + 1.0)), 0.016, M.yellow, parent)
+	return y0 + h
+
+## A horizontal drum on two saddles with dished ends (boilers, separators, exchangers lying down).
+func _drum(c: Vector3, r: float, length: float, mat: Material, parent: Node, clad := false) -> void:
+	var sm: Material = M.clad if clad else mat
+	var n := _cyl(r, length, c, sm, parent, -1.0, 36); n.rotation_degrees.z = 90
+	for sgn in [-1.0, 1.0]:
+		var hd := Node3D.new(); hd.position = c + Vector3(sgn * length * 0.5, 0, 0); hd.rotation_degrees.z = -90.0 * sgn; parent.add_child(hd)
+		_dished(r, Vector3.ZERO, sm, hd, true)
+		_box(Vector3(0.28, c.y - r * 0.3, r * 1.7), Vector3(c.x + sgn * length * 0.3, (c.y - r * 0.3) * 0.5, c.z), M.paint_grey, parent)
+	if clad:
+		for i in int(length / 0.8): (_cyl(r + 0.012, 0.03, c + Vector3(-length * 0.5 + 0.4 + i * 0.8, 0, 0), M.steel_dull, parent, -1.0, 36)).rotation_degrees.z = 90
+
+## A gate valve with a handwheel on a horizontal line at p, axis d.
+func _valve(p: Vector3, d: Vector3, r: float, parent: Node, col := Color(0.62, 0.12, 0.08)) -> void:
+	var body := _paint(col)
+	_seg(p - d * r * 1.6, p + d * r * 1.6, r * 1.5, body, parent, 12)
+	_flange(p - d * r * 1.7, d, r, parent); _flange(p + d * r * 1.7, d, r, parent)
+	_seg(p, p + Vector3(0, r * 4.0, 0), r * 0.35, M.steel_dull, parent, 8)
+	_torus(r * 1.6, r * 0.18, p + Vector3(0, r * 4.0, 0), body, parent)
+
+## A two-level pipe rack (steel H-frames every `bay` metres) from a to b along X at height h.
+func _rack(a: Vector3, b: Vector3, h: float, parent: Node, bay := 4.0) -> void:
+	var n := int(absf(b.x - a.x) / bay) + 1
+	var steel := _paint(Color(0.32, 0.36, 0.4))
+	for i in n:
+		var x := a.x + signf(b.x - a.x) * i * bay
+		for z in [a.z - 0.9, a.z + 0.9]: _box(Vector3(0.2, h + 1.0, 0.2), Vector3(x, (h + 1.0) * 0.5, z), steel, parent)
+		for lv in [h, h + 0.9]: _box(Vector3(0.18, 0.18, 2.0), Vector3(x, lv, a.z), steel, parent)
+		_box(Vector3(0.3, 0.05, 0.3), Vector3(x, 0.025, a.z - 0.9), M.concrete if M.has("concrete") else steel, parent)
+	for lv in [h, h + 0.9]:
+		for z in [a.z - 0.9, a.z + 0.9]: _box(Vector3(absf(b.x - a.x), 0.16, 0.12), Vector3((a.x + b.x) * 0.5, lv, z), steel, parent)
+
 ## Only the world's controls, with a 30 px minimum target (playtest: a wheel rim or the clamp lost to the flask's own anchor).
 func pick_control(p: Vector2) -> String:
 	var best := ""; var bd := 1e9

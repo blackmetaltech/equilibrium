@@ -1,6 +1,6 @@
 extends SceneTree
 ## Phase B pad flow: the new-look controls work from a controller alone. L14: the pad cursor picks the T and V wheels, turns them, pulls RUN, opens the argon
-## valve and the clamp, and opens the keypad for the Call box; LB/RB step the camera. L10 (gen mode): X flips the drafting table and the hall. L00: up/down turns
+## valve and the clamp, and opens the keypad for the Call box; LB/RB step the camera. L10 (gen mode): R3 shows the hall, X in the hall returns to the drafting table (D-C5). L00: up/down turns
 ## the cooler handwheel and the engine set point follows. Prints PAD3-FLOW OK / PAD3-FLOW FAILED n.
 var fails := 0
 var checks := 0
@@ -77,14 +77,16 @@ func _run() -> void:
 	app.look2.pad_i = 4
 	await btn(JOY_BUTTON_A); await get_tree_timer(0.4)
 	check(_param("lab_flask", "Pfix") > 0.0, "L14: A on the clamp releases the piston (Pfix %s)" % _param("lab_flask", "Pfix"))
-	# --- L10: gen mode, X flips the views
+	# --- L10: gen mode, R3 to the hall, X back
 	app.start_level("L10", true); await frames(8)
 	Notebook.close(app); await frames(3)
 	check(app.look2.gen != null and not app.look2.gen.visible, "L10: the drafting table first")
 	await btn(JOY_BUTTON_X); await frames(3)
-	check(app.look2.gen.visible, "L10: X shows the hall")
+	check(not app.look2.gen.visible, "L10 (D-C5): X on the drafting table belongs to the table (turn a part), not the hall flip")
+	await btn(JOY_BUTTON_RIGHT_STICK); await frames(3)
+	check(app.look2.gen.visible, "L10: R3 shows the hall")
 	await btn(JOY_BUTTON_X); await frames(3)
-	check(not app.look2.gen.visible, "L10: X again, the drafting table")
+	check(not app.look2.gen.visible, "L10: X in the hall, back to the drafting table")
 
 func get_tree_timer(s: float) -> void:
 	await create_timer(s).timeout

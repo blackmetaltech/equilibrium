@@ -80,11 +80,13 @@ func _mmc(mesh: Mesh, xf: Array, cols: Array, mat: Material, parent: Node = self
 	for i in xf.size(): mm.set_instance_transform(i, xf[i]); mm.set_instance_color(i, cols[i])
 	var mi := MultiMeshInstance3D.new(); mi.multimesh = mm; mi.material_override = mat; parent.add_child(mi); return mi
 
+var _wallwhite: Material
 func _build_room() -> void:
 	_lab_mats()
+	_wallwhite = _flat(Color(0.84, 0.86, 0.88), 0.0, 0.38)
 	var x0 := -32.0; var x1 := 32.0; var z0 := -24.0; var z1 := 20.0; var H := 24.0
 	var fl := PlaneMesh.new(); fl.size = Vector2(x1 - x0, z1 - z0)
-	_mi(fl, Vector3(0, 0, (z0 + z1) * 0.5), _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.75, "tint": Color(0.34, 0.33, 0.32)}))
+	_mi(fl, Vector3(0, 0, (z0 + z1) * 0.5), _shader("floor", {"diff": _tex("concrete_floor_02_diff"), "rgh": _tex("concrete_floor_02_rough"), "nor": _tex("concrete_floor_02_nor"), "wet": 0.45, "tint": Color(0.66, 0.67, 0.68), "base_rough": 0.55}))   # phase C (owner: the lab should gleam): pale polished floor
 	# walls: dark wood wainscot to 3.5 m with a warm cove light, concrete above, steel pilasters; the ceiling is a dark coffer with skylights
 	for w in [[Vector3(0, 0, z1), Vector3(x1 - x0, 0, 0.4)], [Vector3(x0, 0, 0), Vector3(0.4, 0, z1 - z0)], [Vector3(x1, 0, 0), Vector3(0.4, 0, z1 - z0)]]:
 		var c: Vector3 = w[0]; var sz: Vector3 = w[1]
@@ -92,10 +94,12 @@ func _build_room() -> void:
 		var cx := c.x
 		var thin := Vector3(maxf(sz.x, 0.4), 0, maxf(sz.z, 0.4))
 		_box(Vector3(thin.x, 3.5, thin.z), Vector3(cx, 1.75, cz), mats.wood)
-		_box(Vector3(thin.x, H - 3.5, thin.z), Vector3(cx, 3.5 + (H - 3.5) * 0.5, cz), mats.concrete)
+		_box(Vector3(thin.x, H - 3.5, thin.z), Vector3(cx, 3.5 + (H - 3.5) * 0.5, cz), _wallwhite)   # white panelled upper walls
 		var inward := Vector3(-signf(cx), 0, 0) if sz.x < 1.0 else Vector3(0, 0, -signf(cz - (z0 + z1) * 0.5))
 		_box(Vector3(maxf(thin.x - 0.5, 0.06) if sz.x > 1.0 else 0.06, 0.05, maxf(thin.z - 0.5, 0.06) if sz.z > 1.0 else 0.06), Vector3(cx, 3.6, cz) + inward * 0.25, mats.warm)
-	_box(Vector3(x1 - x0, 0.6, z1 - z0), Vector3(0, H, (z0 + z1) * 0.5), mats.anod)
+	_box(Vector3(x1 - x0, 0.6, z1 - z0), Vector3(0, H, (z0 + z1) * 0.5), _flat(Color(0.78, 0.8, 0.82), 0.0, 0.5))   # a light ceiling
+	for zz in [-8.0, -2.0, 4.0, 10.0, 16.0]:   # continuous LED lines across the ceiling
+		_box(Vector3(x1 - x0 - 4.0, 0.06, 0.35), Vector3(0, H - 0.33, zz), _flat(Color(1, 1, 1), 0, 0.3, Color(0.95, 0.97, 1.0), 2.2))
 	for i in 6:
 		_box(Vector3(6.0, 0.1, 3.0), Vector3(-25.0 + i * 10.0, H - 0.35, -2.0), _flat(Color(0.4, 0.5, 0.7), 0, 0.3, Color(0.3, 0.42, 0.65), 0.6))
 		_spot(Vector3(-25.0 + i * 10.0, H - 0.6, -2.0), Vector3(-25.0 + i * 10.0 + 3.0, 0, 2.0), Color(0.6, 0.72, 1.0), 4.0, 34.0, 12.0, 3.0, i % 2 == 0)
