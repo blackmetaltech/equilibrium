@@ -114,7 +114,9 @@ func _pbr(n: String, uv := 0.25, tint := Color.WHITE, metal := false, tri := tru
 	m.albedo_texture = _tex(n + "_diff"); m.albedo_color = tint
 	m.normal_enabled = true; m.normal_texture = _tex(n + "_nor")
 	m.roughness_texture = _tex(n + "_rough"); m.roughness = 1.0
-	if metal: m.metallic_texture = _tex(n + "_metal"); m.metallic = 1.0
+	if metal:   # 0.12: a set without a metal map (rusty_metal_02) gets a scalar metallic; the missing file logged an error on every hall build
+		if ResourceLoader.exists(TEX + n + "_metal.jpg"): m.metallic_texture = _tex(n + "_metal"); m.metallic = 1.0
+		else: m.metallic = 0.6
 	m.uv1_triplanar = tri; m.uv1_scale = Vector3.ONE * uv; m.uv1_world_triplanar = tri
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	return m
