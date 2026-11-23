@@ -836,7 +836,7 @@ func _click_at(p: Vector2) -> void:
 	if finger and not pk.is_empty() and not pipe_ghost_active() and str(pk.unit) != selected_id: pk = {}
 	if not pk.is_empty():
 		# a pipe already half made: this press finishes it (click, click) and its release must do nothing; else this press starts a pipe and the release may finish it (drag)
-		if not pipe_ghost_active() or (bool(pk.inlet) == bool(_ghost_from.get("inlet", false)) and not (str(pk.unit) == str(_ghost_from.get("unit", "")) and str(pk.port) == str(_ghost_from.get("port", "")))): _press_port = pk; _press_at = p   # F25: a press on another outlet while a pipe is in hand (the chain's, or a click's left half) starts a fresh pipe there, so a drag from it still works (it did only for the chain's: a half-made pipe made the drag a silent no-op)
+		if not pipe_ghost_active() or (bool(pk.inlet) == bool(_ghost_from.get("inlet", false)) and (pipe_chained or not (str(pk.unit) == str(_ghost_from.get("unit", "")) and str(pk.port) == str(_ghost_from.get("port", ""))))): _press_port = pk; _press_at = p   # F25: a press on another outlet while a pipe is in hand (the chain's, or a click's left half) starts a fresh pipe there, so a drag from it still works (it did only for the chain's: a half-made pipe made the drag a silent no-op)
 		port_clicked.emit(str(pk.unit), str(pk.port), bool(pk.inlet)); return
 	if pipe_ghost_active():   # a pipe in hand: the nearest legal port within the snap radius takes the click
 		var sn := snap_legal(p)
