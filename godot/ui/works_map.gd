@@ -49,7 +49,7 @@ const CHAPTERS := [
 const BRIDGES := [4, 9, 14, 18]
 ## Which chapter must be done before this one opens (-1: open from the start).
 ## D-B4 (phase B): chapter 3 is the new-look chapter and opens from the start (the title screen has a strip for it); 00 is the new-look prologue.
-const NEW_LOOK := [0, 1, 2, 3, 4]
+const NEW_LOOK := [0, 1, 2, 3, 4, 5, 6]   ## 0.14: chapters 5 and 6 build in the hall
 const PART_LOOK := {}   ## 0.13: L09 and chapter 4 are in the new look too, so no job is a classic exception (a job id here reads "L0x classic")
 const PREREQ := {0: -1, 1: -1, 2: 1, 3: -1, 4: 3, 5: 4, 6: 5, 7: 6, 8: 5, 9: 5, 10: 5, 11: 5}   # Hydraulics and Career open after chapter 5 like chapters 8 and 9
 ## Total stars for each Engineer rank.
