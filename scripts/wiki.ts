@@ -265,11 +265,10 @@ function codexPage(): string {
 // ---- the home page -------------------------------------------------------------------------------------------------------------
 /** Not built yet, in plain words. Review with each release. */
 export const PLANNED: string[] = [
-  'The next release (0.13) goes to the art first: the Works Map as a 3D site plan, a sketch of the plant on the brief, the flue analyser close-up, the L08 heater framing, the floor light in L10 to L12, the wide view in L13, and a brighter floor on low-end graphics.',
-  'Pad fixes in the same release: a stray A press that opens the Codex, LB landing on the last tray tile, the calculator hint, and the hint row in the hall.',
-  'L09, the chapter 2 exam, in the new look. It is the one job in the first four chapters that is still classic.',
-  'Chapters 4 to 10 and the Career in the new look. No date is set.',
-];
+  'The next release (0.14) puts chapter 5 (the recycle loop) and chapter 6 (containment) in the hall: the loop with its compressor, the column and the fermenter, the reactor in its bund with its relief.',
+  'A stray A press that opens the Codex from the notebook strip was reported in 0.12 and could not be reproduced in 0.13.',
+  'Chapters 7 to 10 and the Career in the new look. No date is set.',
+]
 export const IDEAS = 'Ideas from the design doc that are not built or scheduled: a daily shift, Hindi strings, more plants (urea, chlor-alkali), stage-by-stage distillation, a teacher mode.';
 export const NOT_CHECKED: string[] = [
   'The art review of 0.12 scored the new look 6.3 of 10 against a target of 6.5 or more. Six scenes are under 6.5 and the lab is 7.5 against 8.',

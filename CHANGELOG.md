@@ -3,6 +3,26 @@
 All notable changes to EQUILIBRIUM. The release workflow publishes the section whose heading contains `[x.y.z]`.
 Each version is one themed layer (the GIGAWATT pattern). Repos are private; no public release without the owner's go-ahead.
 
+## [0.13.0] - 2026-11-24 · "Inside the Bed" (LOOK2 phase D, layer 0.13)
+### Changed
+- **The Works map is a scale model** of the Works on the lab's planning table: one building per stop, lit when open, grey when locked, a flag when done. Pick a stop and its jobs show on a sheet beside it.
+- **The brief has a pencil sketch** of the plant you will build.
+- **Chapter 4 builds in the hall.** The packed bed has a quartz window: ceramic balls over and under the catalyst, iron pellets grey, V2O5 pellets brown. More catalyst is a deeper bed. The pellets glow by the temperature down the bed, and five thermowells read it in °C.
+- **L18 has glass kettles.** The peroxide bubbles and foams by its catalyst: catalase most, iodide less, none barely.
+- **L09 is a bench in the hall.** A flow calorimeter, a bomb calorimeter with its firing leads and O2 gauge, and a tube furnace whose bore glows with its temperature. Chapter 2 is whole in the new look.
+- **The hall console is smoked glass** while the hall shows. The banner is short and says how to orbit and zoom.
+- **The flue analyser view** shows the probe, the sample line and the cabinet, under a work light.
+- **The fired heater fills the L08 view.**
+- **Low-end graphics:** the hall floor is no longer near black.
+- **Pad:** LB and RB from the plot land on the last tile you used. The keypad has a pad hint and shortcuts (X delete, Y clear, RB enter). The pad hint row is hidden over the hall.
+### Fixed
+- A warm patch on the hall floor with no lamp over it (L10-L12): the outside flare's light came in through a window gap.
+- A glare halo over the rod on the title.
+- The speed dial marks, the title foot line and the Works map legend were under 16 px.
+### Added
+- A test that the version agrees in every file that carries it.
+- `hall4_flow`: chapter 4 and L09 in the hall, checked against the engine's own numbers.
+
 ## [0.12.0] - 2026-11-23 · "The Lab at Home" (LOOK2, layer 0.12)
 ### Changed
 - **The lab is the home screen.** The title, the Works map and the briefings live in the private lab. The map and the brief lie on a drafting table as paper.
