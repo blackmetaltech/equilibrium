@@ -292,8 +292,11 @@ func _draw() -> void:
 	if not third.is_empty(): ly = _tape(Vector2(pl.position.x + 4.0, ly), _legend(third), EqTheme.PEN_GREEN, avail, tape_max)
 	if n == 0 and clock_w == 0.0 and ly + 18.0 <= pl.end.y and pl.size.x > 80.0:   # no runs yet: the line sits under the pen legends, and only when there is room for it
 		EqTheme.ds(self, EqStrings.font("body"), Vector2(pl.position.x + 8.0, ly + 15.0), EqStrings.T("REC_EMPTY"), HORIZONTAL_ALIGNMENT_LEFT, pl.size.x - 10.0, fsz, Color("#6B7C76"))
-	if not first_run.is_empty() and runs.size() <= 1 and first_run.get("madeKg") != null and _num(first_run.get("madeKg", 0.0)) > 0.0:   # (madeKg null: this level makes no product, so no counter) a rolling "made so far" counter while the first run plays
-		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 25.0), "%s %s kg" % [EqStrings.T("REC_FIRSTRUN").to_upper(), PaperStrings.num(_num(first_run.get("madeKg", 0.0)))], EqTheme.TEAL, avail - clock_w)
+	if not first_run.is_empty():   # the first run plays: what it made so far (when the level makes product) and how long until the printout (Priya's gate: never a silent wait)
+		var left := maxi(0, int(ceil(_num(first_run.get("len", 0.0)) - _num(first_run.get("t", 0.0)))))
+		var made := first_run.get("madeKg") != null and _num(first_run.get("madeKg", 0.0)) > 0.0 and runs.size() <= 1
+		var txt := "%s %s kg · %d s" % [EqStrings.T("REC_FIRSTRUN").to_upper(), PaperStrings.num(_num(first_run.get("madeKg", 0.0))), left] if made else "%s · %d s" % [EqStrings.T("REC_FIRSTRUN").to_upper(), left]
+		_tape(Vector2(pl.position.x + 4.0, pl.end.y - 25.0), txt, EqTheme.TEAL, avail - clock_w)
 	draw_rect(Rect2(Vector2.ZERO, size), Color("#4B5B55"), false, 1.0)
 
 func _fmtax(v: float) -> String:   # axis labels: compact, never wider than the gutter
