@@ -429,9 +429,9 @@ func _stack(id: String, c: Vector3) -> void:
 	_box(Vector3(0.03, 0.18, 0.03), cab + Vector3(0.32, 0.8, 0.32), M.steel_dull, plant)
 	var cl := SpotLight3D.new(); cl.light_color = Color(0.9, 0.95, 1.0); cl.light_energy = 3.0 if tier != "compat" else 1.2; cl.spot_range = 6.0; cl.spot_angle = 50.0; cl.light_specular = 0.2   # the work light over the cabinet: it lights the stack base and the sample line
 	cl.position = cab + Vector3(0.2, 3.2, 1.4); plant.add_child(cl); cl.look_at(cab + Vector3(-0.8, 0.6, -0.4), Vector3.UP)
-	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.00125; t.modulate = Color(0.62, 1.0, 0.72)
+	var t := Label3D.new(); t.name = "analyser"; t.text = "FLUE ANALYSER\n--"; t.font_size = 40; t.pixel_size = 0.0016; t.modulate = Color(0.62, 1.0, 0.72)
 	t.outline_size = 0; t.position = cab + Vector3(0, 1.25, 0.33); t.width = 180.0; t.autowrap_mode = TextServer.AUTOWRAP_OFF; plant.add_child(t)
-	_analyser[id] = t; _stack_at = cab   # 0.13 (Sigrid): pixel size 0.0016 ran the first line past the screen; the cabinet side cut "FLUE"
+	_analyser[id] = t; _stack_at = cab   # 0.13 (Sigrid): the first line was too long for the screen (the cabinet side cut "FLUE"); it is shorter now, at full size
 	_steam[id] = _particles(c + Vector3(0, 9.5, 0), 24, 5.0, Vector3(0, 1.4, 0), 10.0, 1.0, Color(0.75, 0.74, 0.72, 0.28), plant, 3.5)
 
 ## Phase C (chapter 1), rebuilt for the art pass: a fired sulfur burner as a plant has it. A horizontal refractory-lined drum on two saddles (aluminium heat paint,
@@ -675,7 +675,21 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 	_cyl(r - 0.012, lh, c + Vector3(0, y0 + lh * 0.5, 0), liq, plant, -1.0, 32); _sph(r - 0.012, c + Vector3(0, y0, 0), liq, plant, true).rotation_degrees.x = 180
 	# the foam head: dense white over the darker liquid, lit from inside a little so it reads through the glass; its height is the reaction rate (Sigrid 0.13)
 	var fm := _flat(Color(0.97, 0.98, 0.98, 0.94), 0.0, 0.95, Color(0.9, 0.93, 0.95), 0.35); fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	var foam := _cyl(r - 0.014, 0.02, c + Vector3(0, y0 + lh + 0.01, 0), fm, plant, -1.0, 32)
+	var foam := _cyl(r - 0.03, 0.02, c + Vector3(0, y0 + lh + 0.01, 0), fm, plant, -1.0, 32)
+	fm.albedo_color.a = 0.55
+	# the foam's skin: bubbles of mixed size against the glass and over the top, revealed from the liquid line up as the head grows (Sigrid 0.13: a smooth cylinder read as a plastic tub)
+	var rng := RandomNumberGenerator.new(); rng.seed = 4242
+	var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.use_colors = true
+	var sm := SphereMesh.new(); sm.radius = 0.02; sm.height = 0.04; sm.radial_segments = 8; sm.rings = 5; mm.mesh = sm
+	var nb := 900; mm.instance_count = nb
+	for i in nb:
+		var fy := float(i) / float(nb) * 0.32; var a := rng.randf() * TAU; var sc := rng.randf_range(0.5, 1.6)
+		var rr := r - 0.02 - (0.0 if rng.randf() < 0.75 else rng.randf_range(0.0, r - 0.05))
+		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * sc), Vector3(cos(a) * rr, fy, sin(a) * rr)))
+		var v := rng.randf_range(0.82, 1.0); mm.set_instance_color(i, Color(v, v, v * 1.02))
+	var bm := _flat(Color(1, 1, 1, 0.85), 0.0, 0.15); bm.vertex_color_use_as_albedo = true; bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; bm.metallic_specular = 0.8
+	var froth := MultiMeshInstance3D.new(); froth.multimesh = mm; froth.material_override = bm; froth.position = c + Vector3(0, y0 + lh, 0); plant.add_child(froth)
+	mm.visible_instance_count = 0
 	_cyl(r + 0.1, 0.06, c + Vector3(0, y0 + h + 0.1, 0), M.steel, plant, -1.0, 40)   # the lid flange and the clamp ring
 	_cyl(r + 0.12, 0.03, c + Vector3(0, y0 - 0.02, 0), M.steel_dull, plant, -1.0, 40)
 	_cyl(0.12, 0.3, c + Vector3(0, y0 + h + 0.3, 0), M.enamel_blue, plant); _cyl(0.09, 0.12, c + Vector3(0, y0 + h + 0.5, 0), M.steel_dull, plant)   # stirrer motor
@@ -693,7 +707,7 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 	rim.position = c + Vector3(-1.2, y0 + h + 1.4, -1.0); plant.add_child(rim); rim.look_at(c + Vector3(0, y0 + h * 0.7, 0), Vector3.UP)   # the rim light that draws the glass edge
 	var key := SpotLight3D.new(); key.light_color = Color(1.0, 0.95, 0.88); key.light_energy = 4.0 if tier != "compat" else 2.0; key.spot_range = 5.0; key.spot_angle = 30.0; key.light_specular = 0.6; key.shadow_enabled = tier != "compat"
 	key.position = c + Vector3(1.0, y0 + h + 1.8, 1.6); plant.add_child(key); key.look_at(c + Vector3(0, y0 + h * 0.6, 0), Vector3.UP)
-	_kettles[id] = {"bub": bub, "foam": foam, "act": float(KETTLE_ACT.get(cat, 0.3)), "top": y0 + lh, "c": c}
+	_kettles[id] = {"bub": bub, "foam": foam, "froth": mm, "act": float(KETTLE_ACT.get(cat, 0.3)), "top": y0 + lh, "c": c}
 
 func _kettles_live(info: Dictionary, running: bool) -> void:
 	for id in _kettles:
@@ -702,6 +716,7 @@ func _kettles_live(info: Dictionary, running: bool) -> void:
 		var bub := k.bub as GPUParticles3D; bub.emitting = act > 0.02; bub.amount_ratio = clampf(act, 0.05, 1.0)
 		var f := k.foam as MeshInstance3D; var th := 0.008 + 0.3 * act
 		(f.mesh as CylinderMesh).height = th; f.position = (k.c as Vector3) + Vector3(0, float(k.top) + th * 0.5, 0)
+		var fmm := k.froth as MultiMesh; fmm.visible_instance_count = int(float(fmm.instance_count) * clampf(th / 0.32, 0.0, 1.0)) if act > 0.02 else 0
 
 ## 0.13 (L09, the exam bench), rebuilt after Sigrid's 0.13 score ("a school desk, a stovepipe through a paint tin"): a laboratory bench in the hall under its
 ## own lamp, with the three fixtures the exam compares. Left: the flow calorimeter (the engine's isothermal reactor: CH4 and O2 burn at 25 C and its duty is the
@@ -717,7 +732,7 @@ func _calorimeter_bench(id: String, c: Vector3) -> void:
 	for lx in [-1.15, 2.35]: for lz in [-0.45, 0.45]: _box(Vector3(0.05, top - 0.03, 0.05), c + Vector3(lx, (top - 0.03) * 0.5, lz), frame, plant)
 	for lx2 in [-1.15, 2.35]: _box(Vector3(0.05, 0.05, 0.95), c + Vector3(lx2, 0.15, 0), frame, plant)
 	_box(Vector3(3.5, 0.05, 0.05), c + Vector3(0.6, 0.15, -0.45), frame, plant)
-	_box(Vector3(3.6, 0.9, 0.04), c + Vector3(0.6, top + 0.45, -0.52), _flat(Color(0.82, 0.82, 0.8), 0.0, 0.7), plant)   # the backboard
+	_box(Vector3(3.6, 0.9, 0.04), c + Vector3(0.6, top + 0.45, -0.52), _flat(Color(0.42, 0.44, 0.45), 0.0, 0.7), plant)   # the backboard: mid grey, so the lamp does not make it the brightest thing (Sigrid 0.13)
 	_box(Vector3(3.6, 0.03, 0.22), c + Vector3(0.6, top + 0.62, -0.4), frame, plant)   # a shelf with reagent bottles
 	var amber := _flat(Color(0.42, 0.22, 0.06, 0.85), 0.0, 0.12); amber.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var clear := _flat(Color(0.88, 0.93, 0.95, 0.35), 0.0, 0.08); clear.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -728,7 +743,7 @@ func _calorimeter_bench(id: String, c: Vector3) -> void:
 	var lb := c + Vector3(-0.85, top + 0.03, 0.25)
 	_cyl(0.08, 0.03, lb, M.black, plant); _seg(lb, lb + Vector3(0.0, 0.55, -0.15), 0.012, M.black, plant); _seg(lb + Vector3(0.0, 0.55, -0.15), lb + Vector3(0.35, 0.75, 0.0), 0.012, M.black, plant)
 	_cyl(0.12, 0.14, lb + Vector3(0.4, 0.7, 0.0), _flat(Color(0.2, 0.32, 0.26), 0.3, 0.4), plant, 0.04, 20)
-	var key := SpotLight3D.new(); key.light_color = Color(1.0, 0.92, 0.8); key.light_energy = 5.0 if tier != "compat" else 2.5; key.spot_range = 3.5; key.spot_angle = 55.0; key.light_specular = 0.3; key.shadow_enabled = tier != "compat"
+	var key := SpotLight3D.new(); key.light_color = Color(1.0, 0.92, 0.8); key.light_energy = 3.0 if tier != "compat" else 1.5; key.spot_range = 3.5; key.spot_angle = 55.0; key.light_specular = 0.3; key.shadow_enabled = tier != "compat"
 	key.position = lb + Vector3(0.4, 0.66, 0.0); plant.add_child(key); key.look_at(c + Vector3(0.6, top, 0.05), Vector3.UP)
 	# 1. the flow calorimeter
 	var dw := c + Vector3(-0.35, top + 0.025, 0.05)
@@ -832,7 +847,7 @@ func set_snapshot(g: Dictionary) -> void:
 	_beds_live(info, running); _kettles_live(info, running); _bench_live(running)
 	for id in _analyser:   # the flue analyser reads the engine's stack composition
 		var inf: Dictionary = info.get(id, {})
-		var tx := "FLUE GAS, mol % wet"   # Anjali: the engine's fractions include the water; say so, and show it (L03 identifies its fuel by CO2 : H2O)
+		var tx := "Flue gas, % wet"   # Anjali: the engine's fractions include the water; say so, and show it (L03 identifies its fuel by CO2 : H2O)
 		if running and inf.has("y_O2"):
 			for k in [["O2", "y_O2"], ["CO2", "y_CO2"], ["H2O", "y_H2O"], ["SO2", "y_SO2"]]:
 				if inf.has(k[1]) and (k[0] == "O2" or float(inf[k[1]]) > 0.0): tx += "\n%s  %.1f" % [k[0], float(inf[k[1]]) * 100.0]
