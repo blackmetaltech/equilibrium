@@ -6,7 +6,7 @@
 
 A **Godot 4.7** game with the chemistry engine in TypeScript.
 
-> **Alpha (0.12.0).** The prologue and chapters 1-3 are in the new look (L09 is still classic). Played on Linux; Windows untested.
+> **Alpha (0.12.0).** The prologue and chapters 1-3 are in the new look (L09 is still classic). Played on Linux; Windows and macOS untested.
 
 ![The title: your private lab, the flask rig on its dais, the tank bay behind the glass](docs/readme/title-lab.jpg)
 
@@ -121,7 +121,9 @@ The handheld layout (1280×800) keeps the loop panel and the console on screen t
 
 ## Download
 
-**[Latest release](https://github.com/blackmetaltech/equilibrium/releases/latest)**: Linux (tar.gz) and Windows (zip, untested). Extract and run `EQUILIBRIUM/equilibrium.sh` or `EQUILIBRIUM\EQUILIBRIUM.exe`. Node.js is bundled.
+**[Latest release](https://github.com/blackmetaltech/equilibrium/releases/latest)**: Linux (tar.gz), Windows (zip, untested) and macOS (zip, untested). Extract and run `EQUILIBRIUM/equilibrium.sh` or `EQUILIBRIUM\EQUILIBRIUM.exe`. Node.js is bundled.
+
+macOS (untested): unzip, then right-click `EQUILIBRIUM.app` and choose Open (not signed by Apple; on macOS 15 and later: System Settings → Privacy & Security → Open Anyway). Universal (Apple silicon and Intel). Smoke-run on a Mac build server, never opened by a person on a Mac.
 
 Android: a debug APK builds locally with `core/qa/buildapk.sh`.
 
@@ -170,4 +172,4 @@ docs/        DESIGN, DECISIONS, CRITIQUE-0.3 … CRITIQUE-0.7, readme screenshot
 - **Gamepad**: a pad-only pass at 1280x800 found the game only partly playable by pad (the notebook's call-it, the loop-panel knobs, the key switch, the speed dial and the Career's yearly choices are out of reach, and the focus ring is faint in places).
 - **Career**: no careful human has finished all 60 months on this build, and the board still repeats the incident warning three times.
 - **Phone**: checked on desktop at phone size only; the device needs the owner's adb authorisation.
-- Releases are pre-releases: a Linux build (smoke-tested) and a Windows zip (untested); no macOS build, and the Android APK is a debug build.
+- Releases are pre-releases: a Linux build (smoke-tested), a Windows zip (untested) and a macOS zip (smoke-run on a Mac build server, never opened by a person); the Android APK is a debug build.
