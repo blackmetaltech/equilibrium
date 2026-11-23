@@ -30,10 +30,10 @@ func _ready() -> void:
 	_build_env(); _build_hall(); _build_outside()
 	for l in get_children():   # 0.13 (Sigrid: "warm pools on the floor with no visible source"): the roof high-bays' specular glints on the damp floor; their fixtures are out of every build view
 		if l is SpotLight3D and (l as SpotLight3D).position.y > 16.0:   # the shafts' feet glowed on the floor: flatter, wider, a little dimmer, no glint
-			var hb := l as SpotLight3D; hb.light_specular = 0.1; hb.light_volumetric_fog_energy = 1.2; hb.spot_attenuation = 0.25; hb.spot_angle = 55.0; hb.light_energy = 6.0
+			var hb := l as SpotLight3D; hb.light_specular = 0.1; hb.light_volumetric_fog_energy = 1.2; hb.spot_attenuation = 0.4; hb.spot_angle = 48.0; hb.light_energy = 4.5
 		if l is MeshInstance3D and absf((l as MeshInstance3D).position.y - 16.38) < 0.05 and (l as MeshInstance3D).material_override is StandardMaterial3D:   # and their lenses: at 14x they mirrored in the damp floor as orange blobs (SSR)
 			var lm := ((l as MeshInstance3D).material_override as StandardMaterial3D).duplicate() as StandardMaterial3D; lm.emission_energy_multiplier = 3.0; lm.emission = Color(1.0, 0.9, 0.75); (l as MeshInstance3D).material_override = lm
-	if flare_light != null: flare_light.light_energy = 0.35; flare_light.shadow_enabled = false   # 0.13: the outside flare's light came through a window gap as an orange patch on the hall floor (Sigrid's "pool with no source")
+	if flare_light != null: flare_light.visible = false   # 0.13: the outside flare's light (range 160 m, shadowed) came through a window gap as an orange patch on the hall floor (Sigrid's "pool with no source"; found by hiding light groups)
 	floor_wet = 0.4   # a drier floor in the build hall: fewer mirror patches (set_quality applies it)
 	cam = Camera3D.new(); cam.fov = 50.0; cam.near = 0.05; cam.far = 3000.0; add_child(cam)
 	plant = Node3D.new(); plant.name = "player_plant"; add_child(plant)
@@ -665,7 +665,8 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 	var liq := _flat(Color(0.72, 0.84, 0.92, 0.5), 0.0, 0.08); liq.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	var lh := h * 0.62
 	_cyl(r - 0.012, lh, c + Vector3(0, y0 + lh * 0.5, 0), liq, plant, -1.0, 32); _sph(r - 0.012, c + Vector3(0, y0, 0), liq, plant, true).rotation_degrees.x = 180
-	var foam := _cyl(r - 0.014, 0.02, c + Vector3(0, y0 + lh + 0.01, 0), _flat(Color(0.95, 0.96, 0.95), 0.0, 0.85), plant, -1.0, 32)
+	var fm := _flat(Color(0.96, 0.97, 0.97, 0.72), 0.0, 0.9); fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var foam := _cyl(r - 0.014, 0.02, c + Vector3(0, y0 + lh + 0.01, 0), fm, plant, -1.0, 32)
 	_cyl(r + 0.1, 0.06, c + Vector3(0, y0 + h + 0.1, 0), M.steel, plant, -1.0, 40)   # the lid flange and the clamp ring
 	_cyl(r + 0.12, 0.03, c + Vector3(0, y0 - 0.02, 0), M.steel_dull, plant, -1.0, 40)
 	_cyl(0.12, 0.3, c + Vector3(0, y0 + h + 0.3, 0), M.enamel_blue, plant); _cyl(0.09, 0.12, c + Vector3(0, y0 + h + 0.5, 0), M.steel_dull, plant)   # stirrer motor
@@ -676,7 +677,7 @@ func _kettle(id: String, c: Vector3, u: Dictionary) -> void:
 	var lbl := Label3D.new(); lbl.text = {"none": "NO CATALYST", "iodide": "IODIDE", "catalase": "CATALASE"}.get(cat, cat.to_upper()); lbl.font = load("res://ui/fonts/Archivo-Variable.ttf")
 	lbl.font_size = 40; lbl.pixel_size = 0.0016; lbl.outline_size = 0; lbl.modulate = Color(0.08, 0.09, 0.1); lbl.shaded = true; lbl.position = c + Vector3(0, 0.75, 0.66); plant.add_child(lbl)
 	_box(Vector3(0.42, 0.09, 0.01), c + Vector3(0, 0.75, 0.652), _flat(Color(0.9, 0.86, 0.6), 0.2, 0.5), plant)
-	var bub := _particles(c + Vector3(0, y0 + 0.08, 0), 160, 1.3, Vector3(0, 0.5, 0), 8.0, 0.045, Color(0.96, 0.98, 1.0, 0.75), plant, 1.6)
+	var bub := _particles(c + Vector3(0, y0 + 0.08, 0), 220, 1.2, Vector3(0, 0.5, 0), 8.0, 0.05, Color(1.0, 1.0, 1.0, 0.95), plant, 1.4)
 	(bub.process_material as ParticleProcessMaterial).emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX; (bub.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(r * 0.6, 0.05, r * 0.6)
 	(bub.process_material as ParticleProcessMaterial).gravity = Vector3.ZERO; bub.emitting = false
 	_kettles[id] = {"bub": bub, "foam": foam, "act": float(KETTLE_ACT.get(cat, 0.3)), "top": y0 + lh, "c": c}
@@ -686,7 +687,7 @@ func _kettles_live(info: Dictionary, running: bool) -> void:
 		var k: Dictionary = _kettles[id]; var x := float((info.get(id, {}) as Dictionary).get("X", 0.0))
 		var act: float = float(k.act) * clampf(x * 1.2, 0.0, 1.0) if running else 0.0
 		var bub := k.bub as GPUParticles3D; bub.emitting = act > 0.02; bub.amount_ratio = clampf(act, 0.05, 1.0)
-		var f := k.foam as MeshInstance3D; var th := 0.01 + 0.09 * act
+		var f := k.foam as MeshInstance3D; var th := 0.006 + 0.045 * act
 		(f.mesh as CylinderMesh).height = th; f.position = (k.c as Vector3) + Vector3(0, float(k.top) + th * 0.5, 0)
 
 ## 0.13 (L09, the exam bench): a lab bench in the hall with the three fixtures the exam compares. The flow calorimeter (the engine's isothermal reactor: CH4 and
@@ -844,7 +845,7 @@ func _pick_hero() -> Dictionary:
 	var ids: Array = []; var yaw := 0.2 * PI; var frac := 0.0; var extra_ids: Array = []; var third := false
 	if _lid == "L09" and by.has("stoich_reactor"): ids = [by.stoich_reactor[0]]; yaw = 0.1 * PI; frac = 0.75   # L09: the calorimeter bench, the furnace kept in frame
 	elif by.has("packed_bed"): ids = [by.packed_bed[0]]; yaw = 0.1 * PI; frac = 0.72   # chapter 4: the bed through its window, near face on
-	elif by.has("batch"): ids = by.batch; yaw = 0.1 * PI; frac = 0.5                 # L18: the glass kettles side by side
+	elif by.has("batch"): ids = by.batch; yaw = 0.1 * PI; frac = 0.66                 # L18: the glass kettles side by side
 	elif by.has("gasifier"): ids = [by.gasifier[0]]                                   # L07
 	elif by.has("heater") and not by.has("packed_bed"): ids = [by.heater[0]]; frac = 0.78   # L08: the heater fills most of the frame height (0.13, Sigrid: still small)
 	elif by.has("eq_bed"): var b: Array = by.eq_bed; ids = [b[b.size() / 2]]; yaw = 0.24 * PI   # L13: the middle bed, its neighbours either side
@@ -968,7 +969,9 @@ func set_camera(spec: String) -> void:
 		_snap_cam()
 		if OS.get_environment("CB_LIGHTOFF") != "":   # debug: hide the plant's lights ("plant"), the hall's ("hall") or the particles ("fx")
 			var w := OS.get_environment("CB_LIGHTOFF")
-			for l in find_children("*", "Light3D", true, false): if (w == "plant") == plant.is_ancestor_of(l) and w != "fx": (l as Light3D).visible = false
+			for l in find_children("*", "Light3D", true, false):
+				if w in ["hallspot", "hallomni", "halldir"] and not plant.is_ancestor_of(l) and l.get_class() == {"hallspot": "SpotLight3D", "hallomni": "OmniLight3D", "halldir": "DirectionalLight3D"}[w]: (l as Light3D).visible = false
+				elif w in ["plant", "hall"] and (w == "plant") == plant.is_ancestor_of(l): (l as Light3D).visible = false
 			if w == "fx": for q in find_children("*", "GPUParticles3D", true, false): (q as Node3D).visible = false
 		if OS.get_environment("CB_CAMDBG") == "2":
 			for l in find_children("*", "Light3D", true, false): if (l as Light3D).visible and (l as Light3D).light_energy > 0.0: print("LIGHTDBG %s %s e=%.2f c=%s spec=%.2f" % [l.get_class(), str((l as Node3D).global_position), (l as Light3D).light_energy, str((l as Light3D).light_color), (l as Light3D).light_specular])
