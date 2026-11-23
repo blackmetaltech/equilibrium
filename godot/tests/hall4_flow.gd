@@ -57,6 +57,7 @@ func _run() -> void:
 		for i in range(1, vals.size()): rising = rising and int(vals[i]) >= int(vals[i - 1])
 		check(rising, "%s: thermowell readings rise from inlet to outlet %s" % [lid, str(vals)])
 		check(vals.size() == 5 and int(vals[0]) > roundi(ti - 273.15) - 1 and int(vals[4]) < roundi(to - 273.15) + 1, "%s: readings lie between the engine's inlet %d C and outlet %d C %s" % [lid, roundi(ti - 273.15), roundi(to - 273.15), str(vals)])
+		check(vals.size() == 5 and int(vals[4]) == roundi(to - 273.15), "%s: the last well, at the outlet, reads the engine's outlet %d C, as the recorder does %s" % [lid, roundi(to - 273.15), str(vals)])
 		var mats: Array = b.mats
 		var e0 := (mats[0] as StandardMaterial3D).emission_energy_multiplier; var e1 := (mats[mats.size() - 1] as StandardMaterial3D).emission_energy_multiplier
 		check(e1 >= e0, "%s: the outlet slice glows at least as much as the inlet slice (%.2f vs %.2f)" % [lid, e1, e0])

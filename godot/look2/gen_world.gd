@@ -619,7 +619,7 @@ func _packed_bed(id: String, c: Vector3, u: Dictionary) -> void:
 	# thermowells down the far side of the window, each with a small readout plate: the bed's profile in numbers
 	var tags: Array = []
 	for k in 5:
-		var ty := yb1 - depth * (0.1 + 0.8 * float(k) / 4.0)
+		var ty := yb1 - depth * (0.1 + 0.9 * float(k) / 4.0)   # wells from 10 % depth down to the outlet; the last reads T_out, as the recorder does
 		var a2 := PI * 0.5 + wa + 0.32
 		var p0 := c + Vector3(cos(a2) * r, ty, sin(a2) * r); var d := Vector3(cos(a2), 0, sin(a2))
 		_seg(p0, p0 + d * 0.16, 0.018, M.steel_dull, plant, 8); _cyl(0.035, 0.05, p0 + d * 0.19, M.brass, plant, -1.0, 12).rotation = Vector3(0, 0, PI * 0.5)
@@ -653,7 +653,7 @@ func _beds_live(info: Dictionary, running: bool) -> void:
 			var bb: Array = _blackbody(T) if ok else [Color(0.55, 0.07, 0.02), 0.0]
 			var m: StandardMaterial3D = b.mats[k]; m.emission = bb[0]; m.emission_energy_multiplier = float(bb[1]) * 0.75; emax = maxf(emax, float(bb[1]))
 		for k2 in (b.tags as Array).size():
-			var z2 := 0.1 + 0.8 * float(k2) / 4.0; var T2 := ti + (to - ti) * (1.0 - exp(-3.0 * z2)) / (1.0 - exp(-3.0))
+			var z2 := 0.1 + 0.9 * float(k2) / 4.0; var T2 := ti + (to - ti) * (1.0 - exp(-3.0 * z2)) / (1.0 - exp(-3.0))
 			(b.tags[k2] as Label3D).text = ("%d °C" % roundi(T2 - 273.15)) if ok else "--"
 		(b.light as OmniLight3D).light_energy = emax * 1.6
 
