@@ -94,4 +94,4 @@ func _vis_h() -> float:
 	while p != null:
 		if p.clip_contents or p is InstrumentBay: h = minf(h, p.get_global_rect().end.y - top)
 		p = p.get_parent_control()
-	return h
+	return h - 8.0   # 0.12 (Sigrid round 3): 8 px of bottom padding, so the last line's descenders clear the bay's edge
