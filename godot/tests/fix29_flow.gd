@@ -27,7 +27,9 @@ func fresh_app() -> void:
 	app = (load("res://main.tscn") as PackedScene).instantiate(); root.add_child(app)
 	await frames(10)
 func kill_app() -> void:
-	app.set_process(false); app.b.stop(); app.queue_free(); await frames(4)
+	app.set_process(false); app.b.stop()
+	check(app.b.stopped and app.b.q("unitCard", ["F-101"]) == null and not (app.b.act("tick", [1]).get("ok", false)), "a stopped engine answers with nothing and no error")
+	app.queue_free(); await frames(4)
 func career_to_incident() -> void:
 	app.pinned_seed = SEED
 	app.start_level("CAREER", true); await frames(4)

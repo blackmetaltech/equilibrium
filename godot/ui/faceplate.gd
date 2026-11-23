@@ -996,11 +996,13 @@ class Hub extends Node:
 		return false
 
 	func _on_changed() -> void:
+		if from_unit != "" and not _alive(from_unit): clear_pipe()   # a new level (or a deletion) took the unit the pipe was in hand from: drop the pipe, never ask the engine about it
 		if from_unit != "": _light_targets()
 		else: _refresh_ports.call_deferred()   # after the world has synced its units (a unit placed this tick has a body to hang its pips on)
 
 	func _free_ports(id: String) -> Array:
 		var out: Array = []
+		if not _alive(id): return out   # the world can be a frame behind the engine (a level just changed): no query for a unit the engine no longer has
 		var c = PaperStrings.q(app, "unitCard", [id])
 		if not (c is Dictionary) or (c as Dictionary).is_empty(): return out
 		for p in c.outlets: if p.stream == null: out.append({"unit": id, "port": str(p.port), "inlet": false, "hot": false, "label": cap(str(p.port), false)})
