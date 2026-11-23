@@ -317,7 +317,7 @@ func _build_hall() -> void:
 	# cool LED strips along the glass wall head and fill lights over the loop (the 0.9 gantry in front of the glass is cut: it hid the view)
 	_box(Vector3(60, 0.06, 0.1), Vector3(0, 14.9, -14.9), _flat(Color.WHITE, 0, 0.5, Color(0.75, 0.88, 1.0), 5.0))
 	for i in 4:
-		var l := OmniLight3D.new(); l.light_color = Color(0.7, 0.85, 1.0); l.light_energy = 3.5; l.omni_range = 14.0; l.light_volumetric_fog_energy = 0.3; l.position = Vector3(-12 + i * 9, 7.5, -7.0); add_child(l)
+		var l := OmniLight3D.new(); l.light_color = Color(0.7, 0.85, 1.0); l.light_energy = 3.5; l.omni_range = 14.0; l.light_volumetric_fog_energy = 0.3; l.light_specular = 0.0; l.position = Vector3(-12 + i * 9, 7.5, -7.0); add_child(l)   # a point light mirrored in a puddle is a white star (Sigrid): a sized light, a softer highlight
 	# sodium high-bays
 	var k := 0
 	for x in [-24.0, -12.0, 0.0, 12.0, 24.0]:
@@ -325,7 +325,7 @@ func _build_hall() -> void:
 			_cyl(0.35, 0.4, Vector3(x, 16.6, z), M.black, self, 0.12)
 			_cyl(0.33, 0.02, Vector3(x, 16.38, z), _flat(Color(1, 0.7, 0.4), 0, 0.5, Color(1.0, 0.62, 0.28), 14.0))
 			var s := SpotLight3D.new(); s.light_color = Color(1.0, 0.84, 0.66); s.light_energy = 9.0; s.spot_range = 26.0; s.spot_angle = 40.0; s.spot_attenuation = 0.8
-			s.position = Vector3(x, 16.3, z); s.rotation_degrees.x = -90; s.shadow_enabled = k % 3 == 0; s.light_volumetric_fog_energy = 6.0; add_child(s)
+			s.light_specular = 0.4; s.position = Vector3(x, 16.3, z); s.rotation_degrees.x = -90; s.shadow_enabled = k % 3 == 0; s.light_volumetric_fog_energy = 6.0; add_child(s)
 			k += 1
 	var rp := ReflectionProbe.new(); rp.size = Vector3(60, 18, 30); rp.position = Vector3(0, 9, 0); rp.box_projection = true; rp.interior = true
 	rp.update_mode = ReflectionProbe.UPDATE_ONCE; rp.ambient_mode = ReflectionProbe.AMBIENT_ENVIRONMENT; add_child(rp)
@@ -1012,17 +1012,30 @@ func _vessel(c: Vector3, r: float, h: float, shell: Material, parent: Node, opts
 		var a0 := Vector3(c.x, float(nz[0]), c.z) + d * r
 		_seg(a0, a0 + d * 0.35, r * 0.11, M.steel_dull, parent); _flange(a0 + d * 0.35, d, r * 0.11, parent)
 	# manway: a round cover with a bolt ring and a davit arm
-	var md := Vector3(cos(PI * 0.5), 0, sin(PI * 0.5)); var mp := Vector3(c.x, y0 + 1.0, c.z) + md * r
+	var ma := float(opts.get("manway_ang", PI * 0.5))
+	var md := Vector3(cos(ma), 0, sin(ma)); var mp := Vector3(c.x, y0 + 1.0, c.z) + md * r
+	var dv := Vector3(-md.z, 0, md.x) * float(opts.get("davit_side", 1.0)) * 0.32   # the davit swings sideways, away from the ladder
 	_seg(mp, mp + md * 0.22, 0.28, sm if not clad else M.steel_dull, parent); _flange(mp + md * 0.22, md, 0.2, parent)
-	_seg(mp + md * 0.3 + Vector3(0.32, 0, 0), mp + md * 0.3 + Vector3(0.32, 0.55, 0), 0.025, M.steel_dull, parent)
-	_seg(mp + md * 0.3 + Vector3(0.32, 0.55, 0), mp + md * 0.3 + Vector3(0.0, 0.55, 0), 0.02, M.steel_dull, parent)
+	_seg(mp + md * 0.3 + dv, mp + md * 0.3 + dv + Vector3(0, 0.55, 0), 0.025, M.steel_dull, parent)
+	_seg(mp + md * 0.3 + dv + Vector3(0, 0.55, 0), mp + md * 0.3 + Vector3(0.0, 0.55, 0), 0.02, M.steel_dull, parent)
 	if bool(opts.get("ladder", false)):   # caged ladder up the side and a ring platform under the top head
-		var ld := Vector3(cos(-PI * 0.5), 0, sin(-PI * 0.5)); var lb := Vector3(c.x, 0, c.z) + ld * (r + 0.35)
+		var la := float(opts.get("ladder_ang", -PI * 0.5))
+		var ld := Vector3(cos(la), 0, sin(la)); var lb := Vector3(c.x, 0, c.z) + ld * (r + 0.35)
+		var lt := Vector3(-ld.z, 0, ld.x)   # across the ladder (the stiles and the hoops' width)
 		var top := y0 + h + 0.1
-		for sx in [-0.22, 0.22]: _seg(lb + Vector3(sx, 0, 0), lb + Vector3(sx, top + 1.0, 0), 0.022, M.yellow, parent)
-		for i in int(top / 0.3): _seg(lb + Vector3(-0.22, 0.3 + i * 0.3, 0), lb + Vector3(0.22, 0.3 + i * 0.3, 0), 0.012, M.yellow, parent)
-		for i in int((top - 2.2) / 0.9): _torus(0.4, 0.014, lb + ld * 0.2 + Vector3(0, 2.4 + i * 0.9, 0), M.steel_dull, parent)   # 0.12: galvanised cage hoops (yellow read as halos)
-		for k in 5: var ak := PI * (0.15 + 0.175 * k); _seg(lb + ld * 0.2 + Vector3(cos(ak) * 0.4 * (1.0 if k != 2 else 1.0), 2.4, sin(ak) * 0.4) * Vector3(1, 1, 1), lb + ld * 0.2 + Vector3(cos(ak) * 0.4, top + 1.0, sin(ak) * 0.4), 0.01, M.steel_dull, parent)   # cage verticals
+		for sx in [-0.22, 0.22]: _seg(lb + lt * sx, lb + lt * sx + Vector3(0, top + 1.0, 0), 0.022, M.yellow, parent)
+		for i in int(top / 0.3): _seg(lb + lt * -0.22 + Vector3(0, 0.3 + i * 0.3, 0), lb + lt * 0.22 + Vector3(0, 0.3 + i * 0.3, 0), 0.012, M.yellow, parent)
+		var nh := int((top - 2.2) / 0.9)
+		var cc := lb + ld * 0.2   # the cage's axis, a little out from the ladder
+		for i in nh: _torus(0.4, 0.014, cc + Vector3(0, 2.4 + i * 0.9, 0), M.steel_dull, parent)   # 0.12: galvanised cage hoops (yellow read as halos)
+		# the cage verticals: five flat bars on the OUTER half of the hoops, lowest hoop to top hoop, so the hoops are one cage and not floating rings
+		# (the old verticals sat on the vessel half of the hoops, behind the ladder, and were 2 cm round wire: they never showed)
+		var cy0 := 2.4; var cy1 := 2.4 + float(maxi(nh - 1, 0)) * 0.9 + 0.3
+		for k in 5:
+			var ak := PI * (0.1 + 0.2 * float(k))   # 18 to 162 degrees round the outer side
+			var radial := ld * sin(ak) + lt * cos(ak)
+			var bar := _box(Vector3(0.012, cy1 - cy0, 0.05), cc + radial * 0.4 + Vector3(0, (cy0 + cy1) * 0.5, 0), M.steel_dull, parent)
+			bar.rotation.y = atan2(-radial.z, radial.x)   # local x (the thin side) along the radial, so the 5 cm face lies along the hoop
 		_lathe(PackedVector2Array([Vector2(r + 0.05, 0), Vector2(r + 1.0, 0), Vector2(r + 1.0, 0.05), Vector2(r + 0.05, 0.05)]), 40, M.plate, Vector3(c.x, top, c.z), parent, false)
 		_torus(r + 1.0, 0.02, Vector3(c.x, top + 1.05, c.z), M.steel_dull, parent); _torus(r + 1.0, 0.016, Vector3(c.x, top + 0.55, c.z), M.steel_dull, parent)   # galvanised handrail
 		for i in 12:
