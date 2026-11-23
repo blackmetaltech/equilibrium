@@ -68,6 +68,10 @@ func _draw_body() -> void:
 	# readout on tape: the last bed's conversion, and the Tmax
 	var last: Dictionary = beds[n - 1]
 	var ly := tape(Vector2(pl.position.x + 4.0, pl.position.y + 2.0), "%s %.1f %%%s" % [InstrPaper.T("INS_BED") % n, num(last.outX) * 100.0, (" " + InstrPaper.T("INS_ESTIMATE")) if bool(data.get("estimate", false)) else ""], EqTheme.PEN_RED, pl.size.x - 8.0)
-	if lo != null and px.call(num(lo)) > pl.position.x + 70.0: tape(Vector2(pl.position.x + 4.0, pl.end.y - 20.0), InstrPaper.T("INS_ASLEEP"), Color("#6B7C76"), px.call(num(lo)) - pl.position.x - 6.0, 11)
-	if hi != null and pl.end.x - px.call(num(hi)) > 60.0: tape(Vector2(px.call(num(hi)) + 4.0, pl.end.y - 20.0), InstrPaper.T("INS_SINTER"), EqTheme.PEN_RED, pl.end.x - px.call(num(hi)) - 6.0, 11)
+	if lo != null and px.call(num(lo)) > pl.position.x + 70.0:   # 0.12: band tapes on one line only (a wrapped tape ran over the axis numbers)
+		var aw: float = px.call(num(lo)) - pl.position.x - 6.0; var at := InstrPaper.T("INS_ASLEEP") if _tape_w(InstrPaper.T("INS_ASLEEP")) <= aw else "asleep"
+		if _tape_w(at) <= aw: tape(Vector2(pl.position.x + 4.0, pl.end.y - 20.0), at, Color("#6B7C76"), aw, 11)
+	if hi != null and pl.end.x - px.call(num(hi)) > 60.0 and _tape_w(InstrPaper.T("INS_SINTER")) <= pl.end.x - px.call(num(hi)) - 6.0: tape(Vector2(px.call(num(hi)) + 4.0, pl.end.y - 20.0), InstrPaper.T("INS_SINTER"), EqTheme.PEN_RED, pl.end.x - px.call(num(hi)) - 6.0, 11)
 	frame()
+
+func _tape_w(t: String) -> float: return EqStrings.font("cap").get_string_size(t.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(11)).x + 12.0   ## the width tape() draws at 11

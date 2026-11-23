@@ -35,7 +35,7 @@ func _draw_body() -> void:
 	var extra_h := 0.0
 	var extra_n: Array = []   # wrapped line count of each extra line: a long line wraps, it never clips mid-word
 	for ln in extra:
-		var n := maxi(int(ceil(mono.get_string_size(str(ln), HORIZONTAL_ALIGNMENT_LEFT, -1, lfs).x / maxf(wrap_w, 1.0))), 1)
+		var n := maxi(int(round(mono.get_multiline_string_size(str(ln), HORIZONTAL_ALIGNMENT_LEFT, wrap_w, lfs, -1, TextServer.BREAK_WORD_BOUND | TextServer.BREAK_MANDATORY).y / mono.get_height(lfs))), 1)   # 0.12: the real word-wrapped count (width / wrap_w under-counted: the last line was cut)
 		extra_n.append(n); extra_h += lh * float(n) + 2.0
 	var foot_h := row_h + 34.0 + extra_h
 	var rows_fit := maxi(int((size.y - foot_h - 6.0) / row_h), 1)
@@ -78,6 +78,7 @@ func _draw_body() -> void:
 	tape(Vector2(5.0, fy + row_h + 5.0), "%s  %s %s" % [_lab("total", InstrPaper.T("INS_RELEASED")), _fmt(tot), InstrPaper.T("INS_MW")], EqTheme.PEN_RED, size.x - 10.0, 12)
 	var ly := fy + row_h + 30.0 + float(lfs)
 	for i in extra.size():
+		if ly - float(lfs) + lh * float(extra_n[i]) > size.y + 2.0: break   # 0.12: a line that does not fit is left out whole, never cut through
 		draw_multiline_string(mono, Vector2(5, ly), str(extra[i]), HORIZONTAL_ALIGNMENT_LEFT, wrap_w, lfs, int(extra_n[i]) + 1, EqTheme.INK, TextServer.BREAK_WORD_BOUND | TextServer.BREAK_MANDATORY)
 		ly += lh * float(extra_n[i]) + 2.0
 	frame()
