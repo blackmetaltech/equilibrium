@@ -9,7 +9,7 @@ const S := {
 	"ANN_DEMO_1": "VENT FLOW HI", "ANN_DEMO_2": "NH3 OFF SPEC", "ANN_DEMO_3": "H2:N2 RATIO", "ANN_DEMO_4": "SOLVE FAIL",
 	"ANN_ACK": "Acknowledge alarms", "ANN_TITLE": "ANNUNCIATOR",
 	"REC_TITLE": "Chart recorder", "REC_CLOSE": "Close", "REC_RUN": "run %d", "REC_TARGET": "target", "REC_HINT": "Each commission adds a trace; the paper is your experiment history.",
-	"REC_EMPTY": "No runs yet", "KEY_PRUNE": "Delete all unconnected", "CLK_RUN": "SHIFT %s / %s%s", "CLK_IDLE": "SHIFT %s", "CLK_ENDED": "SHIFT OVER %s", "CLK_ETA": "ETA %s", "REC_FIRSTRUN": "First run: made", "REC_FIRSTRUN_T": "First run: printout in %d s", "REC_DEMO_HERO": "NH3 kmol/h", "REC_DEMO_SEC": "vent %",
+	"REC_EMPTY": "No runs yet", "KEY_PRUNE": "Delete all unconnected", "CLK_RUN": "SHIFT %s / %s%s", "CLK_IDLE": "SHIFT %s", "CLK_ENDED": "SHIFT OVER %s", "CLK_ETA": "ETA %s", "REC_FIRSTRUN": "First run: made", "REC_PRINT_T": "Printout in %d s", "REC_DEMO_HERO": "NH3 kmol/h", "REC_DEMO_SEC": "vent %",
 	"KEY_DESIGN": "DESIGN", "KEY_COMMISSION": "COMMISSION", "KEY_RUN": "RUN", "KEY_HINT": "Turn the key: design, commission, run the shift. Space turns it one step.",
 	"KEY_SPEED_HINT": "Plant clock speed during a shift",
 	"KEY_NEED_COMMISSION": "Commission the plant before the shift.", "KEY_SHIFT_ON": "The shift is already running.", "KEY_SOLVE_FAIL": "The plant did not solve.",

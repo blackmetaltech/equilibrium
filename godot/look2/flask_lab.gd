@@ -81,6 +81,7 @@ func _mmc(mesh: Mesh, xf: Array, cols: Array, mat: Material, parent: Node = self
 	var mi := MultiMeshInstance3D.new(); mi.multimesh = mm; mi.material_override = mat; parent.add_child(mi); return mi
 
 var _wallwhite: Material
+var _clamp_lbl: Label3D   ## playtest: the CLAMP sign is screen-sized; in the wide view the HUD cut it, so it shows on the closer cameras only
 func _build_room() -> void:
 	_lab_mats()
 	_wallwhite = _flat(Color(0.84, 0.86, 0.88), 0.0, 0.38)
@@ -275,7 +276,7 @@ func _build_rig() -> void:
 	# the clamp on the crosshead: on = the piston is held (constant V); off = it floats at the gauge pressure (constant P)
 	clamp_h = Node3D.new(); clamp_h.position = Vector3(d.x + CR + 0.3, by + 3.15, d.z); add_child(clamp_h)
 	_box(Vector3(0.14, 0.16, 0.14), Vector3.ZERO, mats.anod, clamp_h); _seg(Vector3.ZERO, Vector3(0.42, 0.0, 0), 0.024, M.red, clamp_h); _sph(0.06, Vector3(0.44, 0, 0), M.red, clamp_h)
-	var cl := Label3D.new(); cl.text = "CLAMP"; cl.font_size = 30; cl.pixel_size = 0.00135; cl.fixed_size = true; cl.no_depth_test = true; cl.render_priority = 127; cl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; cl.outline_size = 8; cl.modulate = Color(1.0, 0.75, 0.6); cl.position = Vector3(0.25, 0.2, 0); clamp_h.add_child(cl)   # playtest: nobody found it
+	var cl := Label3D.new(); _clamp_lbl = cl; cl.text = "CLAMP"; cl.font_size = 30; cl.pixel_size = 0.00135; cl.fixed_size = true; cl.no_depth_test = true; cl.render_priority = 127; cl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; cl.outline_size = 8; cl.modulate = Color(1.0, 0.75, 0.6); cl.position = Vector3(0.25, 0.2, 0); clamp_h.add_child(cl)   # playtest: nobody found it
 	anchors["clamp"] = clamp_h.position + Vector3(0.22, 0, 0); radius["clamp"] = 0.3
 	# everything built since n0 moves under a pivot scaled about the dais centre (local positions stay as written)
 	pivot = Node3D.new(); pivot.name = "rig"; add_child(pivot)
@@ -419,6 +420,7 @@ func set_control_value(k: String, v: float) -> void:
 	elif k == "T": flask_T = v
 
 func _process(dt: float) -> void:
+	if _clamp_lbl != null: _clamp_lbl.visible = t_dist < 9.0
 	_t += dt
 	if cam != null and not cam.current and visible: cam.make_current()
 	c_show = lerpf(c_show, c_rel, clampf(dt * 2.5, 0, 1))

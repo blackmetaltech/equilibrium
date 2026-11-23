@@ -124,7 +124,8 @@ func _gen_sync(lid: String) -> void:
 		gen.visible = true; app.plant_world.visible = false; app.plant_world.set_blocked(true)
 		if _parked.is_empty(): _park_env(true)
 		gen.make_current()
-		_banner_lbl.text = "New look: your plant in the hall.  B or pad X: the drafting table" if phase != "design" else "New look: the hall (nothing built yet).  B or pad X: back to the drafting table"
+		var built: bool = gen.anchors.size() > 0   # playtest: a drawn plant that is not commissioned yet is not "nothing built"
+		_banner_lbl.text = "New look: your plant in the hall.  B or pad X: the drafting table" if phase != "design" else ("New look: your plant, not commissioned yet.  B or pad X: back to the drafting table" if built else "New look: the hall (nothing built yet).  B or pad X: back to the drafting table")
 	else:
 		gen.visible = false; app.plant_world.visible = true; app.plant_world.set_blocked(false)
 		if not _parked.is_empty(): _park_env(false)
