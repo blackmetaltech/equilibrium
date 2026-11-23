@@ -291,3 +291,16 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
   - the hall floor's noise contrast is halved;
   - the crane's "orange cube" is a hook block on visible twin ropes.
 - **Commit note:** these changes went into commit 7b20d75 under the helper's notebook message: it staged the whole tree. Helpers now stage by path.
+
+**D-12-2. Handover (Ingrid, 11-23 13:25).** The previous lead's uncommitted L07/L08 models were reviewed, checked on the GPU and committed (d2b0132). Sigrid re-scored every scene on 19 GPU shots with plants built by each level's own solver: average 5.0.
+
+**D-12-3. The rack goes behind the plant; the hero camera is fitted, not placed (Kofi, from Sigrid's list).**
+- **Why:** the 0.11 camera rule (D-12-1) still let the rack's navy beams fill the foreground, and tall heroes were cut off.
+- **Now:** the rack stands 3.1 m behind the rear unit; the camera fits the hero's footprint at 30 degrees down and scores candidates against units in the way, a lens inside a unit, and rack runs crossing the frame. Each level picks its own hero (L03 the boiler, L06 the splitter, L08 the heater). L04 is shot from the other side with an inspection tag, a clipboard and a sample bomb.
+- **Labels:** each unit carries a stamped nameplate; the screen label shows only for the hovered or selected unit.
+
+**D-12-4. Bed glow is a blackbody ramp.** Nothing below 450 C, dull red at 450 C, orange at 650 C, emission capped at 1.5. A sintered bed throbs red-orange (it was blown white); an asleep bed is steel (it was black).
+
+**D-12-5. Chapter 2 is the next chapter in the new look (Ingrid; Priya's read below).**
+- **Why:** chapter 1 went new-look in 0.11 (D-C2), so the open choice was how far chapter 2 goes. L05-L08 build on the drafting table and stand in the hall with their own equipment (splitter, gasifier, CO burner, fired heater, exchanger, cooler).
+- **Cut:** L09 (the calorimeter bench) needs its own lab scene. It stays classic and the Works map says so ("New look · L09 classic").
