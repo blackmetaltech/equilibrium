@@ -1,17 +1,17 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # scripts/flows.sh [out_dir] : run every godot/tests/*_flow.gd (and fix6_save.gd) headless, JOBS at a time (default 3), through the shared runner
 # core/qa/run-flow.sh: one PASS/FAIL line per flow in <out_dir>/flows.txt, logs in <out_dir>/<name>.log, exit 1 if any flow failed.
 # The runner fails a flow on a script error in its log (SCRIPT ERROR, Parse Error, "Error calling deferred method" ...), on a missing
 # OK line, and on a check count under the minimum recorded in flow-min.txt (see core/qa/run-flow.sh; raise minimums with
 # RAISE=1 scripts/flows.sh after a green run, never lower them). Environment isolation (private save dir, SDL pad ignore ids so a
 # virtual pad on this machine cannot reach the flows) is done by the runner.
-O=${1:-/tmp/eq-flows}; mkdir -p $O; : > $O/flows.txt
-R=${0:A:h:h}/core/qa/run-flow.sh
-cd ${0:A:h:h}
-# xargs -P bounds the parallelism (a `jobs -r | wc -l` count inside $( ) is empty in zsh, which once started every flow at once)
-export R O RAISE; mkdir -p $O
-print -rl godot/tests/*_flow.gd godot/tests/fix6_save.gd | xargs -P ${JOBS:-3} -I{} zsh -c 'n=${1:t:r}; nice -n 10 $R -o $O -T 900 ${RAISE:+--raise} $n >> $O/flows.txt' _ {}
-wait
-sort -o $O/flows.txt $O/flows.txt
-if grep -q '^FAIL' $O/flows.txt; then echo "FAILED: $(grep -c '^FAIL' $O/flows.txt) of $(wc -l < $O/flows.txt) flows"; grep '^FAIL' $O/flows.txt; echo "FAILED" >> $O/flows.txt; exit 1; fi
-echo "$(grep -c "^PASS" $O/flows.txt) FLOWS PASS"; echo DONE >> $O/flows.txt
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+O=${1:-/tmp/eq-flows}; mkdir -p "$O"; : > "$O/flows.txt"
+R=$here/core/qa/run-flow.sh
+cd "$here"
+# xargs -P bounds the parallelism. Plain bash (CI runs it on the stock Ubuntu runner, which has no zsh).
+export R O RAISE
+ls godot/tests/*_flow.gd godot/tests/fix6_save.gd | xargs -P "${JOBS:-3}" -I{} bash -c 'n=$(basename "$1" .gd); nice -n 10 "$R" -o "$O" -T 900 ${RAISE:+--raise} "$n" >> "$O/flows.txt"' _ {}
+sort -o "$O/flows.txt" "$O/flows.txt"
+if grep -q '^FAIL' "$O/flows.txt"; then echo "FAILED: $(grep -c '^FAIL' "$O/flows.txt") of $(wc -l < "$O/flows.txt") flows"; grep '^FAIL' "$O/flows.txt"; echo "FAILED" >> "$O/flows.txt"; exit 1; fi
+echo "$(grep -c "^PASS" "$O/flows.txt") FLOWS PASS"; echo DONE >> "$O/flows.txt"
