@@ -76,7 +76,7 @@ func _build_cmd() -> void:
 
 func _build_list() -> void:
 	_list = VBoxContainer.new(); _list.add_theme_constant_override("separation", 5); _list.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_left_lbl = HoloTheme.label("Runs left: 10 of 10", 16, HoloTheme.TEAL_HI, 700); _list.add_child(_left_lbl)
+	_left_lbl = HoloTheme.label("Runs left: 6 of 6", 16, HoloTheme.TEAL_HI, 700); _list.add_child(_left_lbl)
 	for t in TESTS:
 		var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 10); hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var d := HoloHud.Dot.new(); d.state = "off"; d.size_flags_vertical = Control.SIZE_SHRINK_CENTER

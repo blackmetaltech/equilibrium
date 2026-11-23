@@ -260,3 +260,10 @@ Goldens: no trajectory golden moved (`src/__golden__/trajectories.json` is untou
   - **What is known:** it failed only in full flow runs (L26: the Call it tap did not open the keypad, then a cascade). It passed alone, under a 25 % CPU quota, and three copies in parallel. It passed in today's full run.
   - **Ruled out:** the virtual pad, because pad input is off in that flow and the core drops joypad events then.
   - **Next:** the check message now names the control under the cursor when the tap misses, so the next failure says what took the click.
+
+**D-C8. L14's lab time drops from ten runs to six, shared with the tests (Mateo's critique, changed by me).**
+- **Why:** Mateo scored L14's tension at 3. The playtester found the flask in two runs. The start reading plus "hotter reads higher" make ten runs a stroll, so nothing in the level forced a decision.
+- **Mateo's number was five.** Five makes full stars demand a first-try T*: a baseline, three tests and then one shot at the find.
+- **Six** leaves one bracketing miss for a full-star player. A careless player has to choose between the tests star and the find.
+- **Tests:** ch3.test.ts and f25_truth.test.ts changed on purpose. The any-order test now fits its proof in six runs; the expert solver uses five.
+- **Not done:** Mateo's cut of the three test lines from the L14 checklist. They stay, because they are a star's instructions.

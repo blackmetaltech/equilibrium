@@ -390,23 +390,22 @@ describe('L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; D-B1: the open
     expect(testsDone(e.state)).toEqual([false, true, true]);
     run(e, [{ name: 'setFeed', args: ['F-102', { flow: 0 }] }, { name: 'setParam', args: ['U-104', 'V', 0.5e-3] }, { name: 'commission' }]);
     expect(testsDone(e.state)).toEqual([true, true, true]);
-    run(e, [{ name: 'setParam', args: ['U-104', 'V', 1e-3] }, { name: 'commission' }]); roll(e);
-    expect(e.state.status).toBe('playing');   // all three tests do not win: the book flask does
-    run(e, [{ name: 'setParam', args: ['U-104', 'T', Math.round(bookT({ region: 'global' }) * 100) / 100] }, { name: 'commission' }]); roll(e);
+    roll(e); expect(e.state.status).toBe('playing');   // all three tests do not win: the book flask does
+    run(e, [{ name: 'setParam', args: ['U-104', 'V', 1e-3] }, { name: 'setParam', args: ['U-104', 'T', Math.round(bookT({ region: 'global' }) * 100) / 100] }, { name: 'commission' }]); roll(e);   // the sixth and last run of lab time (D-C8)
     expect(e.state.status).toBe('won'); expect(card(e).stars.earned).toEqual([true, true, false]);
   });
-  it('phase C: ten runs of lab time; the tenth run without the book flask loses, with a reason', () => {
+  it('phase C (D-C8): six runs of lab time; the sixth run without the book flask loses, with a reason', () => {
     const e = start('L14');
-    for (let i = 0; i < 9; i++) run(e, [{ name: 'setParam', args: ['U-104', 'T', 370 + i] }, { name: 'commission' }]);   // cold runs: never the book flask (T* is 406.5 K)
-    expect(e.state.status).toBe('playing'); expect(info(e).goals[0]).toMatchObject({ met: false, value: 9, target: 10 });
+    for (let i = 0; i < 5; i++) run(e, [{ name: 'setParam', args: ['U-104', 'T', 370 + i] }, { name: 'commission' }]);   // cold runs: never the book flask (T* is 406.5 K)
+    expect(e.state.status).toBe('playing'); expect(info(e).goals[0]).toMatchObject({ met: false, value: 5, target: 6 });
     run(e, [{ name: 'setParam', args: ['U-104', 'T', 380] }, { name: 'commission' }]); roll(e);
     expect(e.state.status).toBe('lost'); expect(card(e).cause).toContain('Runs left: 0');
   });
-  it('phase C (playtest): a stop-and-edit restart does not refund lab time: seven runs carried, three more cold runs lose', () => {
+  it('phase C (playtest): a stop-and-edit restart does not refund lab time: three runs carried, three more cold runs lose', () => {
     const e = start('L14');
-    act(e, 'carryBurns', 7);
+    act(e, 'carryBurns', 3);
     run(e, [{ name: 'setParam', args: ['U-104', 'T', 370] }, { name: 'commission' }]);
-    expect(info(e).goals[0]).toMatchObject({ value: 8, target: 10 });   // the carried seven plus this one
+    expect(info(e).goals[0]).toMatchObject({ value: 4, target: 6 });   // the carried three plus this one
     for (let i = 1; i < 3; i++) run(e, [{ name: 'setParam', args: ['U-104', 'T', 370 + i] }, { name: 'commission' }]);
     roll(e); expect(e.state.status).toBe('lost');
   });

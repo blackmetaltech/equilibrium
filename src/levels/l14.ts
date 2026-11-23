@@ -1,8 +1,8 @@
 // L14 · Two Flasks (oracles EQ-NC-024, -030, -031, -034; DESIGN 2.6). D-B1 (LOOK2 phase B): the player's own experiment. A pre-built bench: N2O4 feed (13.8 g = 0.15 mol)
 // and an argon feed (closed) -> mixer -> lab flask (V wheel, T wheel, constant-P clamp Pfix) -> vent. The open flask runs on REAL K (NIST-JANAF, R = 8.314), so heating
 // darkens the gas; the book's own K (Kp = 85.87 bar at 400 K, R = 0.083) only answers the Call-Kp, and a twin flask at the book's numbers stands beside it (drawn by the
-// client from bookWorking). Win: the three Le Chatelier tests run (halve V, argon at constant V, argon at constant P); the run record is the proof. Stars: the Kp call,
-// and "find the book's flask": a run at 1 L, no argon, constant V whose real gauge reads the book's 9.15 bar (the T* the T wheel must find).
+// client from bookWorking). Win (phase C, D-C1/D-C8): find the book's flask, a run at 1 L, no argon, constant V whose real gauge reads the book's 9.15 bar
+// (the T* the T wheel must find), within six runs counted across restarts. Stars: the find; the three Le Chatelier tests (halve V, argon at constant V, at constant P); the Kp call.
 import { fmtNumber } from '../engine/solved';
 import { t } from '../i18n';
 import { solveEquilibrium } from '../sim/chem/equilibrium';
@@ -44,8 +44,8 @@ export function realFlask(s: { region: string }, T?: number, V_m3?: number): { k
 }
 
 /** D-B1: the temperature at which the real 1 L flask reads the book's gauge (K), by bisection on the real gauge (it rises with T). */
-/** Phase C (Mateo): lab time is ten runs. The win is finding the book's flask; the three Le Chatelier tests are the instruments (a star). */
-export const L14_RUNS = 10;
+/** Phase C (D-C1, D-C8 Mateo): lab time is six runs, shared with the tests (a baseline and three tests leave two to find the flask). The win is finding the book's flask; the three Le Chatelier tests are the instruments (a star). */
+export const L14_RUNS = 6;
 
 export function bookT(s: { region: string }): number {
   const want = problem(s).P;
