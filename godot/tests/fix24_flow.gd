@@ -34,7 +34,7 @@ func _initialize() -> void:
 	await frames(8); CbSettings.persist = false
 	for sz in [Vector2i(1280, 800), Vector2i(1920, 1080)]:
 		root.size = sz; await frames(4)
-		await _purchases(sz); await _book_stable(sz); await _banners(sz)
+		await _purchases(sz); await _book_stable(sz); await _banners(sz); app.pinned_seed = -1   # the banners pin a seed (see _banners); the rest runs as before
 	print("FIX24-FLOW checks=%d" % checks)
 	print("FIX24-FLOW OK" if fails == 0 else "FIX24-FLOW FAILED %d" % fails)
 	if app.b != null: app.b.stop()
@@ -96,6 +96,9 @@ func _book_stable(sz: Vector2i) -> void:
 
 ## The red banners are cut at two lines on a handheld, with "more" to open them in full.
 func _banners(sz: Vector2i) -> void:
+	# 0.13: the cause of this check's 1-in-3 failure: the Career seed came from the wall clock, so the stop's text changed run to run (inspections only, or
+	# inspections with the inerts incident, or the emissions warning), and the short one fits in two lines at 1280x800, so no "more" key was due. Pinned seed.
+	app.pinned_seed = 4
 	await level("CAREER"); act("answer", [1])
 	for i in 9: act("advance", [1])
 	await refresh()

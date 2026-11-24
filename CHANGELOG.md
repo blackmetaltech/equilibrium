@@ -23,6 +23,7 @@ Each version is one themed layer (the GIGAWATT pattern). Repos are private; no p
 - The analyser screen cut off "FLUE".
 - The recorder kept a pen at its value from the moment you commissioned. In L09 the furnace read 298 K while the printout said 2400 K. During a first run the pen now follows the plant.
 - The bed's last thermowell now sits at the outlet and reads what the recorder reads.
+- **Pad:** LB or RB with a part in hand opened the Codex. They now put the part back and step the tray.
 - The speed dial marks, the title foot line and the Works map legend were under 16 px.
 ### Added
 - A test that the version agrees in every file that carries it.

@@ -36,6 +36,7 @@ func _initialize() -> void:
 	app.pad.set_active(true); await frames(4)
 	await _codex()
 	await _tray()
+	await _placing_shoulders()
 	await _keypad()
 	await _hall_hint()
 	print("PAD13-FLOW checks=%d presses=%d" % [checks, presses])
@@ -68,7 +69,12 @@ func _codex() -> void:
 	check(app.cur == "home", "one B leaves the Codex (cur %s)" % app.cur)
 
 func _tray() -> void:
+	# 0.13: the LB/RB/A presses above can leave a part in hand and move the tray's place (this check failed 1 run in 3, placing=mixer: LB with a part in
+	# hand opened the Codex; that is fixed and checked in _placing_shoulders). Here the claim is about a fresh tray: put the part back, the pad's place at the start.
 	app.show_screen("home"); await frames(4)
+	if app.world.placing != "": app.world.cancel_place(); await frames(2)
+	var rk0 = app.root.find_child("PartsRack", true, false)
+	if rk0 != null: rk0._focus = 0
 	var rk = app.root.find_child("PartsRack", true, false)
 	check(rk != null and rk.tiles.size() > 2, "the tray has tiles")
 	# the focus is on the plot (a unit target), not on a tile
@@ -125,3 +131,22 @@ func _hall_hint() -> void:
 	check(app.look2.gen.visible and not app.pad.hint.visible, "the hall hides the pad hint row (hall %s, hint %s)" % [str(app.look2.gen.visible), str(app.pad.hint.visible)])
 	app.look2.gen_flip = false; app.look2.sync(); await frames(8)
 	check(app.pad.hint.visible, "and the table gets it back")
+
+## 0.13: with a part in hand, LB and RB put it back and step the tray; they never open the Codex (they fell through to the shell's drawer switch: the 0.12 "stray Codex").
+func _placing_shoulders() -> void:
+	app.start_level("L02", true); await frames(10)
+	if app.modal() != null: app.back(); await frames(3)
+	app.show_screen("home"); await frames(4)
+	var rk = app.root.find_child("PartsRack", true, false)
+	for b in [JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER]:
+		var t = null
+		for tt in rk.tiles: if tt.available and (tt.limit == null or tt.count < int(tt.limit)): t = tt; break
+		check(t != null, "a tile with a part left to take")
+		if t == null: return
+		t.grab_focus(); await frames(4)
+		await btn(JOY_BUTTON_A)
+		check(app.world.placing != "", "A on a tile puts a part in hand (%s)" % str(app.world.placing))
+		await btn(b)
+		check(app.cur != "codex", "button %d with a part in hand does not open the Codex (cur %s)" % [b, app.cur])
+		check(app.world.placing == "", "button %d puts the part back (%s)" % [b, str(app.world.placing)])
+		if app.cur != "home": app.show_screen("home"); await frames(4)
