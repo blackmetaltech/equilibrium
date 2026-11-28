@@ -29,6 +29,7 @@ func fit(w: float, h: float, p_narrow: bool) -> void:
 	fit_w = w; fit_h = h; narrow = p_narrow
 	custom_minimum_size = Vector2(w, h); size = Vector2(w, h)
 	if not view.is_empty(): _render()
+	_shrink.call_deferred()
 
 var _want_scroll := -1
 
@@ -51,6 +52,19 @@ func _restore_scroll() -> void:
 func _render() -> void:
 	for c in body.get_children(): body.remove_child(c); c.queue_free()
 	_build()
+	if not body.minimum_size_changed.is_connected(_shrink_soon): body.minimum_size_changed.connect(_shrink_soon)
+	_shrink_soon()
+
+## A board is as tall as its content, never taller than the space the bay gives it (an empty lower half of paper over the plant hid the hall).
+func _shrinks() -> bool: return true
+func _extra_h() -> float: return 0.0   ## height of whatever stands under the scroll (HAZOP's sticky footer)
+func _shrink_soon() -> void: _shrink.call_deferred()
+func _shrink() -> void:
+	if not _shrinks() or not is_inside_tree() or fit_h <= 0.0: return
+	var need := body.get_combined_minimum_size().y + _extra_h() + get_theme_stylebox("panel").get_minimum_size().y + 4.0
+	var h := clampf(need, minf(160.0, fit_h), fit_h)
+	if absf(custom_minimum_size.y - h) < 1.0 and absf(size.y - h) < 1.0: return
+	custom_minimum_size = Vector2(fit_w, h); size = Vector2(fit_w, h)
 
 func _build() -> void: pass
 

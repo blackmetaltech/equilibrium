@@ -14,7 +14,7 @@ func _build() -> void:
 	line.add_child(lbl("LOST %s t" % fnum(view.get("lostTonnes", 0)), 13, PENCIL, "mono_bold"))
 	var cost := float(view.get("costUSD", 0.0)); var bud := float(view.get("budgetUSD", 0.0))
 	line.add_child(lbl("COST %s / %s" % [usd(cost), usd(bud)], 13, STAMP_RED if cost > bud else PENCIL, "mono_bold"))
-	var plan := Plan.new(); plan.view = view; plan.custom_minimum_size = Vector2(300, 28.0 + 15.0 * view.get("jobs", []).size() + 2 * 58.0 + 10.0); body.add_child(plan)
+	var plan := Plan.new(); plan.view = view; plan.custom_minimum_size = Vector2(300, Plan.TOP + Plan.RH * view.get("jobs", []).size() + 2 * 58.0 + 14.0); body.add_child(plan)
 	var ctl := HFlowContainer.new(); ctl.add_theme_constant_override("h_separation", 8); body.add_child(ctl)
 	ctl.add_child(lbl("CRANE", 12, PENCIL, "semi"))
 	for n in view.get("craneOptions", [1, 2]):
@@ -24,7 +24,7 @@ func _build() -> void:
 	if str(view.get("hint", "")) != "":
 		var hl := lbl(str(view.hint), 12, PENCIL, "sans"); hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; hl.custom_minimum_size = Vector2(200, 0); body.add_child(hl)
 	var ph := HBoxContainer.new(); ph.add_theme_constant_override("separation", 8); body.add_child(ph)
-	ph.add_child(lbl("PRIORITY ORDER (drag a chip, or pick one and use the arrows)", 12, PENCIL, "semi"))
+	ph.add_child(lbl("PRIORITY ORDER (drag a chip, or pick one and use the arrows)", 13, PENCIL, "semi"))
 	var pr := Chips.new(); pr.chips = []
 	var back := key("◀", func(): pr.nudge(-1), false, 12); back.name = "ChipEarlier"; back.tooltip_text = "Move the picked job earlier in the order"; ph.add_child(back)
 	var fwd := key("▶", func(): pr.nudge(1), false, 12); fwd.name = "ChipLater"; fwd.tooltip_text = "Move the picked job later in the order"; ph.add_child(fwd)
@@ -39,37 +39,39 @@ var _sel_keep := -1     ## the picked chip survives the rebuild that follows a m
 
 class Plan extends Control:
 	var view := {}
-	const LW := 150.0
+	const LW := 224.0   ## the task names are in full
+	const RH := 24.0
+	const TOP := 22.0
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_PASS
 	static func fit_text(f: Font, t: String, w: float, fs: int) -> String:
 		if f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= w: return t
 		while t.length() > 1 and f.get_string_size(t + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w: t = t.left(t.length() - 1)
 		return t + "…"
 	func _get_tooltip(at: Vector2) -> String:
-		var jobs: Array = view.get("jobs", []); var i := int((at.y - 18.0) / 15.0)
+		var jobs: Array = view.get("jobs", []); var i := int((at.y - TOP) / RH)
 		if at.x < LW + 4 and i >= 0 and i < jobs.size():
 			var j: Dictionary = jobs[i]; return "%s: %d d, days %d to %d, float %d d%s" % [j.label, int(j.days), int(j.start), int(j.finish), int(j.float), ", critical" if bool(j.critical) else ""]
 		return ""
 	func _draw() -> void:
 		var jobs: Array = view.get("jobs", []); var hz := maxf(float(view.get("horizon", 1)), 1.0); var win := float(view.get("window", 0))
-		var x0 := LW; var pw := size.x - LW - 16.0; var f := EqTheme.font("mono"); var fb := EqTheme.font("mono_bold"); var fs := EqTheme.fs(11)
+		var x0 := LW; var pw := size.x - LW - 16.0; var f := EqTheme.font("mono"); var fb := EqTheme.font("mono_bold"); var fs := EqTheme.fs(12); var fn := EqTheme.font("sans"); var fns := EqTheme.fs(16)
 		var dx := pw / hz
-		var rh := 15.0; var top := 18.0
+		var rh := RH; var top := TOP
 		draw_rect(Rect2(x0, top, pw, rh * jobs.size()), Color("#F7F9F6"))
 		var step := 5.0 if hz <= 60 else 10.0
 		for d in range(0, int(hz) + 1, int(step)):
 			draw_line(Vector2(x0 + d * dx, top), Vector2(x0 + d * dx, top + rh * jobs.size() + 2 * 58.0), Color(0, 0, 0, 0.12), 1.0)
-			EqTheme.ds(self, f, Vector2(x0 + d * dx - 6, 12), str(d), HORIZONTAL_ALIGNMENT_LEFT, 30, fs, Ch9Board.PENCIL)
+			EqTheme.ds(self, f, Vector2(x0 + d * dx - 6, 15), str(d), HORIZONTAL_ALIGNMENT_LEFT, 30, fs, Ch9Board.PENCIL)
 		for i in jobs.size():
 			var j: Dictionary = jobs[i]; var y := top + i * rh
 			if i % 2 == 1: draw_rect(Rect2(x0, y, pw, rh), Color(0, 0, 0, 0.04))
-			EqTheme.ds(self, f, Vector2(2, y + 11), fit_text(f, str(j.label), LW - 8, fs), HORIZONTAL_ALIGNMENT_LEFT, LW - 6, fs, Color("#1E2A2E"))
+			EqTheme.ds(self, fn, Vector2(2, y + 18), fit_text(fn, str(j.label), LW - 8, fns), HORIZONTAL_ALIGNMENT_LEFT, LW - 6, fns, Color("#1E2A2E"))
 			var s := float(j.start); var e := float(j.finish); var fl := float(j.float)
-			if fl > 0: draw_rect(Rect2(x0 + e * dx, y + 5, fl * dx, 5), Color(0.5, 0.5, 0.5, 0.22))
+			if fl > 0: draw_rect(Rect2(x0 + e * dx, y + 9, fl * dx, 6), Color(0.5, 0.5, 0.5, 0.22))
 			var crit := bool(j.critical); var col := Color("#C8323C") if crit else Color("#3C7E8C")
-			var r := Rect2(x0 + s * dx, y + 2, maxf((e - s) * dx, 2.0), rh - 4)
+			var r := Rect2(x0 + s * dx, y + 3, maxf((e - s) * dx, 2.0), rh - 6)
 			draw_rect(r, col); draw_rect(r, col.darkened(0.35), false, 1.0); draw_rect(Rect2(r.position, Vector2(r.size.x, 3)), Color(1, 1, 1, 0.25))
-			if r.size.x > 24: EqTheme.ds(self, fb, r.position + Vector2(3, 9), "%dd" % int(j.days), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 4, EqTheme.fs(10), Color.WHITE)
+			if r.size.x > 24: EqTheme.ds(self, fb, r.position + Vector2(3, 14), "%dd" % int(j.days), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 4, EqTheme.fs(12), Color.WHITE)
 		var by := top + rh * jobs.size() + 4.0
 		_hist(by, "CREW", view.get("crewByDay", []), float(view.get("limits", {}).get("crew", 0)), x0, pw, dx, Color("#C8793C"))
 		_hist(by + 58.0, "CRANE", view.get("craneByDay", []), float(view.get("limits", {}).get("crane", 0)), x0, pw, dx, Color("#2D5DA8"))
@@ -79,8 +81,8 @@ class Plan extends Control:
 	func _hist(y: float, cap: String, a: Array, lim: float, x0: float, pw: float, dx: float, col: Color) -> void:
 		var h := 46.0; var mx := maxf(lim, 1.0)
 		for v in a: mx = maxf(mx, float(v))
-		EqTheme.ds(self, EqTheme.font("mono_bold"), Vector2(2, y + 12), cap, HORIZONTAL_ALIGNMENT_LEFT, LW, EqTheme.fs(11), Ch9Board.PENCIL)
-		EqTheme.ds(self, EqTheme.font("mono"), Vector2(2, y + 26), "lim %d" % int(lim), HORIZONTAL_ALIGNMENT_LEFT, LW, EqTheme.fs(10), Ch9Board.PENCIL)
+		EqTheme.ds(self, EqTheme.font("mono_bold"), Vector2(2, y + 16), cap, HORIZONTAL_ALIGNMENT_LEFT, LW, EqTheme.fs(14), Ch9Board.PENCIL)
+		EqTheme.ds(self, EqTheme.font("mono"), Vector2(2, y + 34), "limit %d" % int(lim), HORIZONTAL_ALIGNMENT_LEFT, LW, EqTheme.fs(13), Ch9Board.PENCIL)
 		draw_rect(Rect2(x0, y, pw, h), Color("#F7F9F6"))
 		for d in a.size():
 			var v := float(a[d]); var bh := h * v / mx
@@ -97,10 +99,10 @@ class Chips extends Control:
 	var _pos := Vector2.ZERO
 	var _press := Vector2.ZERO
 	var _sel := -1
-	const CH := 26.0
+	const CH := 32.0
 	const NUDGE_PX := 10.0       ## a drag that ends on its own chip but travelled this far sideways moves it one place
 	func _init() -> void: mouse_filter = Control.MOUSE_FILTER_STOP; mouse_default_cursor_shape = Control.CURSOR_DRAG; focus_mode = Control.FOCUS_ALL
-	func _w(i: int) -> float: return minf(maxf(size.x, 120.0), minf(190.0, EqTheme.font("mono").get_string_size(str(chips[i].label), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(12)).x + 34.0))
+	func _w(i: int) -> float: return minf(maxf(size.x, 120.0), minf(300.0, EqTheme.font("sans").get_string_size(str(chips[i].label), HORIZONTAL_ALIGNMENT_LEFT, -1, EqTheme.fs(15)).x + 40.0))
 	func _layout() -> Array:
 		var out: Array = []; var x := 0.0; var y := 0.0
 		for i in chips.size():
@@ -152,13 +154,13 @@ class Chips extends Control:
 			if e.keycode == KEY_LEFT: nudge(-1); accept_event()
 			elif e.keycode == KEY_RIGHT: nudge(1); accept_event()
 	func _draw() -> void:
-		var l := _layout(); var f := EqTheme.font("mono")
+		var l := _layout(); var f := EqTheme.font("sans")
 		for i in l.size():
 			var r: Rect2 = l[i]; var c: Dictionary = chips[i]
 			var col := Color("#C8323C") if bool(c.crit) else Color("#3C7E8C")
 			draw_rect(r, Color(col, 0.35) if i == _drag else col); draw_rect(r, col.darkened(0.4), false, 1.0)
 			if i == _sel: draw_rect(r.grow(1.5), Color("#1E2A2E"), false, 2.5)
-			EqTheme.ds(self, f, r.position + Vector2(8, 17), "%d %s" % [i + 1, Plan.fit_text(f, str(c.label), r.size.x - 30, EqTheme.fs(12))], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, EqTheme.fs(12), Color.WHITE)
+			EqTheme.ds(self, f, r.position + Vector2(8, 21), "%d %s" % [i + 1, Plan.fit_text(f, str(c.label), r.size.x - 30, EqTheme.fs(15))], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, EqTheme.fs(15), Color.WHITE)
 		if _drag >= 0:
 			var r2: Rect2 = l[_drag]; r2.position = _pos - r2.size * 0.5
-			draw_rect(r2, Color("#1E2A2E")); EqTheme.ds(self, f, r2.position + Vector2(8, 17), str(chips[_drag].label), HORIZONTAL_ALIGNMENT_LEFT, r2.size.x - 8, EqTheme.fs(12), Color.WHITE)
+			draw_rect(r2, Color("#1E2A2E")); EqTheme.ds(self, f, r2.position + Vector2(8, 21), str(chips[_drag].label), HORIZONTAL_ALIGNMENT_LEFT, r2.size.x - 8, EqTheme.fs(15), Color.WHITE)

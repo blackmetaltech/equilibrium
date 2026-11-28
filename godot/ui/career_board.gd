@@ -34,6 +34,8 @@ func _init() -> void:
 	pin.minimum_size_changed.connect(_cap_pin)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL; scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL; outer.add_child(scroll)
 
+func _shrinks() -> bool: return false   # the Career board keeps the full height: its cards fold and unfold
+
 func _cap_pin() -> void:
 	if pin_scroll == null or pin == null: return
 	var want := minf(pin.get_combined_minimum_size().y, fit_h * PIN_MAX)
@@ -310,7 +312,7 @@ func _decision_card(dc: Dictionary, over: bool) -> Control:
 				h.add_child(_cancel_slot(carm, "ChooseCancel_%s" % str(o.label), func(): _armed.erase(ckey); _refresh_keep(), 13))
 		else:
 			var tag := lbl("YOU CHOSE %s%s" % [str(o.label), "  (the decision lapsed)" if bool(dc.get("lapsed", false)) else ""], 12, OKGREEN if not bool(dc.get("lapsed", false)) else AMBER_INK, "mono_bold"); tag.name = "DecisionChosen"; h.add_child(tag)
-		var ef := lbl(str(o.effectText), 12, STAMP_RED if float(o.effectUSD) < 0.0 else PENCIL, "mono_bold"); ef.name = "Effect_%s" % str(o.label); ef.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ef.custom_minimum_size = Vector2(420 if str(o.get("commitShort", "")) != "" else 200, 0); ef.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(ef)
+		var ef := lbl(str(o.effectText), 13, STAMP_RED if float(o.effectUSD) < 0.0 else PENCIL, "semi"); ef.name = "Effect_%s" % str(o.label); ef.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ef.custom_minimum_size = Vector2(420 if str(o.get("commitShort", "")) != "" else 200, 0); ef.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(ef)
 		var ot := lbl(("%s: " % str(o.label) if pending else "") + str(o.text), 12, PENCIL, "sans"); ot.name = "OptionText_%s" % str(o.label); ot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ot.custom_minimum_size = Vector2(220, 0); ot.visible = det; (dv if pending else v).add_child(ot)
 	if pending:
 		if bool(dc.get("learner", false)):
@@ -318,8 +320,11 @@ func _decision_card(dc: Dictionary, over: bool) -> Control:
 		var bl := lbl(str(dc.blocks), 11, AMBER_INK, "sans"); bl.name = "DecisionBlocks"; bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; bl.custom_minimum_size = Vector2(220, 0); bl.visible = det; dv.add_child(bl)
 		var sc := ScrollContainer.new(); sc.name = "DecisionReadingScroll"; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; sc.visible = det
 		sc.add_child(dv); v.add_child(sc)
-		var cap := maxf(90.0, get_viewport_rect().size.y * 0.18) if is_inside_tree() else 160.0
-		var fit := func(): sc.custom_minimum_size.y = minf(dv.get_combined_minimum_size().y, cap)
+		var fit := func():   # the whole reading when the pinned area has the room (it stays under 57 % of the board), else what room there is, scrolled
+			if not is_instance_valid(sc) or not is_instance_valid(dv): return
+			var other := maxf(0.0, pin.get_combined_minimum_size().y - sc.custom_minimum_size.y) if pin != null else 0.0
+			var room := maxf(90.0, fit_h * 0.57 - other) if fit_h > 0.0 else 160.0
+			sc.custom_minimum_size.y = minf(dv.get_combined_minimum_size().y, room)
 		dv.minimum_size_changed.connect(fit); dv.resized.connect(fit); fit.call_deferred()
 	return _paper(v, Color("#F6E7B8") if pending else Color("#F4EEDC"))
 
