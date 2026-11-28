@@ -47,7 +47,7 @@ func setup(role_ids: Dictionary) -> void: ids = role_ids; rebuild()
 
 func _pos(u: Dictionary) -> Vector3:
 	var p: Dictionary = u.get("pos", {})
-	return ORIGIN + Vector3(float(p.get("x", 0)) * GRID, 0, float(p.get("y", 0)) * GRID)
+	return ORIGIN + Vector3(float(p.get("x", 0)) * GRID, float(u.get("lift", 0.0)), float(p.get("y", 0)) * GRID)   # 0.14: "lift" stands a board level's unit on a deck (L39's deaerator)
 
 ## Rebuild the plant when the flowsheet changes (units or pipes). Cheap: a few dozen meshes.
 func rebuild() -> void:
@@ -283,7 +283,9 @@ static func board_plant(lid: String) -> Dictionary:
 		if lid == "CAREER" or seen.has(id):
 			seen[tag] = int(seen.get(tag, 0)) + 1; id = "%s-%d" % [tag, int(seen[tag])]
 		else: seen[id] = 1
-		units.append({"id": id, "type": BOARD_TYPE.get(str(e[0]), str(e[0])), "pos": {"x": e[1], "y": e[2]}, "params": {}})
+		var ty: String = BOARD_TYPE.get(str(e[0]), str(e[0]))
+		if lid == "L39" and ty == "compressor": ty = "pump"   # L39's pump is drawn by hall_boards.gd (a placeholder box stands in the units block)
+		units.append({"id": id, "type": ty, "pos": {"x": e[1], "y": e[2]}, "params": {}, "lift": HallBoards.DECK_H if (lid == "L39" and ty == "flash") else 0.0})
 		if prev != "" and (lid != "CAREER" or tag == prev_tag): streams.append({"id": "S%d" % streams.size(), "from": {"unit": prev}, "to": {"unit": id}})
 		prev = id; prev_tag = tag
 	return {"units": units, "streams": streams}
@@ -1404,6 +1406,10 @@ func _frame_hero() -> void:
 			for x in [c.x + float(e[0]), c.x + float(e[1])]: for y in [0.0, float(e[4])]: for z in [c.z + float(e[2]), c.z + float(e[3])]: corners.append(Vector3(x, y, z))
 		if _lid == "L04" and ty == "stoich_reactor":   # the clipboard stand, the inspection tag and the sample bomb stay in the frame
 			for p in [Vector3(-1.9, 0.0, 0.9), Vector3(-1.9, 1.7, 0.9), Vector3(1.2, 0.0, 0.8), Vector3(1.2, 1.7, 0.8)]: extra.append(c + p)
+	if h.has("box"):   # 0.14: a board level frames a box of its own (hall_boards.gd), not the units' footprints
+		var bx: Array = h.box; var b0: Vector3 = bx[0]; var b1: Vector3 = bx[1]
+		lo = Vector3(b0.x, 0, b0.z); hi = Vector3(b1.x, 0, b1.z); top = b1.y; corners = []
+		for x in [b0.x, b1.x]: for y in [b0.y, b1.y]: for z in [b0.z, b1.z]: corners.append(Vector3(x, y, z))
 	var target := Vector3((lo.x + hi.x) * 0.5, top * 0.5, (lo.z + hi.z) * 0.5)
 	var pitch := float(h.get("pitch", -0.52))   # 30 degrees down (0.14: a squat unit among the racks is seen from lower)
 	var sg := signf(float(h.yaw)); var best := 1e9; var by := float(h.yaw); var bd := 10.0
@@ -1412,7 +1418,7 @@ func _frame_hero() -> void:
 	for k in [1.0, 1.5, 0.5, 2.0]: cands.append([-float(h.yaw) * k, 3.0 if bool(h.get("front", false)) else 0.6])
 	for i in cands.size():
 		var yw: float = cands[i][0]
-		var d := _fit(target, corners, yw, pitch, float(h.frac) if float(h.frac) > 0.0 else (0.62 if bool(h.get("front", false)) else 0.5), 0.86, 1.6, extra)   # a long burner is fitted a little looser: its box overstates it most
+		var d := _fit(target, corners, yw, pitch, float(h.frac) if float(h.frac) > 0.0 else (0.62 if bool(h.get("front", false)) else 0.5), float(h.get("hfrac", 0.86)), 1.6, extra)   # a long burner is fitted a little looser: its box overstates it most
 		var dir := Basis(Vector3.UP, yw) * Basis(Vector3.RIGHT, pitch) * Vector3(0, 0, 1)
 		var foc := target - Vector3(0, 0.06 * d, 0); var eye := foc + dir * d
 		var pen := float(cands[i][1]) + 0.05 * float(i) + _spoil(eye, foc, h.ids) + maxf(0.0, absf(yw) / PI - 0.3) * 20.0   # from the side the runs to the rack cross the whole frame
@@ -1422,6 +1428,7 @@ func _frame_hero() -> void:
 	t_focus = target - Vector3(0, 0.06 * bd, 0)   # the unit sits a little above the middle: the instrument bar takes the bottom of the frame
 	if bool(h.get("third", false)):   # the vessel on the left third and lower, the rack behind it, not half a frame of floor
 		t_focus = target + Vector3(0, 0.03 * bd, 0) + Vector3(cos(by), 0, -sin(by)) * 0.13 * bd
+	if _board != null: _board.shift(self)   # 0.14: a board level's subject stands left of its worksheet
 	if OS.get_environment("CB_CAMDBG") == "1":
 		var dir2 := Basis(Vector3.UP, t_yaw) * Basis(Vector3.RIGHT, t_pitch) * Vector3(0, 0, 1)
 		print("CAMDBG hero=%s lid=%s yaw=%.2f pen=%.2f focus=%s dist=%.2f eye=%s" % [str(h.ids), _lid, by / PI, best, str(t_focus), bd, str(t_focus + dir2 * bd)])
