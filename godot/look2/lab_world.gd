@@ -682,13 +682,13 @@ func _build_outside() -> void:
 		for k in int(h / 6.0): _torus(2.2, 0.06, p + Vector3(0, 4.0 + k * 6.0, 0), M.yellow)
 		for k in int(h / 8.0):
 			var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.75, 0.45); l.light_energy = 1.6; l.omni_range = 8.0; l.position = p + Vector3(2.6, 4.0 + k * 8.0, 0); add_child(l)
-			_sph(0.15, l.position, _flat(Color.WHITE, 0, 0.5, Color(1.0, 0.75, 0.45), 12.0))
+			_sph(0.15, l.position, _flat(Color(1.0, 0.8, 0.55), 0, 0.5, Color(1.0, 0.7, 0.4), 3.5))   # 0.14 (Sigrid: white dots in the sky): warm, not clipped to white
 	_outside_detail()
 	_box(Vector3(60, 9, 18), Vector3(-70, 4.5, -45), M.corr)
 	_box(Vector3(40, 12, 22), Vector3(80, 6, -50), M.corr)
 	for i in 40:   # far plant lights to the horizon
 		var p := Vector3(-400.0 + fmod(i * 97.3, 800.0), 2.0 + fmod(i * 13.7, 18.0), -260.0 - fmod(i * 53.1, 300.0))
-		_sph(0.6, p, _flat(Color.WHITE, 0, 0.5, Color(1.0, 0.7, 0.4) if i % 3 else Color(0.8, 0.9, 1.0), 18.0))
+		_sph(0.6, p, _flat(Color(1.0, 0.8, 0.55), 0, 0.5, Color(1.0, 0.65, 0.35) if i % 3 else Color(0.75, 0.85, 1.0), 5.0))
 	# the flare stack: derrick, tip, pilot flame, the big flame when the loop dumps
 	var fx := 40.0; var fz := -95.0; var fh := 55.0
 	_cyl(1.0, fh, Vector3(fx, fh * 0.5, fz), M.rust)
