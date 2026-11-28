@@ -17,7 +17,7 @@ for c in $want; do
     [[ $L == C ]] && { ap=(); cam="nbclose|$V"; }
     [[ $L == L00 || $L == L14 ]] && cam="endclose|nbclose"
     GPU_LOG=$O/shots/$L-$V.log timeout 150 zsh core/qa/gpu-shot.sh 1920x1080 $f CB_NOCOACH=1 CB_AUTOSTART=learner CB_LEVEL=$L $ap CB_CAM="$cam" >/dev/null 2>&1
-    if [[ -f $f ]]; then magick $f -resize 960x540 -gravity northwest -fill white -undercolor '#000000a0' -pointsize 22 -annotate +8+500 " ${L/C/Career} $V " $O/shots/$L-$V.jpg; files+=$O/shots/$L-$V.jpg
+    if [[ -f $f ]]; then magick $f -resize 960x540 -gravity north -fill white -undercolor '#000000b0' -pointsize 24 -annotate +0+62 " ${L/C/Career} $V " $O/shots/$L-$V.jpg; files+=$O/shots/$L-$V.jpg
     else echo "sheets: no shot for $L $V (see $O/shots/$L-$V.log)"; fi
   done
   (( ${#files} )) && magick montage $files -tile 2x -geometry +4+4 -background '#111' -quality 82 $O/sheet-ch$c.jpg && echo "$O/sheet-ch$c.jpg (${#files} shots)"
