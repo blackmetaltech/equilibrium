@@ -126,7 +126,7 @@ func _gen_sync(lid: String) -> void:
 	var board: bool = lid in BOARD_LEVELS
 	var show := (phase != "design") != gen_flip if not board else not gen_flip
 	var g: Dictionary = app.b.g.duplicate(); g["phase"] = phase
-	gen.set_snapshot(g)
+	if show: gen.set_snapshot(g)   # 0.14: the hall is rebuilt only while it shows; every edit on the drafting table rebuilt the hidden hall (fix10_flow: 772 s, 768 placements on L26)
 	if show != _rack_off and app.chrome != null:   # 0.12 (Sigrid): the parts rack is a drafting-table tool; it covered the plant in the hall
 		_rack_off = show; app.chrome.hall_hold = show; app.chrome.layout()
 	if show:
