@@ -72,7 +72,7 @@ run: $(SIDECAR) $(IMPORTED) ## Play the game in a window (Forward+ on the NVIDIA
 	@mkdir -p build $(if $(filter tour,$(SAVE)),$(TOUR_DIR))
 	@if [ -z "$(LOW)" ] && [ ! -f "$(NVIDIA_ICD)" ]; then echo "run: $(NVIDIA_ICD) not found; the game will use whatever GPU Vulkan finds"; fi
 	@echo "starting $(GAME) ($(RENDER)); log: $(RUN_LOG)"
-	cd godot && env DISPLAY=$${DISPLAY:-:0.0} $(GPU_ENV) $(RUN_ENV) $(GODOT) --path . --rendering-method $(RENDER) --windowed --resolution $(WIN) 2>&1 | tee ../$(RUN_LOG)
+	cd godot && env $(GPU_ENV) DISPLAY=$${DISPLAY:-:0.0} $(RUN_ENV) $(GODOT) --path . --rendering-method $(RENDER) --windowed --resolution $(WIN) 2>&1 | tee ../$(RUN_LOG)
 
 test: | deps ## Typecheck and run the unit tests (4 workers)
 	npx tsc --noEmit
