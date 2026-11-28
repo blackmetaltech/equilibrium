@@ -290,8 +290,8 @@ function nowSection(): string {
 <dt>Version</dt><dd>${esc(rel.version)}, "${esc(rel.name)}". Alpha. This wiki is built from that release.</dd>
 <dt>Campaign</dt><dd>${ids.length} levels (${ranges(ids)}) on ${wm.stops} stops of the Works Map: the prologue, ten chapters and the Career. All of them can be played.</dd>
 <dt>Career</dt><dd>Five seeded years running the Works.</dd>
-<dt>In the new look</dt><dd>The title and the lab, ${chaptersOf(newJobs)}.</dd>
-<dt>Still classic</dt><dd>${chaptersOf(classicJobs).replace(/^./, (c) => c.toUpperCase())}, and the Career. The Works Map marks each chapter.</dd>
+<dt>In the new look</dt><dd>The title and the lab, ${chaptersOf(newJobs)}${classicJobs.length ? '' : ', and the Career'}.</dd>
+${classicJobs.length ? `<dt>Still classic</dt><dd>${chaptersOf(classicJobs).replace(/^./, (c) => c.toUpperCase())}, and the Career. The Works Map marks each chapter.</dd>` : ''}
 <dt>Platforms</dt><dd>${PLATFORMS.join(' and ')}. The macOS build is untested: no one has opened it on a Mac.</dd>
 </dl>
 <h3>The campaign is complete. What is not built yet</h3>
