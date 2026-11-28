@@ -5,7 +5,10 @@ extends Node
 ## diagram, the cooler dial, the coach line, the clock, the end card). The engine, the level and its actions are unchanged: this file only routes the
 ## snapshot to the new layers. CB_LOOK2=0 turns the slice off (the 0.9 look comes back). Quality tier: CB_QUALITY=ultra|high|compat, else auto.
 var _rack_off := false   ## 0.12: the parts rack is hidden while the hall shows
-const GEN_LEVELS := ["L01", "L02", "L03", "L04", "L05", "L06", "L07", "L08", "L09", "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18", "L19", "L20", "L21", "L22", "L23", "L24", "L25", "L26", "L27"]   ## D-B4 + D-C2 (chapter 1): build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
+const GEN_LEVELS := ["L01", "L02", "L03", "L04", "L05", "L06", "L07", "L08", "L09", "L10", "L11", "L12", "L13", "L15", "L16", "L17", "L18", "L19", "L20", "L21", "L22", "L23", "L24", "L25", "L26", "L27", "L28", "L29", "L30", "L31", "L32", "L33", "L34", "L35", "L36", "L37", "L38", "L39", "CAREER"]   ## D-B4 + D-C2 (chapter 1): build levels: drafting table (the classic build view) + the player's plant generated in the hall (gen_world.gd)
+## 0.14 (D-14-1): the board levels (control rigs, operations, hydraulics, the Career) have no engine plant to draw; their plant stands in the hall from the start
+## (gen_world.gd builds it from DisplayScene.UNITS, the subject props from hall_boards.gd) and the worksheet stays over it. B flips to the classic board.
+const BOARD_LEVELS := ["L29", "L30", "L31", "L32", "L33", "L34", "L35", "L36", "L37", "L38", "L39", "CAREER"]
 const LEVELS := ["L00", "L14"]   ## L00 Night Shift (the process hall), L14 The Brown Gas (the private lab, look2/flask_lab.gd)
 var app
 var lab   ## LabWorld (L00) or FlaskLab (L14): the same contract (setup, set_snapshot, anchor_screen, anchor_size, set_camera, key, cam, picked, control_changed)
@@ -120,7 +123,8 @@ func _gen_sync(lid: String) -> void:
 		print("LOOK2 gen on: %s tier=%s" % [lid, tier])
 	var li = app.b.q("levelInfo")
 	var phase := str(li.get("phase", "design")) if li is Dictionary else "design"
-	var show := (phase != "design") != gen_flip
+	var board: bool = lid in BOARD_LEVELS
+	var show := (phase != "design") != gen_flip if not board else not gen_flip
 	var g: Dictionary = app.b.g.duplicate(); g["phase"] = phase
 	gen.set_snapshot(g)
 	if show != _rack_off and app.chrome != null:   # 0.12 (Sigrid): the parts rack is a drafting-table tool; it covered the plant in the hall
@@ -130,12 +134,12 @@ func _gen_sync(lid: String) -> void:
 		if _parked.is_empty(): _park_env(true)
 		gen.make_current()
 		var built: bool = gen.anchors.size() > 0   # playtest: a drawn plant that is not commissioned yet is not "nothing built"
-		_b_state = "hall" if phase != "design" else ("ready" if built else "empty")
+		_b_state = "board" if board else ("hall" if phase != "design" else ("ready" if built else "empty"))
 	else:
 		gen.visible = false; app.plant_world.visible = true; app.plant_world.set_blocked(false)
 		if not _parked.is_empty(): _park_env(false)
 		if app.plant_world.cam != null: app.plant_world.cam.make_current()
-		_b_state = "table"
+		_b_state = "classic" if board else "table"
 	_banner_refresh()
 	_banner_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8)); _banner_lbl.add_theme_constant_override("outline_size", 6)
 
@@ -147,6 +151,8 @@ static func banner_text(state: String, pad: bool) -> String:
 		"hall": return "Your plant in the hall  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
 		"ready": return "Your plant, not commissioned yet  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
 		"empty": return "The hall, nothing built yet  ·  %s: drafting table\n%s" % [flip, _orbit_hint(pad)]
+		"board": return "The plant in the hall  ·  %s: classic view\n%s" % [flip, _orbit_hint(pad)]
+		"classic": return "Classic view  ·  %s: the hall" % ("R3" if pad else "B")
 	return "Drafting table  ·  %s: the hall" % ("R3" if pad else "B")
 static func _orbit_hint(pad: bool) -> String:
 	return "Right stick: orbit  ·  LT / RT: zoom" if pad else "Right-drag: orbit  ·  wheel: zoom"
@@ -290,7 +296,7 @@ func end_screen() -> bool:
 
 func camera(spec: String) -> bool:
 	if gen != null:
-		if spec == "plant" or spec == "hall": gen_flip = str(app.b.q("levelInfo").get("phase", "design")) == "design"; sync()
+		if spec == "plant" or spec == "hall": gen_flip = str(app.b.q("levelInfo").get("phase", "design")) == "design" and not (gen_level in BOARD_LEVELS); sync()
 		gen.set_camera(spec); return true
 	if not on or lab == null: return false
 	lab.set_camera(spec); return true

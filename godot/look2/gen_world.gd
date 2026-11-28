@@ -23,6 +23,7 @@ var _tmin := {}               ## unit id -> light-off K, 0 if none
 var _at := {}                 ## unit id -> floor position (m)
 var _lid := ""                ## the level id (the hero camera and the exam props follow it)
 var _hov: Label3D            ## the one screen-space label: only the hovered or selected unit gets it
+var _board: HallBoards = null   ## 0.14: the board level's subject props and their live state (null on build levels)
 var _rack_z := -11.0          ## the pipe rack's z: BEHIND the plant, so the front cameras never look through its beams
 const LADDER := {"ladder": true, "ladder_ang": PI * 0.17, "manway_ang": PI * 0.5 + 0.12}   ## ladders and manways face the front cameras (+z, a little +x)
 
@@ -53,6 +54,7 @@ func rebuild() -> void:
 	var p = app.b.q("plant") if app != null and app.b != null else null
 	if not (p is Dictionary): return
 	_lid = str(app.b.g.get("level", "")) if app != null and app.b != null else ""
+	if DisplayScene.UNITS.has(_lid): p = board_plant(_lid)   # 0.14 (D-14-1): a board level's plant is display only (the engine carries a placeholder feed and tank)
 	var sig := _lid + ";"
 	for u in p.get("units", []): sig += "%s:%s:%s:%s:%s;" % [u.id, u.get("type", ""), str(u.get("pos", {})), str(u.get("catalystId", "")), str((u.get("params", {}) as Dictionary).get("W", "")) if u.get("params", {}) is Dictionary else ""]
 	for s in p.get("streams", []): sig += "%s>%s;" % [s.get("from", {}).get("unit", ""), s.get("to", {}).get("unit", "")]
@@ -105,6 +107,7 @@ func rebuild() -> void:
 			"relief": _relief(id, c)
 			"interlock": _interlock(id, c)
 			"sink": _sink(c)
+			"valve": _valve(c + Vector3(0, 0.9, 0), Vector3(1, 0, 0), 0.14, plant); _box(Vector3(0.5, 0.9, 0.4), c + Vector3(0, 0.45, 0), M.paint_grey, plant)   # 0.14: a control valve on a plinth (board levels)
 			_: _box(Vector3(1.0, 1.0, 1.0), c + Vector3(0, 0.5, 0), M.steel_dull, plant)
 		_plate(id, c, ty)
 		anchors[id] = c + Vector3(0, _height(ty) * 0.6, 0); radius[id] = 1.0
@@ -155,6 +158,8 @@ func rebuild() -> void:
 			var hs := SpotLight3D.new(); hs.light_color = Color(1.0, 0.82, 0.6); hs.light_energy = 20.0 if tier != "compat" else 2.5; hs.spot_range = 17.0; hs.spot_angle = 26.0; hs.light_specular = 0.0
 			hs.position = Vector3(hc.x + 1.5, 12.5, hc.z + 5.5); plant.add_child(hs); hs.look_at(hc + Vector3(0, 3.5, 0), Vector3.UP); hs.spot_angle = 16.0; hs.light_energy *= 0.6   # 0.13: aimed at the shell from the front, so its pool lands on the vessel and behind it, not on bare floor beside it (Sigrid's L10-L12 "pool with no source")
 			_cyl(0.4, 0.2, Vector3(hc.x, 12.6, hc.z + 0.6), M.paint_grey, plant, 0.3); _cyl(0.34, 0.02, Vector3(hc.x, 12.49, hc.z + 0.6), _flat(Color(0.8, 0.8, 0.8), 0, 0.3, Color(1.0, 0.85, 0.65), 3.0), plant)
+	_board = null
+	if DisplayScene.UNITS.has(_lid): _board = HallBoards.new(); _board.build(self, _lid)   # 0.14: each board level's subject (gauges, sensors, cards, blinds, meters, crane, pump legs)
 	print("LOOK2 gen: %d units, %d pipes" % [at.size(), k])
 	set_camera(_preset)   # re-frame the new plant
 
@@ -237,6 +242,22 @@ func _height(ty: String) -> float:
 		"stoich_reactor": return 2.9
 		"feed": return 1.8
 	return 1.2
+
+## 0.14 (D-14-1): the display plant of a board level, in the engine's plant format, from DisplayScene.UNITS: the classic scene's types mapped to the hall's
+## models; consecutive units joined by a pipe (the Career joins only the units of one plant).
+const BOARD_TYPE := {"converter": "eq_reactor"}
+static func board_plant(lid: String) -> Dictionary:
+	var units: Array = []; var streams: Array = []; var seen := {}
+	var prev := ""; var prev_tag := ""
+	for e in DisplayScene.UNITS[lid]:
+		var tag := str(e[4]); var id := tag
+		if lid == "CAREER" or seen.has(id):
+			seen[tag] = int(seen.get(tag, 0)) + 1; id = "%s-%d" % [tag, int(seen[tag])]
+		else: seen[id] = 1
+		units.append({"id": id, "type": BOARD_TYPE.get(str(e[0]), str(e[0])), "pos": {"x": e[1], "y": e[2]}, "params": {}})
+		if prev != "" and (lid != "CAREER" or tag == prev_tag): streams.append({"id": "S%d" % streams.size(), "from": {"unit": prev}, "to": {"unit": id}})
+		prev = id; prev_tag = tag
+	return {"units": units, "streams": streams}
 
 # ---- models -------------------------------------------------------------------------------------------------------------------------------------
 func _feed(c: Vector3, i: int) -> void:
@@ -1130,6 +1151,9 @@ func set_snapshot(g: Dictionary) -> void:
 	if running: _sound_bed(comp, furn, 0.5, vent)
 	else: _sound_bed(0, 0, 0, 0)
 	_beds_live(info, running); _kettles_live(info, running); _bench_live(running); _ch56_live(info, running, g)
+	if _board != null:
+		var lv = app.b.q("levelView") if app != null and app.b != null else null
+		_board.live(self, lv if lv is Dictionary else {}, running, g)
 	for id in _analyser:   # the flue analyser reads the engine's stack composition
 		var inf: Dictionary = info.get(id, {})
 		var tx := "Flue gas, % wet"   # Anjali: the engine's fractions include the water; say so, and show it (L03 identifies its fuel by CO2 : H2O)
@@ -1192,6 +1216,9 @@ func _ext(ty: String) -> Array:
 
 ## Which units the level's hero view frames, and from which side. Each level gets its own: the story unit, not the first unit in the list.
 func _pick_hero() -> Dictionary:
+	if _board != null:   # 0.14: a board level frames its own subject (hall_boards.gd)
+		var bh: Dictionary = _board.hero(self, _lid)
+		if not bh.is_empty(): return bh
 	var by := {}
 	for id in _types:
 		if not by.has(_types[id]): by[_types[id]] = []

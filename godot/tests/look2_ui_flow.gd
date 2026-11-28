@@ -57,8 +57,10 @@ func _run() -> void:
 	t = await _drawn_texts(an)
 	check(t.has("Goal not met yet") and t.has("Nothing is alarming."), "no alarms and no goal: two quiet lines: %s" % str(t))
 	# a classic level keeps the caps windows
-	app.start_level("L28", true); await frames(8)   # 0.14: L24 moved to the hall; L28 (chapter 7) is still classic
+	OS.set_environment("CB_LOOK2", "0")   # 0.14: every level stands in the hall now; the classic look (CB_LOOK2=0, make run CLASSIC=1) is where the caps windows stay
+	app.start_level("L28", true); await frames(8)
 	check(not app.chrome.annunciator.sentence, "a classic level keeps the caps annunciator")
+	OS.set_environment("CB_LOOK2", "")
 
 	await _recorder()
 	await _brief()
