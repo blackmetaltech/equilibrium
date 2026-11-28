@@ -327,7 +327,7 @@ func _frame(lid: String) -> Array:   # [lo, hi, yaw, frac, pitch] by level
 			var t := _u("T-301"); var dr := _u("D-302")
 			lo = Vector3(t.x - 1.8, 0, minf(t.z, dr.z) - 2.0); hi = Vector3(dr.x + 2.0, DECK_H + 5.4, maxf(t.z, dr.z) + 4.4); frac = 0.66; yaw = 0.34 * PI; pitch = -0.4
 		"CAREER":
-			lo = Vector3(-14.8, 0, -9.8); hi = Vector3(17.6, 8.0, 5.4); frac = 0.66; yaw = 0.3 * PI; pitch = -0.36
+			lo = GenWorld.ORIGIN + Vector3(2.4, 0, -1.6); hi = GenWorld.ORIGIN + Vector3(22.0, 9.6, 8.8); frac = 0.6; yaw = 0.12 * PI; pitch = -0.5   # 0.14 (Ingrid): down the hall's long axis, so the four plants stand in two rows and none is cut (from the front the box is wider than the hall lets the camera back off)
 		_: return []
 	return [lo, hi, yaw, frac, pitch]
 

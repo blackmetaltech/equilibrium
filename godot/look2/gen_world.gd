@@ -275,6 +275,8 @@ func _corridor(x: float, z0: float, z1: float, y: float, skip: Array) -> float:
 ## 0.14 (D-14-1): the display plant of a board level, in the engine's plant format, from DisplayScene.UNITS: the classic scene's types mapped to the hall's
 ## models; consecutive units joined by a pipe (the Career joins only the units of one plant).
 const BOARD_TYPE := {"converter": "eq_reactor"}
+## Hall positions (tiles) that differ from the classic scene: the Career's four plants in a tight 2x2, so the hero view holds all four inside the hall's walls.
+const BOARD_POS := {"CAREER": [[3, 0], [5, 0], [7, 0], [11, 0], [13, 0], [3, 5], [5, 5], [7, 5], [11, 5], [13, 5], [15, 5]]}
 const BOARD_LINKS := {"L31": [["H2", "M-103"], ["N2", "M-103"], ["M-103", "T-104"]]}   ## a scene whose pipes are not a chain (L31: two feeds into the mixer)
 static func board_plant(lid: String) -> Dictionary:
 	var units: Array = []; var streams: Array = []; var seen := {}
@@ -286,7 +288,8 @@ static func board_plant(lid: String) -> Dictionary:
 		else: seen[id] = 1
 		var ty: String = BOARD_TYPE.get(str(e[0]), str(e[0]))
 		if lid == "L39" and ty == "compressor": ty = "pump"   # L39's pump is drawn by hall_boards.gd (a placeholder box stands in the units block)
-		units.append({"id": id, "type": ty, "pos": {"x": e[1], "y": e[2]}, "params": {}, "lift": HallBoards.DECK_H if (lid == "L39" and ty == "flash") else 0.0})
+		var tp: Array = BOARD_POS[lid][units.size()] if BOARD_POS.has(lid) else [e[1], e[2]]
+		units.append({"id": id, "type": ty, "pos": {"x": tp[0], "y": tp[1]}, "params": {}, "lift": HallBoards.DECK_H if (lid == "L39" and ty == "flash") else 0.0})
 		if prev != "" and (lid != "CAREER" or tag == prev_tag) and not BOARD_LINKS.has(lid): streams.append({"id": "S%d" % streams.size(), "from": {"unit": prev}, "to": {"unit": id}})
 		prev = id; prev_tag = tag
 	for ln in BOARD_LINKS.get(lid, []): streams.append({"id": "S%d" % streams.size(), "from": {"unit": ln[0]}, "to": {"unit": ln[1]}})
