@@ -81,10 +81,10 @@ test: | deps ## Typecheck and run the unit tests (4 workers)
 flows: $(SIDECAR) $(IMPORTED) ## Run the Godot flow suite (strict shared runner)
 	bash scripts/flows.sh build/flows
 
-shots: $(SIDECAR) $(IMPORTED) ## Take screenshots on the NVIDIA GPU into build/shots
+shots: $(SIDECAR) $(IMPORTED) ## Contact sheets of every chapter and the Career on the NVIDIA GPU into build/shots (CH="5 6" for some)
 	@mkdir -p build/shots
 	zsh core/qa/gpu-shot.sh 1280x800 $(CURDIR)/build/shots/title.png CB_NOCOACH=1
-	zsh core/qa/gpu-shot.sh 1280x800 $(CURDIR)/build/shots/level.png CB_NOCOACH=1 CB_AUTOSTART=learner CB_LEVEL=L00
+	zsh scripts/sheets.sh build/shots $(CH)
 
 clean: ## Remove build outputs (sidecar, logs, shots, the tour save). Your own saves and the Godot import stay
 	rm -rf $(SIDECAR) build/run.log build/import.log build/shots build/flows build/tour-data
