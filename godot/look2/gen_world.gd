@@ -1322,7 +1322,10 @@ func _pick_hero() -> Dictionary:
 	elif by.has("gauze_burner"): ids = [by.gauze_burner[0]]; yaw = -0.25 * PI; frac = 0.6; pitch = -0.42                 # L26: the ammonia burner and its glowing gauze
 	elif by.has("tubular"): ids = [by.tubular[0]]; yaw = 0.18 * PI; frac = 0.7                             # L22: the steam-raising converter under its drum
 	elif by.has("fermenter"): ids = [by.fermenter[0]]; yaw = 0.12 * PI; frac = 0.62   # L23: the fermenter close (its beer in the sight glass); the still shows in the wide view
-	elif _lid == "L27" and by.has("relief"): ids = [by.flash[0]] if by.has("flash") else [by.relief[0]]; yaw = 0.15 * PI; frac = 0.62   # L27: the drum and its relief
+	elif _lid == "L27" and by.has("relief"): ids = [by.relief[0]]; extra_ids = [by.flash[0]] if by.has("flash") else []; yaw = 0.22 * PI; frac = 0.5; pitch = -0.38   # L27 (Sigrid 0.14): the relief and its tailpipe in front, the drum behind
+	elif _lid == "L20" and by.has("splitter"): ids = [by.splitter[0]]; extra_ids = by.get("vent", []) + by.get("flare", []); yaw = 0.2 * PI; frac = 0.5   # L20 (Sigrid 0.14): the purge: the splitter and its vent
+	elif _lid == "L21" and (by.has("flash") or by.has("nh3_sep")): ids = [(by.flash if by.has("flash") else by.nh3_sep)[0]]; extra_ids = by.get("cooler", []); yaw = 0.2 * PI; frac = 0.6   # L21 (Sigrid 0.14): the cold separator and its chiller
+	elif _lid == "L25" and by.has("absorber"): ids = [by.absorber[0]]; yaw = 0.18 * PI; frac = 0.66   # L25 (Sigrid 0.14): the level is about the absorber, not the beds   # L27: the drum and its relief
 	elif by.has("compressor") and by.has("eq_reactor") and (by.has("flash") or by.has("nh3_sep")) and by.has("mixer3"): ids = [by.compressor[0]]; yaw = 0.2 * PI; frac = 0.55   # chapter 5: the recycle compressor in front, the converter it feeds behind
 	elif _lid == "L09" and by.has("stoich_reactor"): ids = [by.stoich_reactor[0]]; yaw = 0.1 * PI; frac = 0.75   # L09: the calorimeter bench, the furnace kept in frame
 	elif by.has("packed_bed"):                                                      # chapter 4: the bed through its window; 0.13 (Sigrid): a different view per level
