@@ -275,6 +275,7 @@ func _corridor(x: float, z0: float, z1: float, y: float, skip: Array) -> float:
 ## 0.14 (D-14-1): the display plant of a board level, in the engine's plant format, from DisplayScene.UNITS: the classic scene's types mapped to the hall's
 ## models; consecutive units joined by a pipe (the Career joins only the units of one plant).
 const BOARD_TYPE := {"converter": "eq_reactor"}
+const BOARD_LINKS := {"L31": [["H2", "M-103"], ["N2", "M-103"], ["M-103", "T-104"]]}   ## a scene whose pipes are not a chain (L31: two feeds into the mixer)
 static func board_plant(lid: String) -> Dictionary:
 	var units: Array = []; var streams: Array = []; var seen := {}
 	var prev := ""; var prev_tag := ""
@@ -286,8 +287,9 @@ static func board_plant(lid: String) -> Dictionary:
 		var ty: String = BOARD_TYPE.get(str(e[0]), str(e[0]))
 		if lid == "L39" and ty == "compressor": ty = "pump"   # L39's pump is drawn by hall_boards.gd (a placeholder box stands in the units block)
 		units.append({"id": id, "type": ty, "pos": {"x": e[1], "y": e[2]}, "params": {}, "lift": HallBoards.DECK_H if (lid == "L39" and ty == "flash") else 0.0})
-		if prev != "" and (lid != "CAREER" or tag == prev_tag): streams.append({"id": "S%d" % streams.size(), "from": {"unit": prev}, "to": {"unit": id}})
+		if prev != "" and (lid != "CAREER" or tag == prev_tag) and not BOARD_LINKS.has(lid): streams.append({"id": "S%d" % streams.size(), "from": {"unit": prev}, "to": {"unit": id}})
 		prev = id; prev_tag = tag
+	for ln in BOARD_LINKS.get(lid, []): streams.append({"id": "S%d" % streams.size(), "from": {"unit": ln[0]}, "to": {"unit": ln[1]}})
 	return {"units": units, "streams": streams}
 
 # ---- models -------------------------------------------------------------------------------------------------------------------------------------
