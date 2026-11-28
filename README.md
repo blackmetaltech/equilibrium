@@ -158,6 +158,7 @@ pnpm bridge                              # builds the engine sidecar -> godot/si
 godot --headless --path godot --import   # once, and after adding class_name scripts
 godot --path godot                       # play
 ```
+`make run` does all of the above and starts the game in a window (`make help` lists the other targets).
 
 | task | command |
 |---|---|
