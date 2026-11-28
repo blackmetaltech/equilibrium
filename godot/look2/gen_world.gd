@@ -311,11 +311,43 @@ func _mixer(c: Vector3) -> void:
 	for x in [-0.8, 0.8]: _sph(0.4, c + Vector3(x, 0.9, 0), pm, plant)
 	for x in [-0.5, 0.5]: _box(Vector3(0.12, 0.7, 0.6), c + Vector3(x, 0.35, 0), M.yellow, plant)
 
-func _compressor(c: Vector3) -> void:
-	_box(Vector3(2.6, 0.25, 1.2), c + Vector3(0, 0.12, 0), M.yellow, plant)
-	var cs := _cyl(0.55, 1.2, c + Vector3(-0.5, 0.85, 0), _paint(Color(0.2, 0.32, 0.5)), plant); cs.rotation_degrees.z = 90
-	var mo := _cyl(0.4, 0.9, c + Vector3(0.75, 0.75, 0), _paint(Color(0.1, 0.25, 0.2)), plant); mo.rotation_degrees.z = 90
-	for i in 6: _torus(0.42, 0.03, c + Vector3(0.45 + i * 0.12, 0.75, 0), M.black, plant).rotation_degrees.z = 90
+func _compressor(c: Vector3) -> void: _skid(c, 0.72, false)
+
+## 0.14 (Sigrid: "the same toy compressor": a beige box plinth, a yellow cube and green rings): a machine train on a skid. A grout pad, a dark painted steel
+## baseplate of two channel rails with cross members and bolt heads, a horizontally split barrel casing on pedestals with its split-flange bolts, a coupling
+## guard, and a finned TEFC motor with a fan cowl and a terminal box. k scales it (the chapter 5 recycle machine is the big one, k = 1).
+func _skid(c: Vector3, k: float, loop: bool) -> void:
+	var base := _coat(Color(0.16, 0.17, 0.18), 0.25, 0.35, 0.6, 0.2)
+	var grout := _flat(Color(0.42, 0.41, 0.39), 0.0, 0.92)
+	_box(Vector3(4.9, 0.18, 2.1) * Vector3(k, 1, k), c + Vector3(0, 0.09, 0), grout, plant)   # grout pad
+	for sz in [-0.85, 0.85]:   # channel rails (web and flanges)
+		_box(Vector3(4.6 * k, 0.32, 0.05), c + Vector3(0, 0.34, sz * k), base, plant)
+		for fy in [0.19, 0.49]: _box(Vector3(4.6 * k, 0.03, 0.2 * k), c + Vector3(0, fy, sz * k - signf(sz) * 0.08 * k), base, plant)
+	for xi in 5: _box(Vector3(0.12, 0.26, 1.7 * k), c + Vector3((-2.1 + 1.05 * xi) * k, 0.33, 0), base, plant)   # cross members
+	var bolt := _flat(Color(0.3, 0.3, 0.31), 0.85, 0.45)
+	for xi in 10: for sz in [-0.95, 0.95]: _cyl(0.025, 0.05, c + Vector3((-2.2 + 0.49 * xi) * k, 0.52, sz * k), bolt, plant, -1.0, 8)
+	_box(Vector3(4.6 * k, 0.04, 1.8 * k), c + Vector3(0, 0.505, 0), _flat(Color(0.2, 0.21, 0.22), 0.5, 0.7), plant)   # deck plate
+	var casing := _coat(Color(0.27, 0.34, 0.41), 0.2, 0.25, 0.5, 0.25)
+	var r := 0.7 * k; var cy := 0.52 + r + 0.28 * k
+	for px in [-1.75, -0.05]: _box(Vector3(0.3 * k, cy - 0.52, 0.9 * k), c + Vector3(px * k, (cy + 0.52) * 0.5 - 0.1, 0), base, plant)   # pedestals
+	var cs := _cyl(r, 1.8 * k, c + Vector3(-0.9 * k, cy, 0), casing, plant, -1.0, 40); cs.rotation_degrees.z = 90
+	_box(Vector3(1.8 * k, 0.06, r * 2.08), c + Vector3(-0.9 * k, cy, 0), casing, plant)   # the horizontal split flange
+	for xi in 9: for sz in [-1.0, 1.0]: _cyl(0.022, 0.07, c + Vector3((-1.7 + 0.2 * xi) * k, cy + 0.04, sz * r * 1.0), bolt, plant, -1.0, 8)
+	for sx in [-1.8, 0.0]: var fl := _cyl(r * 1.12, 0.1, c + Vector3(sx * k, cy, 0), M.steel_dull, plant, -1.0, 40); fl.rotation_degrees.z = 90   # end covers
+	for nx in [-1.4, -0.4]:   # suction and discharge nozzles up
+		_seg(c + Vector3(nx * k, cy + r * 0.8, 0), c + Vector3(nx * k, cy + r + 0.55 * k, 0), 0.19 * k, _loop_paint() if loop else M.steel_dull, plant); _flange(c + Vector3(nx * k, cy + r + 0.55 * k, 0), Vector3.UP, 0.19 * k, plant)
+	var guard := _coat(Color(0.74, 0.58, 0.14), 0.15, 0.2, 0.55, 0.1)
+	var gd := _cyl(0.3 * k, 0.75 * k, c + Vector3(0.45 * k, cy - 0.05 * k, 0), guard, plant, -1.0, 24); gd.rotation_degrees.z = 90   # coupling guard
+	_box(Vector3(0.75 * k, 0.03, 0.64 * k), c + Vector3(0.45 * k, cy - 0.33 * k, 0), guard, plant)
+	var motor := _coat(Color(0.2, 0.3, 0.27), 0.18, 0.2, 0.5, 0.2)
+	var mr := 0.58 * k; var mx := 1.55 * k
+	var mo := _cyl(mr, 1.3 * k, c + Vector3(mx, cy - 0.05 * k, 0), motor, plant, -1.0, 36); mo.rotation_degrees.z = 90
+	for f in 16:   # cooling fins along the frame
+		var a := TAU * float(f) / 16.0
+		var fin := _box(Vector3(1.2 * k, 0.03, 0.08 * k), c + Vector3(mx, cy - 0.05 * k + sin(a) * (mr + 0.03 * k), cos(a) * (mr + 0.03 * k)), motor, plant); fin.rotation.x = -a
+	var cowl := _cyl(mr * 1.02, 0.3 * k, c + Vector3(mx + 0.78 * k, cy - 0.05 * k, 0), _flat(Color(0.12, 0.13, 0.13), 0.6, 0.55), plant, -1.0, 36); cowl.rotation_degrees.z = 90   # fan cowl
+	_box(Vector3(0.36 * k, 0.26 * k, 0.32 * k), c + Vector3(mx - 0.1 * k, cy + mr + 0.1 * k, 0), motor, plant)   # terminal box
+	for sz in [-0.5, 0.5]: _box(Vector3(1.0 * k, cy - mr - 0.5, 0.16 * k), c + Vector3(mx, (cy - mr + 0.52) * 0.5 - 0.02, sz * k), base, plant)   # motor feet
 
 ## The band you read the unit's temperature on. Cold it is bare steel (it was near-black: a hole in the shell), hot it is a blackbody (see _blackbody).
 func _glowmat(window := false) -> StandardMaterial3D:
@@ -1193,16 +1225,10 @@ func _loop_paint() -> ShaderMaterial:
 ## 0.14 (chapter 5): the recycle compressor: a barrel-casing centrifugal machine on a concrete block, big suction and discharge nozzles up, a coupling guard,
 ## the motor with cooling fins, a lube-oil console beside it, and a nameplate. The loop's own colour on its nozzles.
 func _recycle_compressor(c: Vector3) -> void:
-	_box(Vector3(4.6, 0.6, 2.0), c + Vector3(0, 0.3, 0), _flat(Color(0.55, 0.54, 0.51), 0.0, 0.9), plant)   # the block
-	var casing := _paint(Color(0.28, 0.36, 0.44))
-	var cs := _cyl(0.7, 1.8, c + Vector3(-0.9, 1.35, 0), casing, plant, -1.0, 40); cs.rotation_degrees.z = 90
-	for sx in [-1.8, 0.0]: var fl := _cyl(0.82, 0.12, c + Vector3(sx, 1.35, 0), M.steel_dull, plant, -1.0, 40); fl.rotation_degrees.z = 90
-	for nx in [-1.4, -0.4]: _seg(c + Vector3(nx, 1.9, 0), c + Vector3(nx, 2.55, 0), 0.2, _loop_paint(), plant); _flange(c + Vector3(nx, 2.55, 0), Vector3.UP, 0.2, plant)
-	_box(Vector3(0.7, 0.6, 0.7), c + Vector3(0.5, 1.2, 0), M.yellow, plant)   # coupling guard
-	var mo := _cyl(0.6, 1.4, c + Vector3(1.6, 1.2, 0), _paint(Color(0.12, 0.28, 0.22)), plant, -1.0, 36); mo.rotation_degrees.z = 90
-	for i in 9: _torus(0.62, 0.025, c + Vector3(1.05 + i * 0.13, 1.2, 0), M.black, plant).rotation_degrees.z = 90
-	_box(Vector3(0.9, 1.2, 0.6), c + Vector3(-0.6, 0.6, 1.5), _paint(Color(0.55, 0.56, 0.56)), plant)   # lube console
-	_gauge(c + Vector3(-0.8, 1.0, 1.81), Vector3(0, 0, 1), plant, 0.6, 0.08); _gauge(c + Vector3(-0.4, 1.0, 1.81), Vector3(0, 0, 1), plant, 0.45, 0.08)
+	_skid(c, 1.0, true)
+	var con := _coat(Color(0.52, 0.53, 0.53), 0.2, 0.25)
+	_box(Vector3(0.9, 1.2, 0.6), c + Vector3(-0.6, 0.6, 1.55), con, plant)   # lube console
+	_gauge(c + Vector3(-0.8, 1.0, 1.86), Vector3(0, 0, 1), plant, 0.6, 0.08); _gauge(c + Vector3(-0.4, 1.0, 1.86), Vector3(0, 0, 1), plant, 0.45, 0.08)
 
 # ---- live state ---------------------------------------------------------------------------------------------------------------------------------
 func set_snapshot(g: Dictionary) -> void:
