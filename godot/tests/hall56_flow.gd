@@ -56,7 +56,9 @@ func _run() -> void:
 		var gw := await _play(lid)
 		if gw == null: continue
 		check(gw._loop, "%s: the plant is read as a recycle loop" % lid)
-		check(_hero_has(gw, "compressor"), "%s: the hero view frames the recycle compressor" % lid)
+		var hero_ty: String = {"L19": "compressor", "L20": "splitter", "L21": "flash"}[lid]   # 0.14 (D-14-2): each level frames its own subject: the recycle machine, the purge, the cold separator
+		if lid == "L21" and not _of(gw, "flash").size(): hero_ty = "nh3_sep"
+		check(_hero_has(gw, hero_ty), "%s: the hero view frames the %s" % [lid, hero_ty])
 		var orange := 0
 		for ch in gw.plant.get_children(): if ch is MeshInstance3D and (ch as MeshInstance3D).material_override == gw._lp: orange += 1
 		check(orange >= 6, "%s: the recycle line is painted in the loop's colour (%d pieces)" % [lid, orange])
