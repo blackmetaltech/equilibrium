@@ -138,7 +138,12 @@ func rebuild() -> void:
 		var a: Vector3 = at[fu]; var b: Vector3 = at[tu]
 		var y := 2.38 if k % 2 == 0 else 3.28   # phase C: every run lies on one of the rack's two levels
 		var zr := _rack_z
-		var pts := [a + Vector3(0.6, 0.9, 0), a + Vector3(0.6, y, 0), Vector3(a.x + 0.6, y, zr), Vector3(b.x - 0.6, y, zr), Vector3(b.x - 0.6, y, b.z), b + Vector3(-0.6, 0.9, 0)]
+		var xa := _corridor(a.x + 0.6, a.z, zr, y, [fu, tu]); var xb := _corridor(b.x - 0.6, b.z, zr, y, [fu, tu])   # 0.14: a run to the rack goes round the units in its way, never through them
+		var pts := [a + Vector3(0.6, 0.9, 0), a + Vector3(0.6, y, 0)]
+		if absf(xa - (a.x + 0.6)) > 0.01: pts.append(Vector3(xa, y, a.z))
+		pts.append_array([Vector3(xa, y, zr), Vector3(xb, y, zr)])
+		if absf(xb - (b.x - 0.6)) > 0.01: pts.append(Vector3(xb, y, b.z))
+		pts.append_array([Vector3(b.x - 0.6, y, b.z), b + Vector3(-0.6, 0.9, 0)])
 		var recyc: bool = _loop and ((rk.has(fu) or rk.has(tu)) if not rk.is_empty() else (str(_types.get(fu, "")) == "compressor" or str(_types.get(tu, "")) == "compressor"))
 		_pipe(pts, 0.09 if not recyc else 0.13, (M.clad if k % 2 == 0 else M.steel_dull) if not recyc else _loop_paint(), plant, true)
 		if recyc:   # chapter 5: the recycle line is the loop's own colour, with flow arrows stencilled along its rack run
@@ -252,6 +257,20 @@ func _height(ty: String) -> float:
 		"stoich_reactor": return 2.9
 		"feed": return 1.8
 	return 1.2
+
+## 0.14: the x of a clear corridor for a pipe run from (x, z0) to the rack at z1 at height y: the nearest offset whose path crosses no other unit's footprint
+## (a unit lower than the run does not block it). Falls back to x when nothing within 5 m is clear.
+func _corridor(x: float, z0: float, z1: float, y: float, skip: Array) -> float:
+	var lo := minf(z0, z1); var hi := maxf(z0, z1)
+	for off in [0.0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1, 2.8, -2.8, 3.6, -3.6, 4.5, -4.5]:
+		var xc := x + float(off); var clear := true
+		for id in _at:
+			if skip.has(id): continue
+			var e := _ext(str(_types[id])); var u: Vector3 = _at[id]
+			if float(e[4]) < y - 0.3: continue
+			if xc > u.x + float(e[0]) - 0.35 and xc < u.x + float(e[1]) + 0.35 and hi > u.z + float(e[2]) - 0.2 and lo < u.z + float(e[3]) + 0.2: clear = false; break
+		if clear: return xc
+	return x
 
 ## 0.14 (D-14-1): the display plant of a board level, in the engine's plant format, from DisplayScene.UNITS: the classic scene's types mapped to the hall's
 ## models; consecutive units joined by a pipe (the Career joins only the units of one plant).
@@ -1289,14 +1308,15 @@ func _pick_hero() -> Dictionary:
 	for id in _types:
 		if not by.has(_types[id]): by[_types[id]] = []
 		(by[_types[id]] as Array).append(id)
+	var pitch := -0.52
 	var ids: Array = []; var yaw := 0.2 * PI; var frac := 0.0; var extra_ids: Array = []; var third := false
 	if by.has("reformer"): ids = [by.reformer[0]]; extra_ids = by.get("boiler", []); yaw = 0.18 * PI; frac = 0.6   # L28: the Works: the reformer's firebox glowing, its waste-heat boiler beside it
 	elif by.has("cstr"): ids = [by.cstr[0]]; extra_ids = by.get("relief", []); yaw = 0.15 * PI; frac = 0.62   # L24: the reactor in its bund, the relief and catch tank in frame
-	elif by.has("gauze_burner"): ids = [by.gauze_burner[0]]; yaw = 0.15 * PI; frac = 0.6                 # L26: the ammonia burner and its glowing gauze
+	elif by.has("gauze_burner"): ids = [by.gauze_burner[0]]; yaw = -0.25 * PI; frac = 0.6; pitch = -0.42                 # L26: the ammonia burner and its glowing gauze
 	elif by.has("tubular"): ids = [by.tubular[0]]; yaw = 0.18 * PI; frac = 0.7                             # L22: the steam-raising converter under its drum
 	elif by.has("fermenter"): ids = [by.fermenter[0]]; yaw = 0.12 * PI; frac = 0.62   # L23: the fermenter close (its beer in the sight glass); the still shows in the wide view
-	elif _lid == "L27" and by.has("relief"): ids = [by.flash[0]] if by.has("flash") else [by.relief[0]]; extra_ids = by.relief; yaw = 0.15 * PI; frac = 0.55   # L27: the drum and its relief
-	elif by.has("compressor") and by.has("eq_reactor") and (by.has("flash") or by.has("nh3_sep")) and by.has("mixer3"): ids = [by.compressor[0]]; extra_ids = [by.eq_reactor[0]]; yaw = 0.2 * PI; frac = 0.45   # chapter 5: the recycle compressor in front, the converter it feeds behind
+	elif _lid == "L27" and by.has("relief"): ids = [by.flash[0]] if by.has("flash") else [by.relief[0]]; yaw = 0.15 * PI; frac = 0.62   # L27: the drum and its relief
+	elif by.has("compressor") and by.has("eq_reactor") and (by.has("flash") or by.has("nh3_sep")) and by.has("mixer3"): ids = [by.compressor[0]]; yaw = 0.2 * PI; frac = 0.55   # chapter 5: the recycle compressor in front, the converter it feeds behind
 	elif _lid == "L09" and by.has("stoich_reactor"): ids = [by.stoich_reactor[0]]; yaw = 0.1 * PI; frac = 0.75   # L09: the calorimeter bench, the furnace kept in frame
 	elif by.has("packed_bed"):                                                      # chapter 4: the bed through its window; 0.13 (Sigrid): a different view per level
 		ids = [by.packed_bed[0]]; yaw = 0.1 * PI; frac = 0.72                          # L15: near face on
@@ -1319,7 +1339,7 @@ func _pick_hero() -> Dictionary:
 	elif by.has("stoich_reactor"):                                                  # L01 the bench reactor; L04 (exam) from the other side with its props
 		ids = [by.stoich_reactor[0]]; yaw = (0.2 if _lid != "L04" else -0.32) * PI; frac = 0.7; third = true   # lower and closer, the vessel on a third
 	else: ids = [str(_types.keys()[_types.size() / 2])]
-	return {"ids": ids, "yaw": yaw, "front": by.has("burner") and ids.has(by.burner[0]), "frac": frac, "extra_ids": extra_ids, "third": third}
+	return {"ids": ids, "yaw": yaw, "front": by.has("burner") and ids.has(by.burner[0]), "frac": frac, "extra_ids": extra_ids, "third": third, "pitch": pitch}
 
 ## The distance at which the footprint-and-height box fills `frac` of the frame height (and at most `hfrac` of its width at a 16:10 window, the narrowest we ship): a pinhole fit.
 ## Round units are fitted as footprint circles (a box overstates their silhouette), so 0.5 is the 45-55 % of the frame height the unit itself fills.
@@ -1385,7 +1405,7 @@ func _frame_hero() -> void:
 		if _lid == "L04" and ty == "stoich_reactor":   # the clipboard stand, the inspection tag and the sample bomb stay in the frame
 			for p in [Vector3(-1.9, 0.0, 0.9), Vector3(-1.9, 1.7, 0.9), Vector3(1.2, 0.0, 0.8), Vector3(1.2, 1.7, 0.8)]: extra.append(c + p)
 	var target := Vector3((lo.x + hi.x) * 0.5, top * 0.5, (lo.z + hi.z) * 0.5)
-	var pitch := -0.52   # 30 degrees down
+	var pitch := float(h.get("pitch", -0.52))   # 30 degrees down (0.14: a squat unit among the racks is seen from lower)
 	var sg := signf(float(h.yaw)); var best := 1e9; var by := float(h.yaw); var bd := 10.0
 	var cands: Array = []   # the level's own side first, then the others; the burner keeps its front-plate side unless nothing else is clear
 	for k in [1.0, 1.5, 0.5, 2.0, 2.5]: cands.append([float(h.yaw) * k / 1.0 if absf(float(h.yaw) * k) < PI * 0.55 else sg * PI * 0.5, 0.0])
