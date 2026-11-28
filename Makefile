@@ -36,13 +36,19 @@ endif
 ifdef LEVEL
 RUN_ENV += $(LEVEL_ENV) $(NOSAVE_ENV)
 endif
+# SAVE=tour: a separate data folder (build/tour-data) with every chapter and the Career open. Your own save, settings and Career are not touched.
+TOUR_DIR := $(CURDIR)/build/tour-data
+ifeq ($(SAVE),tour)
+RUN_ENV += XDG_DATA_HOME=$(TOUR_DIR) CB_UNLOCK_ALL=1
+endif
 
 .PHONY: help run build test flows shots clean distclean deps import
 
 help: ## List the targets
 	@echo "$(GAME): make <target>"
 	@awk 'BEGIN{FS=":.*## "} /^[a-zA-Z_-]+:.*## /{printf "  make %-10s %s\n",$$1,$$2}' $(MAKEFILE_LIST)
-	@echo "Options for run:  LOW=1 (compatibility renderer, integrated GPU)  CLASSIC=1 (classic look)"
+	@echo "Options for run:  SAVE=tour (a separate save with every chapter open; yours is not touched)"
+	@echo "                  LOW=1 (compatibility renderer, integrated GPU)  CLASSIC=1 (classic look)"
 	@echo "                  LEVEL=<id> (open a level; the run does not touch your save)  WIN=WxH (window size, default $(WIN))"
 
 deps:
@@ -63,7 +69,7 @@ import:
 build: $(SIDECAR) import ## Build the engine sidecar and run the Godot import
 
 run: $(SIDECAR) $(IMPORTED) ## Play the game in a window (Forward+ on the NVIDIA GPU)
-	@mkdir -p build
+	@mkdir -p build $(if $(filter tour,$(SAVE)),$(TOUR_DIR))
 	@if [ -z "$(LOW)" ] && [ ! -f "$(NVIDIA_ICD)" ]; then echo "run: $(NVIDIA_ICD) not found; the game will use whatever GPU Vulkan finds"; fi
 	@echo "starting $(GAME) ($(RENDER)); log: $(RUN_LOG)"
 	cd godot && env DISPLAY=$${DISPLAY:-:0.0} $(GPU_ENV) $(RUN_ENV) $(GODOT) --path . --rendering-method $(RENDER) --windowed --resolution $(WIN) 2>&1 | tee ../$(RUN_LOG)
@@ -80,8 +86,8 @@ shots: $(SIDECAR) $(IMPORTED) ## Take screenshots on the NVIDIA GPU into build/s
 	zsh core/qa/gpu-shot.sh 1280x800 $(CURDIR)/build/shots/title.png CB_NOCOACH=1
 	zsh core/qa/gpu-shot.sh 1280x800 $(CURDIR)/build/shots/level.png CB_NOCOACH=1 CB_AUTOSTART=learner CB_LEVEL=L00
 
-clean: ## Remove build outputs (sidecar, logs, shots). Saves and the Godot import stay
-	rm -rf $(SIDECAR) build/run.log build/import.log build/shots build/flows
+clean: ## Remove build outputs (sidecar, logs, shots, the tour save). Your own saves and the Godot import stay
+	rm -rf $(SIDECAR) build/run.log build/import.log build/shots build/flows build/tour-data
 
 distclean: clean ## clean, and also remove the Godot import cache
 	rm -rf godot/.godot

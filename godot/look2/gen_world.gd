@@ -107,6 +107,9 @@ func rebuild() -> void:
 			"relief": _relief(id, c)
 			"interlock": _interlock(id, c)
 			"sink": _sink(c)
+			"reformer": _reformer(id, c)          # 0.14 (L28): the primary steam reformer
+			"co2_removal": _co2_removal(id, c)    # 0.14 (L28): absorber and regenerator
+			"methanator": _methanator(id, c)      # 0.14 (L28)
 			"valve": _valve(c + Vector3(0, 0.9, 0), Vector3(1, 0, 0), 0.14, plant); _box(Vector3(0.5, 0.9, 0.4), c + Vector3(0, 0.45, 0), M.paint_grey, plant)   # 0.14: a control valve on a plinth (board levels)
 			_: _box(Vector3(1.0, 1.0, 1.0), c + Vector3(0, 0.5, 0), M.steel_dull, plant)
 		_plate(id, c, ty)
@@ -122,6 +125,10 @@ func rebuild() -> void:
 		var lo := Vector3(1e9, 0, 1e9); var hi := Vector3(-1e9, 0, -1e9)
 		for id2 in at: var v: Vector3 = at[id2]; lo = Vector3(minf(lo.x, v.x), 0, minf(lo.z, v.z)); hi = Vector3(maxf(hi.x, v.x), 0, maxf(hi.z, v.z))
 		_ctr = (lo + hi) * 0.5; _span = maxf(hi.x - lo.x, hi.z - lo.z) + 4.0
+	var rk := {}   # 0.14 (L28): the recycle compressor is the one fed from the purge splitter or the separator; the syngas compressor of the Works is not
+	for s0 in p.get("streams", []):
+		var f0 := str(s0.get("from", {}).get("unit", "")); var t0 := str(s0.get("to", {}).get("unit", ""))
+		if str(_types.get(t0, "")) == "compressor" and str(_types.get(f0, "")) in ["splitter", "flash", "nh3_sep"]: rk[t0] = true
 	var k := 0
 	for s in p.get("streams", []):
 		var fu := str(s.get("from", {}).get("unit", "")); var tu := str(s.get("to", {}).get("unit", ""))
@@ -132,7 +139,7 @@ func rebuild() -> void:
 		var y := 2.38 if k % 2 == 0 else 3.28   # phase C: every run lies on one of the rack's two levels
 		var zr := _rack_z
 		var pts := [a + Vector3(0.6, 0.9, 0), a + Vector3(0.6, y, 0), Vector3(a.x + 0.6, y, zr), Vector3(b.x - 0.6, y, zr), Vector3(b.x - 0.6, y, b.z), b + Vector3(-0.6, 0.9, 0)]
-		var recyc: bool = _loop and (str(_types.get(fu, "")) == "compressor" or str(_types.get(tu, "")) == "compressor")
+		var recyc: bool = _loop and ((rk.has(fu) or rk.has(tu)) if not rk.is_empty() else (str(_types.get(fu, "")) == "compressor" or str(_types.get(tu, "")) == "compressor"))
 		_pipe(pts, 0.09 if not recyc else 0.13, (M.clad if k % 2 == 0 else M.steel_dull) if not recyc else _loop_paint(), plant, true)
 		if recyc:   # chapter 5: the recycle line is the loop's own colour, with flow arrows stencilled along its rack run
 			var a0: Vector3 = pts[2]; var a1: Vector3 = pts[3]; var dd := (a1 - a0)
@@ -210,6 +217,9 @@ func _hover_id() -> String:
 
 func _height(ty: String) -> float:
 	match ty:
+		"reformer": return 9.0
+		"co2_removal": return 9.5
+		"methanator": return 4.6
 		"packed_bed": return 3.6
 		"batch": return 2.3
 		"column": return 12.0
@@ -1051,6 +1061,59 @@ func _interlock(id: String, c: Vector3) -> void:
 	_cstr["trip_" + id] = {"lamp": lamp}
 
 ## 0.14: a drain sink (L23's stillage): a grated pit with a kerb.
+## 0.14 (L28): the primary steam reformer. A tall refractory box in heat paint on legs, a row of catalyst tubes standing through the roof to a hot outlet
+## collector, roof fuel headers, peepholes down both long walls that glow with the engine's outlet temperature, a convection section and its stack.
+func _reformer(id: String, c: Vector3) -> void:
+	var panel := _shader("panel", {"soot_y0": 4.6, "soot_y1": 7.0})
+	for lx in [-2.0, 0.0, 2.0]: for lz in [-1.5, 1.5]: _box(Vector3(0.24, 0.9, 0.24), c + Vector3(lx, 0.45, lz), M.paint_grey, plant)   # legs
+	_box(Vector3(4.6, 4.6, 3.4), c + Vector3(0, 3.2, 0), panel, plant)   # the radiant box
+	for k in 5:   # stiffener ribs
+		var ry := 1.4 + 0.9 * float(k)
+		for sz in [-1.0, 1.0]: _box(Vector3(4.62, 0.09, 0.05), c + Vector3(0, ry, sz * 1.72), M.steel_dull, plant)
+		for sx in [-1.0, 1.0]: _box(Vector3(0.05, 0.09, 3.42), c + Vector3(sx * 2.32, ry, 0), M.steel_dull, plant)
+	for x in [-2.3, -0.77, 0.77, 2.3]: for z in [-1.7, 1.7]: _box(Vector3(0.1, 4.64, 0.1), c + Vector3(x, 3.2, z), M.steel_dull, plant)   # buckstays
+	var hot := _glowmat(); hot.albedo_color = Color(0.35, 0.34, 0.33)
+	for i in 8:   # the catalyst tubes through the roof (pigtails into the collector)
+		var tx := -1.75 + 0.5 * float(i)
+		_cyl(0.075, 1.2, c + Vector3(tx, 6.1, 0), M.steel_dull, plant, -1.0, 16)
+		_torus(0.1, 0.02, c + Vector3(tx, 5.56, 0), M.steel_dull, plant)
+		_seg(c + Vector3(tx, 6.7, 0), c + Vector3(tx, 6.95, 0.45), 0.03, M.steel_dull, plant)
+	_seg(c + Vector3(-2.0, 7.0, 0.45), c + Vector3(2.0, 7.0, 0.45), 0.16, hot, plant, 24)   # the outlet collector: dull red when the reformer runs hot
+	for sz in [-0.9, 0.9]: _seg(c + Vector3(-2.2, 5.75, sz), c + Vector3(2.2, 5.75, sz), 0.05, M.yellow, plant)   # roof fuel headers
+	_box(Vector3(4.9, 0.05, 1.0), c + Vector3(0, 5.55, 2.2), M.plate, plant)   # burner platform on the roof edge
+	for sx in [-2.4, 2.4]: _seg(c + Vector3(sx, 5.55, 2.65), c + Vector3(sx, 6.55, 2.65), 0.02, M.steel_dull, plant)
+	_seg(c + Vector3(-2.4, 6.55, 2.65), c + Vector3(2.4, 6.55, 2.65), 0.02, M.steel_dull, plant)
+	for sx2 in [-0.2, 0.2]: _seg(c + Vector3(2.7 + sx2, 0, 2.0), c + Vector3(2.7 + sx2, 5.55, 2.0), 0.02, M.yellow, plant)   # ladder
+	for i in 18: _seg(c + Vector3(2.5, 0.3 + i * 0.3, 2.0), c + Vector3(2.9, 0.3 + i * 0.3, 2.0), 0.012, M.yellow, plant)
+	_box(Vector3(1.8, 2.4, 1.6), c + Vector3(-1.4, 6.7, -0.9), panel, plant)   # the convection section at the back
+	_cyl(0.85, 0.8, c + Vector3(-1.4, 8.3, -0.9), panel, plant, 0.4, 32)
+	_cyl(0.4, 1.6, c + Vector3(-1.4, 9.5, -0.9), M.steel_dull, plant, 0.36, 32)   # stack
+	var gm := _glowmat(true)
+	for sz2 in [1.0, -1.0]: for px in [-1.5, 0.0, 1.5]: _peep(c + Vector3(px, 2.2, sz2 * 1.7), Vector3(0, 0, sz2), 0.13, 0.26, gm)   # peepholes on both long walls
+	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.5, 0.2); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 5.5; l.position = c + Vector3(0, 1.2, 2.4); plant.add_child(l)
+	_glow[id] = {"mat": gm, "light": l, "kind": "burner", "window": true, "extra": [hot], "flick": true, "lampk": 2.0, "ringk": 0.35}
+
+## 0.14 (L28): CO2 removal: the absorber (amine down the packing) and a shorter regenerator beside it with its reboiler, joined by the rich and CO2 lines.
+func _co2_removal(id: String, c: Vector3) -> void:
+	_absorber(id, c, false)
+	var rc := c + Vector3(2.5, 0, 0.2)
+	var paint := _coat(Color(0.36, 0.38, 0.34), 0.5, 0.7)
+	_cyl(0.65, 5.6, rc + Vector3(0, 1.0 + 2.8, 0), paint, plant, -1.0, 32)
+	_dished(0.65, rc + Vector3(0, 6.6, 0), paint, plant, true)
+	_cyl(0.7, 1.0, rc + Vector3(0, 0.5, 0), _flat(Color(0.5, 0.48, 0.45), 0.0, 0.9), plant, -1.0, 32)
+	for i in 4: _cyl(0.665, 0.05, rc + Vector3(0, 1.6 + i * 1.3, 0), M.steel_dull, plant, -1.0, 32)
+	_exchanger(rc + Vector3(0.2, 0, 1.4), 1.8, 0.32, M.heat_paint, false)   # the reboiler
+	_pipe([c + Vector3(0.6, 1.4, 0.7), c + Vector3(1.3, 1.4, 0.9), rc + Vector3(-0.6, 5.8, 0.4)], 0.06, M.paint_blue, plant, true)   # rich amine to the regenerator top
+	_pipe([rc + Vector3(0, 7.0, 0), rc + Vector3(0, 7.6, 0), rc + Vector3(0.9, 7.6, 0)], 0.08, M.steel_dull, plant, true)   # CO2 off the top
+
+## 0.14 (L28): the methanator: a short clad vessel on a skirt; its band warms a little as it turns the last CO and CO2 into methane.
+func _methanator(id: String, c: Vector3) -> void:
+	var sh := _shader("steel", {"rough_base": 0.35, "metallic": 0.7, "blotch": 0.15})
+	_vessel(c, 0.75, 2.8, sh, plant, LADDER.merged({"clad": true, "base": 0.8}))
+	var gm := _glowmat(); var w := _cyl(0.77, 0.3, c + Vector3(0, 2.0, 0), gm, plant, -1.0, 32); w.name = "window"
+	var l := OmniLight3D.new(); l.light_color = Color(1.0, 0.45, 0.15); l.light_energy = 0.0; l.light_specular = 0.0; l.omni_range = 2.4; l.position = c + Vector3(0, 2.0, 1.0); plant.add_child(l)
+	_glow[id] = {"mat": gm, "light": l, "kind": "converter", "lampk": 0.4}
+
 func _sink(c: Vector3) -> void:
 	_box(Vector3(1.6, 0.15, 1.6), c + Vector3(0, 0.075, 0), _flat(Color(0.5, 0.49, 0.46), 0.0, 0.9), plant)
 	_box(Vector3(1.2, 0.02, 1.2), c + Vector3(0, 0.16, 0), M.plate, plant)
@@ -1188,6 +1251,9 @@ func _process(dt: float) -> void:
 ## Half-extents round a unit's floor position, for framing: [x0, x1, z0, z1, height] (m), the whole unit with its platform, fan set or stack.
 func _ext(ty: String) -> Array:
 	match ty:
+		"reformer": return [-2.6, 2.6, -2.0, 2.6, 9.4]
+		"co2_removal": return [-1.1, 3.6, -1.1, 1.8, 9.6]
+		"methanator": return [-0.9, 0.9, -0.9, 0.9, 4.7]
 		"burner", "co_burner": return [-4.1, 3.3, -1.4, 2.0, 2.9]
 		"eq_reactor": return [-2.1, 2.1, -2.1, 2.1, 8.0]
 		"eq_bed": return [-1.1, 1.1, -1.1, 1.1, 3.6]
@@ -1224,7 +1290,8 @@ func _pick_hero() -> Dictionary:
 		if not by.has(_types[id]): by[_types[id]] = []
 		(by[_types[id]] as Array).append(id)
 	var ids: Array = []; var yaw := 0.2 * PI; var frac := 0.0; var extra_ids: Array = []; var third := false
-	if by.has("cstr"): ids = [by.cstr[0]]; extra_ids = by.get("relief", []); yaw = 0.15 * PI; frac = 0.62   # L24: the reactor in its bund, the relief and catch tank in frame
+	if by.has("reformer"): ids = [by.reformer[0]]; extra_ids = by.get("boiler", []); yaw = 0.18 * PI; frac = 0.6   # L28: the Works: the reformer's firebox glowing, its waste-heat boiler beside it
+	elif by.has("cstr"): ids = [by.cstr[0]]; extra_ids = by.get("relief", []); yaw = 0.15 * PI; frac = 0.62   # L24: the reactor in its bund, the relief and catch tank in frame
 	elif by.has("gauze_burner"): ids = [by.gauze_burner[0]]; yaw = 0.15 * PI; frac = 0.6                 # L26: the ammonia burner and its glowing gauze
 	elif by.has("tubular"): ids = [by.tubular[0]]; yaw = 0.18 * PI; frac = 0.7                             # L22: the steam-raising converter under its drum
 	elif by.has("fermenter"): ids = [by.fermenter[0]]; yaw = 0.12 * PI; frac = 0.62   # L23: the fermenter close (its beer in the sight glass); the still shows in the wide view
